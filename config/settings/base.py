@@ -187,7 +187,11 @@ USE_TZ = True
 STATIC_URL = env_get("DJANGO_STATIC_URL", "/static/")
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Use the non-manifest variant: whitenoise still gzip/brotli-compresses, but
+# we don't depend on `staticfiles.json` existing post-collectstatic. Switch
+# back to CompressedManifestStaticFilesStorage when you want hashed filenames
+# for cache-busting and the deploy pipeline is solid.
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 MEDIA_URL = env_get("DJANGO_MEDIA_URL", "/media/")
 MEDIA_ROOT = BASE_DIR / "media"

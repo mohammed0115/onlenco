@@ -16,11 +16,6 @@
 sudaschool.academy, www.sudaschool.academy {
     encode zstd gzip
 
-    # Forward the proxy hint Django expects when SECURE_PROXY_SSL_HEADER is on
-    header_up X-Forwarded-Proto {scheme}
-    header_up X-Forwarded-For   {remote}
-    header_up Host              {host}
-
     # Cache static assets aggressively (whitenoise hashes filenames)
     @static path /static/*
     header @static Cache-Control "public, max-age=31536000, immutable"
@@ -29,14 +24,18 @@ sudaschool.academy, www.sudaschool.academy {
     header @static -Set-Cookie
 
     reverse_proxy web:8000 {
+        # `header_up` keys go INSIDE the reverse_proxy block in Caddy v2.
+        # The proxy hints Django expects when SECURE_PROXY_SSL_HEADER is on.
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-For   {remote}
+        header_up Host              {host}
+
         # Health check — matches the Dockerfile HEALTHCHECK
         health_uri      /healthz/
         health_interval 30s
         health_timeout  5s
     }
 }
-
-# Redirect bare IP / unmatched hosts to the canonical name.
-:80 {
-    redir https://sudaschool.academy{uri} permanent
-}
+# NOTE: do not add a separate `:80 {}` block — Caddy auto-generates an
+# HTTP→HTTPS redirect for the named site above, and a duplicate :80 listener
+# would conflict and crashloop.

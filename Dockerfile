@@ -21,8 +21,13 @@ RUN useradd --create-home --uid 1000 onlenco \
 
 USER onlenco
 
-# Collectstatic at build time so the image ships with static assets
-RUN python manage.py collectstatic --noinput || true
+# Collectstatic at build time so the image ships with static assets.
+# Production settings refuse to load without SECRET_KEY/ALLOWED_HOSTS, so we
+# inject dummy build-only values; they don't affect the runtime container
+# (which gets real values from .env).
+RUN DJANGO_SECRET_KEY=build-only-not-secret \
+    DJANGO_ALLOWED_HOSTS=localhost \
+    python manage.py collectstatic --noinput --clear
 
 EXPOSE 8000
 
