@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load static i18n_dict %}
+
+{% block body %}
+<div class="min-h-screen flex flex-col">
+    {% include "_site_header.html" %}
+
+    {# HERO #}
+    <section class="relative overflow-hidden">
+        <div class="absolute inset-0 gradient-hero" style="opacity:0.04"></div>
+        <div class="container relative py-16 md:py-28 grid md:grid-cols-2 gap-12 items-center">
+            <div class="space-y-6 animate-fade-up">
+                <span class="badge badge-secondary px-4 py-1.5 text-xs">{% t "hero.badge" %}</span>
+                <h1 class="font-display text-5xl md:text-7xl font-bold leading-[1.05] tracking-tight">
+                    {% t "hero.title1" %} <span class="text-gradient">{% t "hero.title2" %}</span>
+                </h1>
+                <p class="text-lg text-muted-foreground max-w-xl leading-relaxed">{% t "hero.subtitle" %}</p>
+
+                <div class="flex flex-wrap gap-3">
+                    <a href="{% url 'auth' %}?mode=signup" class="btn btn-hero btn-lg">
+                        {% t "hero.cta" %}
+                        <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                    </a>
+                    <a href="#features" class="btn btn-outline btn-lg">{% t "hero.cta2" %}</a>
+                </div>
+
+                <div class="flex flex-wrap gap-x-6 gap-y-2 pt-4 text-sm text-muted-foreground">
+                    <span class="flex items-center gap-2"><i data-lucide="check" class="h-4 w-4 text-secondary"></i> {% t "hero.stat1" %}</span>
+                    <span class="flex items-center gap-2"><i data-lucide="check" class="h-4 w-4 text-secondary"></i> {% t "hero.stat2" %}</span>
+                    <span class="flex items-center gap-2"><i data-lucide="check" class="h-4 w-4 text-secondary"></i> {% t "hero.stat3" %}</span>
+                </div>
+            </div>
+
+            <div class="relative animate-fade-up" style="animation-delay:0.2s">
+                <div class="absolute -inset-4 gradient-sunset rounded-3xl blur-3xl" style="opacity:0.2"></div>
+                <img src="{% static 'img/hero.jpg' %}" alt="English learning illustration"
+                     width="1536" height="1024"
+                     class="relative rounded-3xl shadow-elegant w-full h-auto">
+                <div class="card absolute -bottom-6 left-[-1.5rem] gradient-card animate-float hidden md:flex items-center gap-3 p-4"
+                     style="box-shadow:var(--shadow-elegant)">
+                    <div class="h-10 w-10 rounded-full gradient-sunset flex items-center justify-center">
+                        <i data-lucide="sparkles" class="h-5 w-5 text-primary-foreground"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-muted-foreground">{% t_either "AI tutor ready" "المدرس الذكي جاهز" %}</div>
+                        <div class="text-sm font-semibold">{% t_either "Let's practice" "هيا نتدرب" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {# FEATURES #}
+    <section id="features" class="py-20 md:py-28 bg-muted/30">
+        <div class="container">
+            <div class="text-center max-w-2xl mx-auto mb-14">
+                <h2 class="font-display text-4xl md:text-5xl font-bold mb-4">{% t "feat.title" %}</h2>
+                <p class="text-lg text-muted-foreground">{% t "feat.subtitle" %}</p>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {% for icon, title_key, desc_key in features %}
+                <div class="card gradient-card p-7 transition-smooth hover:shadow-elegant hover:-translate-y-1 group">
+                    <div class="h-12 w-12 rounded-xl gradient-sunset flex items-center justify-center mb-4 group-hover:scale-110 transition-smooth">
+                        <i data-lucide="{{ icon }}" class="h-6 w-6 text-primary-foreground"></i>
+                    </div>
+                    <h3 class="font-display text-xl font-bold mb-2">{% t title_key %}</h3>
+                    <p class="text-sm text-muted-foreground leading-relaxed">{% t desc_key %}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    {# CURRICULUM — A0 → C2 ladder #}
+    <section id="curriculum" class="py-20 md:py-28">
+        <div class="container">
+            <div class="text-center max-w-2xl mx-auto mb-14">
+                <h2 class="font-display text-4xl md:text-5xl font-bold mb-4">{% t "cur.title" %}</h2>
+                <p class="text-lg text-muted-foreground">{% t "cur.subtitle" %}</p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-3">
+                {% for lvl in levels %}
+                <div class="relative px-6 py-4 rounded-2xl border-2 border-border bg-card font-display text-2xl font-bold transition-smooth hover:border-secondary hover:shadow-soft">
+                    {{ lvl }}
+                    {% if not forloop.last %}
+                    <i data-lucide="arrow-right" class="absolute right-[-1.25rem] top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rtl-flip hidden md:block"></i>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    {# PRICING #}
+    <section id="pricing" class="py-20 md:py-28 bg-muted/30">
+        <div class="container">
+            <div class="text-center max-w-2xl mx-auto mb-14">
+                <h2 class="font-display text-4xl md:text-5xl font-bold mb-4">{% t "price.title" %}</h2>
+                <p class="text-lg text-muted-foreground">{% t "price.subtitle" %}</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+
+                <div class="card gradient-card p-8">
+                    <div class="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">{% t "price.month" %}</div>
+                    <div class="flex items-baseline gap-1 mb-6">
+                        <span class="font-display text-5xl font-bold">8,000</span>
+                        <span class="text-muted-foreground">SDG{% t "price.permonth" %}</span>
+                    </div>
+                    <ul class="space-y-3 mb-8 text-sm">
+                        <li class="flex gap-2"><i data-lucide="check" class="h-5 w-5 text-secondary shrink-0"></i> {% t_either "All lessons & skills" "جميع الدروس والمهارات" %}</li>
+                        <li class="flex gap-2"><i data-lucide="check" class="h-5 w-5 text-secondary shrink-0"></i> {% t_either "AI placement & tutor" "اختبار ومدرس ذكي" %}</li>
+                        <li class="flex gap-2"><i data-lucide="check" class="h-5 w-5 text-secondary shrink-0"></i> {% t_either "Weekly English Club" "نادي أسبوعي" %}</li>
+                    </ul>
+                    <a href="{% url 'auth' %}?mode=signup" class="btn btn-outline w-full">{% t "price.cta" %}</a>
+                </div>
+
+                <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-8 relative">
+                    <span class="badge badge-popular absolute" style="top:-0.75rem;left:50%;transform:translateX(-50%)">{% t "price.popular" %}</span>
+                    <div class="text-sm font-semibold uppercase tracking-wider mb-2" style="opacity:0.8">{% t "price.quarter" %}</div>
+                    <div class="flex items-baseline gap-1 mb-2">
+                        <span class="font-display text-5xl font-bold">18,000</span>
+                        <span style="opacity:0.8">SDG / 3{% t_either "mo" "شهور" %}</span>
+                    </div>
+                    <div class="text-xs mb-6" style="opacity:0.8">{% t "price.save" %}</div>
+                    <ul class="space-y-3 mb-8 text-sm">
+                        <li class="flex gap-2"><i data-lucide="check" class="h-5 w-5 shrink-0"></i> {% t_either "Everything in monthly" "كل ما في الشهري" %}</li>
+                        <li class="flex gap-2"><i data-lucide="check" class="h-5 w-5 shrink-0"></i> {% t_either "Priority AI tutor access" "أولوية وصول للمدرس" %}</li>
+                        <li class="flex gap-2"><i data-lucide="check" class="h-5 w-5 shrink-0"></i> {% t_either "Digital library full access" "وصول كامل للمكتبة" %}</li>
+                    </ul>
+                    <a href="{% url 'auth' %}?mode=signup" class="btn btn-glass w-full">{% t "price.cta" %}</a>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    {% include "_site_footer.html" %}
+</div>
+{% endblock %}

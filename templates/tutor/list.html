@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "tutor.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 max-w-4xl mx-auto space-y-8">
+        <div class="flex items-start justify-between gap-6 flex-wrap">
+            <div>
+                <h1 class="font-display text-4xl font-bold mb-2">{% t "tutor.title" %}</h1>
+                <p class="text-muted-foreground">{% t "tutor.intro" %}</p>
+            </div>
+
+            <form method="post" action="{% url 'tutor_new' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-hero btn-lg">
+                    <i data-lucide="sparkles" class="h-4 w-4"></i> {% t "tutor.new" %}
+                </button>
+            </form>
+        </div>
+
+        <div class="card p-6">
+            <div class="text-sm font-semibold mb-3">{% t_either "Pick a topic" "اختر موضوعاً" %}</div>
+            <div class="flex flex-wrap gap-2">
+                <form method="post" action="{% url 'tutor_new' %}">{% csrf_token %}<input type="hidden" name="topic" value="travel"><button type="submit" class="badge badge-outline cursor-pointer hover:bg-muted/60">{% t "tutor.topic.travel" %}</button></form>
+                <form method="post" action="{% url 'tutor_new' %}">{% csrf_token %}<input type="hidden" name="topic" value="job-interview"><button type="submit" class="badge badge-outline cursor-pointer hover:bg-muted/60">{% t "tutor.topic.interview" %}</button></form>
+                <form method="post" action="{% url 'tutor_new' %}">{% csrf_token %}<input type="hidden" name="topic" value="small-talk"><button type="submit" class="badge badge-outline cursor-pointer hover:bg-muted/60">{% t "tutor.topic.smalltalk" %}</button></form>
+                <form method="post" action="{% url 'tutor_new' %}">{% csrf_token %}<input type="hidden" name="topic" value="news"><button type="submit" class="badge badge-outline cursor-pointer hover:bg-muted/60">{% t "tutor.topic.news" %}</button></form>
+                <form method="post" action="{% url 'tutor_new' %}">{% csrf_token %}<input type="hidden" name="topic" value=""><button type="submit" class="badge badge-outline cursor-pointer hover:bg-muted/60">{% t "tutor.topic.free" %}</button></form>
+            </div>
+        </div>
+
+        {% if conversations %}
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for c in conversations %}
+                    <a href="{% url 'tutor_detail' c.pk %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                                <i data-lucide="mic" class="h-5 w-5 text-primary-foreground"></i>
+                            </div>
+                            {% if c.topic %}
+                                <span class="badge badge-outline">
+                                    {% if c.topic == "travel" %}{% t "tutor.topic.travel" %}
+                                    {% elif c.topic == "job-interview" %}{% t "tutor.topic.interview" %}
+                                    {% elif c.topic == "small-talk" %}{% t "tutor.topic.smalltalk" %}
+                                    {% elif c.topic == "news" %}{% t "tutor.topic.news" %}
+                                    {% else %}{{ c.topic }}{% endif %}
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="font-display text-lg font-bold mb-1">
+                            {{ c.title|default:"Conversation" }}
+                        </div>
+                        <div class="text-xs text-muted-foreground">
+                            {{ c.updated_at|date:"Y-m-d H:i" }}
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="card p-10 text-center text-muted-foreground">
+                {% t "tutor.empty" %}
+            </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

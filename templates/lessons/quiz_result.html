@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ lesson.title }} — Quiz result — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 max-w-3xl mx-auto space-y-6">
+        <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-10 text-center">
+            <p class="mb-2" style="opacity:0.9">{% t "quiz.score" %}</p>
+            <div class="font-display text-7xl font-bold mb-4">{{ score }}%</div>
+            {% if passed %}
+                <span class="badge badge-popular mx-auto" style="background:hsl(150 50% 92%); color:hsl(150 60% 25%); border:1px solid hsl(150 50% 75%)">
+                    <i data-lucide="check" class="h-3 w-3"></i> {% t "quiz.passed" %}
+                </span>
+            {% else %}
+                <span class="badge badge-outline mx-auto" style="border-color:hsl(var(--destructive)); background:hsl(0 75% 97%); color:hsl(var(--destructive))">
+                    <i data-lucide="circle-x" class="h-3 w-3"></i> {% t "quiz.failed" %}
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="flex flex-wrap gap-3 justify-center">
+            <a href="{% url 'lesson_quiz' lesson.pk %}" class="btn btn-outline btn-lg">
+                <i data-lucide="rotate-ccw" class="h-4 w-4"></i> {% t "lesson.quiz_retake" %}
+            </a>
+            <a href="{% url 'lesson_detail' lesson.pk %}" class="btn btn-hero btn-lg">
+                {% t "lesson.back" %} <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+            </a>
+        </div>
+
+        <div class="space-y-4">
+            {% for r in results %}
+                <div class="card p-7">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div class="font-semibold">{% t "quiz.q" %} {{ forloop.counter }} · {{ r.q.prompt }}</div>
+                        {% if r.chosen == r.correct %}
+                            <i data-lucide="check-circle-2" class="h-5 w-5" style="color:hsl(150 60% 25%)"></i>
+                        {% else %}
+                            <i data-lucide="circle-x" class="h-5 w-5" style="color:hsl(var(--destructive))"></i>
+                        {% endif %}
+                    </div>
+
+                    <div class="space-y-2 text-sm">
+                        {% for key, text in r.choices %}
+                            <div class="flex items-start justify-between gap-4 p-3 rounded-lg"
+                                 style="{% if key == r.correct %}background:hsl(150 50% 96%); border:1px solid hsl(150 50% 75%){% elif r.chosen and key == r.chosen and key != r.correct %}background:hsl(0 75% 97%); border:1px solid hsl(var(--destructive) / 0.5){% else %}background:hsl(var(--muted) / 0.25); border:1px solid hsl(var(--border)){% endif %}">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-semibold uppercase">{{ key }}</span>
+                                    <span>{{ text }}</span>
+                                </div>
+                                {% if key == r.correct %}
+                                    <span class="text-xs font-semibold" style="color:hsl(150 60% 25%)">{% t "quiz.correct_answer" %}</span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </main>
+</div>
+{% endblock %}
+

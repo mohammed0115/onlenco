@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ book.title }} — {% t "library.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-6">
+        <a href="{% url 'library' %}" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:underline">
+            <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i> {% t "library.back" %}
+        </a>
+
+        <div class="card gradient-card p-8">
+            <div class="flex items-start gap-6 flex-wrap">
+                <div style="width: 7.5rem;">
+                    {% if book.cover %}
+                        <img src="{{ book.cover.url }}" alt="{{ book.title }}" class="w-full aspect-[3/4] object-cover rounded-xl">
+                    {% else %}
+                        <div class="aspect-[3/4] gradient-sunset rounded-xl flex items-center justify-center">
+                            <i data-lucide="book-open" class="h-10 w-10 text-primary-foreground"></i>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-display text-3xl font-bold mb-2">{{ book.title }}</h1>
+                    {% if book.author %}
+                        <div class="text-sm text-muted-foreground mb-3">{{ book.author }}</div>
+                    {% endif %}
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <span class="badge badge-secondary">{{ book.level }}</span>
+                        <span class="badge badge-outline">
+                            {% if book.category == "novel" %}{% t "library.cat.novel" %}
+                            {% elif book.category == "short" %}{% t "library.cat.short" %}
+                            {% elif book.category == "grammar" %}{% t "library.cat.grammar" %}
+                            {% elif book.category == "article" %}{% t "library.cat.article" %}
+                            {% else %}{{ book.get_category_display }}{% endif %}
+                        </span>
+                    </div>
+                    {% if book.summary %}
+                        <p class="text-muted-foreground leading-relaxed">{{ book.summary }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if book.pdf %}
+            <div class="card overflow-hidden">
+                <div class="aspect-[16/10] bg-muted">
+                    <iframe src="{{ book.pdf.url }}" class="w-full h-full" title="{{ book.title }}"></iframe>
+                </div>
+            </div>
+        {% else %}
+            <div class="grid lg:grid-cols-4 gap-6">
+                <aside class="card p-5 lg:col-span-1 h-fit">
+                    <div class="font-semibold mb-3">{% t_either "Chapters" "الفصول" %}</div>
+                    <div class="space-y-1">
+                        {% for c in chapters %}
+                            <a href="{% url 'library_book' book.pk %}?chapter={{ c.id }}"
+                               class="block px-3 py-2 rounded-lg text-sm transition-smooth hover:bg-muted/60 {% if chapter and chapter.id == c.id %}bg-muted{% endif %}">
+                                {{ c.title }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </aside>
+
+                <section class="card p-7 lg:col-span-3">
+                    {% if chapter %}
+                        <h2 class="font-display text-2xl font-bold mb-4">{{ chapter.title }}</h2>
+                        <div class="text-lg leading-relaxed" style="line-height:1.7">
+                            {{ chapter.body|linebreaks }}
+                        </div>
+                    {% endif %}
+                </section>
+            </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}
+

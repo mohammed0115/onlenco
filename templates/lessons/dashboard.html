@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "dash.lessons" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-8">
+        <div>
+            <p class="text-muted-foreground text-sm">{% t "dash.welcome" %},</p>
+            <h1 class="font-display text-4xl font-bold">
+                {{ profile.full_name|default:request.user.email|default:request.user.username }}
+            </h1>
+            {% if profile.cefr_level %}
+                <span class="badge badge-secondary mt-2 text-sm">{% t "dash.level" %}: {{ profile.cefr_level }}</span>
+            {% endif %}
+        </div>
+
+        {% if last_rejected %}
+        <div class="card p-5" style="border-color: hsl(var(--destructive)); background: hsl(0 75% 97%);">
+          <div class="flex items-start justify-between gap-6 flex-wrap">
+            <div class="flex items-start gap-3">
+              <i data-lucide="alert-circle" class="h-5 w-5 mt-0.5" style="color: hsl(var(--destructive))"></i>
+              <div>
+                <h3 class="font-semibold mb-1">{% t "pay.rejected_title" %}</h3>
+                {% if last_rejected.admin_note %}
+                <p class="text-sm italic mb-2">"{{ last_rejected.admin_note }}"</p>
+                {% endif %}
+                <p class="text-sm text-muted-foreground">{% t "pay.rejected_retry" %}</p>
+              </div>
+            </div>
+            <a href="{% url 'subscribe' %}?plan={{ last_rejected.plan }}&method={{ last_rejected.method }}"
+               class="btn btn-hero shrink-0">
+              {% t "pay.try_again" %}
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
+        {# Subscription state banners #}
+        {% if profile.subscription_status == "pending" %}
+            <div class="card p-5 bg-muted">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="clock" class="h-5 w-5 text-secondary"></i>
+                    <p class="text-sm">{% t "pay.pending" %}</p>
+                </div>
+            </div>
+        {% elif profile.subscription_status == "active" %}
+            <div class="card p-5 bg-muted">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="check-circle-2" class="h-5 w-5 text-secondary"></i>
+                    <p class="text-sm">
+                        {% t "pay.active" %}
+                        {% if profile.subscription_expires_at %}
+                            <span class="text-muted-foreground">
+                                ({% t_either "until" "حتى" %} {{ profile.subscription_expires_at|date:"Y-m-d" }})
+                            </span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        {% endif %}
+
+        {# Placement-test prompt — shown until the student takes the test #}
+        {% if not profile.placement_completed %}
+        <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <span class="badge badge-popular mb-3">{% t_either "Step 1" "الخطوة 1" %}</span>
+                <h2 class="font-display text-2xl md:text-3xl font-bold mb-2">{% t "dash.takeplacement" %}</h2>
+                <p class="max-w-lg" style="opacity:0.9">{% t "dash.placementdesc" %}</p>
+            </div>
+            <a href="{% url 'placement' %}" class="btn btn-glass btn-lg">
+                {% t "hero.cta" %}
+                <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+            </a>
+        </div>
+        {% endif %}
+
+        {# Secondary actions #}
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <a href="{% url 'tutor' %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                        <i data-lucide="mic" class="h-5 w-5 text-primary-foreground"></i>
+                    </div>
+                    {% if not is_subscribed %}
+                        <span class="badge badge-outline gap-1.5"><i data-lucide="lock" class="h-3 w-3"></i></span>
+                    {% endif %}
+                </div>
+                <div class="font-display text-lg font-bold mb-1">{% t "tutor.title" %}</div>
+                <div class="text-sm text-muted-foreground">{% t "tutor.intro" %}</div>
+            </a>
+
+            <a href="{% url 'library' %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                        <i data-lucide="library" class="h-5 w-5 text-primary-foreground"></i>
+                    </div>
+                    {% if not is_subscribed %}
+                        <span class="badge badge-outline gap-1.5"><i data-lucide="lock" class="h-3 w-3"></i></span>
+                    {% endif %}
+                </div>
+                <div class="font-display text-lg font-bold mb-1">{% t "library.title" %}</div>
+                <div class="text-sm text-muted-foreground">{% t "library.subtitle" %}</div>
+            </a>
+
+            <a href="{% url 'dictionary' %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                        <i data-lucide="languages" class="h-5 w-5 text-primary-foreground"></i>
+                    </div>
+                </div>
+                <div class="font-display text-lg font-bold mb-1">{% t "dict.title" %}</div>
+                <div class="text-sm text-muted-foreground">{% t "dict.subtitle" %}</div>
+            </a>
+        </div>
+
+        {% if next_club_event %}
+        <div class="card p-6">
+            <div class="flex items-start justify-between gap-6 flex-wrap">
+                <div class="flex items-start gap-4">
+                    <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                        <i data-lucide="users" class="h-5 w-5 text-primary-foreground"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm text-muted-foreground mb-1">{% t "club.title" %}</div>
+                        <div class="font-display text-2xl font-bold">{{ next_club_event.title }}</div>
+                        <div class="text-sm text-muted-foreground mt-1">
+                            <time class="js-local" datetime="{{ next_club_event.starts_at|date:'c' }}">{{ next_club_event.starts_at|date:"Y-m-d H:i" }}</time>
+                        </div>
+                        {% if next_club_rsvp %}
+                            <div class="mt-3">
+                                {% if next_club_rsvp.status == "going" %}<span class="badge badge-secondary"><i data-lucide="check" class="h-3 w-3"></i> {% t "club.rsvp.going" %}</span>
+                                {% elif next_club_rsvp.status == "maybe" %}<span class="badge badge-outline">{% t "club.rsvp.maybe" %}</span>
+                                {% else %}<span class="badge badge-outline">{% t_either "Cancelled" "ملغي" %}</span>{% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if is_subscribed %}
+                    <a href="{% url 'club_event' next_club_event.pk %}" class="btn btn-outline">
+                        {% t_either "View" "عرض" %} <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                    </a>
+                {% else %}
+                    <a href="{% url 'subscribe' %}" class="btn btn-hero">
+                        <i data-lucide="lock" class="h-4 w-4"></i> {% t "club.locked" %}
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# Lessons grid #}
+        <div>
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="font-display text-2xl font-bold">{% t "dash.lessons" %}</h2>
+                {% if not is_subscribed %}
+                <span class="badge badge-outline gap-1.5">
+                    <i data-lucide="lock" class="h-3 w-3"></i> {% t "dash.locked" %}
+                </span>
+                {% endif %}
+            </div>
+
+            {% if lessons %}
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for l in lessons %}
+                <a href="{% url 'lesson_detail' l.pk %}" class="card gradient-card p-6 transition-smooth block relative {% if is_subscribed %}hover:shadow-elegant hover:-translate-y-1{% else %}opacity-75{% endif %}">
+                    {% if l.progress and l.progress.is_complete %}
+                        <span class="badge badge-outline" style="position:absolute; top:1rem; inset-inline-end:1rem; border-color:hsl(150 50% 70%); background:hsl(150 50% 96%); color:hsl(150 60% 25%)">
+                            <i data-lucide="award" class="h-3 w-3"></i> {% t "lesson.completed" %}
+                        </span>
+                    {% endif %}
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                            {% if l.skill == "reading" %}<i data-lucide="book-open" class="h-5 w-5 text-primary-foreground"></i>
+                            {% elif l.skill == "writing" %}<i data-lucide="pen-line" class="h-5 w-5 text-primary-foreground"></i>
+                            {% elif l.skill == "listening" %}<i data-lucide="headphones" class="h-5 w-5 text-primary-foreground"></i>
+                            {% elif l.skill == "speaking" %}<i data-lucide="mic" class="h-5 w-5 text-primary-foreground"></i>
+                            {% else %}<i data-lucide="book-open" class="h-5 w-5 text-primary-foreground"></i>{% endif %}
+                        </div>
+                        {% if is_subscribed %}
+                            <span class="badge badge-secondary text-xs">{{ l.level }}</span>
+                        {% else %}
+                            <i data-lucide="lock" class="h-4 w-4 text-muted-foreground"></i>
+                        {% endif %}
+                    </div>
+                    <h3 class="font-display text-lg font-bold mb-1">{{ l.title }}</h3>
+                    <p class="text-sm text-muted-foreground mb-3">{{ l.description|truncatewords:18 }}</p>
+                    <div class="flex items-center justify-between text-xs text-muted-foreground">
+                        <span class="capitalize">{{ l.skill }}</span>
+                        <span>{{ l.duration_minutes }} {% t_either "min" "د" %}</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card p-10 text-center text-muted-foreground">
+                {% t_either "No lessons available yet — check back soon!" "لا توجد دروس متاحة بعد — تابع لاحقاً!" %}
+            </div>
+            {% endif %}
+
+            {% if not is_subscribed %}
+            <div class="mt-6 text-center">
+                <a href="{% url 'subscribe' %}" class="btn btn-hero btn-lg">
+                    {% t "dash.subscribe" %}
+                    <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<script>
+  document.querySelectorAll('time.js-local').forEach((el) => {
+    try {
+      const d = new Date(el.dateTime);
+      el.textContent = d.toLocaleString();
+    } catch (e) {}
+  });
+</script>
+{% endblock %}

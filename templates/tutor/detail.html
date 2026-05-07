@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ conversation.title|default:"AI Tutor" }} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20 flex flex-col">
+    {% include "_app_header.html" %}
+
+    <main class="container py-8 max-w-4xl mx-auto w-full flex-1 flex flex-col">
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+            <div class="min-w-0">
+                <div class="text-xs text-muted-foreground">{% t "tutor.title" %}</div>
+                <h1 class="font-display text-2xl font-bold truncate">
+                    {{ conversation.title|default:"Conversation" }}
+                </h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'tutor' %}" class="btn btn-ghost">
+                    <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i> {% t_either "All chats" "كل المحادثات" %}
+                </a>
+                <form method="post" action="{% url 'tutor_new' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline">
+                        <i data-lucide="plus" class="h-4 w-4"></i> {% t "tutor.new" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card p-6 flex-1 overflow-auto space-y-4" id="chat-scroll" style="min-height: 18rem;">
+            {% if conversation.messages.all %}
+                {% for m in conversation.messages.all %}
+                    {% if m.role == "user" %}
+                        <div class="flex justify-end">
+                            <div class="p-3 rounded-2xl max-w-[85%] bg-primary text-primary-foreground whitespace-pre-wrap">
+                                {{ m.content }}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="flex justify-start">
+                            <div class="p-3 rounded-2xl max-w-[85%] card border-border whitespace-pre-wrap relative">
+                                <div class="text-sm leading-relaxed">{{ m.content }}</div>
+                                <button type="button" class="btn btn-ghost"
+                                        data-tts
+                                        style="height:2rem;padding:0 0.5rem;position:absolute; top:0.35rem; inset-inline-end:0.35rem"
+                                        title="{% t_either 'Play' 'تشغيل' %}">
+                                    <i data-lucide="volume-2" class="h-4 w-4"></i>
+                                </button>
+                                <span class="sr-only tts-text">{{ m.content }}</span>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <div class="text-center text-muted-foreground py-10">
+                    {% t_either "Say hi to start the conversation." "ابدأ المحادثة بكتابة رسالة." %}
+                </div>
+            {% endif %}
+        </div>
+
+        <form method="post" action="{% url 'tutor_send' conversation.pk %}" class="mt-5 flex gap-2 items-end">
+            {% csrf_token %}
+            <div class="flex-1">
+                <textarea name="message" id="msg" rows="3" placeholder="{% t 'tutor.placeholder' %}"></textarea>
+            </div>
+            <button type="button" id="mic-btn" class="btn btn-outline" style="height:3rem" hidden>
+                <i data-lucide="mic" class="h-4 w-4"></i>
+            </button>
+            <button type="submit" class="btn btn-hero btn-lg">
+                {% t "tutor.send" %} <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+            </button>
+        </form>
+    </main>
+</div>
+
+<script>
+  // Phase 2 (optional): browser voice input + TTS for assistant messages.
+  (function () {
+    const msg = document.getElementById('msg');
+    const micBtn = document.getElementById('mic-btn');
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition && micBtn && msg) {
+      micBtn.hidden = false;
+      const rec = new SpeechRecognition();
+      rec.lang = 'en-US';
+      rec.continuous = true;
+      rec.interimResults = true;
+
+      let recording = false;
+      let finalText = '';
+
+      micBtn.addEventListener('click', () => {
+        if (!recording) {
+          finalText = '';
+          recording = true;
+          micBtn.innerHTML = '<i data-lucide="mic-off" class="h-4 w-4"></i>';
+          if (window.lucide) lucide.createIcons();
+          rec.start();
+          return;
+        }
+        recording = false;
+        micBtn.innerHTML = '<i data-lucide="mic" class="h-4 w-4"></i>';
+        if (window.lucide) lucide.createIcons();
+        rec.stop();
+      });
+
+      rec.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalText += t + ' ';
+          else interim += t;
+        }
+        msg.value = (finalText + interim).trim();
+      };
+      rec.onerror = () => {};
+    }
+
+    const ttsBtns = document.querySelectorAll('[data-tts]');
+    if ('speechSynthesis' in window) {
+      ttsBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const textEl = btn.parentElement.querySelector('.tts-text');
+          if (!textEl) return;
+          const u = new SpeechSynthesisUtterance(textEl.textContent || '');
+          u.lang = 'en-US';
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+        });
+      });
+    } else {
+      ttsBtns.forEach(btn => btn.hidden = true);
+    }
+
+    // Auto-scroll to bottom
+    const scroll = document.getElementById('chat-scroll');
+    if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  })();
+</script>
+{% endblock %}

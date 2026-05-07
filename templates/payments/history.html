@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "pay.history" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10" style="max-width:48rem">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="font-display text-3xl font-bold">{% t "pay.history" %}</h1>
+            <a href="{% url 'subscribe' %}" class="btn btn-outline">
+                <i data-lucide="plus" class="h-4 w-4"></i>
+                {% t_either "New payment" "دفعة جديدة" %}
+            </a>
+        </div>
+
+        {% if last_rejected %}
+        <div class="card p-5 mb-6" style="border-color: hsl(var(--destructive)); background: hsl(0 75% 97%);">
+          <div class="flex items-start justify-between gap-6 flex-wrap">
+            <div class="flex items-start gap-3">
+              <i data-lucide="alert-circle" class="h-5 w-5 mt-0.5" style="color: hsl(var(--destructive))"></i>
+              <div>
+                <h3 class="font-semibold mb-1">{% t "pay.rejected_title" %}</h3>
+                {% if last_rejected.admin_note %}
+                <p class="text-sm italic mb-2">"{{ last_rejected.admin_note }}"</p>
+                {% endif %}
+                <p class="text-sm text-muted-foreground">{% t "pay.rejected_retry" %}</p>
+              </div>
+            </div>
+            <a href="{% url 'subscribe' %}?plan={{ last_rejected.plan }}&method={{ last_rejected.method }}"
+               class="btn btn-hero shrink-0">
+              {% t "pay.try_again" %}
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if profile.subscription_status == "pending" %}
+            <div class="card p-5 bg-muted/50 mb-6 flex items-center gap-3">
+                <i data-lucide="clock" class="h-5 w-5 text-secondary"></i>
+                <p class="text-sm">{% t "pay.pending" %}</p>
+            </div>
+        {% elif profile.subscription_status == "active" %}
+            <div class="card gradient-hero text-primary-foreground border-0 p-5 mb-6 flex items-center gap-3">
+                <i data-lucide="check-circle-2" class="h-5 w-5"></i>
+                <p class="text-sm">
+                    {% t "pay.active" %}
+                    {% if profile.subscription_expires_at %}
+                        · {% t_either "until" "حتى" %} {{ profile.subscription_expires_at|date:"Y-m-d" }}
+                    {% endif %}
+                </p>
+            </div>
+        {% endif %}
+
+        {% if submissions %}
+        <div class="card divide-y divide-border">
+            {% for s in submissions %}
+            <div class="p-5 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    {% if s.screenshot %}
+                    <a href="{{ s.screenshot.url }}" target="_blank">
+                        <img src="{{ s.screenshot.url }}" alt="receipt"
+                             class="h-16 w-16 object-cover rounded-lg border border-border">
+                    </a>
+                    {% endif %}
+                    <div>
+                        <div class="font-semibold">{{ s.get_plan_display }} · {{ s.get_method_display }}</div>
+                        <div class="text-xs text-muted-foreground">
+                            {{ s.created_at|date:"Y-m-d H:i" }} · {{ s.amount_sdg }} SDG
+                            {% if s.transaction_reference %} · ref {{ s.transaction_reference }}{% endif %}
+                        </div>
+                        {% if s.admin_note %}
+                        <div class="text-xs text-muted-foreground mt-1 italic">"{{ s.admin_note }}"</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="badge {% if s.status == 'approved' %}badge-popular{% elif s.status == 'rejected' %}badge-outline text-destructive{% else %}badge-secondary{% endif %} shrink-0">
+                    {{ s.get_status_display }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card p-10 text-center text-muted-foreground">
+            {% t_either "No payments yet." "لا توجد مدفوعات بعد." %}
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

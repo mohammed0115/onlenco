@@ -1,0 +1,33 @@
+{% load i18n_dict %}
+<footer class="border-t border-border/40 bg-muted/30">
+    <div class="container py-12 grid gap-8 md:grid-cols-4">
+        <div class="md:col-span-2">
+            <div class="flex items-center gap-2 font-display text-xl font-bold mb-3">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg gradient-sunset">
+                    <i data-lucide="sparkles" class="h-4 w-4 text-primary-foreground"></i>
+                </div>
+                Onlenco
+            </div>
+            <p class="text-sm text-muted-foreground max-w-sm">
+                {% t_either "AI-powered English learning, built for Sudanese learners." "تعلم الإنجليزية بالذكاء الاصطناعي، مصمم للسودانيين." %}
+            </p>
+        </div>
+        <div>
+            <h4 class="font-semibold mb-3 text-sm">{% t_either "Product" "المنتج" %}</h4>
+            <ul class="space-y-2 text-sm text-muted-foreground">
+                <li><a href="{% url 'home' %}#features" class="hover:text-foreground transition-smooth">{% t "nav.features" %}</a></li>
+                <li><a href="{% url 'home' %}#pricing"  class="hover:text-foreground transition-smooth">{% t "nav.pricing" %}</a></li>
+            </ul>
+        </div>
+        <div>
+            <h4 class="font-semibold mb-3 text-sm">{% t_either "Company" "الشركة" %}</h4>
+            <ul class="space-y-2 text-sm text-muted-foreground">
+                <li>support@onlenco.com</li>
+                <li>Khartoum, Sudan 🇸🇩</li>
+            </ul>
+        </div>
+    </div>
+    <div class="border-t border-border/40 py-6 text-center text-xs text-muted-foreground">
+        © {% now "Y" %} Onlenco. {% t_either "All rights reserved." "جميع الحقوق محفوظة." %}
+    </div>
+</footer>

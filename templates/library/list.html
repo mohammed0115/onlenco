@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "library.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-8">
+        <div class="max-w-3xl">
+            <h1 class="font-display text-4xl font-bold mb-2">{% t "library.title" %}</h1>
+            <p class="text-muted-foreground">{% t "library.subtitle" %}</p>
+        </div>
+
+        <div class="card p-6 space-y-4">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div class="text-sm font-semibold">{% t "library.filter" %}</div>
+                <a href="{% url 'library' %}" class="badge badge-outline hover:bg-muted/60">{% t "library.all" %}</a>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-muted-foreground">{% t_either "Level" "المستوى" %}</span>
+                    {% for lvl in levels %}
+                        <a href="{% url 'library' %}?level={{ lvl }}{% if category %}&category={{ category }}{% endif %}"
+                           class="badge badge-outline hover:bg-muted/60"
+                           style="{% if level == lvl %}background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); border-color:hsl(var(--primary));{% endif %}">
+                            {{ lvl }}
+                        </a>
+                    {% endfor %}
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-muted-foreground">{% t_either "Category" "التصنيف" %}</span>
+                    {% for code, label in categories %}
+                        <a href="{% url 'library' %}?category={{ code }}{% if level %}&level={{ level }}{% endif %}"
+                           class="badge badge-outline hover:bg-muted/60"
+                           style="{% if category == code %}background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); border-color:hsl(var(--primary));{% endif %}">
+                            {% if code == "novel" %}{% t "library.cat.novel" %}
+                            {% elif code == "short" %}{% t "library.cat.short" %}
+                            {% elif code == "grammar" %}{% t "library.cat.grammar" %}
+                            {% elif code == "article" %}{% t "library.cat.article" %}
+                            {% else %}{{ label }}{% endif %}
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {% if page_obj.object_list %}
+            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                {% for book in page_obj.object_list %}
+                    <div class="card gradient-card overflow-hidden transition-smooth hover:shadow-elegant">
+                        <div class="p-4">
+                            {% if book.cover %}
+                                <img src="{{ book.cover.url }}" alt="{{ book.title }}" class="w-full aspect-[3/4] object-cover rounded-xl">
+                            {% else %}
+                                <div class="aspect-[3/4] gradient-sunset rounded-xl flex items-center justify-center">
+                                    <i data-lucide="book-open" class="h-12 w-12 text-primary-foreground"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="px-4 pb-5">
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                <span class="badge badge-secondary">{{ book.level }}</span>
+                                <span class="badge badge-outline">
+                                    {% if book.category == "novel" %}{% t "library.cat.novel" %}
+                                    {% elif book.category == "short" %}{% t "library.cat.short" %}
+                                    {% elif book.category == "grammar" %}{% t "library.cat.grammar" %}
+                                    {% elif book.category == "article" %}{% t "library.cat.article" %}
+                                    {% else %}{{ book.get_category_display }}{% endif %}
+                                </span>
+                            </div>
+                            <div class="font-display text-lg font-bold leading-snug">{{ book.title }}</div>
+                            {% if book.author %}
+                                <div class="text-xs text-muted-foreground mt-1">{{ book.author }}</div>
+                            {% endif %}
+
+                            <div class="mt-4">
+                                {% if is_subscribed %}
+                                    <a href="{% url 'library_book' book.pk %}" class="btn btn-outline w-full">
+                                        {% t "library.read" %} <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'subscribe' %}" class="btn btn-hero w-full">
+                                        <i data-lucide="lock" class="h-4 w-4"></i> {% t "library.locked" %}
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="flex items-center justify-center gap-2">
+                {% if page_obj.has_previous %}
+                    <a class="btn btn-ghost"
+                       href="{% url 'library' %}?page={{ page_obj.previous_page_number }}{% if level %}&level={{ level }}{% endif %}{% if category %}&category={{ category }}{% endif %}">
+                        <i data-lucide="chevron-left" class="h-4 w-4 rtl-flip"></i> {% t_either "Prev" "السابق" %}
+                    </a>
+                {% endif %}
+                <span class="text-sm text-muted-foreground">
+                    {% t_either "Page" "صفحة" %} {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+                </span>
+                {% if page_obj.has_next %}
+                    <a class="btn btn-ghost"
+                       href="{% url 'library' %}?page={{ page_obj.next_page_number }}{% if level %}&level={{ level }}{% endif %}{% if category %}&category={{ category }}{% endif %}">
+                        {% t_either "Next" "التالي" %} <i data-lucide="chevron-right" class="h-4 w-4 rtl-flip"></i>
+                    </a>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="card p-10 text-center text-muted-foreground">
+                {% t "library.empty" %}
+            </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}
+

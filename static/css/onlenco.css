@@ -1,0 +1,269 @@
+/*
+ * Onlenco design tokens.
+ * Design tokens used across the UI.
+ * Tailwind utilities still apply on top of this — these
+ * vars feed the Tailwind config's `colors` block (see base.html).
+ */
+
+:root {
+  --background: 36 38% 97%;
+  --foreground: 178 45% 10%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 178 45% 10%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 178 45% 10%;
+
+  /* Deep teal — Nile depth */
+  --primary: 178 65% 18%;
+  --primary-foreground: 36 38% 97%;
+  --primary-glow: 178 55% 35%;
+
+  /* Warm amber — Sudanese sunset */
+  --secondary: 28 85% 58%;
+  --secondary-foreground: 178 45% 10%;
+
+  --muted: 36 25% 92%;
+  --muted-foreground: 178 15% 38%;
+
+  --accent: 14 80% 60%;
+  --accent-foreground: 36 38% 97%;
+
+  --destructive: 0 75% 50%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 36 20% 88%;
+  --input: 36 20% 90%;
+  --ring: 178 65% 18%;
+
+  --radius: 1rem;
+
+  --gradient-hero: linear-gradient(135deg, hsl(178 65% 18%) 0%, hsl(178 55% 28%) 50%, hsl(28 75% 45%) 100%);
+  --gradient-sunset: linear-gradient(135deg, hsl(28 85% 58%) 0%, hsl(14 80% 60%) 100%);
+  --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(36 30% 97%) 100%);
+  --gradient-text: linear-gradient(135deg, hsl(178 65% 18%), hsl(28 80% 45%));
+
+  --shadow-soft: 0 2px 8px -2px hsl(178 65% 18% / 0.08);
+  --shadow-elegant: 0 20px 50px -20px hsl(178 65% 18% / 0.25);
+  --shadow-glow: 0 0 60px hsl(28 85% 58% / 0.35);
+
+  --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+}
+
+[dir="rtl"] body { font-family: 'Cairo', system-ui, sans-serif; }
+[dir="rtl"] .font-display { font-family: 'Cairo', serif; font-weight: 700; }
+
+.font-display {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+/* Gradient utilities */
+.gradient-hero   { background: var(--gradient-hero); }
+.gradient-sunset { background: var(--gradient-sunset); }
+.gradient-card   { background: var(--gradient-card); }
+
+.text-gradient {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.shadow-soft    { box-shadow: var(--shadow-soft); }
+.shadow-elegant { box-shadow: var(--shadow-elegant); }
+.shadow-glow    { box-shadow: var(--shadow-glow); }
+
+.transition-smooth { transition: all 0.3s var(--transition-smooth); }
+
+/* Flip directional icons in RTL. */
+[dir="rtl"] .rtl-flip { transform: scaleX(-1); }
+
+/* Container — centered content with responsive max widths. */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+@media (min-width: 640px)  { .container { max-width: 640px; } }
+@media (min-width: 768px)  { .container { max-width: 768px; padding-left: 1.5rem; padding-right: 1.5rem; } }
+@media (min-width: 1024px) { .container { max-width: 1024px; padding-left: 2rem;   padding-right: 2rem; } }
+@media (min-width: 1280px) { .container { max-width: 1280px; } }
+@media (min-width: 1536px) { .container { max-width: 1400px; } }
+
+/* Animations */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+.animate-fade-up { animation: fade-up 0.6s var(--transition-smooth) both; }
+.animate-float   { animation: float 4s ease-in-out infinite; }
+
+/* Form widgets — Django renders plain inputs; this styles them consistently
+   without extra template dependencies. */
+input[type="text"], input[type="email"], input[type="password"],
+input[type="url"], input[type="number"], input[type="file"],
+select, textarea {
+  width: 100%;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.625rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(178 65% 18% / 0.1);
+}
+input[type="file"] { padding: 0.4rem; cursor: pointer; }
+textarea { min-height: 90px; resize: vertical; }
+
+/* Radio cards (placement test) */
+.radio-card {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.75rem; border-radius: 0.625rem;
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.radio-card:hover { background: hsl(var(--muted) / 0.5); }
+.radio-card input[type="radio"] {
+  width: 18px; height: 18px; accent-color: hsl(var(--primary));
+  margin: 0; padding: 0; flex: 0 0 18px;
+}
+.radio-card label { cursor: pointer; flex: 1; font-weight: 400; }
+
+/* Toasts */
+.toast {
+  padding: 0.85rem 1.1rem;
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+.toast-success { border-color: hsl(150 50% 60%); background: hsl(150 50% 96%); color: hsl(150 60% 25%); }
+.toast-error   { border-color: hsl(0 70% 70%);   background: hsl(0 75% 97%);   color: hsl(0 70% 35%); }
+.toast-info    { border-color: hsl(200 70% 70%); background: hsl(200 70% 97%); color: hsl(200 70% 30%); }
+
+.divider-soft { height: 1px; background: hsl(var(--border) / 0.6); }
+
+/* =====================================================================
+   Component classes
+   Shared Button / Card / Badge styling. Keeping them as plain CSS (rather
+   than re-applying
+   Tailwind utilities everywhere) keeps the templates short.
+   ===================================================================== */
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  font-family: inherit;
+}
+.btn:disabled, .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+.btn-lg { height: 3rem; padding: 0 1.75rem; font-size: 1rem; border-radius: 0.75rem; }
+
+.btn-hero {
+  background: var(--gradient-hero);
+  color: hsl(var(--primary-foreground));
+  box-shadow: var(--shadow-soft);
+}
+.btn-hero:hover { box-shadow: var(--shadow-elegant); transform: translateY(-1px); }
+
+.btn-outline {
+  background: hsl(var(--background));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+.btn-outline:hover { background: hsl(var(--muted)); border-color: hsl(var(--ring)); }
+
+.btn-ghost {
+  background: transparent;
+  color: hsl(var(--foreground));
+}
+.btn-ghost:hover { background: hsl(var(--muted) / 0.6); }
+
+/* "Glass" button — used inside the gradient-hero card. Translucent
+   white pill that pops against the dark gradient. */
+.btn-glass {
+  background: hsl(0 0% 100% / 0.18);
+  border-color: hsl(0 0% 100% / 0.25);
+  color: hsl(var(--primary-foreground));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.btn-glass:hover { background: hsl(0 0% 100% / 0.28); }
+
+/* --- Cards --- */
+.card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: var(--radius);
+  color: hsl(var(--card-foreground));
+}
+
+/* --- Badges --- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  line-height: 1;
+}
+.badge-secondary { background: hsl(var(--secondary) / 0.15); color: hsl(var(--secondary)); border-color: hsl(var(--secondary) / 0.3); }
+.badge-outline   { background: transparent; color: hsl(var(--foreground)); border-color: hsl(var(--border)); }
+.badge-popular   { background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); }
+
+/* Toast container z-index already set in base.html */
+.toast-container { pointer-events: none; }
+.toast-container .toast { pointer-events: auto; }
+
+/* --- Form labels & explicit .input/.label classes used in auth/payment forms --- */
+.label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+  color: hsl(var(--foreground));
+}
+.input { /* same as the generic input above; explicit class for clarity */ }

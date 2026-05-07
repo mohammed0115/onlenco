@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "pl.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10" style="max-width:42rem">
+
+        {% if not result %}
+            <div class="mb-8 text-center">
+                <h1 class="font-display text-4xl font-bold mb-3">{% t "pl.title" %}</h1>
+                <p class="text-muted-foreground">{% t "pl.intro" %}</p>
+            </div>
+
+            <form method="post" class="card gradient-card shadow-elegant p-8 space-y-8" id="placement-form">
+                {% csrf_token %}
+
+                {% if retaking %}
+                <div class="card p-5 bg-muted/30">
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="info" class="h-5 w-5 text-secondary mt-0.5"></i>
+                        <p class="text-sm text-muted-foreground">{% t "pl.retaking" %}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {# Q1 — MCQ "She ___ to school every day." #}
+                <div class="space-y-3">
+                    <p class="text-base font-semibold">1. {% t "pl.q1" %}</p>
+                    {% for opt in q1_choices %}
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-smooth cursor-pointer">
+                        <input type="radio" name="q1" value="{{ opt }}" {% if request.POST.q1 == opt %}checked{% endif %} required>
+                        <span class="flex-1 font-normal">{{ opt }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+
+                {# Q2 — MCQ correct sentence #}
+                <div class="space-y-3">
+                    <p class="text-base font-semibold">2. {% t "pl.q2" %}</p>
+                    {% for opt in q2_choices %}
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-smooth cursor-pointer">
+                        <input type="radio" name="q2" value="{{ opt }}" {% if request.POST.q2 == opt %}checked{% endif %} required>
+                        <span class="flex-1 font-normal">{{ opt }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+
+                {# Q3 — short writing #}
+                <div class="space-y-3">
+                    <label class="label text-base font-semibold" for="id_q3">3. {% t "pl.q3" %}</label>
+                    <textarea class="textarea" id="id_q3" name="q3" rows="3" maxlength="500"
+                              dir="ltr" required minlength="10">{{ request.POST.q3|default_if_none:'' }}</textarea>
+                </div>
+
+                {# Q4 — past-tense writing #}
+                <div class="space-y-3">
+                    <label class="label text-base font-semibold" for="id_q4">4. {% t "pl.q4" %}</label>
+                    <textarea class="textarea" id="id_q4" name="q4" rows="5" maxlength="1000"
+                              dir="ltr" required minlength="20">{{ request.POST.q4|default_if_none:'' }}</textarea>
+                </div>
+
+                {# Q5 — Speaking task #}
+                <div class="space-y-3">
+                    <p class="text-base font-semibold">5. {% t "pl.q5" %}</p>
+                    <p class="text-sm text-muted-foreground">{% t "pl.q5_intro" %}</p>
+
+                    <div class="card p-5 bg-muted/30" id="q5-rec-wrap">
+                        <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+                            <div class="flex items-center gap-3">
+                                <button type="button" id="rec-toggle" class="btn btn-hero">
+                                    <i data-lucide="mic" class="h-4 w-4"></i>
+                                    <span id="rec-label">{% t "pl.q5_record" %}</span>
+                                </button>
+                                <span id="rec-timer" class="text-sm text-muted-foreground font-mono" hidden>0:00</span>
+                            </div>
+                            <span id="rec-status" class="text-sm text-muted-foreground"></span>
+                        </div>
+                        <textarea id="q5-transcript-display" rows="5" readonly
+                                  dir="ltr" class="font-mono text-sm"
+                                  placeholder="{% t 'pl.q5_transcript_hint' %}"></textarea>
+                        <input type="hidden" name="q5_transcript" id="q5-transcript" value="{{ request.POST.q5_transcript|default_if_none:'' }}">
+                    </div>
+
+                    <div class="card p-5 bg-muted/30" id="q5-fallback" hidden>
+                        <p class="text-sm text-muted-foreground mb-3">{% t "pl.q5_unsupported" %}</p>
+                        <textarea name="q5_transcript" id="q5-fallback-text" rows="5" dir="ltr" required minlength="30" disabled>{{ request.POST.q5_transcript|default_if_none:'' }}</textarea>
+                    </div>
+
+                    <p class="text-xs text-muted-foreground">{% t "pl.q5_note" %}</p>
+                </div>
+
+                <button type="submit" class="btn btn-hero btn-lg w-full" id="submit-btn"
+                        style="height:3rem">
+                    <span class="submit-text inline-flex items-center gap-2">
+                        {% t "pl.submit" %}
+                        <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                    </span>
+                    <span class="submit-loading hidden items-center gap-2">
+                        <i data-lucide="loader-2" class="h-4 w-4 animate-spin"></i>
+                        {% t "pl.analyzing" %}
+                    </span>
+                </button>
+            </form>
+
+        {% else %}
+            <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-10 text-center">
+                <p class="mb-2" style="opacity:0.9">{% t "pl.result" %}</p>
+                <div class="font-display text-7xl font-bold mb-4">{{ result.level }}</div>
+                <p class="max-w-md mx-auto mb-8 leading-relaxed" style="opacity:0.9">{{ result.feedback }}</p>
+                <a href="{% url 'dashboard' %}" class="btn btn-glass btn-lg">
+                    {% t "pl.continue" %}
+                    <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                </a>
+            </div>
+        {% endif %}
+    </main>
+</div>
+
+{% if not result %}
+<script>
+  // Show the spinner while the AI is grading
+  const form = document.getElementById('placement-form');
+  if (form) {
+    form.addEventListener('submit', () => {
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.querySelector('.submit-text').classList.add('hidden');
+      const loading = btn.querySelector('.submit-loading');
+      loading.classList.remove('hidden');
+      loading.classList.add('flex');
+    });
+  }
+
+  // Speaking task (Web Speech API transcription; no audio upload).
+  (function () {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recWrap = document.getElementById('q5-rec-wrap');
+    const fallback = document.getElementById('q5-fallback');
+    const fallbackText = document.getElementById('q5-fallback-text');
+    const btn = document.getElementById('rec-toggle');
+    const timerEl = document.getElementById('rec-timer');
+    const statusEl = document.getElementById('rec-status');
+    const display = document.getElementById('q5-transcript-display');
+    const hidden = document.getElementById('q5-transcript');
+
+    if (hidden && display && hidden.value) display.value = hidden.value;
+
+    if (!SpeechRecognition || !recWrap || !fallback || !btn || !display || !hidden) {
+      if (recWrap) recWrap.hidden = true;
+      if (fallback) fallback.hidden = false;
+      if (hidden) hidden.disabled = true;
+      if (fallbackText) fallbackText.disabled = false;
+      return;
+    }
+
+    const rec = new SpeechRecognition();
+    rec.lang = 'en-US';
+    rec.continuous = true;
+    rec.interimResults = true;
+
+    let recording = false;
+    let finalText = '';
+    let seconds = 0;
+    let timer = null;
+
+    function fmt(s) {
+      const m = Math.floor(s / 60);
+      const r = (s % 60).toString().padStart(2, '0');
+      return `${m}:${r}`;
+    }
+
+    function stop(reason) {
+      recording = false;
+      if (timer) clearInterval(timer);
+      timer = null;
+      if (timerEl) timerEl.hidden = true;
+      if (statusEl) statusEl.textContent = reason || '{% t "pl.q5_done" %}';
+      btn.querySelector('#rec-label').textContent = '{% t "pl.q5_rerecord" %}';
+      btn.querySelector('i').setAttribute('data-lucide', 'mic');
+      if (window.lucide) lucide.createIcons();
+      try { rec.stop(); } catch (e) {}
+    }
+
+    btn.addEventListener('click', () => {
+      if (!recording) {
+        recording = true;
+        finalText = '';
+        seconds = 0;
+        display.value = '';
+        hidden.value = '';
+        if (statusEl) statusEl.textContent = '{% t "pl.q5_recording" %}';
+        btn.querySelector('#rec-label').textContent = '{% t "pl.q5_stop" %}';
+        btn.querySelector('i').setAttribute('data-lucide', 'mic-off');
+        if (window.lucide) lucide.createIcons();
+        if (timerEl) { timerEl.hidden = false; timerEl.textContent = fmt(0); }
+        timer = setInterval(() => {
+          seconds += 1;
+          if (timerEl) timerEl.textContent = fmt(seconds);
+          if (seconds >= 60) stop(\"Time's up!\");
+        }, 1000);
+        try { rec.start(); } catch (e) {}
+        return;
+      }
+      stop();
+    });
+
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalText += t + ' ';
+        else interim += t;
+      }
+      const text = (finalText + interim).trim();
+      display.value = text;
+      hidden.value = text;
+    };
+    rec.onerror = () => stop();
+    rec.onend = () => { if (recording) stop(); };
+  })();
+</script>
+{% endif %}
+{% endblock %}

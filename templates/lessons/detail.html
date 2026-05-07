@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ lesson.title }} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 max-w-3xl mx-auto space-y-6">
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:underline">
+            <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+            {% t_either "Back to lessons" "العودة إلى الدروس" %}
+        </a>
+
+        <div class="card gradient-card p-8">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h1 class="font-display text-3xl md:text-4xl font-bold mb-3">{{ lesson.title }}</h1>
+                    <div class="flex flex-wrap gap-2 text-sm">
+                        <span class="badge badge-secondary">{{ lesson.level }}</span>
+                        <span class="badge badge-outline capitalize">{{ lesson.skill }}</span>
+                        <span class="badge badge-outline">{{ lesson.duration_minutes }} {% t_either "min" "د" %}</span>
+                        {% if progress.is_complete %}
+                            <span class="badge badge-outline" style="border-color:hsl(150 50% 70%); background:hsl(150 50% 96%); color:hsl(150 60% 25%)">
+                                <i data-lucide="award" class="h-3 w-3"></i> {% t "lesson.completed" %}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if is_subscribed and progress.video_completed %}
+                    <div class="inline-flex items-center gap-2 text-sm font-semibold" style="color:hsl(150 60% 25%)">
+                        <i data-lucide="check-circle-2" class="h-4 w-4"></i>
+                        {% t_either "Watched" "تمت المشاهدة" %}
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if lesson.description %}
+                <p class="text-muted-foreground mt-5 leading-relaxed">{{ lesson.description }}</p>
+            {% endif %}
+        </div>
+
+        {% if not is_subscribed %}
+            <div class="card p-8 text-center">
+                <div class="mx-auto h-12 w-12 rounded-xl gradient-sunset flex items-center justify-center mb-4">
+                    <i data-lucide="lock" class="h-6 w-6 text-primary-foreground"></i>
+                </div>
+                <h2 class="font-display text-2xl font-bold mb-2">{% t "lesson.locked" %}</h2>
+                <p class="text-sm text-muted-foreground mb-6">
+                    {% t_either "Subscribe to watch the video and take the quiz." "اشترك لمشاهدة الفيديو وإجراء الاختبار." %}
+                </p>
+                <a href="{% url 'subscribe' %}" class="btn btn-hero btn-lg">
+                    {% t "dash.subscribe" %} <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                </a>
+            </div>
+        {% else %}
+            {% if embed_url %}
+                <div class="card overflow-hidden">
+                    <div class="aspect-video bg-muted">
+                        <iframe
+                            src="{{ embed_url }}"
+                            class="w-full h-full"
+                            title="{{ lesson.title }}"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowfullscreen></iframe>
+                    </div>
+                    <div class="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div class="text-sm text-muted-foreground">
+                            {% t_either "Watch the lesson video, then mark it as watched." "شاهد فيديو الدرس ثم ضع علامة تمت المشاهدة." %}
+                        </div>
+                        {% if not progress.video_completed %}
+                            <form method="post" action="{% url 'lesson_video_done' lesson.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-hero">
+                                    <i data-lucide="check-circle-2" class="h-4 w-4"></i> {% t "lesson.video_done" %}
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="card p-8 text-center text-muted-foreground">
+                    {% t_either "No video is attached to this lesson yet." "لا يوجد فيديو مرفق بهذا الدرس بعد." %}
+                </div>
+            {% endif %}
+
+            {% if quiz %}
+                <div class="card p-8">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 class="font-display text-2xl font-bold mb-2">{% t_either "Quiz" "اختبار" %}</h2>
+                            <p class="text-sm text-muted-foreground">
+                                {% t_either "Test what you learned with a short multiple-choice quiz." "اختبر ما تعلمته في اختبار قصير متعدد الخيارات." %}
+                            </p>
+                            {% if progress.quiz_score != None %}
+                                <p class="text-sm mt-3">
+                                    {% t "quiz.score" %}: <span class="font-semibold">{{ progress.quiz_score }}%</span>
+                                    {% if progress.quiz_passed %}
+                                        <span class="badge badge-outline ml-2" style="border-color:hsl(150 50% 70%); background:hsl(150 50% 96%); color:hsl(150 60% 25%)">
+                                            <i data-lucide="check" class="h-3 w-3"></i> {% t "quiz.passed" %}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge badge-outline ml-2" style="border-color:hsl(var(--destructive)); background:hsl(0 75% 97%); color:hsl(var(--destructive))">
+                                            <i data-lucide="circle-x" class="h-3 w-3"></i> {% t "quiz.failed" %}
+                                        </span>
+                                    {% endif %}
+                                </p>
+                            {% endif %}
+                        </div>
+
+                        <a href="{% url 'lesson_quiz' lesson.pk %}" class="btn btn-outline">
+                            <i data-lucide="play-circle" class="h-4 w-4"></i> {% t "lesson.quiz_start" %}
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+    </main>
+</div>
+{% endblock %}
+

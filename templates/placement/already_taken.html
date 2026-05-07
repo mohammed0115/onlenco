@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "pl.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+  <main class="container py-10" style="max-width:42rem">
+
+    <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-10 text-center mb-6">
+      <p class="mb-2" style="opacity:0.9">{% t "pl.your_level" %}</p>
+      <div class="font-display text-7xl font-bold mb-4">{{ profile.cefr_level }}</div>
+      {% if latest %}
+      <p class="max-w-md mx-auto leading-relaxed mb-6" style="opacity:0.9">
+        {{ latest.feedback }}
+      </p>
+      <p class="text-xs" style="opacity:0.7">
+        {% t_either "Last taken" "آخر اختبار" %}: {{ latest.created_at|date:"Y-m-d" }}
+      </p>
+      {% endif %}
+    </div>
+
+    <div class="flex flex-wrap gap-3 justify-center mb-10">
+      <a href="{% url 'dashboard' %}" class="btn btn-hero btn-lg">
+        {% t "pl.continue" %} <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+      </a>
+      <form method="post" action="{% url 'placement_retake' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-lg">
+          <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+          {% t "pl.retake" %}
+        </button>
+      </form>
+    </div>
+
+    {% if history %}
+    <h2 class="font-display text-2xl font-bold mb-4">{% t "pl.history" %}</h2>
+    <div class="card divide-y divide-border">
+      {% for r in history %}
+      <div class="p-4 flex items-center justify-between gap-4">
+        <div>
+          <div class="font-semibold">{{ r.level }}</div>
+          <div class="text-xs text-muted-foreground">{{ r.created_at|date:"Y-m-d H:i" }}</div>
+        </div>
+        <div class="text-sm text-muted-foreground">
+          {% t_either "Written" "كتابي" %}: {{ r.written_score|default:"—" }} ·
+          {% t_either "Speaking" "شفهي" %}: {{ r.speaking_score|default:"—" }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+{% endblock %}
+

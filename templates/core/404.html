@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}404 — Onlenco{% endblock %}
+{% block body %}
+<div class="flex min-h-screen items-center justify-center bg-muted">
+    <div class="text-center">
+        <h1 class="mb-4 text-6xl font-display font-bold">404</h1>
+        <p class="mb-6 text-xl text-muted-foreground">Oops! Page not found</p>
+        <a href="{% url 'home' %}" class="btn btn-hero btn-lg">Return to home</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "analytics.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-8">
+        <div class="flex items-start justify-between gap-6 flex-wrap">
+            <div>
+                <h1 class="font-display text-4xl font-bold mb-1">{% t "analytics.title" %}</h1>
+                <div class="text-sm text-muted-foreground">
+                    {% t_either "Last updated" "آخر تحديث" %}: {{ metrics.now|date:"Y-m-d H:i" }}
+                </div>
+            </div>
+            <a href="/admin/" class="btn btn-outline">
+                <i data-lucide="settings" class="h-4 w-4"></i> {% t_either "Open Django admin" "لوحة الإدارة" %}
+            </a>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div class="card p-5 relative overflow-hidden">
+                <div class="text-sm text-muted-foreground">{% t "analytics.users" %}</div>
+                <div class="font-display text-4xl font-bold mt-1">{{ metrics.acquisition.total_users }}</div>
+                <div class="absolute top-4 right-4 h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center">
+                    <i data-lucide="users" class="h-4 w-4 text-primary-foreground"></i>
+                </div>
+            </div>
+            <div class="card p-5 relative overflow-hidden">
+                <div class="text-sm text-muted-foreground">{% t "analytics.placement" %}</div>
+                <div class="font-display text-4xl font-bold mt-1">{{ metrics.activation.placement_done }}</div>
+                <div class="text-xs text-muted-foreground mt-1">{{ metrics.activation.activation_rate|floatformat:1 }}%</div>
+                <div class="absolute top-4 right-4 h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center">
+                    <i data-lucide="sparkles" class="h-4 w-4 text-primary-foreground"></i>
+                </div>
+            </div>
+            <div class="card p-5 relative overflow-hidden">
+                <div class="text-sm text-muted-foreground">{% t "analytics.mau" %}</div>
+                <div class="font-display text-4xl font-bold mt-1">{{ metrics.retention.mau }}</div>
+                <div class="text-xs text-muted-foreground mt-1">DAU {{ metrics.retention.dau }} · WAU {{ metrics.retention.wau }}</div>
+                <div class="absolute top-4 right-4 h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center">
+                    <i data-lucide="activity" class="h-4 w-4 text-primary-foreground"></i>
+                </div>
+            </div>
+            <div class="card p-5 relative overflow-hidden">
+                <div class="text-sm text-muted-foreground">{% t "analytics.active_subs" %}</div>
+                <div class="font-display text-4xl font-bold mt-1">{{ metrics.revenue.active_subs }}</div>
+                <div class="absolute top-4 right-4 h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center">
+                    <i data-lucide="badge-check" class="h-4 w-4 text-primary-foreground"></i>
+                </div>
+            </div>
+            <div class="card p-5 relative overflow-hidden">
+                <div class="text-sm text-muted-foreground">{% t "analytics.revenue" %}</div>
+                <div class="font-display text-4xl font-bold mt-1">{{ metrics.revenue.revenue_month }}</div>
+                <div class="text-xs text-muted-foreground mt-1">SDG</div>
+                <div class="absolute top-4 right-4 h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center">
+                    <i data-lucide="wallet" class="h-4 w-4 text-primary-foreground"></i>
+                </div>
+            </div>
+            <div class="card p-5 relative overflow-hidden">
+                <div class="text-sm text-muted-foreground">{% t "analytics.pending" %}</div>
+                <div class="font-display text-4xl font-bold mt-1">{{ metrics.revenue.pending_count }}</div>
+                <div class="text-xs text-muted-foreground mt-1">{{ metrics.revenue.pending_total }} SDG</div>
+                <div class="absolute top-4 right-4 h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center">
+                    <i data-lucide="clock" class="h-4 w-4 text-primary-foreground"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+            <div class="card p-6">
+                <div class="font-semibold mb-4">{% t "analytics.signups_30d" %}</div>
+                <div class="h-64">
+                    <canvas id="signupsChart"></canvas>
+                </div>
+            </div>
+            <div class="card p-6">
+                <div class="font-semibold mb-4">{% t "analytics.cefr_dist" %}</div>
+                {% if metrics.activation.cefr_dist %}
+                    <div class="h-64">
+                        <canvas id="cefrChart"></canvas>
+                    </div>
+                {% else %}
+                    <div class="text-sm text-muted-foreground py-10 text-center">
+                        {% t_either "No placement data yet." "لا توجد بيانات بعد." %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+            <div class="card p-6">
+                <div class="font-semibold mb-4">{% t_either "Top plans" "الخطط الأكثر" %}</div>
+                <div class="space-y-2 text-sm">
+                    {% for row in metrics.revenue.top_plans %}
+                        <div class="flex items-center justify-between">
+                            <div class="capitalize">{{ row.plan }}</div>
+                            <div class="text-muted-foreground">{{ row.c }}</div>
+                        </div>
+                    {% empty %}
+                        <div class="text-muted-foreground">{% t_either "No approved payments yet." "لا توجد مدفوعات معتمدة بعد." %}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card p-6">
+                <div class="font-semibold mb-4">{% t_either "Top payment methods" "طرق الدفع الأكثر" %}</div>
+                <div class="space-y-2 text-sm">
+                    {% for row in metrics.revenue.top_methods %}
+                        <div class="flex items-center justify-between">
+                            <div class="capitalize">{{ row.method }}</div>
+                            <div class="text-muted-foreground">{{ row.c }}</div>
+                        </div>
+                    {% empty %}
+                        <div class="text-muted-foreground">{% t_either "No approved payments yet." "لا توجد مدفوعات معتمدة بعد." %}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+                <div class="font-semibold">{% t "analytics.recent_pay" %}</div>
+                <div class="text-xs text-muted-foreground">{% t_either "Approval rate" "نسبة القبول" %}: {{ metrics.revenue.approval_rate|floatformat:1 }}%</div>
+            </div>
+
+            <div class="overflow-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-muted-foreground">
+                            <th class="py-2 pr-3">{% t_either "User" "المستخدم" %}</th>
+                            <th class="py-2 pr-3">{% t_either "Plan" "الخطة" %}</th>
+                            <th class="py-2 pr-3">{% t_either "Method" "الطريقة" %}</th>
+                            <th class="py-2 pr-3">{% t_either "Amount" "المبلغ" %}</th>
+                            <th class="py-2 pr-3">{% t_either "Status" "الحالة" %}</th>
+                            <th class="py-2 pr-3">{% t_either "Created" "تاريخ" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        {% for p in metrics.recent_payments %}
+                            <tr class="{% cycle '' 'bg-muted/50' %}">
+                                <td class="py-3 pr-3">{{ p.user.email|default:p.user.username }}</td>
+                                <td class="py-3 pr-3 capitalize">{{ p.plan }}</td>
+                                <td class="py-3 pr-3 capitalize">{{ p.method }}</td>
+                                <td class="py-3 pr-3">{{ p.amount_sdg }}</td>
+                                <td class="py-3 pr-3">
+                                    <span class="badge badge-outline">{{ p.status }}</span>
+                                </td>
+                                <td class="py-3 pr-3 text-muted-foreground">{{ p.created_at|date:"Y-m-d" }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="6" class="py-6 text-center text-muted-foreground">{% t_either "No payments yet." "لا توجد مدفوعات بعد." %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{ metrics.acquisition.signups_30d|json_script:"signups-data" }}
+        {{ metrics.activation.cefr_dist|json_script:"cefr-data" }}
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (function () {
+    const getHsl = (name, fallback) => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v ? `hsl(${v})` : fallback;
+    };
+
+    const signups = JSON.parse(document.getElementById('signups-data').textContent || '[]');
+    const labels = signups.map(x => x.date);
+    const values = signups.map(x => x.count);
+
+    const ctx = document.getElementById('signupsChart');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{
+          label: 'Signups',
+          data: values,
+          borderColor: getHsl('--secondary', '#f59e0b'),
+          backgroundColor: 'transparent',
+          tension: 0.35,
+        } ] },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { maxTicksLimit: 8 } },
+            y: { beginAtZero: true, precision: 0 }
+          }
+        }
+      });
+    }
+
+    const cefrRaw = JSON.parse(document.getElementById('cefr-data').textContent || '[]');
+    const cefrLabels = cefrRaw.map(r => r.cefr_level);
+    const cefrVals = cefrRaw.map(r => r.c);
+    const ctx2 = document.getElementById('cefrChart');
+    if (ctx2 && cefrRaw.length) {
+      new Chart(ctx2, {
+        type: 'doughnut',
+        data: { labels: cefrLabels, datasets: [{
+          data: cefrVals,
+          backgroundColor: [
+            getHsl('--primary', '#0f766e'),
+            getHsl('--secondary', '#f59e0b'),
+            getHsl('--accent', '#f97316'),
+            'hsl(150 50% 60%)',
+            'hsl(220 70% 60%)',
+            'hsl(280 60% 60%)',
+            'hsl(10 70% 60%)',
+          ],
+        } ] },
+        options: { responsive: true }
+      });
+    }
+  })();
+</script>
+{% endblock %}

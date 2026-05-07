@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ lesson.title }} — Quiz — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 max-w-3xl mx-auto space-y-6">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+                <h1 class="font-display text-3xl font-bold mb-1">{{ lesson.title }}</h1>
+                <p class="text-sm text-muted-foreground">{% t_either "Quiz" "اختبار" %} · {{ quiz.pass_score }}% {% t_either "to pass" "للنجاح" %}</p>
+            </div>
+            <a href="{% url 'lesson_detail' lesson.pk %}" class="btn btn-ghost">
+                <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i> {% t "lesson.back" %}
+            </a>
+        </div>
+
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+
+            {% for q in questions %}
+                <div class="card p-7">
+                    <div class="text-sm text-muted-foreground mb-1">{% t "quiz.q" %} {{ forloop.counter }}</div>
+                    <div class="font-semibold mb-4">{{ q.prompt }}</div>
+
+                    <div class="space-y-2">
+                        <label class="radio-card">
+                            <input type="radio" name="q_{{ q.id }}" value="a" required>
+                            <span class="font-semibold uppercase">A</span>
+                            <span>{{ q.choice_a }}</span>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="q_{{ q.id }}" value="b" required>
+                            <span class="font-semibold uppercase">B</span>
+                            <span>{{ q.choice_b }}</span>
+                        </label>
+                        {% if q.choice_c %}
+                        <label class="radio-card">
+                            <input type="radio" name="q_{{ q.id }}" value="c" required>
+                            <span class="font-semibold uppercase">C</span>
+                            <span>{{ q.choice_c }}</span>
+                        </label>
+                        {% endif %}
+                        {% if q.choice_d %}
+                        <label class="radio-card">
+                            <input type="radio" name="q_{{ q.id }}" value="d" required>
+                            <span class="font-semibold uppercase">D</span>
+                            <span>{{ q.choice_d }}</span>
+                        </label>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <div class="flex items-center justify-end">
+                <button type="submit" class="btn btn-hero btn-lg">
+                    {% t_either "Submit quiz" "إرسال الاختبار" %}
+                    <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                </button>
+            </div>
+        </form>
+    </main>
+</div>
+{% endblock %}
+

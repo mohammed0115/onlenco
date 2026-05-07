@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% if mode == "signup" %}{% t "auth.signup" %}{% else %}{% t "auth.signin" %}{% endif %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen flex">
+
+    <div class="flex-1 flex flex-col p-8 md:p-12">
+        <div class="flex items-center justify-between">
+            <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg gradient-sunset">
+                    <i data-lucide="sparkles" class="h-4 w-4 text-primary-foreground"></i>
+                </div>
+                Onlenco
+            </a>
+            {% include "_lang_toggle.html" %}
+        </div>
+
+        <div class="flex-1 flex items-center justify-center">
+            <div class="card gradient-card shadow-elegant w-full max-w-md p-8">
+                <h1 class="font-display text-3xl font-bold mb-2">
+                    {% if mode == "signup" %}{% t "auth.signup" %}{% else %}{% t "auth.signin" %}{% endif %}
+                </h1>
+                <p class="text-muted-foreground text-sm mb-6">
+                    {% if mode == "signup" %}
+                        {% t_either "Start with a free placement test." "ابدأ باختبار تحديد المستوى المجاني." %}
+                    {% else %}
+                        {% t_either "Continue your English journey." "تابع رحلتك في تعلم الإنجليزية." %}
+                    {% endif %}
+                </p>
+
+                <form method="post" class="space-y-4" novalidate>
+                    {% csrf_token %}
+                    <input type="hidden" name="mode" value="{{ mode }}">
+
+                    {% if mode == "signup" %}
+                        <div>
+                            <label class="label" for="id_full_name">{% t "auth.name" %}</label>
+                            <input class="input" type="text" id="id_full_name" name="full_name"
+                                   maxlength="100" required
+                                   value="{{ signup_form.full_name.value|default_if_none:'' }}">
+                            {% for err in signup_form.full_name.errors %}
+                                <p class="text-xs text-destructive mt-1">{{ err }}</p>
+                            {% endfor %}
+                        </div>
+                        <div>
+                            <label class="label" for="id_email">{% t "auth.email" %}</label>
+                            <input class="input" type="email" id="id_email" name="email"
+                                   maxlength="255" required
+                                   value="{{ signup_form.email.value|default_if_none:'' }}">
+                            {% for err in signup_form.email.errors %}
+                                <p class="text-xs text-destructive mt-1">{{ err }}</p>
+                            {% endfor %}
+                        </div>
+                        <div>
+                            <label class="label" for="id_password">{% t "auth.password" %}</label>
+                            <input class="input" type="password" id="id_password" name="password"
+                                   minlength="6" maxlength="100" required>
+                            {% for err in signup_form.password.errors %}
+                                <p class="text-xs text-destructive mt-1">{{ err }}</p>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div>
+                            <label class="label" for="id_username">{% t "auth.email" %}</label>
+                            <input class="input" type="email" id="id_username" name="username"
+                                   maxlength="255" required
+                                   value="{{ signin_form.username.value|default_if_none:'' }}">
+                        </div>
+                        <div>
+                            <label class="label" for="id_password">{% t "auth.password" %}</label>
+                            <input class="input" type="password" id="id_password" name="password"
+                                   required>
+                        </div>
+                    {% endif %}
+
+                    <button type="submit" class="btn btn-hero w-full" style="height:2.75rem">
+                        {% t "auth.continue" %}
+                    </button>
+                </form>
+
+                <p class="text-sm text-muted-foreground text-center mt-6">
+                    {% if mode == "signup" %}{% t "auth.have" %}{% else %}{% t "auth.no" %}{% endif %}
+                    <a href="?mode={% if mode == 'signup' %}signin{% else %}signup{% endif %}"
+                       class="text-foreground font-semibold hover:underline">
+                        {% if mode == "signup" %}{% t "nav.signin" %}{% else %}{% t "nav.start" %}{% endif %}
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="hidden lg:block flex-1 gradient-hero relative overflow-hidden">
+        <div class="absolute inset-0 flex items-center justify-center p-12">
+            <div class="text-primary-foreground max-w-md">
+                <h2 class="font-display text-5xl font-bold mb-4 leading-tight">
+                    {% t_either "Your AI English coach awaits." "مدربك الذكي في انتظارك." %}
+                </h2>
+                <p class="text-lg" style="opacity:0.9">
+                    {% t_either "Personalized lessons, voice practice, and weekly live clubs — all in one place." "دروس مخصصة، تدريب صوتي، ونوادي أسبوعية حية — في مكان واحد." %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

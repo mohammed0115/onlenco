@@ -1,0 +1,14 @@
+{% comment %}
+  Toggles between en and ar by POSTing to /set-language/.
+
+  We re-render in either language so the right label always shows.
+{% endcomment %}
+<form action="{% url 'set_language' %}" method="post" class="inline-flex">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input type="hidden" name="language" value="{% if lang == 'en' %}ar{% else %}en{% endif %}">
+    <button type="submit" class="btn btn-ghost" style="height:2.25rem;padding:0 0.875rem;font-size:0.8125rem"
+            title="Switch language">
+        {% if lang == 'en' %}العربية{% else %}English{% endif %}
+    </button>
+</form>

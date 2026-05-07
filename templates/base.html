@@ -1,0 +1,84 @@
+{% load static %}<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Onlenco — AI English coach{% endblock %}</title>
+  <meta name="description" content="AI-powered English learning, built for Sudanese learners.">
+  <link rel="icon" href="{% static 'favicon.ico' %}">
+
+  {# Plus Jakarta Sans (UI), Fraunces (display), Cairo (Arabic) #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  {% comment %}
+    Tailwind via Play CDN — keeps the project Node-free.
+    The config maps Tailwind utility names (bg-primary, text-foreground,
+    border-border, …) onto our HSL CSS variables so templates can use
+    consistent utility names.
+  {% endcomment %}
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        container: { center: true, padding: '1.5rem', screens: { '2xl': '1280px' } },
+        extend: {
+          colors: {
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+            popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+            primary: {
+              DEFAULT: 'hsl(var(--primary))',
+              foreground: 'hsl(var(--primary-foreground))',
+              glow: 'hsl(var(--primary-glow))',
+            },
+            secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+            muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+            accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+            destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+          },
+          borderRadius: {
+            lg: 'var(--radius)',
+            md: 'calc(var(--radius) - 2px)',
+            sm: 'calc(var(--radius) - 4px)',
+          },
+          fontFamily: {
+            sans:    ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+            display: ['Fraunces', 'Georgia', 'serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="{% static 'css/onlenco.css' %}">
+
+  {# Lucide icons #}
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+{% if messages %}
+<div class="toast-container fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+  {% for message in messages %}
+    <div class="toast toast-{{ message.tags|default:'info' }}">{{ message }}</div>
+  {% endfor %}
+</div>
+<script>
+  setTimeout(() => document.querySelectorAll('.toast').forEach(t => t.remove()), 5000);
+</script>
+{% endif %}
+
+{% block body %}{% endblock %}
+
+<script>if (window.lucide) lucide.createIcons();</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

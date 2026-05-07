@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "pay.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10" style="max-width:48rem">
+
+        <div class="mb-8 text-center">
+            <h1 class="font-display text-4xl font-bold mb-3">{% t "pay.title" %}</h1>
+            <p class="text-muted-foreground">{% t "pay.intro" %}</p>
+        </div>
+
+        {% if profile.subscription_status == "active" %}
+            <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-8 mb-8 text-center">
+                <i data-lucide="check-circle-2" class="h-12 w-12 mx-auto mb-3"></i>
+                <h2 class="font-display text-2xl font-bold mb-2">{% t "pay.active" %}</h2>
+                {% if profile.subscription_expires_at %}
+                <p style="opacity:0.9">
+                    {% t_either "Active until" "مفعل حتى" %}: {{ profile.subscription_expires_at|date:"Y-m-d" }}
+                </p>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if last_rejected %}
+        <div class="card p-5 mb-6" style="border-color: hsl(var(--destructive)); background: hsl(0 75% 97%);">
+          <div class="flex items-start gap-3">
+            <i data-lucide="alert-circle" class="h-5 w-5 mt-0.5" style="color: hsl(var(--destructive))"></i>
+            <div class="flex-1">
+              <h3 class="font-semibold mb-1" style="color: hsl(var(--destructive))">
+                {% t "pay.rejected_title" %}
+              </h3>
+              <p class="text-sm">
+                {% t_either "Your previous submission on" "تم رفض دفعتك السابقة بتاريخ" %}
+                {{ last_rejected.created_at|date:"Y-m-d" }}
+                {% t_either "was rejected." "" %}
+              </p>
+              {% if last_rejected.admin_note %}
+              <p class="text-sm mt-2 italic">"{{ last_rejected.admin_note }}"</p>
+              {% endif %}
+              <p class="text-sm mt-2">{% t "pay.rejected_retry" %}</p>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {# Plan picker — radios styled as cards #}
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <div>
+                <p class="label text-base font-semibold mb-3">{% t "pay.plan" %}</p>
+                <div class="grid sm:grid-cols-2 gap-3" id="plan-picker">
+                    <label class="card p-5 cursor-pointer transition-smooth hover:shadow-elegant" data-plan-card="monthly">
+                        <input type="radio" name="plan" value="monthly" required class="sr-only" data-plan="monthly"
+                               {% if request.POST.plan == "monthly" or (not request.POST.plan and prefill_plan == "monthly") %}checked{% endif %}>
+                        <div class="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">{% t "price.month" %}</div>
+                        <div class="flex items-baseline gap-1 mb-1">
+                            <span class="font-display text-3xl font-bold">8,000</span>
+                            <span class="text-muted-foreground text-sm">SDG{% t "price.permonth" %}</span>
+                        </div>
+                        <p class="text-xs text-muted-foreground">30 {% t_either "days" "يوم" %}</p>
+                    </label>
+
+                    <label class="card p-5 cursor-pointer transition-smooth hover:shadow-elegant relative" data-plan-card="quarterly">
+                        <span class="badge badge-popular absolute" style="top:-0.625rem;right:1rem">{% t "price.popular" %}</span>
+                        <input type="radio" name="plan" value="quarterly" required class="sr-only" data-plan="quarterly"
+                               {% if request.POST.plan == "quarterly" or (not request.POST.plan and prefill_plan == "quarterly") %}checked{% endif %}>
+                        <div class="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">{% t "price.quarter" %}</div>
+                        <div class="flex items-baseline gap-1 mb-1">
+                            <span class="font-display text-3xl font-bold">18,000</span>
+                            <span class="text-muted-foreground text-sm">SDG / 3{% t_either "mo" "شهور" %}</span>
+                        </div>
+                        <p class="text-xs text-muted-foreground">90 {% t_either "days" "يوم" %} · {% t "price.save" %}</p>
+                    </label>
+                </div>
+                {% if form.plan.errors %}<p class="text-xs text-destructive mt-1">{{ form.plan.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <p class="label text-base font-semibold mb-3">{% t "pay.method" %}</p>
+                <div class="grid sm:grid-cols-3 gap-3" id="method-picker">
+                    {% for code, info in accounts.items %}
+                    <label class="card p-4 cursor-pointer transition-smooth hover:shadow-elegant text-center" data-method-card="{{ code }}">
+                        <input type="radio" name="method" value="{{ code }}" required class="sr-only" data-method="{{ code }}"
+                               {% if request.POST.method == code or (not request.POST.method and prefill_method == code) %}checked{% endif %}>
+                        <div class="font-display text-lg font-bold mb-1">{{ info.label }}</div>
+                        <div class="text-xs text-muted-foreground">{{ info.account }}</div>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% if form.method.errors %}<p class="text-xs text-destructive mt-1">{{ form.method.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div class="card p-5 bg-muted/50">
+                <h3 class="font-semibold mb-2 flex items-center gap-2">
+                    <i data-lucide="info" class="h-4 w-4 text-secondary"></i>
+                    {% t_either "Payment instructions" "تعليمات الدفع" %}
+                </h3>
+                <p class="text-sm text-muted-foreground">{% t "pay.instructions" %}</p>
+                <ul class="text-sm mt-3 space-y-2">
+                    {% for code, info in accounts.items %}
+                    <li>
+                        <strong>{{ info.label }}:</strong> {{ info.name }} — <code>{{ info.account }}</code>
+                        {% if info.instructions %}
+                          <div class="text-xs text-muted-foreground mt-1">{{ info.instructions }}</div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div>
+                <label class="label" for="id_transaction_reference">{% t "pay.txn" %}</label>
+                <input class="input" type="text" id="id_transaction_reference" name="transaction_reference"
+                       maxlength="120" placeholder="e.g. TRX-908123 or last 4 digits"
+                       value="{{ form.transaction_reference.value|default_if_none:'' }}">
+            </div>
+
+            <div>
+                <label class="label" for="id_screenshot">{% t "pay.proof" %} *</label>
+                <input class="input" type="file" id="id_screenshot" name="screenshot"
+                       accept="image/*" required>
+                <p class="text-xs text-muted-foreground mt-1">PNG / JPG · ≤ 5 MB</p>
+                {% if form.screenshot.errors %}<p class="text-xs text-destructive mt-1">{{ form.screenshot.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-hero btn-lg w-full" style="height:3rem">
+                {% t "pay.submit" %}
+                <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+            </button>
+        </form>
+
+        {% if submissions %}
+        <div class="mt-12">
+            <h2 class="font-display text-2xl font-bold mb-4">{% t "pay.history" %}</h2>
+            <div class="card divide-y divide-border">
+                {% for s in submissions %}
+                <div class="p-4 flex items-center justify-between gap-4">
+                    <div>
+                        <div class="font-semibold">{{ s.get_plan_display }} · {{ s.get_method_display }}</div>
+                        <div class="text-xs text-muted-foreground">
+                            {{ s.created_at|date:"Y-m-d H:i" }} · {{ s.amount_sdg }} SDG
+                        </div>
+                    </div>
+                    <span class="badge {% if s.status == 'approved' %}badge-popular{% elif s.status == 'rejected' %}badge-outline text-destructive{% else %}badge-secondary{% endif %}">
+                        {{ s.get_status_display }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+<script>
+  // Highlight the selected plan / method card by toggling a ring
+  function setupPicker(name) {
+    document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
+      radio.addEventListener('change', () => {
+        document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+          const card = r.closest('label');
+          if (r.checked) {
+            card.style.borderColor = 'hsl(var(--ring))';
+            card.style.boxShadow = '0 0 0 3px hsl(var(--ring) / 0.15)';
+          } else {
+            card.style.borderColor = '';
+            card.style.boxShadow = '';
+          }
+        });
+      });
+    });
+  }
+  setupPicker('plan');
+  setupPicker('method');
+
+  document.addEventListener('DOMContentLoaded', () => {
+    ['plan', 'method'].forEach(name => {
+      const checked = document.querySelector(`input[name="${name}"]:checked`);
+      if (checked) checked.dispatchEvent(new Event('change'));
+    });
+  });
+</script>
+{% endblock %}

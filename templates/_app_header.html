@@ -1,0 +1,26 @@
+{% load i18n_dict %}
+<header class="border-b border-border/40 bg-background/80 backdrop-blur-xl sticky top-0 z-40">
+    <div class="container flex h-16 items-center justify-between">
+        <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold">
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg gradient-sunset">
+                <i data-lucide="sparkles" class="h-4 w-4 text-primary-foreground"></i>
+            </div>
+            Onlenco
+        </a>
+        <div class="flex items-center gap-2">
+            {% if request.user.profile.is_admin %}
+              <a href="{% url 'analytics' %}" class="btn btn-ghost" style="height:2.25rem;font-size:0.8125rem">
+                <i data-lucide="bar-chart-3" class="h-4 w-4"></i>
+                Analytics
+              </a>
+            {% endif %}
+            {% include "_lang_toggle.html" %}
+            <form action="{% url 'logout' %}" method="post" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost" style="height:2.25rem;font-size:0.8125rem">
+                    <i data-lucide="log-out" class="h-4 w-4"></i> {% t "dash.signout" %}
+                </button>
+            </form>
+        </div>
+    </div>
+</header>

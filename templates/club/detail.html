@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ event.title }} — {% t "club.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 max-w-4xl mx-auto space-y-6">
+        <a href="{% url 'club' %}" class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:underline">
+            <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i> {% t "club.title" %}
+        </a>
+
+        <div class="card gradient-card p-8">
+            <div class="flex items-start justify-between gap-6 flex-wrap">
+                <div class="min-w-0">
+                    <h1 class="font-display text-3xl font-bold mb-2">{{ event.title }}</h1>
+                    <div class="text-muted-foreground mb-4">{{ event.topic }}</div>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="badge badge-outline">{{ event.level_min }} – {{ event.level_max }}</span>
+                        <span class="badge badge-outline">
+                            <time class="js-local" datetime="{{ event.starts_at|date:'c' }}">{{ event.starts_at|date:"Y-m-d H:i" }}</time>
+                        </span>
+                        <span class="badge badge-outline">{{ event.duration_minutes }} {% t_either "min" "د" %}</span>
+                    </div>
+                </div>
+
+                {% if my_rsvp and my_rsvp.status == "going" and can_see_link and event.meet_url %}
+                    <a href="{{ event.meet_url }}" class="btn btn-hero btn-lg">
+                        <i data-lucide="video" class="h-4 w-4"></i> {% t "club.join" %}
+                    </a>
+                {% endif %}
+            </div>
+
+            {% if event.description %}
+                <p class="text-sm text-muted-foreground leading-relaxed mt-5">{{ event.description }}</p>
+            {% endif %}
+        </div>
+
+        <div class="card p-7">
+            <div class="flex items-start justify-between gap-6 flex-wrap">
+                <div>
+                    <div class="font-semibold mb-2">{% t_either "Your RSVP" "تسجيلك" %}</div>
+                    {% if my_rsvp %}
+                        <div class="text-sm text-muted-foreground">
+                            {% t_either "Status" "الحالة" %}: <span class="font-semibold">{{ my_rsvp.status }}</span>
+                        </div>
+                    {% else %}
+                        <div class="text-sm text-muted-foreground">{% t_either "You haven't RSVP'd yet." "لم تقم بالتسجيل بعد." %}</div>
+                    {% endif %}
+
+                    <div class="mt-4 text-sm text-muted-foreground">
+                        {% if my_rsvp and my_rsvp.status == "going" and can_see_link and event.meet_url %}
+                            <span class="inline-flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4"></i> {% t_either "Meet link is available above." "رابط الجلسة متاح بالأعلى." %}</span>
+                        {% else %}
+                            <span class="inline-flex items-center gap-2"><i data-lucide="info" class="h-4 w-4"></i> {% t "club.link_later" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <form method="post" action="{% url 'club_rsvp' event.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="going">
+                        <button type="submit" class="btn btn-hero">
+                            <i data-lucide="check" class="h-4 w-4"></i> {% t "club.rsvp.going" %}
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'club_rsvp' event.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="maybe">
+                        <button type="submit" class="btn btn-outline">{% t "club.rsvp.maybe" %}</button>
+                    </form>
+                    <form method="post" action="{% url 'club_rsvp' event.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="cancelled">
+                        <button type="submit" class="btn btn-ghost">
+                            <i data-lucide="x" class="h-4 w-4"></i> {% t "club.rsvp.cancel" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+  document.querySelectorAll('time.js-local').forEach((el) => {
+    try {
+      const d = new Date(el.dateTime);
+      el.textContent = d.toLocaleString();
+    } catch (e) {}
+  });
+</script>
+{% endblock %}
+

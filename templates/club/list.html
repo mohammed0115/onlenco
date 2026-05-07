@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t "club.title" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-8">
+        <div class="max-w-3xl">
+            <h1 class="font-display text-4xl font-bold mb-2">{% t "club.title" %}</h1>
+            <p class="text-muted-foreground">{% t "club.subtitle" %}</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="{% url 'club' %}" class="badge badge-outline hover:bg-muted/60"
+               style="{% if tab == 'upcoming' %}background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); border-color:hsl(var(--primary));{% endif %}">
+                {% t "club.upcoming" %}
+            </a>
+            <a href="{% url 'club' %}?tab=past" class="badge badge-outline hover:bg-muted/60"
+               style="{% if tab == 'past' %}background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); border-color:hsl(var(--primary));{% endif %}">
+                {% t "club.past" %}
+            </a>
+        </div>
+
+        {% if not is_subscribed %}
+            <div class="card p-6" style="border-color:hsl(var(--destructive)); background:hsl(0 75% 97%);">
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="lock" class="h-5 w-5 mt-0.5" style="color:hsl(var(--destructive))"></i>
+                        <div>
+                            <div class="font-semibold mb-1">{% t "club.locked" %}</div>
+                            <div class="text-sm text-muted-foreground">{% t_either "You can preview upcoming sessions, but RSVP and Meet links require a subscription." "يمكنك معاينة الجلسات، لكن التسجيل وروابط الجلسة تتطلب اشتراكاً." %}</div>
+                        </div>
+                    </div>
+                    <a href="{% url 'subscribe' %}" class="btn btn-hero">{% t "dash.subscribe" %}</a>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if events %}
+            <div class="grid md:grid-cols-2 gap-4">
+                {% for e in events %}
+                    <a href="{% url 'club_event' e.pk %}" class="card gradient-card p-7 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                        <div class="flex items-start justify-between gap-4 mb-4">
+                            <div class="px-4 py-3 rounded-xl gradient-sunset text-primary-foreground">
+                                <div class="text-xs font-semibold" style="opacity:0.95">
+                                    <time class="js-local" datetime="{{ e.starts_at|date:'c' }}">{{ e.starts_at|date:"D d M · H:i" }}</time>
+                                </div>
+                                <div class="text-xs" style="opacity:0.85">{{ e.duration_minutes }} {% t_either "min" "د" %}</div>
+                            </div>
+                            {% if e.my_rsvp %}
+                                {% if e.my_rsvp.status == "going" %}<span class="badge badge-secondary"><i data-lucide="check" class="h-3 w-3"></i> {% t "club.rsvp.going" %}</span>
+                                {% elif e.my_rsvp.status == "maybe" %}<span class="badge badge-outline">{% t "club.rsvp.maybe" %}</span>
+                                {% else %}<span class="badge badge-outline">{% t_either "Cancelled" "ملغي" %}</span>{% endif %}
+                            {% endif %}
+                        </div>
+
+                        <div class="font-display text-2xl font-bold mb-1">{{ e.title }}</div>
+                        <div class="text-sm text-muted-foreground mb-2">{{ e.topic }}</div>
+                        {% if e.host_name %}
+                            <div class="text-xs text-muted-foreground mb-4">{% t "club.host" %} {{ e.host_name }}</div>
+                        {% endif %}
+
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="badge badge-outline">{{ e.level_min }} – {{ e.level_max }}</span>
+                            {% if e.is_full %}
+                                <span class="badge badge-outline" style="border-color:hsl(var(--destructive)); color:hsl(var(--destructive));">{% t "club.full" %}</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="text-xs text-muted-foreground mb-2">{{ e.going_count }}/{{ e.capacity }} {% t "club.capacity" %}</div>
+                        <div class="h-1 rounded bg-muted overflow-hidden">
+                            <div class="h-1 bg-secondary" style="width:{% widthratio e.going_count e.capacity 100 %}%"></div>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="card p-10 text-center text-muted-foreground">
+                {% if tab == "past" %}{% t "club.empty_past" %}{% else %}{% t "club.empty_up" %}{% endif %}
+            </div>
+        {% endif %}
+    </main>
+</div>
+
+<script>
+  // Render <time> in the visitor's local timezone.
+  document.querySelectorAll('time.js-local').forEach((el) => {
+    try {
+      const d = new Date(el.dateTime);
+      el.textContent = d.toLocaleString(undefined, { weekday:'short', month:'short', day:'2-digit', hour:'numeric', minute:'2-digit' });
+    } catch (e) {}
+  });
+</script>
+{% endblock %}
+
