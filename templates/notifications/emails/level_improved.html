@@ -1,0 +1,13 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}تهانينا — مستواك تحسن!{% else %}Congratulations — you levelled up!{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    انتقلت من {{ payload.from_level }} إلى <strong>{{ payload.to_level }}</strong>. استمر — ما زال أمامك المزيد!
+  {% else %}
+    You moved from {{ payload.from_level }} to <strong>{{ payload.to_level }}</strong>. Keep going — you're on a roll!
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}تابع التعلم{% else %}Keep learning{% endif %}</a></p>
+{% endblock %}

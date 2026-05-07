@@ -1,0 +1,21 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}نقطة تركيز جديدة{% else %}New focus area{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    لاحظ النظام أن لديك تكراراً في الأخطاء حول:
+  {% else %}
+    We noticed repeated mistakes around:
+  {% endif %}
+  <strong>{{ payload.topic|default:payload.skill }}</strong>
+</p>
+<p>
+  {% if lang == "ar" %}
+    سنركز تمارينك القادمة على هذه النقطة. لا حاجة للقلق — هذا جزء طبيعي من التعلم.
+  {% else %}
+    Your next exercises will focus here — no worries, this is part of how learning works.
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}تدرب الآن{% else %}Practice now{% endif %}</a></p>
+{% endblock %}

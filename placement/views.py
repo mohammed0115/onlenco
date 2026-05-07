@@ -6,6 +6,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import PlacementResult
 from .services import assess
+from .services.diagnostic_engine import build_diagnostic_profile
 
 
 # MCQ choices kept here so the view stays the single source of truth
@@ -70,6 +71,13 @@ def placement(request):
         profile.cefr_level = result["level"]
         profile.placement_completed = True
         profile.save(update_fields=["cefr_level", "placement_completed"])
+
+        # Build adaptive diagnostic profile (best-effort).
+        try:
+            build_diagnostic_profile(request.user, answers, assessment=result)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Diagnostic engine failed")
 
         request.session.pop("placement_retake", None)
 

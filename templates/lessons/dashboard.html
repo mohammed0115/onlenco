@@ -153,6 +153,66 @@
         </div>
         {% endif %}
 
+        {# My Learning panel — adaptive learning summary #}
+        {% if learning_summary %}
+        <section class="grid lg:grid-cols-3 gap-4">
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "My English level" "مستواي بالإنجليزية" %}</div>
+                <div class="text-3xl font-bold mt-1">{{ learning_summary.cefr_level|default:"—" }}</div>
+                {% if learning_summary.exercise_success_rate is not None %}
+                <div class="text-xs text-muted-foreground mt-2">
+                    {% t_either "Exercise success rate" "نسبة نجاح التمارين" %}: {{ learning_summary.exercise_success_rate }}%
+                </div>
+                {% else %}
+                <div class="text-xs text-muted-foreground mt-2">
+                    {% t_either "Take the placement test to get started." "خذ اختبار التحديد للبدء." %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground mb-2">{% t_either "My top weaknesses" "أهم نقاط ضعفي" %}</div>
+                {% if learning_summary.top_weaknesses %}
+                <ul class="space-y-1 text-sm">
+                    {% for w in learning_summary.top_weaknesses %}
+                    <li class="flex justify-between"><span>{{ w.label }}</span><span class="text-muted-foreground">p={{ w.priority }}</span></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-sm text-muted-foreground">{% t_either "No weaknesses tracked yet — keep practising!" "لا توجد نقاط ضعف مسجلة بعد — استمر في التدرب!" %}</div>
+                {% endif %}
+            </div>
+
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground mb-2">{% t_either "Recommended for you" "موصى لك" %}</div>
+                {% if learning_summary.recommendations %}
+                <ul class="space-y-1 text-sm">
+                    {% for r in learning_summary.recommendations %}
+                    <li class="flex justify-between"><span>{{ r.title }}</span></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-sm text-muted-foreground">{% t_either "Recommendations will appear after a few exercises." "ستظهر التوصيات بعد بعض التمارين." %}</div>
+                {% endif %}
+            </div>
+        </section>
+
+        {% if learning_summary.recent_errors %}
+        <section class="card p-5">
+            <div class="text-sm text-muted-foreground mb-2">{% t_either "Recent mistakes" "أخطاء حديثة" %}</div>
+            <ul class="space-y-1 text-sm">
+                {% for e in learning_summary.recent_errors %}
+                <li>
+                    <span class="badge badge-outline mr-2">{{ e.error_type }}</span>
+                    {% if e.original_text %}<span class="font-mono text-xs">{{ e.original_text }}</span> · {% endif %}
+                    <span class="text-muted-foreground">{{ e.explanation|default:"" }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+        {% endif %}
+
         {# Lessons grid #}
         <div>
             <div class="flex items-center justify-between mb-5">

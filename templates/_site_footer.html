@@ -1,12 +1,11 @@
-{% load i18n_dict %}
+{% load i18n_dict static %}
 <footer class="border-t border-border/40 bg-muted/30">
     <div class="container py-12 grid gap-8 md:grid-cols-4">
         <div class="md:col-span-2">
             <div class="flex items-center gap-2 font-display text-xl font-bold mb-3">
-                <div class="flex h-8 w-8 items-center justify-center rounded-lg gradient-sunset">
-                    <i data-lucide="sparkles" class="h-4 w-4 text-primary-foreground"></i>
-                </div>
-                Onlenco
+                <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco"
+                     class="h-9 w-auto object-contain" width="36" height="36">
+                <span class="sr-only">Onlenco</span>
             </div>
             <p class="text-sm text-muted-foreground max-w-sm">
                 {% t_either "AI-powered English learning, built for Sudanese learners." "تعلم الإنجليزية بالذكاء الاصطناعي، مصمم للسودانيين." %}

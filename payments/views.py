@@ -36,13 +36,42 @@ def subscribe(request):
     if request.method == "POST":
         form = PaymentSubmissionForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save(user=request.user)
+            submission = form.save(user=request.user)
             profile.subscription_status = "pending"
             profile.save(update_fields=["subscription_status"])
             messages.success(
                 request,
                 "Payment submitted! We'll verify it within 24 hours.",
             )
+            try:
+                from notifications import constants as C
+                from notifications.services import NotificationService
+                notifier = NotificationService()
+                notifier.trigger(
+                    C.PAYMENT_SUBMITTED,
+                    user=request.user,
+                    payload={
+                        "plan": submission.plan,
+                        "amount_sdg": submission.amount_sdg,
+                        "cta_url": "/payments/history/",
+                        "cta_label": "View status",
+                        "dedup_key": f"submit:{submission.id}",
+                    },
+                )
+                notifier.notify_admins(
+                    C.NEW_PAYMENT_PENDING,
+                    payload={
+                        "username": request.user.username,
+                        "plan": submission.plan,
+                        "amount_sdg": submission.amount_sdg,
+                        "method": submission.method,
+                        "cta_url": f"/admin/payments/paymentsubmission/{submission.id}/change/",
+                        "cta_label": "Review",
+                    },
+                )
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("notify on payment submit failed")
             return redirect("payment_history")
     else:
         form = PaymentSubmissionForm()

@@ -17,6 +17,12 @@ class PaymentSubmissionForm(forms.ModelForm):
         f = self.cleaned_data["screenshot"]
         if f.size > 5 * 1024 * 1024:
             raise forms.ValidationError("Image must be 5 MB or smaller.")
+        allowed = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+        content_type = getattr(f, "content_type", "") or ""
+        if content_type and content_type not in allowed:
+            raise forms.ValidationError(
+                "Only PNG, JPEG, WEBP, or GIF images are accepted."
+            )
         return f
 
     def clean_method(self):

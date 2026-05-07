@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Learning Analytics" "تحليلات التعلم" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-8">
+        <div class="flex items-start justify-between gap-6 flex-wrap">
+            <div>
+                <h1 class="font-display text-4xl font-bold mb-1">{% t_either "Learning Analytics" "تحليلات التعلم" %}</h1>
+                <div class="text-sm text-muted-foreground">
+                    {% t_either "Window" "النافذة" %}: {{ metrics.window_days }} {% t_either "days" "يوم" %}
+                </div>
+            </div>
+            <form method="get" class="flex items-end gap-2 flex-wrap">
+                <label class="text-sm">
+                    {% t_either "Days" "أيام" %}
+                    <input type="number" name="days" value="{{ filters.days }}" min="1" max="365"
+                           class="border rounded px-2 py-1 ml-1 w-24">
+                </label>
+                <label class="text-sm">
+                    CEFR
+                    <input type="text" name="cefr" value="{{ filters.cefr|default:'' }}" placeholder="A2"
+                           class="border rounded px-2 py-1 ml-1 w-20 uppercase">
+                </label>
+                <button class="btn btn-outline" type="submit">
+                    <i data-lucide="filter" class="h-4 w-4"></i> {% t_either "Apply" "تطبيق" %}
+                </button>
+            </form>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "Active learners" "متعلمون نشطون" %}</div>
+                <div class="text-3xl font-bold">{{ metrics.active_learners }}</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "Exercise success rate" "نسبة نجاح التمارين" %}</div>
+                <div class="text-3xl font-bold">{{ metrics.exercise_success_rate }}%</div>
+                <div class="text-xs text-muted-foreground">{{ metrics.exercise_attempts_total }} {% t_either "attempts" "محاولات" %}</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "Tutor messages" "رسائل المعلم" %}</div>
+                <div class="text-3xl font-bold">{{ metrics.tutor_messages }}</div>
+                <div class="text-xs text-muted-foreground">{{ metrics.tutor_conversations }} {% t_either "conversations" "محادثات" %}</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "AI exercises" "تمارين الذكاء" %}</div>
+                <div class="text-3xl font-bold">{{ metrics.exercises_generated_by_ai }}</div>
+                <div class="text-xs text-muted-foreground">{{ metrics.exercises_generated_total }} {% t_either "total" "الإجمالي" %}</div>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+            <div class="card p-5">
+                <h2 class="font-semibold mb-3">{% t_either "CEFR distribution" "توزيع CEFR" %}</h2>
+                {% if metrics.cefr_distribution %}
+                <ul class="space-y-1 text-sm">
+                    {% for row in metrics.cefr_distribution %}
+                    <li class="flex justify-between"><span>{{ row.current_cefr_level }}</span><span class="text-muted-foreground">{{ row.c }}</span></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-muted-foreground">{% t_either "No data yet." "لا توجد بيانات بعد." %}</p>
+                {% endif %}
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-semibold mb-3">{% t_either "Top weaknesses" "أهم نقاط الضعف" %}</h2>
+                {% if metrics.top_weaknesses %}
+                <ul class="space-y-1 text-sm">
+                    {% for w in metrics.top_weaknesses %}
+                    <li class="flex justify-between"><span>{{ w.grammar_topic__name }}</span><span class="text-muted-foreground">{{ w.c }} · p={{ w.avg_priority|floatformat:1 }}</span></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-muted-foreground">{% t_either "No weaknesses tracked yet." "لا توجد نقاط ضعف مسجلة بعد." %}</p>
+                {% endif %}
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-semibold mb-3">{% t_either "Average mastery by skill" "متوسط الإتقان حسب المهارة" %}</h2>
+                {% if metrics.avg_mastery_by_skill %}
+                <ul class="space-y-1 text-sm">
+                    {% for row in metrics.avg_mastery_by_skill %}
+                    <li class="flex justify-between"><span>{{ row.skill__name }}</span><span class="text-muted-foreground">{{ row.avg|floatformat:1 }}% ({{ row.n }})</span></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-muted-foreground">{% t_either "No mastery data yet." "لا توجد بيانات إتقان بعد." %}</p>
+                {% endif %}
+            </div>
+
+            <div class="card p-5">
+                <h2 class="font-semibold mb-3">{% t_either "Common error types" "أنواع الأخطاء الشائعة" %}</h2>
+                {% if metrics.error_type_breakdown %}
+                <ul class="space-y-1 text-sm">
+                    {% for row in metrics.error_type_breakdown %}
+                    <li class="flex justify-between"><span>{{ row.error_type }}</span><span class="text-muted-foreground">{{ row.c }}</span></li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-muted-foreground">{% t_either "No errors tracked yet." "لا توجد أخطاء مسجلة بعد." %}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "At-risk students (low mastery)" "طلاب في خطر" %}</div>
+                <div class="text-3xl font-bold">{{ metrics.at_risk_low_mastery_users }}</div>
+            </div>
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "Inactive 7 days" "غير نشطين 7 أيام" %}</div>
+                <div class="text-3xl font-bold">{{ metrics.inactive_7d_users }}</div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

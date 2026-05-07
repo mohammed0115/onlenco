@@ -1,0 +1,42 @@
+# Caddy auto-TLS reverse proxy for Onlenco.
+#
+# Caddy fetches and renews Let's Encrypt certificates automatically. The
+# only requirements are:
+#   - DNS A record:  sudaschool.academy      → 187.124.9.244
+#   - DNS A record:  www.sudaschool.academy  → 187.124.9.244
+#   - Ports 80 + 443 open on the host firewall.
+#
+# Set ACME_EMAIL in your shell or .env so Let's Encrypt has a contact.
+
+{
+    email {$ACME_EMAIL:admin@sudaschool.academy}
+    # auto_https on    # the default; uncomment to be explicit
+}
+
+sudaschool.academy, www.sudaschool.academy {
+    encode zstd gzip
+
+    # Forward the proxy hint Django expects when SECURE_PROXY_SSL_HEADER is on
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Forwarded-For   {remote}
+    header_up Host              {host}
+
+    # Cache static assets aggressively (whitenoise hashes filenames)
+    @static path /static/*
+    header @static Cache-Control "public, max-age=31536000, immutable"
+
+    # Strip cookies on static asset responses (defense in depth)
+    header @static -Set-Cookie
+
+    reverse_proxy web:8000 {
+        # Health check — matches the Dockerfile HEALTHCHECK
+        health_uri      /healthz/
+        health_interval 30s
+        health_timeout  5s
+    }
+}
+
+# Redirect bare IP / unmatched hosts to the canonical name.
+:80 {
+    redir https://sudaschool.academy{uri} permanent
+}

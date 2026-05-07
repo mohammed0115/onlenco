@@ -6,7 +6,13 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'onlenco.settings')
+    # Auto-switch to test settings when running `manage.py test` so test-only
+    # overrides (axes off, MD5 hasher, in-memory email) take effect without
+    # the developer having to pass --settings or set the env var manually.
+    if "test" in sys.argv[1:2]:
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.test')
+    else:
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

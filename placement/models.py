@@ -14,9 +14,14 @@ class PlacementResult(models.Model):
     )
     written_score = models.PositiveSmallIntegerField(null=True, blank=True)
     speaking_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    pronunciation_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    fluency_score = models.PositiveSmallIntegerField(null=True, blank=True)
     level = models.CharField(max_length=2, choices=CEFR_CHOICES)
     feedback = models.TextField(blank=True)
     transcript = models.JSONField(default=dict)
+    audio = models.FileField(upload_to="placement/audio/%Y/%m/", blank=True, null=True)
+    audio_transcript = models.TextField(blank=True)
+    audio_duration_seconds = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

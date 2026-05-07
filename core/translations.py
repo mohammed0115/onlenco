@@ -208,12 +208,13 @@ DICT = {
                  "ar": "اكتب 2-3 جمل عن هواياتك بالإنجليزية."},
     "pl.q4":    {"en": "Describe what you did yesterday in English (4-6 sentences).",
                  "ar": "صف ما فعلته بالأمس بالإنجليزية (4-6 جمل)."},
-    "pl.q5":    {"en": "Speaking task — record yourself in English",
-                 "ar": "مهمة تحدث — سجل نفسك بالإنجليزية"},
+    "pl.q5":    {"en": "Spoken response — audio captured in your browser, then transcribed",
+                 "ar": "إجابة شفهية — يلتقط الصوت في متصفحك ثم يحوّل إلى نص"},
     "pl.q5_intro": {"en": "Talk for about 45 seconds about your typical day. "
-                          "What time do you wake up? What do you usually eat? "
-                          "What do you do in the evenings?",
-                    "ar": "تحدث لمدة 45 ثانية تقريباً عن يومك المعتاد. متى تستيقظ؟ ماذا تأكل عادة؟ ماذا تفعل في المساء؟"},
+                          "Your browser converts your voice to text; we use the "
+                          "transcript and a fluency estimate (no phoneme-level "
+                          "pronunciation grading yet).",
+                    "ar": "تحدث لمدة 45 ثانية تقريباً عن يومك المعتاد. يحوّل متصفحك صوتك إلى نص؛ نستخدم النص وتقدير سلاسة الكلام."},
     "pl.q5_record": {"en": "Start recording", "ar": "ابدأ التسجيل"},
     "pl.q5_stop": {"en": "Stop", "ar": "إيقاف"},
     "pl.q5_rerecord": {"en": "Record again", "ar": "إعادة التسجيل"},

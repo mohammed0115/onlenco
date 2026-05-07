@@ -1,0 +1,12 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>AI usage threshold crossed</h1>
+<p>AI calls exceeded the configured threshold.</p>
+<ul>
+  <li><strong>Feature:</strong> {{ payload.feature|default:"—" }}</li>
+  <li><strong>User:</strong> {{ payload.username|default:"—" }}</li>
+  <li><strong>Daily count:</strong> {{ payload.daily_count|default:"—" }}</li>
+  <li><strong>Limit:</strong> {{ payload.limit|default:"—" }}</li>
+</ul>
+<p><a href="{{ cta_url }}" class="cta">Open analytics</a></p>
+{% endblock %}

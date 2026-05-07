@@ -1,0 +1,60 @@
+# Production overlay. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Scales web replicas, attaches a Celery worker (when async work is added),
+# and pins resource limits. Designed for a single-host docker-swarm-style
+# deployment; for Kubernetes adapt these blocks into Deployments + HPA.
+
+services:
+  web:
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    command: >
+      gunicorn onlenco.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers ${GUNICORN_WORKERS:-3}
+      --threads ${GUNICORN_THREADS:-2}
+      --max-requests 1000
+      --max-requests-jitter 100
+      --access-logfile -
+      --error-logfile -
+
+  worker:
+    image: onlenco-web:latest
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    command: >
+      sh -c "echo 'Celery worker placeholder; install celery and a broker to enable async tasks';
+             tail -f /dev/null"
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    profiles: ["worker"]
+
+  db:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2048M
+
+  redis:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M

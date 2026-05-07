@@ -1,0 +1,10 @@
+from .base import *
+
+DEBUG = True
+ALLOWED_HOSTS = ALLOWED_HOSTS or ["127.0.0.1", "localhost"]
+CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS or ["http://127.0.0.1:8000", "http://localhost:8000"]
+
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SECURE_SSL_REDIRECT = False
+SECURE_HSTS_SECONDS = 0

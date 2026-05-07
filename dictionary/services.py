@@ -124,8 +124,24 @@ def ai_lookup(query: str, lang_hint: str):
                 "source": "ai",
             },
         )
+        try:
+            from core.services.ai_usage import log_usage
+            usage = data.get("usage", {}) or {}
+            log_usage(
+                None, "dictionary", model=settings.AI_MODEL,
+                prompt_tokens=int(usage.get("prompt_tokens", 0) or 0),
+                completion_tokens=int(usage.get("completion_tokens", 0) or 0),
+                success=True,
+            )
+        except Exception:
+            pass
         return entry
     except Exception as e:
         logger.exception("AI dictionary lookup failed: %s", e)
+        try:
+            from core.services.ai_usage import log_usage
+            log_usage(None, "dictionary", model=settings.AI_MODEL, success=False, error_message=str(e))
+        except Exception:
+            pass
         return None
 

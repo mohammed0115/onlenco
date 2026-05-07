@@ -1,0 +1,37 @@
+# Deploy overlay for sudaschool.academy.
+#
+# Adds Caddy in front of gunicorn for automatic Let's Encrypt TLS.
+# Use:
+#   docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build
+#
+# Caddy persists its data and cert cache in named volumes so renewals
+# survive container restarts.
+
+services:
+  web:
+    # gunicorn is reached only through the docker network as `web:8000`.
+    # The base compose binds the host port to 127.0.0.1, so even with this
+    # overlay the public reaches the app only through Caddy on 443.
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:-admin@sudaschool.academy}
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

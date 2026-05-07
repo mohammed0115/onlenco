@@ -1,0 +1,14 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>Weekly Onlenco summary</h1>
+<p>Snapshot for the last {{ payload.window|default:"7d" }}.</p>
+<ul>
+  <li>Active learners: <strong>{{ payload.metrics.active_learners|default:0 }}</strong></li>
+  <li>Exercise attempts: <strong>{{ payload.metrics.exercise_attempts_total|default:0 }}</strong></li>
+  <li>Success rate: <strong>{{ payload.metrics.exercise_success_rate|default:0 }}%</strong></li>
+  <li>AI exercises generated: <strong>{{ payload.metrics.exercises_generated_by_ai|default:0 }}</strong></li>
+  <li>At-risk users: <strong>{{ payload.metrics.at_risk_low_mastery_users|default:0 }}</strong></li>
+  <li>Inactive 7d users: <strong>{{ payload.metrics.inactive_7d_users|default:0 }}</strong></li>
+</ul>
+<p><a href="{{ cta_url }}" class="cta">Open analytics</a></p>
+{% endblock %}

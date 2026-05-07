@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Weekly result" "نتيجة التقييم" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+  <main class="container py-10 space-y-6 max-w-3xl">
+    <div class="card p-6 text-center">
+      <p class="text-sm text-muted-foreground">{% t_either "Weekly assessment" "تقييم أسبوعي" %}</p>
+      <h1 class="font-display text-4xl font-bold mt-1">{{ score|floatformat:0 }}%</h1>
+      <p class="text-sm text-muted-foreground mt-2">
+        {{ correct }} / {{ total }} {% t_either "correct" "إجابة صحيحة" %}
+      </p>
+    </div>
+    <div class="text-center">
+      <a href="{% url 'dashboard' %}" class="btn btn-outline">
+        {% t_either "Back to dashboard" "العودة للوحة" %}
+      </a>
+    </div>
+  </main>
+</div>
+{% endblock %}

@@ -24,20 +24,37 @@ source .venv/bin/activate
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Apply migrations
+# 3. Configure environment
+cp .env.example .env
+
+# 4. Apply migrations
 python manage.py migrate
 
-# 4. Seed an admin user + 12 demo lessons (one shot)
+# 5. Seed an admin user + 12 demo lessons (one shot)
 python manage.py seed_demo
 #   → creates admin@onlenco.local / onlenco123
 
-# 5. Run
+# 6. Run
 python manage.py runserver
 ```
 
 Then open [http://localhost:8000](http://localhost:8000).
 Sign in to the admin at [http://localhost:8000/admin/](http://localhost:8000/admin/)
 with `admin@onlenco.local` / `onlenco123`.
+
+## Settings architecture
+
+Settings are now split by environment:
+
+- `config.settings.development` (default local)
+- `config.settings.production`
+- `config.settings.test`
+
+Override per command when needed:
+
+```bash
+DJANGO_SETTINGS_MODULE=config.settings.production python manage.py check --deploy
+```
 
 > The default admin password is fine for local demos but **change it before
 > deploying anywhere reachable**:
@@ -116,13 +133,13 @@ The active language is stored in the session and (for logged-in users) on the
 
 ## Production checklist (when you're ready)
 
+- [ ] Set `DJANGO_SETTINGS_MODULE=config.settings.production`
 - [ ] Set `DJANGO_SECRET_KEY` and `DJANGO_DEBUG=0`
-- [ ] Switch `DATABASES` to PostgreSQL
+- [ ] Configure PostgreSQL via `DJANGO_DATABASE_URL` or `POSTGRES_*` vars
 - [ ] Replace the Tailwind Play CDN with a built CSS file (`npx tailwindcss build`)
 - [ ] Configure media storage (S3 / R2 / GCS) — payment screenshots are private
       user data and should not sit on the local filesystem
 - [ ] Review `PaymentMethodAccount` entries in `/admin/` (real account numbers, availability)
-- [ ] Add `ALLOWED_HOSTS`, HTTPS settings, CSRF trusted origins
+- [ ] Set `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`
 - [ ] Real email backend for signup confirmation / password reset
 - [ ] `gunicorn` + `whitenoise` (or a CDN) for static files
-"# onlenco" 

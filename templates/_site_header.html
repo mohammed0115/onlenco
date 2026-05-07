@@ -1,11 +1,10 @@
-{% load i18n_dict %}
+{% load i18n_dict static %}
 <header class="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
     <div class="container flex h-16 items-center justify-between">
-        <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg gradient-sunset shadow-glow">
-                <i data-lucide="sparkles" class="h-4 w-4 text-primary-foreground"></i>
-            </div>
-            <span>Onlenco</span>
+        <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold" aria-label="Onlenco">
+            <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco"
+                 class="h-9 w-auto object-contain" width="36" height="36">
+            <span class="sr-only">Onlenco</span>
         </a>
 
         <nav class="hidden items-center gap-8 md:flex">

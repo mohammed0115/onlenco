@@ -1,17 +1,16 @@
-{% load i18n_dict %}
+{% load i18n_dict i18n static %}
 <header class="border-b border-border/40 bg-background/80 backdrop-blur-xl sticky top-0 z-40">
     <div class="container flex h-16 items-center justify-between">
-        <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg gradient-sunset">
-                <i data-lucide="sparkles" class="h-4 w-4 text-primary-foreground"></i>
-            </div>
-            Onlenco
+        <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold" aria-label="{% trans 'Onlenco home' %}">
+            <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco"
+                 class="h-9 w-auto object-contain" width="36" height="36">
+            <span class="sr-only">Onlenco</span>
         </a>
         <div class="flex items-center gap-2">
             {% if request.user.profile.is_admin %}
               <a href="{% url 'analytics' %}" class="btn btn-ghost" style="height:2.25rem;font-size:0.8125rem">
                 <i data-lucide="bar-chart-3" class="h-4 w-4"></i>
-                Analytics
+                {% trans "Analytics" %}
               </a>
             {% endif %}
             {% include "_lang_toggle.html" %}

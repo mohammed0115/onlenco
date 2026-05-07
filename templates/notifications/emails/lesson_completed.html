@@ -1,0 +1,13 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}أحسنت!{% else %}Lesson completed{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    أكملت الدرس <strong>{{ payload.lesson_title }}</strong>{% if payload.score %} وحصلت على {{ payload.score }}%{% endif %}.
+  {% else %}
+    You finished <strong>{{ payload.lesson_title }}</strong>{% if payload.score %} with a score of {{ payload.score }}%{% endif %}.
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}الدرس التالي{% else %}Next lesson{% endif %}</a></p>
+{% endblock %}

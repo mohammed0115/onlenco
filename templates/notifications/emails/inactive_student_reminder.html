@@ -1,0 +1,13 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}نفتقدك في Onlenco{% else %}We miss you on Onlenco{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    لم نرَك منذ مدة. تمرين قصير اليوم سيبقي تقدمك في طريقه الصحيح.
+  {% else %}
+    We haven't seen you in a while. A 5-minute drill today keeps your progress on track.
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}عد الآن{% else %}Come back{% endif %}</a></p>
+{% endblock %}

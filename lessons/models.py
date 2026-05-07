@@ -9,6 +9,8 @@ SKILL_CHOICES = [
     ("writing", "Writing"),
     ("listening", "Listening"),
     ("speaking", "Speaking"),
+    ("grammar", "Grammar"),
+    ("vocabulary", "Vocabulary"),
 ]
 
 
@@ -17,7 +19,7 @@ class Lesson(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    skill = models.CharField(max_length=10, choices=SKILL_CHOICES)
+    skill = models.CharField(max_length=12, choices=SKILL_CHOICES)
     level = models.CharField(max_length=2, choices=CEFR_CHOICES)
     video_url = models.URLField(blank=True)
     duration_minutes = models.PositiveIntegerField(default=10)

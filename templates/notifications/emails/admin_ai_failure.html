@@ -1,0 +1,12 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>AI failure detected</h1>
+<p>An AI call failed in production.</p>
+<ul>
+  <li><strong>Feature:</strong> {{ payload.feature|default:"—" }}</li>
+  <li><strong>Model:</strong> {{ payload.model|default:"—" }}</li>
+  <li><strong>Error:</strong> {{ payload.error_message|default:"—" }}</li>
+  <li><strong>At:</strong> {{ payload.at|default:"—" }}</li>
+</ul>
+<p>Onlenco fell back to its deterministic path automatically; no user request was broken.</p>
+{% endblock %}

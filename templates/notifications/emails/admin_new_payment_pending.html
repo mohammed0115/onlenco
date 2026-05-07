@@ -1,0 +1,12 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>New payment pending review</h1>
+<p>A student submitted a payment that needs your review.</p>
+<ul>
+  <li><strong>User:</strong> {{ payload.username|default:"—" }}</li>
+  <li><strong>Plan:</strong> {{ payload.plan|default:"—" }}</li>
+  <li><strong>Amount:</strong> {{ payload.amount_sdg|default:"—" }} SDG</li>
+  <li><strong>Method:</strong> {{ payload.method|default:"—" }}</li>
+</ul>
+<p><a href="{{ cta_url }}" class="cta">Review payment</a></p>
+{% endblock %}

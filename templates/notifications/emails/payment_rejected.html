@@ -1,0 +1,23 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}دفعتك بحاجة إلى انتباه{% else %}Your payment needs attention{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    لم نتمكن من اعتماد دفعتك.
+  {% else %}
+    We couldn't approve your payment.
+  {% endif %}
+</p>
+{% if payload.reason %}
+<p><em>"{{ payload.reason }}"</em></p>
+{% endif %}
+<p>
+  {% if lang == "ar" %}
+    الخطوة التالية: {{ payload.next_action|default:"أعد إرسال صورة الإيصال أو حاول بطريقة دفع أخرى." }}
+  {% else %}
+    Next step: {{ payload.next_action|default:"resend a clearer screenshot or try another payment method." }}
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}حاول مجدداً{% else %}Try again{% endif %}</a></p>
+{% endblock %}

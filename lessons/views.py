@@ -90,6 +90,53 @@ def dashboard(request):
     except Exception:
         last_rejected = None
 
+    # Adaptive learning summary (best-effort; tolerates missing data).
+    learning_summary = {
+        "cefr_level": profile.cefr_level,
+        "top_weaknesses": [],
+        "recent_errors": [],
+        "recommendations": [],
+        "exercise_success_rate": None,
+    }
+    try:
+        from learning_core.models import (
+            ExerciseAttempt,
+            LearningRecommendation,
+            UserError,
+        )
+        from learning_core.services.weakness_engine import get_top_weaknesses
+
+        top = get_top_weaknesses(request.user, limit=3)
+        learning_summary["top_weaknesses"] = [
+            {
+                "label": (
+                    (w.grammar_topic.name if w.grammar_topic else None)
+                    or (w.skill.name if w.skill else "general")
+                ),
+                "priority": round(w.priority_score, 1),
+            }
+            for w in top
+        ]
+        learning_summary["recent_errors"] = list(
+            UserError.objects.filter(user=request.user)
+            .order_by("-created_at")
+            .values("original_text", "explanation", "error_type", "created_at")[:5]
+        )
+        learning_summary["recommendations"] = list(
+            LearningRecommendation.objects.filter(user=request.user)
+            .exclude(status="dismissed")
+            .order_by("-priority")
+            .values("recommendation_type", "title", "description", "priority")[:5]
+        )
+        attempts = ExerciseAttempt.objects.filter(user=request.user)
+        total = attempts.count()
+        if total:
+            correct = attempts.filter(is_correct=True).count()
+            learning_summary["exercise_success_rate"] = round(correct / total * 100, 1)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Dashboard learning summary failed")
+
     return render(request, "lessons/dashboard.html", {
         "profile": profile,
         "lessons": lessons,
@@ -97,6 +144,7 @@ def dashboard(request):
         "next_club_event": next_club_event,
         "next_club_rsvp": next_club_rsvp,
         "last_rejected": last_rejected,
+        "learning_summary": learning_summary,
     })
 
 
@@ -197,6 +245,16 @@ def quiz_attempt(request, pk):
         progress.completed_at = timezone.now()
     progress.save()
 
+    # Best-effort adaptive learning side-effects. Never blocks the user flow.
+    weekly_assessment_id = None
+    try:
+        from .services.adaptive_quiz_adapter import process_quiz_submission
+        summary = process_quiz_submission(request.user, lesson, results)
+        weekly_assessment_id = summary.get("weekly_assessment_triggered")
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Adaptive quiz adapter failed")
+
     return render(request, "lessons/quiz_result.html", {
         "lesson": lesson,
         "quiz": quiz,
@@ -204,4 +262,61 @@ def quiz_attempt(request, pk):
         "score": score,
         "passed": progress.quiz_passed,
         "results": results,
+        "weekly_assessment_id": weekly_assessment_id,
+    })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def weekly_assessment(request, assessment_id):
+    """Render and grade the weekly assessment bundled by the engine."""
+    from learning_core.models import (
+        AdaptiveExercise,
+        ExerciseAttempt,
+        WeeklyAssessment,
+    )
+    from learning_core.services.adaptive_difficulty import process_attempt
+    from learning_core.services.weekly_assessment import complete
+
+    assessment = get_object_or_404(
+        WeeklyAssessment, pk=assessment_id, user=request.user
+    )
+    exercises = list(assessment.exercises.all())
+
+    if request.method == "POST":
+        correct = 0
+        total = max(len(exercises), 1)
+        for ex in exercises:
+            answer = (request.POST.get(f"ex_{ex.id}") or "").strip()
+            is_correct = answer.lower() == (ex.correct_answer or "").strip().lower()
+            attempt = ExerciseAttempt.objects.create(
+                user=request.user,
+                exercise=ex,
+                user_answer=answer,
+                is_correct=is_correct,
+                score=1.0 if is_correct else 0.0,
+            )
+            try:
+                process_attempt(request.user, ex, attempt)
+            except Exception:
+                pass
+            if is_correct:
+                correct += 1
+        complete(assessment, score=correct * 100.0 / total)
+        return render(request, "lessons/weekly_assessment_result.html", {
+            "assessment": assessment,
+            "score": assessment.score,
+            "correct": correct,
+            "total": total,
+        })
+
+    if assessment.status == "pending":
+        assessment.status = "in_progress"
+        if not assessment.started_at:
+            assessment.started_at = timezone.now()
+        assessment.save(update_fields=["status", "started_at"])
+
+    return render(request, "lessons/weekly_assessment.html", {
+        "assessment": assessment,
+        "exercises": exercises,
     })

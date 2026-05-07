@@ -7,6 +7,7 @@ from django.dispatch import receiver
 CEFR_CHOICES = [
     ("A0", "A0"), ("A1", "A1"), ("A2", "A2"),
     ("B1", "B1"), ("B2", "B2"), ("C1", "C1"), ("C2", "C2"),
+    ("C3", "C3 (Advanced communication)"),
 ]
 
 SUBSCRIPTION_CHOICES = [
@@ -46,6 +47,7 @@ class Profile(models.Model):
         max_length=2, choices=CEFR_CHOICES, blank=True, null=True
     )
     placement_completed = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=False)
     subscription_status = models.CharField(
         max_length=10, choices=SUBSCRIPTION_CHOICES, default="inactive"
     )

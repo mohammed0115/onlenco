@@ -17,14 +17,15 @@ PLANS = [
 ]
 
 PLAN_DETAILS = {
-    "monthly":   {"price_sdg":  8000, "duration_days": 30},
-    "quarterly": {"price_sdg": 18000, "duration_days": 90},
+    "monthly":   {"price_sdg": 30000, "duration_days": 30},
+    "quarterly": {"price_sdg": 50000, "duration_days": 90},
 }
 
 PAYMENT_STATUSES = [
-    ("pending",  "Pending review"),
-    ("approved", "Approved"),
-    ("rejected", "Rejected"),
+    ("pending",      "Pending review"),
+    ("needs_review", "Needs admin review"),
+    ("approved",     "Approved"),
+    ("rejected",     "Rejected"),
 ]
 
 
@@ -90,7 +91,7 @@ class PaymentSubmission(models.Model):
     )
     amount_sdg = models.PositiveIntegerField()
     screenshot = models.ImageField(upload_to="payment_proofs/%Y/%m/")
-    status = models.CharField(max_length=10, choices=PAYMENT_STATUSES, default="pending")
+    status = models.CharField(max_length=15, choices=PAYMENT_STATUSES, default="pending")
 
     admin_note = models.TextField(blank=True)
     reviewed_by = models.ForeignKey(
@@ -99,6 +100,7 @@ class PaymentSubmission(models.Model):
         related_name="reviewed_payments",
     )
     reviewed_at = models.DateTimeField(blank=True, null=True)
+    submitted_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -124,6 +126,26 @@ class PaymentSubmission(models.Model):
         self.reviewed_at = now
         self.save(update_fields=["status", "reviewed_by", "reviewed_at"])
 
+        try:
+            from notifications import constants as C
+            from notifications.services import NotificationService
+            NotificationService().trigger(
+                C.PAYMENT_APPROVED,
+                user=self.user,
+                actor=reviewer,
+                payload={
+                    "plan": self.plan,
+                    "amount_sdg": self.amount_sdg,
+                    "expires_at": profile.subscription_expires_at.strftime("%Y-%m-%d") if profile.subscription_expires_at else "",
+                    "cta_url": "/dashboard/",
+                    "cta_label": "Open dashboard",
+                    "dedup_key": f"approve:{self.id}",
+                },
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("notify approve failed")
+
     def reject(self, reviewer, note=""):
         self.status = "rejected"
         self.reviewed_by = reviewer
@@ -137,3 +159,24 @@ class PaymentSubmission(models.Model):
         if profile.subscription_status == "pending" and not still_pending:
             profile.subscription_status = "inactive"
             profile.save(update_fields=["subscription_status"])
+
+        try:
+            from notifications import constants as C
+            from notifications.services import NotificationService
+            NotificationService().trigger(
+                C.PAYMENT_REJECTED,
+                user=self.user,
+                actor=reviewer,
+                payload={
+                    "plan": self.plan,
+                    "amount_sdg": self.amount_sdg,
+                    "reason": note or "Please re-submit a clearer screenshot.",
+                    "next_action": "Re-submit a clearer screenshot or try another method.",
+                    "cta_url": "/payments/subscribe/",
+                    "cta_label": "Try again",
+                    "dedup_key": f"reject:{self.id}",
+                },
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("notify reject failed")

@@ -1,0 +1,11 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>New student registered</h1>
+<p>A new student joined Onlenco.</p>
+<ul>
+  <li><strong>Username:</strong> {{ payload.username|default:"—" }}</li>
+  <li><strong>Email:</strong> {{ payload.email|default:"—" }}</li>
+  <li><strong>Joined at:</strong> {{ payload.joined_at|default:"—" }}</li>
+</ul>
+<p><a href="{{ cta_url }}" class="cta">Open admin</a></p>
+{% endblock %}

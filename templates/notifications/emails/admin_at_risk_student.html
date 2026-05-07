@@ -1,0 +1,11 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>At-risk student</h1>
+<p>A student's average mastery has dropped below the at-risk threshold.</p>
+<ul>
+  <li><strong>User:</strong> {{ payload.username|default:"—" }}</li>
+  <li><strong>Average mastery:</strong> {{ payload.avg_mastery|default:"—" }}%</li>
+  <li><strong>Last active:</strong> {{ payload.last_active|default:"—" }}</li>
+</ul>
+<p><a href="{{ cta_url }}" class="cta">Open analytics</a></p>
+{% endblock %}

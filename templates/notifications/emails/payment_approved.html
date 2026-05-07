@@ -1,0 +1,13 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}تم تفعيل اشتراكك ✅{% else %}Your subscription is active ✅{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    تم اعتماد دفع باقة <strong>{{ payload.plan|default:"" }}</strong> ({{ payload.amount_sdg|default:"" }} جنيه). يسري حتى <strong>{{ payload.expires_at|default:"—" }}</strong>.
+  {% else %}
+    Your <strong>{{ payload.plan|default:"" }}</strong> plan ({{ payload.amount_sdg|default:"" }} SDG) is approved. Active until <strong>{{ payload.expires_at|default:"—" }}</strong>.
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}افتح اللوحة{% else %}Open dashboard{% endif %}</a></p>
+{% endblock %}

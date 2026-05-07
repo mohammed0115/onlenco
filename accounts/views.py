@@ -27,6 +27,28 @@ def auth_view(request):
             signup_form = SignUpForm(request.POST)
             if signup_form.is_valid():
                 user = signup_form.save()
+                # Notifications (best-effort, never blocks)
+                try:
+                    from notifications import constants as C
+                    from notifications.services import NotificationService
+                    notifier = NotificationService()
+                    notifier.trigger(
+                        C.USER_REGISTERED,
+                        user=user,
+                        payload={"cta_url": "/placement/", "cta_label": "Start placement test"},
+                    )
+                    notifier.notify_admins(
+                        C.NEW_STUDENT_REGISTERED,
+                        payload={
+                            "username": user.username,
+                            "email": user.email,
+                            "joined_at": user.date_joined.isoformat() if getattr(user, "date_joined", None) else "",
+                            "cta_url": "/admin/auth/user/",
+                        },
+                    )
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception("notify on signup view failed")
                 # Authenticate properly so the session is bound
                 user = authenticate(
                     request,
@@ -57,3 +79,17 @@ def auth_view(request):
 def logout_view(request):
     logout(request)
     return redirect("home")
+
+
+@require_http_methods(["GET"])
+def verify_email(request, token: str):
+    """Consume an email-verification token. Always returns the auth page
+    with a banner; never reveals whether the token belonged to a real user."""
+    from notifications.services import consume_verification_token
+
+    ok = consume_verification_token(token)
+    if ok:
+        messages.success(request, "Your email is verified. Welcome!")
+    else:
+        messages.error(request, "This verification link is invalid or expired.")
+    return redirect("auth")

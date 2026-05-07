@@ -1,0 +1,21 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>
+  {% if lang == "ar" %}مرحبا بك في Onlenco{% else %}Welcome to Onlenco{% endif %}
+</h1>
+<p>
+  {% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}
+</p>
+<p>
+  {% if lang == "ar" %}
+    تم إنشاء حسابك بنجاح. ابدأ باختبار التحديد لنحدد مستواك ونصمّم لك مسار تعلم.
+  {% else %}
+    Your account is ready. Start by taking the placement test so we can pinpoint your level and tailor your study plan.
+  {% endif %}
+</p>
+<p style="margin-top:20px;">
+  <a href="{{ cta_url }}" class="cta">
+    {% if lang == "ar" %}ابدأ اختبار التحديد{% else %}Start placement test{% endif %}
+  </a>
+</p>
+{% endblock %}

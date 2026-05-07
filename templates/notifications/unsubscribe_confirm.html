@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="container py-10 max-w-md">
+  <h1 class="text-2xl font-bold mb-3">Unsubscribe</h1>
+  <p>You are about to opt out of all non-transactional Onlenco emails for {{ user.email }}.</p>
+  <p class="text-sm text-muted-foreground">Security and billing emails (password resets, payment receipts) will still be delivered.</p>
+  <form method="post" class="mt-4">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-hero">Confirm unsubscribe</button>
+  </form>
+</div>
+{% endblock %}

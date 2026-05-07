@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Weekly assessment" "تقييم أسبوعي" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+  <main class="container py-10 space-y-6 max-w-3xl">
+    <div>
+      <p class="text-sm text-muted-foreground">{% t_either "After every 3 completed lessons" "بعد كل 3 دروس مكتملة" %}</p>
+      <h1 class="font-display text-3xl font-bold">{% t_either "Weekly assessment" "تقييم أسبوعي" %}</h1>
+      <p class="text-sm text-muted-foreground mt-1">
+        {% t_either "Answer all questions to refresh your level and recommendations." "أجب على كل الأسئلة لتحديث مستواك وتوصياتك." %}
+      </p>
+    </div>
+
+    {% if exercises %}
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      {% for ex in exercises %}
+      <div class="card p-5">
+        <div class="text-sm text-muted-foreground mb-1">
+          Q{{ forloop.counter }} · {{ ex.get_question_type_display }}
+        </div>
+        <p class="font-medium mb-3">{{ ex.question }}</p>
+        {% if ex.options %}
+          {% for opt in ex.options %}
+          <label class="flex items-center gap-2 mb-1">
+            <input type="radio" name="ex_{{ ex.id }}" value="{{ opt }}"> <span>{{ opt }}</span>
+          </label>
+          {% endfor %}
+        {% else %}
+        <input type="text" name="ex_{{ ex.id }}" class="border rounded px-3 py-2 w-full"
+               placeholder="{% t_either 'Your answer' 'إجابتك' %}">
+        {% endif %}
+      </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-hero">
+        {% t_either "Submit assessment" "إرسال التقييم" %}
+      </button>
+    </form>
+    {% else %}
+    <div class="card p-5 text-sm text-muted-foreground">
+      {% t_either "No exercises in this assessment yet." "لا توجد تمارين في هذا التقييم بعد." %}
+    </div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

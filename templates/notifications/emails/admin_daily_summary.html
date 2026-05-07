@@ -1,0 +1,12 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>Daily Onlenco summary</h1>
+<p>Snapshot for the last {{ payload.window|default:"24h" }}.</p>
+<ul>
+  <li>Active learners: <strong>{{ payload.metrics.active_learners|default:0 }}</strong></li>
+  <li>Exercise attempts: <strong>{{ payload.metrics.exercise_attempts_total|default:0 }}</strong></li>
+  <li>Success rate: <strong>{{ payload.metrics.exercise_success_rate|default:0 }}%</strong></li>
+  <li>Tutor messages: <strong>{{ payload.metrics.tutor_messages|default:0 }}</strong></li>
+</ul>
+<p><a href="{{ cta_url }}" class="cta">Open analytics</a></p>
+{% endblock %}

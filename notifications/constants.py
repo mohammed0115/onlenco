@@ -1,0 +1,210 @@
+"""Event types, priority/status enums, and policy maps for notifications."""
+
+# --- Event types ---
+
+# Student-facing events
+USER_REGISTERED = "user_registered"
+EMAIL_VERIFICATION = "email_verification"
+PASSWORD_RESET = "password_reset"
+PLACEMENT_COMPLETED = "placement_completed"
+WEAKNESS_DETECTED = "weakness_detected"
+EXERCISES_GENERATED = "exercises_generated"
+LESSON_COMPLETED = "lesson_completed"
+WEEKLY_ASSESSMENT_AVAILABLE = "weekly_assessment_available"
+WEEKLY_ASSESSMENT_RESULT = "weekly_assessment_result"
+LEVEL_IMPROVED = "level_improved"
+SUBSCRIPTION_EXPIRING = "subscription_expiring"
+PAYMENT_SUBMITTED = "payment_submitted"
+PAYMENT_APPROVED = "payment_approved"
+PAYMENT_REJECTED = "payment_rejected"
+INACTIVE_STUDENT_REMINDER = "inactive_student_reminder"
+
+# Admin-facing events
+NEW_STUDENT_REGISTERED = "new_student_registered"
+NEW_PAYMENT_PENDING = "new_payment_pending"
+AI_USAGE_HIGH = "ai_usage_high"
+AI_FAILURE = "ai_failure"
+AT_RISK_STUDENT = "at_risk_student"
+DAILY_ADMIN_SUMMARY = "daily_admin_summary"
+WEEKLY_ADMIN_SUMMARY = "weekly_admin_summary"
+
+ALL_STUDENT_EVENTS = [
+    USER_REGISTERED,
+    EMAIL_VERIFICATION,
+    PASSWORD_RESET,
+    PLACEMENT_COMPLETED,
+    WEAKNESS_DETECTED,
+    EXERCISES_GENERATED,
+    LESSON_COMPLETED,
+    WEEKLY_ASSESSMENT_AVAILABLE,
+    WEEKLY_ASSESSMENT_RESULT,
+    LEVEL_IMPROVED,
+    SUBSCRIPTION_EXPIRING,
+    PAYMENT_SUBMITTED,
+    PAYMENT_APPROVED,
+    PAYMENT_REJECTED,
+    INACTIVE_STUDENT_REMINDER,
+]
+
+ALL_ADMIN_EVENTS = [
+    NEW_STUDENT_REGISTERED,
+    NEW_PAYMENT_PENDING,
+    AI_USAGE_HIGH,
+    AI_FAILURE,
+    AT_RISK_STUDENT,
+    DAILY_ADMIN_SUMMARY,
+    WEEKLY_ADMIN_SUMMARY,
+]
+
+ALL_EVENT_TYPES = ALL_STUDENT_EVENTS + ALL_ADMIN_EVENTS
+
+EVENT_TYPE_CHOICES = [(e, e) for e in ALL_EVENT_TYPES]
+
+# --- Status / priority enums ---
+
+STATUS_PENDING = "pending"
+STATUS_PROCESSED = "processed"
+STATUS_SENT = "sent"
+STATUS_FAILED = "failed"
+STATUS_SKIPPED = "skipped"
+
+EVENT_STATUS_CHOICES = [
+    (STATUS_PENDING, "Pending"),
+    (STATUS_PROCESSED, "Processed"),
+    (STATUS_FAILED, "Failed"),
+    (STATUS_SKIPPED, "Skipped"),
+]
+
+EMAIL_STATUS_CHOICES = [
+    (STATUS_PENDING, "Pending"),
+    (STATUS_SENT, "Sent"),
+    (STATUS_FAILED, "Failed"),
+    (STATUS_SKIPPED, "Skipped"),
+]
+
+PRIORITY_LOW = "low"
+PRIORITY_NORMAL = "normal"
+PRIORITY_HIGH = "high"
+PRIORITY_CRITICAL = "critical"
+
+PRIORITY_CHOICES = [
+    (PRIORITY_LOW, "Low"),
+    (PRIORITY_NORMAL, "Normal"),
+    (PRIORITY_HIGH, "High"),
+    (PRIORITY_CRITICAL, "Critical"),
+]
+
+# --- Policy maps used by PreferenceService ---
+
+# Transactional/security events that bypass user preference toggles.
+TRANSACTIONAL_EVENTS = {
+    EMAIL_VERIFICATION,
+    PASSWORD_RESET,
+    PAYMENT_APPROVED,
+    PAYMENT_REJECTED,
+    SUBSCRIPTION_EXPIRING,
+    USER_REGISTERED,            # account-confirmation-style
+    PAYMENT_SUBMITTED,          # receipt
+    WEEKLY_ASSESSMENT_AVAILABLE,  # part of the core learning loop
+}
+
+# Events controlled by `learning_updates`
+LEARNING_EVENTS = {
+    WEAKNESS_DETECTED,
+    EXERCISES_GENERATED,
+    LESSON_COMPLETED,
+    WEEKLY_ASSESSMENT_RESULT,
+    LEVEL_IMPROVED,
+    INACTIVE_STUDENT_REMINDER,
+}
+
+# Events controlled by `payment_updates`
+PAYMENT_EVENTS = {
+    PAYMENT_SUBMITTED,
+    PAYMENT_APPROVED,
+    PAYMENT_REJECTED,
+    SUBSCRIPTION_EXPIRING,
+}
+
+# Events controlled by `weekly_summary`
+WEEKLY_SUMMARY_EVENTS = {
+    WEEKLY_ASSESSMENT_AVAILABLE,
+    WEEKLY_ADMIN_SUMMARY,
+}
+
+# Events controlled by `admin_alerts` (recipient must be staff/admin)
+ADMIN_ONLY_EVENTS = set(ALL_ADMIN_EVENTS)
+
+# Marketing-style events (require explicit opt-in)
+MARKETING_EVENTS = set()  # none today; reserved for future campaigns
+
+# Default subject lines (English) — also used as the i18n fallback.
+DEFAULT_SUBJECTS = {
+    USER_REGISTERED: "Welcome to Onlenco",
+    EMAIL_VERIFICATION: "Verify your Onlenco email",
+    PASSWORD_RESET: "Reset your Onlenco password",
+    PLACEMENT_COMPLETED: "Your Onlenco placement results",
+    WEAKNESS_DETECTED: "We spotted a learning focus area",
+    EXERCISES_GENERATED: "Your personalized exercises are ready",
+    LESSON_COMPLETED: "Lesson completed — well done!",
+    WEEKLY_ASSESSMENT_AVAILABLE: "Onlenco — your weekly assessment is ready",
+    WEEKLY_ASSESSMENT_RESULT: "Your weekly assessment result",
+    LEVEL_IMPROVED: "Congratulations — your level just improved",
+    SUBSCRIPTION_EXPIRING: "Your Onlenco subscription is expiring soon",
+    PAYMENT_SUBMITTED: "We received your payment",
+    PAYMENT_APPROVED: "Your Onlenco subscription is active",
+    PAYMENT_REJECTED: "Your payment needs attention",
+    INACTIVE_STUDENT_REMINDER: "We miss you on Onlenco",
+    NEW_STUDENT_REGISTERED: "[Onlenco admin] New student registered",
+    NEW_PAYMENT_PENDING: "[Onlenco admin] New payment pending review",
+    AI_USAGE_HIGH: "[Onlenco admin] AI usage threshold crossed",
+    AI_FAILURE: "[Onlenco admin] AI failure detected",
+    AT_RISK_STUDENT: "[Onlenco admin] At-risk student",
+    DAILY_ADMIN_SUMMARY: "[Onlenco admin] Daily summary",
+    WEEKLY_ADMIN_SUMMARY: "[Onlenco admin] Weekly summary",
+}
+
+# Subject line in Arabic (used when language='ar').
+SUBJECTS_AR = {
+    USER_REGISTERED: "مرحبا بك في Onlenco",
+    EMAIL_VERIFICATION: "تأكيد بريدك الإلكتروني",
+    PASSWORD_RESET: "إعادة تعيين كلمة المرور",
+    PLACEMENT_COMPLETED: "نتيجة اختبار التحديد",
+    WEAKNESS_DETECTED: "نقطة ضعف جديدة للتركيز عليها",
+    EXERCISES_GENERATED: "تمارين مخصصة جاهزة لك",
+    LESSON_COMPLETED: "أحسنت — اكتمل الدرس",
+    WEEKLY_ASSESSMENT_AVAILABLE: "تقييمك الأسبوعي جاهز",
+    WEEKLY_ASSESSMENT_RESULT: "نتيجة التقييم الأسبوعي",
+    LEVEL_IMPROVED: "تهانينا — مستواك تحسن",
+    SUBSCRIPTION_EXPIRING: "اشتراكك على وشك الانتهاء",
+    PAYMENT_SUBMITTED: "استلمنا دفعتك",
+    PAYMENT_APPROVED: "تم تفعيل اشتراكك",
+    PAYMENT_REJECTED: "دفعتك بحاجة إلى انتباه",
+    INACTIVE_STUDENT_REMINDER: "نفتقدك في Onlenco",
+}
+
+# Map event_type → template filename (relative to templates/notifications/emails/)
+TEMPLATE_NAMES = {
+    USER_REGISTERED: "welcome.html",
+    EMAIL_VERIFICATION: "email_verification.html",
+    PASSWORD_RESET: "password_reset.html",
+    PLACEMENT_COMPLETED: "placement_result.html",
+    WEAKNESS_DETECTED: "weakness_detected.html",
+    EXERCISES_GENERATED: "exercises_generated.html",
+    LESSON_COMPLETED: "lesson_completed.html",
+    WEEKLY_ASSESSMENT_AVAILABLE: "weekly_assessment_available.html",
+    WEEKLY_ASSESSMENT_RESULT: "weekly_assessment_result.html",
+    LEVEL_IMPROVED: "level_improved.html",
+    SUBSCRIPTION_EXPIRING: "subscription_expiring.html",
+    PAYMENT_SUBMITTED: "payment_submitted.html",
+    PAYMENT_APPROVED: "payment_approved.html",
+    PAYMENT_REJECTED: "payment_rejected.html",
+    INACTIVE_STUDENT_REMINDER: "inactive_student_reminder.html",
+    NEW_STUDENT_REGISTERED: "admin_new_student.html",
+    NEW_PAYMENT_PENDING: "admin_new_payment_pending.html",
+    AI_USAGE_HIGH: "admin_ai_usage_high.html",
+    AI_FAILURE: "admin_ai_failure.html",
+    AT_RISK_STUDENT: "admin_at_risk_student.html",
+    DAILY_ADMIN_SUMMARY: "admin_daily_summary.html",
+    WEEKLY_ADMIN_SUMMARY: "admin_weekly_summary.html",
+}

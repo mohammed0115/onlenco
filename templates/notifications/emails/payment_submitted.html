@@ -1,0 +1,13 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}استلمنا دفعتك{% else %}We received your payment{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    استلمنا طلبك لباقة <strong>{{ payload.plan|default:"" }}</strong> بمبلغ {{ payload.amount_sdg|default:"—" }} جنيه. سنراجع الدفع وستصلك رسالة عند الاعتماد.
+  {% else %}
+    We received your <strong>{{ payload.plan|default:"" }}</strong> plan submission for {{ payload.amount_sdg|default:"—" }} SDG. We'll review and email you on approval.
+  {% endif %}
+</p>
+{% if cta_url %}<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}عرض الحالة{% else %}View status{% endif %}</a></p>{% endif %}
+{% endblock %}
