@@ -13,9 +13,10 @@ from .context_builder import build_tutor_context, render_context_block
 
 logger = logging.getLogger(__name__)
 
-# Trimmed from 20 → 12: a tutor turn rarely needs more than the last
-# 6 exchanges, and the LLM is faster + cheaper with less context.
-MAX_HISTORY_MESSAGES = 12
+# Last-10 is the spec recommendation: 5 user/assistant exchanges is
+# plenty of recent context, and shaving prompt tokens speeds the LLM
+# response measurably (more on slower upstreams).
+MAX_HISTORY_MESSAGES = 10
 MAX_USER_MESSAGE_CHARS = 4000
 # Cap output length so a chatty model doesn't keep typing for 30s.
 # Aligns with rule 4 ("end with one short follow-up question") + rule 7
@@ -92,12 +93,44 @@ def fire_post_chat_hooks(user, user_message: str) -> None:
 
     Daemon so the worker shuts down cleanly even if a hook is mid-AI-call.
     Caller doesn't await — the user already has their reply on screen.
+
+    In tests `TUTOR_HOOKS_SYNC=True` runs the hooks synchronously so
+    assertions about UserError / UserWeakness side-effects are
+    deterministic.
     """
+    if getattr(settings, "TUTOR_HOOKS_SYNC", False):
+        _post_chat_hooks(user, user_message)
+        return
     t = threading.Thread(
         target=_post_chat_hooks,
         args=(user, user_message),
         name="tutor-post-hooks",
         daemon=True,
+    )
+    t.start()
+
+
+def _motivation_hook(user) -> None:
+    try:
+        from motivation.services.motivation_engine import run_for_user
+        run_for_user(user)
+    except Exception:
+        logger.exception("Tutor: motivation engine failed (background)")
+
+
+def fire_motivation_hook(user) -> None:
+    """Run `motivation_engine.run_for_user` off the request thread.
+
+    Same pattern as `fire_post_chat_hooks`: daemon thread in prod, sync
+    under TUTOR_HOOKS_SYNC=True so tests can observe XP/streak updates
+    inside their transaction.
+    """
+    if getattr(settings, "TUTOR_HOOKS_SYNC", False):
+        _motivation_hook(user)
+        return
+    t = threading.Thread(
+        target=_motivation_hook, args=(user,),
+        name="tutor-motivation", daemon=True,
     )
     t.start()
 

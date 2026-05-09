@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import logging
+import time
+from contextlib import contextmanager
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, StreamingHttpResponse
@@ -29,8 +31,32 @@ from tutor.services import chat, chat_stream_tokens
 
 
 logger = logging.getLogger(__name__)
+perf_logger = logging.getLogger("tutor.perf")
 
 MAX_MESSAGE_CHARS = 4000
+
+
+@contextmanager
+def _timer(step: str, *, user_id: int | None = None, extra: dict | None = None):
+    """Emit `[tutor.perf] step=<name> ms=<int> user=<id> ...` to the logs.
+
+    Use as a `with` block around any meaningful chunk of work. Lines are
+    grep-friendly so an SRE can build a Grafana panel directly from
+    Loki / journald without parsing JSON. The block re-raises whatever
+    the wrapped code raised, after timing it.
+    """
+    started = time.perf_counter()
+    try:
+        yield
+    finally:
+        ms = int((time.perf_counter() - started) * 1000)
+        bits = [f"step={step}", f"ms={ms}"]
+        if user_id is not None:
+            bits.append(f"user={user_id}")
+        if extra:
+            for k, v in extra.items():
+                bits.append(f"{k}={v}")
+        perf_logger.info("[tutor.perf] " + " ".join(bits))
 
 
 def _ajax_login_required(view):
@@ -183,6 +209,9 @@ def voice_transcribe(request):
     Validates mime + size (10 MB cap) before handing to Whisper. Saves a
     `SpeakingAttempt` row so the result is auditable.
     """
+    user_id = getattr(request.user, "id", None)
+    started_total = time.perf_counter()
+
     audio = request.FILES.get("audio")
     if audio is None:
         return Response(
@@ -190,8 +219,9 @@ def voice_transcribe(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    from speech.services.audio_validation import validate_audio_upload
-    err = validate_audio_upload(audio)
+    with _timer("audio_validate", user_id=user_id):
+        from speech.services.audio_validation import validate_audio_upload
+        err = validate_audio_upload(audio)
     if err is not None:
         return Response(
             {"success": False, "error": err["code"], "message": err["message"]},
@@ -200,7 +230,8 @@ def voice_transcribe(request):
 
     from placement.services.stt import transcribe
     try:
-        result = transcribe(audio)
+        with _timer("stt", user_id=user_id, extra={"size": getattr(audio, "size", 0)}):
+            result = transcribe(audio)
     except Exception:
         logger.exception("Tutor STT failed")
         return Response(
@@ -212,14 +243,21 @@ def voice_transcribe(request):
     transcript = (result.get("transcript") or "").strip()
     duration = int(result.get("duration_seconds") or 0)
 
-    from speech.models import SpeakingAttempt
-    attempt = SpeakingAttempt.objects.create(
-        user=request.user,
-        audio_file=audio,
-        transcript=transcript,
-        duration_seconds=duration,
-        confidence=float(result.get("confidence") or 0.0),
-        source="tutor",
+    with _timer("attempt_save", user_id=user_id):
+        from speech.models import SpeakingAttempt
+        attempt = SpeakingAttempt.objects.create(
+            user=request.user,
+            audio_file=audio,
+            transcript=transcript,
+            duration_seconds=duration,
+            confidence=float(result.get("confidence") or 0.0),
+            source="tutor",
+        )
+
+    perf_logger.info(
+        "[tutor.perf] step=transcribe_total ms=%d user=%s chars=%d",
+        int((time.perf_counter() - started_total) * 1000),
+        user_id, len(transcript),
     )
 
     if not transcript:
@@ -452,6 +490,10 @@ def _live_stream_response(conversation, user_message, *, voice,
     `TutorMessage` row at the end. The user sees the first word in
     ~300 ms instead of after the full 5–8 s round-trip.
     """
+    user_id = getattr(request_user, "id", None)
+    started_total = time.perf_counter()
+    first_token_ms = None
+
     yield _sse({
         "type": "start",
         "user_message_id": user_msg_id,
@@ -461,8 +503,15 @@ def _live_stream_response(conversation, user_message, *, voice,
     })
 
     parts = []
+    stream_started = time.perf_counter()
     try:
         for token in chat_stream_tokens(conversation, user_message, voice=voice):
+            if first_token_ms is None:
+                first_token_ms = int((time.perf_counter() - stream_started) * 1000)
+                perf_logger.info(
+                    "[tutor.perf] step=chat_first_token ms=%d user=%s voice=%s",
+                    first_token_ms, user_id, voice,
+                )
             parts.append(token)
             yield _sse({"type": "token", "token": token})
     except Exception:
@@ -470,26 +519,41 @@ def _live_stream_response(conversation, user_message, *, voice,
         yield _sse({"type": "error", "error": "ai_unavailable"})
         return
 
+    perf_logger.info(
+        "[tutor.perf] step=chat_stream_total ms=%d user=%s voice=%s tokens=%d",
+        int((time.perf_counter() - stream_started) * 1000),
+        user_id, voice, len(parts),
+    )
+
     full = "".join(parts).strip() or "Could you say a bit more?"
     lang = _detect_lang(full)
 
     # Persist the assistant message AFTER streaming completes — this is
     # the canonical record. The token events were transient.
     try:
-        TutorMessage.objects.filter(pk=ai_msg_id).update(content=full)
+        with _timer("persist_reply", user_id=user_id):
+            TutorMessage.objects.filter(pk=ai_msg_id).update(content=full)
     except Exception:
         logger.exception("chat_stream: failed to persist final reply")
 
-    # Best-effort gamification — mirrors chat_send.
+    # Activity stats (cheap, sync) + motivation engine (heavier; backgrounded).
     try:
-        from motivation.services import activity_collector
-        snap = activity_collector.collect_daily_activity(request_user)
-        snap.writing_attempts = (snap.writing_attempts or 0) + 1
-        snap.save(update_fields=["writing_attempts", "updated_at"])
-        from motivation.services.motivation_engine import run_for_user
-        run_for_user(request_user)
+        with _timer("activity_stats", user_id=user_id):
+            from motivation.services import activity_collector
+            snap = activity_collector.collect_daily_activity(request_user)
+            snap.writing_attempts = (snap.writing_attempts or 0) + 1
+            snap.save(update_fields=["writing_attempts", "updated_at"])
     except Exception:
-        logger.exception("chat_stream: activity/motivation hook failed")
+        logger.exception("chat_stream: activity stats failed")
+
+    # Backgrounded — motivation_engine.run_for_user can take 100ms-2s+
+    # depending on how many achievements/messages it generates. Letting
+    # it block the SSE close adds tail latency for no UX benefit.
+    try:
+        from tutor.services._chat import fire_motivation_hook
+        fire_motivation_hook(request_user)
+    except Exception:
+        logger.exception("chat_stream: motivation fire failed")
 
     yield _sse({
         "type": "done",
@@ -498,6 +562,12 @@ def _live_stream_response(conversation, user_message, *, voice,
         "speech_text": humanize_for_speech(full, language=lang),
         "language": lang,
     })
+
+    perf_logger.info(
+        "[tutor.perf] step=stream_view_total ms=%d user=%s voice=%s first_token_ms=%s",
+        int((time.perf_counter() - started_total) * 1000),
+        user_id, voice, first_token_ms,
+    )
 
 
 @require_POST

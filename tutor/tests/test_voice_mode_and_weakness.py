@@ -46,7 +46,10 @@ class VoiceModeBrevityTests(TestCase):
                 return {"choices": [{"message": {"content": "Sure! What now?"}}]}
 
         def fake_post(url, **kwargs):
-            captured["payload"] = kwargs.get("json")
+            # First call only — post-chat hooks (analyze_text) make
+            # their own requests.post calls in TUTOR_HOOKS_SYNC tests.
+            if "payload" not in captured:
+                captured["payload"] = kwargs.get("json")
             return R()
 
         conv = TutorConversation.objects.create(user=self.user, topic="travel")
@@ -70,7 +73,10 @@ class VoiceModeBrevityTests(TestCase):
                 return {"choices": [{"message": {"content": "Hi"}}]}
 
         def fake_post(url, **kwargs):
-            captured["payload"] = kwargs.get("json")
+            # First call only — post-chat hooks (analyze_text) make
+            # their own requests.post calls in TUTOR_HOOKS_SYNC tests.
+            if "payload" not in captured:
+                captured["payload"] = kwargs.get("json")
             return R()
 
         conv = TutorConversation.objects.create(user=self.user)

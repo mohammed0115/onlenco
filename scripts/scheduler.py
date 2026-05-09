@@ -75,6 +75,19 @@ def fire(now) -> None:
         except Exception as e:
             log.exception("admin daily summary failed: %s", e)
 
+    if hh == 3 and mm == 30:
+        # Privacy: purge raw audio blobs older than SPEECH_AUDIO_RETENTION_DAYS.
+        # Transcripts + duration + confidence stay on the SpeakingAttempt row.
+        _run("clean_old_voice_recordings")
+
+    if hh == 4 and mm == 0:
+        # Subscription state machine — flip `active` to `expired` once
+        # the expiry timestamp passes, send the warning email window.
+        _run("expire_subscriptions")
+
+    if hh == 4 and mm == 15:
+        _run("send_subscription_expiring")
+
     if weekday == 0 and hh == 9 and mm == 0:
         _run("run_motivation_engine", weekly=True)
 

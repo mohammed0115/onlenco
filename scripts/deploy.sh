@@ -67,8 +67,20 @@ sudo -u "$APP_USER" docker compose -f docker-compose.yml -f docker-compose.deplo
 
 echo "==> [8/8] Migrate + seed"
 sudo -u "$APP_USER" docker compose exec -T web python manage.py migrate
-sudo -u "$APP_USER" docker compose exec -T web python manage.py seed_learning_core
 sudo -u "$APP_USER" docker compose exec -T web python manage.py collectstatic --noinput
+
+# Idempotent seeds — safe to run on every deploy.
+for cmd in \
+    seed_role_groups \
+    seed_course_levels \
+    seed_learning_core \
+    seed_achievements \
+    seed_dictionary \
+    seed_books \
+    seed_exam_blueprints \
+    ; do
+    sudo -u "$APP_USER" docker compose exec -T web python manage.py "$cmd" || true
+done
 
 echo
 echo "Deploy complete. Visit https://sudaschool.academy/"

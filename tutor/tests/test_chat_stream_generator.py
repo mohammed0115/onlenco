@@ -103,7 +103,12 @@ class ChatStreamTokensTests(TestCase):
         captured = {}
 
         def fake_post(url, **kwargs):
-            captured["payload"] = kwargs.get("json")
+            # Only capture the FIRST call (the chat request). Post-chat
+            # hooks (error analyzer) make their own requests.post calls
+            # in tests with TUTOR_HOOKS_SYNC=True, which we don't want
+            # overwriting the captured payload.
+            if "payload" not in captured:
+                captured["payload"] = kwargs.get("json")
             return _StreamingResponseStub(["data: [DONE]"])
 
         with patch("tutor.services._chat.requests.post", side_effect=fake_post):
@@ -116,7 +121,12 @@ class ChatStreamTokensTests(TestCase):
         captured = {}
 
         def fake_post(url, **kwargs):
-            captured["payload"] = kwargs.get("json")
+            # Only capture the FIRST call (the chat request). Post-chat
+            # hooks (error analyzer) make their own requests.post calls
+            # in tests with TUTOR_HOOKS_SYNC=True, which we don't want
+            # overwriting the captured payload.
+            if "payload" not in captured:
+                captured["payload"] = kwargs.get("json")
             return _StreamingResponseStub(["data: [DONE]"])
 
         with patch("tutor.services._chat.requests.post", side_effect=fake_post):

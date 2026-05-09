@@ -23,3 +23,8 @@ AXES_ENABLED = False
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+# Tutor: run post-chat hooks synchronously in tests so UserError /
+# UserWeakness side-effects are observable inside the test transaction
+# (background threads can't see the in-progress test DB rollback).
+TUTOR_HOOKS_SYNC = True
