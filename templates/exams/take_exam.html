@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% load i18n_dict static %}
+
+{% block title %}{{ exam.title }} — {% t_either "Take exam" "أداء الاختبار" %} — Onlenco{% endblock %}
+
+{% block extra_head %}
+<style>
+  .exam-shell { min-height: calc(100vh - 4rem); display: flex; flex-direction: column; background: #f7f8fb; }
+  .exam-progress { height: 14px; background: #e5e9f2; border-radius: 9999px; overflow: hidden; }
+  .exam-progress > .bar { height: 100%; background: linear-gradient(90deg,#22c55e,#16a34a); transition: width .35s ease; }
+  .exam-card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(20,30,60,0.06); padding: 28px; }
+  .opt {
+    display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+    border: 2px solid #e5e9f2; border-radius: 14px; cursor: pointer;
+    background: #fff; transition: all .15s ease; font-size: 16px; font-weight: 500;
+    user-select: none;
+  }
+  .opt:hover { border-color: #c7d2fe; background: #eef2ff; }
+  .opt.selected { border-color: #4f46e5; background: #eef2ff; color: #312e81; }
+  .opt.correct  { border-color: #16a34a; background: #dcfce7; color: #166534; }
+  .opt.wrong    { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
+  .opt[disabled] { cursor: default; }
+  .feedback { padding: 14px 18px; border-radius: 12px; margin-top: 12px; font-weight: 500; }
+  .feedback.ok    { background: #dcfce7; color: #166534; }
+  .feedback.bad   { background: #fee2e2; color: #991b1b; }
+  .heart { font-size: 22px; color: #ef4444; }
+  .heart.lost { color: #d1d5db; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; background: #eef2ff; color: #312e81; }
+  .pill-cefr.A0, .pill-cefr.A1, .pill-cefr.A2 { background: #dcfce7; color: #14532d; }
+  .pill-cefr.B1, .pill-cefr.B2 { background: #fef9c3; color: #713f12; }
+  .pill-cefr.C1, .pill-cefr.C2 { background: #ede9fe; color: #5b21b6; }
+  .text-input {
+    border: 2px solid #e5e9f2; border-radius: 14px; padding: 14px 18px;
+    font-size: 17px; width: 100%; outline: none;
+  }
+  .text-input:focus { border-color: #4f46e5; }
+  .btn-exam {
+    border-radius: 14px; padding: 14px 28px; font-weight: 700; font-size: 16px;
+    transition: all .15s ease; min-width: 140px;
+  }
+  .btn-check { background: #16a34a; color: #fff; }
+  .btn-check:hover:not(:disabled) { background: #15803d; transform: translateY(-1px); }
+  .btn-check:disabled { background: #d1d5db; color: #fff; cursor: not-allowed; }
+  .btn-next  { background: #4f46e5; color: #fff; }
+  .btn-next:hover  { background: #4338ca; transform: translateY(-1px); }
+  .timer {
+    font-variant-numeric: tabular-nums; padding: 6px 12px;
+    border-radius: 9999px; background: #fff; border: 1px solid #e5e9f2;
+    font-weight: 600; font-size: 13px; color: #475569;
+  }
+  .timer.low { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="exam-shell">
+  {% include "_app_header.html" %}
+
+  <main class="container py-6 max-w-3xl mx-auto w-full flex-1 flex flex-col">
+
+    {# Top bar: close + progress + timer + hearts #}
+    <div class="flex items-center gap-3 mb-5 flex-wrap">
+      <a href="{% url 'exam_detail' exam.pk %}" class="text-2xl text-muted-foreground" title="{% t_either 'Quit' 'خروج' %}">×</a>
+      <div class="flex-1 exam-progress" role="progressbar"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="bar" id="bar" style="width:0%"></div>
+      </div>
+      <div id="timer" class="timer" aria-label="{% t_either 'Time left' 'الوقت المتبقي' %}">
+        <i data-lucide="clock" class="inline h-3 w-3"></i> <span id="timer-val">{{ exam.duration_minutes }}:00</span>
+      </div>
+      <div id="hearts" class="flex gap-1 items-center" title="{% t_either 'Lives' 'محاولات' %}">
+        <span class="heart">♥</span><span class="heart">♥</span><span class="heart">♥</span>
+      </div>
+    </div>
+
+    {# Question slot — JS rewrites this per step #}
+    <div class="exam-card flex-1 flex flex-col gap-5" id="qcard">
+      <div class="text-sm text-muted-foreground flex items-center justify-between flex-wrap gap-2">
+        <span class="pill">
+          {% if exam.cefr_level %}<span class="pill-cefr {{ exam.cefr_level }}">{{ exam.cefr_level }}</span>{% endif %}
+          <span class="ml-1">{{ exam.get_exam_type_display }}</span>
+        </span>
+        <span id="counter">1 / {{ exam_questions|length }}</span>
+      </div>
+      <h2 class="font-display text-2xl font-bold leading-snug" id="prompt">…</h2>
+      <div id="prompt-meta" class="text-sm text-muted-foreground"></div>
+      <div id="answers" class="grid gap-3"></div>
+      <div id="feedback" class="hidden"></div>
+    </div>
+
+    {# Bottom bar: speak + check / continue #}
+    <div class="flex items-center justify-between mt-5 flex-wrap gap-3">
+      <button type="button" id="speak-btn" class="btn btn-ghost"
+              title="{% t_either 'Replay prompt' 'إعادة قراءة' %}">
+        <i data-lucide="volume-2" class="h-4 w-4"></i>
+        {% t_either "Replay" "كرر" %}
+      </button>
+      <div class="flex items-center gap-2">
+        <button type="button" id="skip-btn" class="btn btn-ghost"
+                title="{% t_either 'Skip question' 'تخطي السؤال' %}">
+          {% t_either "Skip" "تخطي" %}
+        </button>
+        <button type="button" id="action-btn" class="btn-exam btn-check" disabled>
+          {% t_either "Check" "تحقق" %}
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+{# Server-rendered question list (id, question, options, correct_answer, explanation, ...) #}
+<script id="exam-data" type="application/json">{{ exam_data|safe }}</script>
+
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById('exam-data').textContent || '[]');
+  const submitUrl = "{% url 'exam_submit' attempt.pk %}";
+  const resultUrl = "{% url 'exam_result' attempt.pk %}";
+  const csrf = document.querySelector('input[name=csrfmiddlewaretoken]')?.value
+            || document.cookie.split('; ').find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+
+  if (!data.length) {
+    document.getElementById('qcard').innerHTML =
+      '<p class="text-muted-foreground">{% t_either "No questions in this exam yet." "لا توجد أسئلة في هذا الاختبار بعد." %}</p>';
+    return;
+  }
+
+  const total = data.length;
+  let idx = 0;
+  let lives = 3;
+  const answers = [];      // [{question_id, user_answer}]
+  let phase = 'answer';    // 'answer' | 'feedback' | 'done'
+  let selected = null;
+
+  const $ = sel => document.querySelector(sel);
+  const bar       = $('#bar');
+  const counter   = $('#counter');
+  const prompt    = $('#prompt');
+  const meta      = $('#prompt-meta');
+  const answersEl = $('#answers');
+  const feedback  = $('#feedback');
+  const action    = $('#action-btn');
+  const skipBtn   = $('#skip-btn');
+  const heartsEl  = $('#hearts');
+  const speakBtn  = $('#speak-btn');
+  const timerEl   = $('#timer');
+  const timerVal  = $('#timer-val');
+
+  // --- Timer ----------------------------------------------------------
+  let secondsLeft = {{ exam.duration_minutes }} * 60;
+  const tickTimer = setInterval(() => {
+    secondsLeft -= 1;
+    const m = Math.floor(secondsLeft / 60);
+    const s = (secondsLeft % 60).toString().padStart(2, '0');
+    timerVal.textContent = `${m}:${s}`;
+    if (secondsLeft <= 60) timerEl.classList.add('low');
+    if (secondsLeft <= 0) { clearInterval(tickTimer); finish('time'); }
+  }, 1000);
+
+  // --- Speech --------------------------------------------------------
+  function speak(text) {
+    if (!text) return;
+    if (window.onlencoSpeak) return window.onlencoSpeak(text, { rate: 1.0 });
+    if (window.speechSynthesis) {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US'; u.rate = 1.0;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }
+  }
+  speakBtn.addEventListener('click', () => speak(prompt.textContent));
+
+  // --- Hearts --------------------------------------------------------
+  function renderHearts() {
+    heartsEl.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const span = document.createElement('span');
+      span.className = 'heart' + (i >= lives ? ' lost' : '');
+      span.textContent = '♥';
+      heartsEl.appendChild(span);
+    }
+  }
+
+  // --- Render --------------------------------------------------------
+  function renderQuestion() {
+    if (idx >= total) return finish('done');
+    const ex = data[idx];
+    counter.textContent = `${idx + 1} / ${total}`;
+    bar.style.width = `${(idx / total) * 100}%`;
+    bar.parentElement.setAttribute('aria-valuenow', `${(idx / total) * 100}`);
+
+    prompt.textContent = ex.question || '';
+    const bits = [];
+    if (ex.cefr_level) bits.push(ex.cefr_level);
+    if (ex.skill) bits.push(ex.skill);
+    if (ex.topic) bits.push(ex.topic);
+    meta.textContent = bits.join(' · ');
+
+    feedback.className = 'hidden';
+    feedback.textContent = '';
+    selected = null;
+    answersEl.innerHTML = '';
+
+    const opts = (ex.options && ex.options.length) ? ex.options : null;
+    if (opts) {
+      opts.forEach(opt => {
+        const div = document.createElement('div');
+        div.className = 'opt';
+        div.textContent = opt;
+        div.addEventListener('click', () => {
+          if (phase !== 'answer') return;
+          document.querySelectorAll('.opt.selected').forEach(o => o.classList.remove('selected'));
+          div.classList.add('selected');
+          selected = opt;
+          action.disabled = false;
+        });
+        answersEl.appendChild(div);
+      });
+    } else {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'text-input';
+      input.autocomplete = 'off';
+      input.placeholder = '{% t_either "Type your answer" "اكتب إجابتك" %}';
+      input.addEventListener('input', () => {
+        selected = input.value.trim();
+        action.disabled = !selected;
+      });
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !action.disabled) action.click();
+      });
+      answersEl.appendChild(input);
+      setTimeout(() => input.focus(), 50);
+    }
+
+    action.disabled = true;
+    action.className = 'btn-exam btn-check';
+    action.textContent = '{% t_either "Check" "تحقق" %}';
+    skipBtn.disabled = false;
+    phase = 'answer';
+
+    // Auto-speak prompts at A0–A2 to help listening practice.
+    {% if exam.cefr_level == "A0" or exam.cefr_level == "A1" or exam.cefr_level == "A2" %}
+      speak(ex.question);
+    {% endif %}
+  }
+
+  // --- Check + feedback ----------------------------------------------
+  function check() {
+    const ex = data[idx];
+    const ans = (selected || '').trim();
+    const correct = ans.toLowerCase() === (ex.correct_answer || '').trim().toLowerCase()
+                 || (ex.acceptable_answers || []).map(a => String(a).trim().toLowerCase()).includes(ans.toLowerCase());
+    answers.push({ question_id: ex.id, user_answer: ans });
+
+    const opts = answersEl.querySelectorAll('.opt');
+    if (opts.length) {
+      opts.forEach(o => {
+        o.setAttribute('disabled', '');
+        if (o.textContent === ex.correct_answer) o.classList.add('correct');
+        else if (o.classList.contains('selected')) o.classList.add('wrong');
+      });
+    } else {
+      const input = answersEl.querySelector('input');
+      if (input) {
+        input.disabled = true;
+        input.style.borderColor = correct ? '#16a34a' : '#dc2626';
+      }
+    }
+
+    feedback.className = 'feedback ' + (correct ? 'ok' : 'bad');
+    feedback.textContent = correct
+      ? '{% t_either "Correct!" "إجابة صحيحة!" %}' + (ex.explanation ? ' ' + ex.explanation : '')
+      : '{% t_either "Not quite. Correct answer:" "إجابة غير صحيحة. الصواب:" %} ' + (ex.correct_answer || '') +
+        (ex.explanation ? ' — ' + ex.explanation : '');
+
+    if (!correct) {
+      lives = Math.max(0, lives - 1);
+      renderHearts();
+    }
+
+    action.className = 'btn-exam btn-next';
+    action.textContent = '{% t_either "Continue" "متابعة" %}';
+    action.disabled = false;
+    skipBtn.disabled = true;
+    phase = 'feedback';
+  }
+
+  function skipCurrent() {
+    if (phase !== 'answer') return;
+    const ex = data[idx];
+    answers.push({ question_id: ex.id, user_answer: '' });
+    idx += 1;
+    renderQuestion();
+  }
+  skipBtn.addEventListener('click', skipCurrent);
+
+  // --- Submit --------------------------------------------------------
+  async function submit() {
+    bar.style.width = '100%';
+    prompt.textContent = '{% t_either "Submitting…" "جاري الإرسال…" %}';
+    meta.textContent = '';
+    answersEl.innerHTML = '';
+    feedback.className = 'hidden';
+    action.disabled = true; skipBtn.disabled = true;
+
+    const fd = new FormData();
+    fd.append('csrfmiddlewaretoken', csrf);
+    answers.forEach(a => fd.append(`q_${a.question_id}`, a.user_answer));
+
+    try {
+      const r = await fetch(submitUrl, {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        redirect: 'follow',
+      });
+      window.location.href = r.url || resultUrl;
+    } catch (e) {
+      window.location.href = resultUrl;
+    }
+  }
+
+  function finish(reason) {
+    if (phase === 'done') return;
+    phase = 'done';
+    clearInterval(tickTimer);
+    if (reason === 'time') {
+      // remaining unanswered questions get blank submission.
+      for (let i = idx; i < total; i++) {
+        if (!answers.find(a => a.question_id === data[i].id)) {
+          answers.push({ question_id: data[i].id, user_answer: '' });
+        }
+      }
+    }
+    submit();
+  }
+
+  action.addEventListener('click', () => {
+    if (phase === 'answer') {
+      check();
+    } else if (phase === 'feedback') {
+      idx += 1;
+      if (lives <= 0 || idx >= total) finish('done');
+      else renderQuestion();
+    }
+  });
+
+  renderHearts();
+  renderQuestion();
+})();
+</script>
+
+{# CSRF token for the JS submit #}
+<form style="display:none">{% csrf_token %}</form>
+{% endblock %}

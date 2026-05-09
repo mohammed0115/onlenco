@@ -1,0 +1,19 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}ملخص أسبوعك{% else %}Your week on Onlenco{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<ul>
+  <li>{% if lang == "ar" %}دقائق تحدث:{% else %}Speaking minutes:{% endif %}      <strong>{{ payload.speaking_minutes|default:0 }}</strong></li>
+  <li>{% if lang == "ar" %}دقائق محادثة AI:{% else %}AI tutor minutes:{% endif %} <strong>{{ payload.ai_chat_minutes|default:0 }}</strong></li>
+  <li>{% if lang == "ar" %}كلمات مقروءة:{% else %}Words read:{% endif %}          <strong>{{ payload.words_read|default:0 }}</strong></li>
+  <li>{% if lang == "ar" %}دروس مكتملة:{% else %}Lessons completed:{% endif %}    <strong>{{ payload.lessons_completed|default:0 }}</strong></li>
+  <li>{% if lang == "ar" %}أسئلة مجابة:{% else %}Questions answered:{% endif %}   <strong>{{ payload.questions_answered|default:0 }}</strong></li>
+  <li>{% if lang == "ar" %}دقة الإجابات:{% else %}Accuracy:{% endif %}            <strong>{{ payload.quiz_accuracy|default:0 }}%</strong></li>
+  <li>{% if lang == "ar" %}سلسلة التعلم:{% else %}Streak:{% endif %}                <strong>{{ payload.streak_days|default:0 }} {% if lang == "ar" %}يوم{% else %}days{% endif %}</strong></li>
+  <li>{% if lang == "ar" %}نقاط XP المكتسبة:{% else %}XP earned:{% endif %}       <strong>+{{ payload.xp_earned|default:0 }}</strong></li>
+</ul>
+<p>{{ payload.summary_message }}</p>
+<p><a href="{{ cta_url }}" class="cta">
+  {% if lang == "ar" %}افتح اللوحة{% else %}Open dashboard{% endif %}
+</a></p>
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}
+  {% t_either "Profile & settings" "الحساب والإعدادات" %} — Onlenco
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .profile-shell { min-height: calc(100vh - 4rem); background: #f7f8fb; }
+  .profile-card  { background: #fff; border-radius: 18px;
+                   box-shadow: 0 6px 28px rgba(20,30,60,.06);
+                   padding: 24px; }
+  .row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .row:last-child { border-bottom: 0; }
+  .row .label  { width: 140px; color: #6b7280; font-size: 13px;
+                 text-transform: uppercase; letter-spacing: .04em; flex-shrink: 0; }
+  .row .value  { font-weight: 600; color: #111827; }
+  .pill {
+    display: inline-flex; align-items: center;
+    padding: 2px 10px; border-radius: 9999px;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  }
+  .pill.cefr-a0, .pill.cefr-a1, .pill.cefr-a2 { background: #dcfce7; color: #14532d; }
+  .pill.cefr-b1, .pill.cefr-b2 { background: #fef9c3; color: #713f12; }
+  .pill.cefr-c1, .pill.cefr-c2 { background: #ede9fe; color: #5b21b6; }
+  .pill.path-placement_test    { background: #eef2ff; color: #312e81; }
+  .pill.path-beginner_start    { background: #ecfdf5; color: #065f46; }
+  .pill.no-data                { background: #f3f4f6; color: #6b7280; }
+  .btn-retake {
+    background: #4f46e5; color: #fff; border-radius: 12px;
+    padding: 12px 18px; font-weight: 700; font-size: 14px;
+    border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-retake:hover { background: #4338ca; }
+  .lang-button {
+    flex: 1; padding: 10px 12px; border-radius: 10px;
+    border: 2px solid #e5e9f2; background: #fff;
+    font-weight: 600; font-size: 14px; cursor: pointer;
+    transition: all .15s ease;
+  }
+  .lang-button.active { border-color: #4f46e5; background: #eef2ff; color: #312e81; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="profile-shell">
+  {% include "_app_header.html" %}
+
+  <main class="container py-10 max-w-2xl mx-auto space-y-6">
+    {% if messages %}
+      {% for m in messages %}
+        <div class="rounded-lg p-3 text-sm {% if m.tags == 'success' %}bg-green-50 text-green-700{% elif m.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-blue-50 text-blue-700{% endif %}">
+          {{ m }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <div>
+      <h1 class="font-display text-3xl font-bold mb-1">
+        {% t_either "Profile & settings" "الحساب والإعدادات" %}
+      </h1>
+      <p class="text-sm text-muted-foreground">
+        {% t_either "Manage your account, language, and learning level." "أدر حسابك ولغتك ومستواك التعليمي." %}
+      </p>
+    </div>
+
+    {# --- Account snapshot --- #}
+    <section class="profile-card">
+      <h2 class="font-display text-lg font-semibold mb-3">
+        {% t_either "Account" "الحساب" %}
+      </h2>
+      <div class="row">
+        <div class="label">{% t_either "Name" "الاسم" %}</div>
+        <div class="value">{{ profile.full_name|default:user.username }}</div>
+      </div>
+      <div class="row">
+        <div class="label">{% t_either "Email" "البريد" %}</div>
+        <div class="value font-mono text-sm">{{ user.email|default:"—" }}</div>
+      </div>
+      <div class="row">
+        <div class="label">{% t_either "Email verified" "تم التحقق" %}</div>
+        <div class="value">
+          {% if profile.email_verified %}
+            <span class="pill" style="background:#dcfce7;color:#14532d">{% t_either "Verified" "مُفعَّل" %}</span>
+          {% else %}
+            <span class="pill" style="background:#fef9c3;color:#713f12">{% t_either "Pending" "في الانتظار" %}</span>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    {# --- Learning state --- #}
+    <section class="profile-card">
+      <h2 class="font-display text-lg font-semibold mb-3">
+        {% t_either "Learning level" "مستوى التعلم" %}
+      </h2>
+      <div class="row">
+        <div class="label">{% t_either "Current level" "المستوى الحالي" %}</div>
+        <div class="value">
+          {% if profile.cefr_level %}
+            <span class="pill cefr-{{ profile.cefr_level|lower }}">{{ profile.cefr_level }}</span>
+          {% else %}
+            <span class="pill no-data">{% t_either "Not set" "غير محدد" %}</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="row">
+        <div class="label">{% t_either "Started at" "بدأت من" %}</div>
+        <div class="value">
+          {% if profile.initial_cefr_level %}
+            <span class="pill cefr-{{ profile.initial_cefr_level|lower }}">{{ profile.initial_cefr_level }}</span>
+          {% else %}
+            <span class="pill no-data">—</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="row">
+        <div class="label">{% t_either "Onboarding" "البداية" %}</div>
+        <div class="value">
+          {% if profile.onboarding_path %}
+            <span class="pill path-{{ profile.onboarding_path }}">
+              {% if profile.onboarding_path == "placement_test" %}
+                {% t_either "Took placement test" "اجتاز اختبار تحديد المستوى" %}
+              {% else %}
+                {% t_either "Started from beginner" "بدأ من الصفر" %}
+              {% endif %}
+            </span>
+          {% else %}
+            <span class="pill no-data">{% t_either "Not yet onboarded" "لم يبدأ بعد" %}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      {# Placement-test action — primary CTA on this card. #}
+      <div class="mt-4 flex flex-wrap gap-3 items-center">
+        {% if profile.placement_completed %}
+          <form method="post" action="{% url 'placement_retake' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-retake" data-testid="profile-retake-placement">
+              <i data-lucide="refresh-cw" class="h-4 w-4"></i>
+              {% t_either "Retake placement test" "أعد اختبار تحديد المستوى" %}
+            </button>
+          </form>
+          <p class="text-xs text-muted-foreground">
+            {% t_either "Your level will be recalibrated based on the new result." "سيُعاد ضبط مستواك بناءً على النتيجة الجديدة." %}
+          </p>
+        {% else %}
+          <form method="post" action="{% url 'onboarding_placement' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-retake" data-testid="profile-take-placement">
+              <i data-lucide="play" class="h-4 w-4"></i>
+              {% t_either "Take placement test" "خذ اختبار تحديد المستوى" %}
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </section>
+
+    {# --- Language preference --- #}
+    <section class="profile-card">
+      <h2 class="font-display text-lg font-semibold mb-3">
+        {% t_either "Language" "اللغة" %}
+      </h2>
+      <p class="text-sm text-muted-foreground mb-3">
+        {% t_either "We'll show the app and emails in this language." "سنعرض التطبيق والرسائل بهذه اللغة." %}
+      </p>
+      <form method="post" class="flex gap-2">
+        {% csrf_token %}
+        <button type="submit" name="preferred_language" value="en"
+                class="lang-button {% if profile.preferred_language == 'en' %}active{% endif %}"
+                data-testid="profile-lang-en">
+          English
+        </button>
+        <button type="submit" name="preferred_language" value="ar"
+                class="lang-button {% if profile.preferred_language == 'ar' %}active{% endif %}"
+                data-testid="profile-lang-ar">
+          العربية
+        </button>
+      </form>
+    </section>
+
+    {# --- Subscription quick view --- #}
+    {% if profile.subscription_status %}
+    <section class="profile-card">
+      <h2 class="font-display text-lg font-semibold mb-3">
+        {% t_either "Subscription" "الاشتراك" %}
+      </h2>
+      <div class="row">
+        <div class="label">{% t_either "Status" "الحالة" %}</div>
+        <div class="value">
+          {% if profile.subscription_status == "active" %}
+            <span class="pill" style="background:#dcfce7;color:#14532d">
+              {% t_either "Active" "نشط" %}
+            </span>
+          {% elif profile.subscription_status == "expired" %}
+            <span class="pill" style="background:#fee2e2;color:#991b1b">
+              {% t_either "Expired" "منتهي" %}
+            </span>
+          {% elif profile.subscription_status == "pending" %}
+            <span class="pill" style="background:#fef9c3;color:#713f12">
+              {% t_either "Pending" "في الانتظار" %}
+            </span>
+          {% else %}
+            <span class="pill no-data">{% t_either "Inactive" "غير نشط" %}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if profile.subscription_expires_at %}
+      <div class="row">
+        <div class="label">{% t_either "Renews / expires" "تجديد / انتهاء" %}</div>
+        <div class="value">{{ profile.subscription_expires_at|date:"Y-m-d" }}</div>
+      </div>
+      {% endif %}
+      <div class="mt-3">
+        <a href="{% url 'subscribe' %}" class="text-sm font-semibold text-indigo-600 hover:underline">
+          {% t_either "Manage subscription →" "إدارة الاشتراك ←" %}
+        </a>
+      </div>
+    </section>
+    {% endif %}
+  </main>
+</div>
+<script>if (window.lucide) lucide.createIcons();</script>
+{% endblock %}

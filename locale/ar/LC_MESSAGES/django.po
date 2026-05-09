@@ -1,32 +1,968 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: Onlenco\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-07 19:53+0200\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"POT-Creation-Date: 2026-05-09 02:28+0200\n"
+"PO-Revision-Date: 2026-05-09\n"
+"Language-Team: Arabic\n"
+"Language: ar\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
 "&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
 
-#: learning_core/admin.py:24
+# ---- Apps ----
+msgid "Accounts"
+msgstr "الحسابات"
+
+# ---- accounts.Profile choices ----
+msgid "C3 (Advanced communication)"
+msgstr "C3 (تواصل متقدم)"
+
+msgid "Inactive"
+msgstr "غير مفعل"
+
+msgid "Pending verification"
+msgstr "بانتظار التحقق"
+
+msgid "Active"
+msgstr "مفعل"
+
+msgid "Expired"
+msgstr "منتهي"
+
+msgid "Student"
+msgstr "طالب"
+
+msgid "Admin"
+msgstr "مشرف"
+
+msgid "Placement test"
+msgstr "اختبار تحديد المستوى"
+
+msgid "Started from beginner"
+msgstr "بدأ من المبتدئ"
+
+# ---- accounts.Profile fields ----
+msgid "User"
+msgstr "المستخدم"
+
+msgid "Full name"
+msgstr "الاسم الكامل"
+
+msgid "English"
+msgstr "الإنجليزية"
+
+msgid "Arabic"
+msgstr "العربية"
+
+msgid "Preferred language"
+msgstr "اللغة المفضلة"
+
+msgid "Role"
+msgstr "الدور"
+
+msgid "CEFR level"
+msgstr "مستوى CEFR"
+
+msgid "Placement completed"
+msgstr "اكتمل اختبار تحديد المستوى"
+
+msgid "Onboarding completed"
+msgstr "اكتمل التعريف"
+
+msgid "Which onboarding path the student picked."
+msgstr "مسار التعريف الذي اختاره الطالب."
+
+msgid "Onboarding path"
+msgstr "مسار التعريف"
+
+msgid "Level at onboarding. `cefr_level` is the live current level."
+msgstr "المستوى عند التعريف. `cefr_level` هو المستوى الحالي."
+
+msgid "Initial CEFR level"
+msgstr "مستوى CEFR المبدئي"
+
+msgid "Onboarding completed at"
+msgstr "تاريخ اكتمال التعريف"
+
+msgid "Email verified"
+msgstr "البريد مُتحقق منه"
+
+msgid "Subscription status"
+msgstr "حالة الاشتراك"
+
+msgid "Subscription expires"
+msgstr "ينتهي الاشتراك"
+
+msgid "Created at"
+msgstr "أُنشئ في"
+
+msgid "Updated at"
+msgstr "حُدث في"
+
+msgid "Profile"
+msgstr "ملف"
+
+msgid "Profiles"
+msgstr "ملفات"
+
+msgid "AI Engine (Model Router)"
+msgstr "محرك الذكاء الاصطناعي"
+
+msgid "Provider kill switch"
+msgstr "مفتاح إيقاف الموفر"
+
+msgid "Provider kill switches"
+msgstr "مفاتيح إيقاف الموفرين"
+
+msgid "Model prediction log"
+msgstr "سجل تنبؤات النموذج"
+
+msgid "Model prediction logs"
+msgstr "سجلات تنبؤات النموذج"
+
+msgid "AI Training Datasets"
+msgstr "مجموعات بيانات التدريب"
+
+msgid "Aitraining example"
+msgstr "مثال تدريب"
+
+msgid "Aitraining examples"
+msgstr "أمثلة التدريب"
+
+msgid "Dataset build"
+msgstr "بناء مجموعة بيانات"
+
+msgid "Dataset builds"
+msgstr "بناءات مجموعات البيانات"
+
+msgid "Dataset export"
+msgstr "تصدير مجموعة بيانات"
+
+msgid "Dataset exports"
+msgstr "تصديرات مجموعات البيانات"
+
+msgid "Evaluation run"
+msgstr "تشغيل تقييم"
+
+msgid "Evaluation runs"
+msgstr "تشغيلات التقييم"
+
+msgid "Dataset quality report"
+msgstr "تقرير جودة مجموعة البيانات"
+
+msgid "Dataset quality reports"
+msgstr "تقارير جودة مجموعات البيانات"
+
+msgid "Club"
+msgstr "النادي"
+
+msgid "Club event"
+msgstr "فعالية نادي"
+
+msgid "Club events"
+msgstr "فعاليات النادي"
+
+msgid "Club rsvp"
+msgstr "تأكيد حضور"
+
+msgid "Club rsvps"
+msgstr "تأكيدات الحضور"
+
+# ---- courses admin actions ----
+msgid "Submit selected for review"
+msgstr "تقديم المحدد للمراجعة"
+
+#, python-format
+msgid "%d course(s) submitted for review."
+msgstr "%d دورة قُدمت للمراجعة."
+
+msgid "Approve selected (publishes)"
+msgstr "قبول المحدد (ينشر)"
+
+msgid "Only Academic Admins can approve."
+msgstr "فقط المشرف الأكاديمي يستطيع القبول."
+
+#, python-format
+msgid "%d course(s) approved & published."
+msgstr "تم قبول ونشر %d دورة."
+
+msgid "Reject selected"
+msgstr "رفض المحدد"
+
+msgid "Only Academic Admins can reject."
+msgstr "فقط المشرف الأكاديمي يستطيع الرفض."
+
+#, python-format
+msgid "%d course(s) rejected."
+msgstr "تم رفض %d دورة."
+
+msgid "Publish selected (Academic Admin only)"
+msgstr "نشر المحدد (المشرف الأكاديمي فقط)"
+
+msgid "Permission denied."
+msgstr "غير مصرح."
+
+#, python-format
+msgid "%d course(s) published."
+msgstr "تم نشر %d دورة."
+
+msgid "Archive selected"
+msgstr "أرشفة المحدد"
+
+#, python-format
+msgid "%d course(s) archived."
+msgstr "تمت أرشفة %d دورة."
+
+msgid "Submit selected lessons for review"
+msgstr "تقديم الدروس المحددة للمراجعة"
+
+#, python-format
+msgid "%d lesson(s) submitted for review."
+msgstr "%d درس قُدم للمراجعة."
+
+msgid "Approve selected lessons"
+msgstr "قبول الدروس المحددة"
+
+#, python-format
+msgid "%d lesson(s) approved."
+msgstr "تم قبول %d درس."
+
+msgid "Reject selected lessons"
+msgstr "رفض الدروس المحددة"
+
+#, python-format
+msgid "%d lesson(s) rejected."
+msgstr "تم رفض %d درس."
+
+msgid "Duplicate selected lessons"
+msgstr "تكرار الدروس المحددة"
+
+#, python-format
+msgid "%d lesson(s) duplicated."
+msgstr "تم تكرار %d درس."
+
+# ---- courses status / type enums ----
+msgid "Draft"
+msgstr "مسودة"
+
+msgid "Pending review"
+msgstr "بانتظار المراجعة"
+
+msgid "Published"
+msgstr "منشور"
+
+msgid "Archived"
+msgstr "مؤرشف"
+
+msgid "Bilingual"
+msgstr "ثنائي اللغة"
+
+msgid "Reading"
+msgstr "قراءة"
+
+msgid "Writing"
+msgstr "كتابة"
+
+msgid "Listening"
+msgstr "استماع"
+
+msgid "Speaking"
+msgstr "تحدث"
+
+msgid "Grammar"
+msgstr "قواعد"
+
+msgid "Vocabulary"
+msgstr "مفردات"
+
+msgid "Mixed"
+msgstr "متنوع"
+
+msgid "PDF"
+msgstr "PDF"
+
+msgid "Video"
+msgstr "فيديو"
+
+msgid "Audio"
+msgstr "صوت"
+
+msgid "Image"
+msgstr "صورة"
+
+msgid "External link"
+msgstr "رابط خارجي"
+
+msgid "Worksheet"
+msgstr "ورقة عمل"
+
+msgid "Multiple choice"
+msgstr "اختيار من متعدد"
+
+msgid "Fill in the blank"
+msgstr "املأ الفراغ"
+
+msgid "Correction"
+msgstr "تصحيح"
+
+msgid "Sentence ordering"
+msgstr "ترتيب الجمل"
+
+msgid "Translation"
+msgstr "ترجمة"
+
+msgid "Short answer"
+msgstr "إجابة قصيرة"
+
+msgid "Speaking prompt"
+msgstr "موضوع تحدث"
+
+msgid "Writing prompt"
+msgstr "موضوع كتابة"
+
+msgid "Completed"
+msgstr "مكتمل"
+
+msgid "Paused"
+msgstr "متوقف"
+
+msgid "Pending"
+msgstr "قيد الانتظار"
+
+msgid "Approved"
+msgstr "مقبول"
+
+msgid "Rejected"
+msgstr "مرفوض"
+
+# ---- courses model fields ----
+msgid "CEFR code"
+msgstr "رمز CEFR"
+
+msgid "Name"
+msgstr "الاسم"
+
+msgid "Description"
+msgstr "الوصف"
+
+msgid "Display order"
+msgstr "ترتيب العرض"
+
+msgid "Course level"
+msgstr "مستوى الدورة"
+
+msgid "Course levels"
+msgstr "مستويات الدورات"
+
+msgid "Title"
+msgstr "العنوان"
+
+msgid "Slug"
+msgstr "المعرّف"
+
+msgid "Level"
+msgstr "المستوى"
+
+msgid "Teacher"
+msgstr "المعلم"
+
+msgid "Language"
+msgstr "اللغة"
+
+msgid "Status"
+msgstr "الحالة"
+
+msgid "Cover image"
+msgstr "صورة الغلاف"
+
+msgid "Intro video"
+msgstr "فيديو تعريفي"
+
+msgid "Estimated duration (hours)"
+msgstr "المدة المقدرة (ساعات)"
+
+msgid "Learning objectives"
+msgstr "أهداف التعلم"
+
+msgid "Prerequisites"
+msgstr "المتطلبات السابقة"
+
+msgid "Free"
+msgstr "مجاني"
+
+msgid "Created by"
+msgstr "أُنشئ بواسطة"
+
+msgid "Reviewed by"
+msgstr "روجع بواسطة"
+
+msgid "Reviewed at"
+msgstr "تمت المراجعة في"
+
+msgid "Review notes"
+msgstr "ملاحظات المراجعة"
+
+msgid "Course"
+msgstr "دورة"
+
+msgid "Courses"
+msgstr "الدورات"
+
+msgid "Order"
+msgstr "الترتيب"
+
+msgid "Course unit"
+msgstr "وحدة دراسية"
+
+msgid "Course units"
+msgstr "الوحدات الدراسية"
+
+msgid "Unit"
+msgstr "الوحدة"
+
+msgid "Lesson type"
+msgstr "نوع الدرس"
+
 msgid "Skill"
 msgstr "مهارة"
 
-#: templates/_app_header.html:4
+msgid "Grammar topic"
+msgstr "موضوع قواعد"
+
+msgid "Vocabulary topic"
+msgstr "موضوع مفردات"
+
+msgid "Video file"
+msgstr "ملف فيديو"
+
+msgid "Video URL"
+msgstr "رابط الفيديو"
+
+msgid "Audio file"
+msgstr "ملف صوتي"
+
+msgid "PDF file"
+msgstr "ملف PDF"
+
+msgid "Content"
+msgstr "المحتوى"
+
+msgid "Transcript"
+msgstr "النص المكتوب"
+
+msgid "Duration (minutes)"
+msgstr "المدة (دقائق)"
+
+msgid "Lesson"
+msgstr "درس"
+
+msgid "Lessons"
+msgstr "الدروس"
+
+msgid "Resource type"
+msgstr "نوع المورد"
+
+msgid "File"
+msgstr "الملف"
+
+msgid "URL"
+msgstr "الرابط"
+
+msgid "Lesson resource"
+msgstr "مورد الدرس"
+
+msgid "Lesson resources"
+msgstr "موارد الدروس"
+
+msgid "Passing score (%)"
+msgstr "علامة النجاح (%)"
+
+msgid "Time limit (minutes)"
+msgstr "حد الوقت (دقائق)"
+
+msgid "0 = no limit"
+msgstr "0 = بدون حد"
+
+msgid "Lesson quiz"
+msgstr "اختبار درس"
+
+msgid "Lesson quizzes"
+msgstr "اختبارات الدروس"
+
+msgid "Quiz"
+msgstr "اختبار"
+
+msgid "Question type"
+msgstr "نوع السؤال"
+
+msgid "Question text"
+msgstr "نص السؤال"
+
+msgid "Options"
+msgstr "الخيارات"
+
+msgid "Correct answer"
+msgstr "الإجابة الصحيحة"
+
+msgid "Explanation"
+msgstr "الشرح"
+
+msgid "Difficulty (0..1)"
+msgstr "الصعوبة (0..1)"
+
+msgid "Points"
+msgstr "النقاط"
+
+msgid "Lesson question"
+msgstr "سؤال درس"
+
+msgid "Lesson questions"
+msgstr "أسئلة الدروس"
+
+msgid "Multiple-choice questions need at least 2 options."
+msgstr "أسئلة الاختيار من متعدد تتطلب خيارين على الأقل."
+
+msgid "The correct answer must appear in the options list."
+msgstr "يجب أن تكون الإجابة الصحيحة ضمن الخيارات."
+
+msgid "Progress %"
+msgstr "نسبة التقدم"
+
+msgid "Course enrollment"
+msgstr "تسجيل في دورة"
+
+msgid "Course enrollments"
+msgstr "التسجيلات في الدورات"
+
+msgid "Content type"
+msgstr "نوع المحتوى"
+
+msgid "Object ID"
+msgstr "معرّف الكائن"
+
+msgid "Submitted by"
+msgstr "قُدم بواسطة"
+
+msgid "Notes"
+msgstr "ملاحظات"
+
+msgid "Content review log"
+msgstr "سجل مراجعة المحتوى"
+
+msgid "Content review logs"
+msgstr "سجلات مراجعة المحتوى"
+
+msgid "Target user"
+msgstr "المستخدم المستهدف"
+
+msgid "Action type"
+msgstr "نوع الإجراء"
+
+msgid "e.g. course.publish, lesson.approve"
+msgstr "مثال: course.publish, lesson.approve"
+
+msgid "Admin action log"
+msgstr "سجل إجراءات المشرف"
+
+msgid "Admin action logs"
+msgstr "سجلات إجراءات المشرف"
+
+# ---- courses validators ----
+#, python-format
+msgid "Unknown upload kind: %(kind)s"
+msgstr "نوع رفع غير معروف: %(kind)s"
+
+#, python-format
+msgid ""
+"File type %(ext)s is not allowed for %(kind)s. Allowed types: %(allowed)s"
+msgstr ""
+"نوع الملف %(ext)s غير مسموح به لـ %(kind)s. الأنواع المسموحة: %(allowed)s"
+
+#, python-format
+msgid "File is too large (%(mb).1f MB). Maximum allowed is %(max).0f MB."
+msgstr ""
+"الملف كبير جداً (%(mb).1f ميغابايت). الحد الأقصى المسموح %(max).0f ميغابايت."
+
+msgid "Dictionary"
+msgstr "القاموس"
+
+msgid "Dictionary entry"
+msgstr "مدخل قاموس"
+
+msgid "Dictionary entries"
+msgstr "مداخل القاموس"
+
+msgid "Exams & question bank"
+msgstr "الامتحانات وبنك الأسئلة"
+
+msgid "Exam blueprint"
+msgstr "مخطط امتحان"
+
+msgid "Exam blueprints"
+msgstr "مخططات الامتحانات"
+
+msgid "Exam"
+msgstr "امتحان"
+
+msgid "Exams"
+msgstr "الامتحانات"
+
+msgid "Exam question"
+msgstr "سؤال امتحان"
+
+msgid "Exam questions"
+msgstr "أسئلة الامتحانات"
+
+msgid "Exam attempt"
+msgstr "محاولة امتحان"
+
+msgid "Exam attempts"
+msgstr "محاولات الامتحانات"
+
+msgid "Exam answer"
+msgstr "إجابة امتحان"
+
+msgid "Exam answers"
+msgstr "إجابات الامتحانات"
+
+msgid "Question generation batch"
+msgstr "دفعة توليد أسئلة"
+
+msgid "Question generation batches"
+msgstr "دفعات توليد الأسئلة"
+
+msgid "Question Factory"
+msgstr "مصنع الأسئلة"
+
+msgid "Topic"
+msgstr "موضوع"
+
+msgid "Topics"
+msgstr "المواضيع"
+
+msgid "Substitution bank"
+msgstr "بنك الاستبدالات"
+
+msgid "Substitution banks"
+msgstr "بنوك الاستبدالات"
+
+msgid "Question template"
+msgstr "قالب سؤال"
+
+msgid "Question templates"
+msgstr "قوالب الأسئلة"
+
+msgid "Training dataset"
+msgstr "مجموعة تدريب"
+
+msgid "Training datasets"
+msgstr "مجموعات التدريب"
+
+msgid "Dataset export job"
+msgstr "مهمة تصدير مجموعة بيانات"
+
+msgid "Dataset export jobs"
+msgstr "مهام تصدير مجموعات البيانات"
+
+msgid "Learning Core"
+msgstr "نواة التعلم"
+
+msgid "Skills"
+msgstr "المهارات"
+
+msgid "Grammar topics"
+msgstr "مواضيع القواعد"
+
+msgid "Student learning profile"
+msgstr "ملف تعلم الطالب"
+
+msgid "Student learning profiles"
+msgstr "ملفات تعلم الطلاب"
+
+msgid "Skill mastery"
+msgstr "إتقان مهارة"
+
+msgid "Skill masteries"
+msgstr "إتقان المهارات"
+
+msgid "User error"
+msgstr "خطأ مستخدم"
+
+msgid "User errors"
+msgstr "أخطاء المستخدمين"
+
+msgid "User weakness"
+msgstr "نقطة ضعف مستخدم"
+
+msgid "User weaknesses"
+msgstr "نقاط ضعف المستخدمين"
+
+msgid "Adaptive exercise"
+msgstr "تمرين تكيفي"
+
+msgid "Adaptive exercises"
+msgstr "التمارين التكيفية"
+
+msgid "Exercise attempt"
+msgstr "محاولة تمرين"
+
+msgid "Exercise attempts"
+msgstr "محاولات التمارين"
+
+msgid "Learning recommendation"
+msgstr "توصية تعليمية"
+
+msgid "Learning recommendations"
+msgstr "التوصيات التعليمية"
+
+msgid "Weekly assessment"
+msgstr "تقييم أسبوعي"
+
+msgid "Weekly assessments"
+msgstr "التقييمات الأسبوعية"
+
+msgid "Quizzes"
+msgstr "الاختبارات"
+
+msgid "Question"
+msgstr "سؤال"
+
+msgid "Questions"
+msgstr "الأسئلة"
+
+msgid "Lesson progress"
+msgstr "تقدم الدرس"
+
+msgid "Library"
+msgstr "المكتبة"
+
+msgid "Novel"
+msgstr "رواية"
+
+msgid "Short story"
+msgstr "قصة قصيرة"
+
+msgid "Grammar reference"
+msgstr "مرجع القواعد"
+
+msgid "Article"
+msgstr "مقال"
+
+msgid "Long video"
+msgstr "فيديو طويل"
+
+msgid "Book"
+msgstr "كتاب"
+
+msgid "Books"
+msgstr "الكتب"
+
+msgid "Chapter"
+msgstr "فصل"
+
+msgid "Chapters"
+msgstr "الفصول"
+
+msgid "Vocabulary extract"
+msgstr "مستخلص مفردات"
+
+msgid "Vocabulary extracts"
+msgstr "مستخلصات المفردات"
+
+msgid "Grammar extract"
+msgstr "مستخلص قواعد"
+
+msgid "Grammar extracts"
+msgstr "مستخلصات القواعد"
+
+msgid "Comprehension question"
+msgstr "سؤال استيعاب"
+
+msgid "Comprehension questions"
+msgstr "أسئلة الاستيعاب"
+
+msgid "Library progress"
+msgstr "تقدم المكتبة"
+
+msgid "Motivation Engine"
+msgstr "محرك التحفيز"
+
+# ---- motivation models ----
+msgid "Learner activity snapshot"
+msgstr "لقطة نشاط المتعلم"
+
+msgid "Learner activity snapshots"
+msgstr "لقطات نشاط المتعلمين"
+
+msgid "Achievement"
+msgstr "إنجاز"
+
+msgid "Achievements"
+msgstr "الإنجازات"
+
+msgid "User achievement"
+msgstr "إنجاز المستخدم"
+
+msgid "User achievements"
+msgstr "إنجازات المستخدمين"
+
+msgid "User XP"
+msgstr "نقاط الخبرة"
+
+msgid "User badge"
+msgstr "شارة مستخدم"
+
+msgid "User badges"
+msgstr "شارات المستخدمين"
+
+msgid "Motivation message"
+msgstr "رسالة تحفيزية"
+
+msgid "Motivation messages"
+msgstr "الرسائل التحفيزية"
+
+msgid "Challenge"
+msgstr "تحدٍ"
+
+msgid "Challenges"
+msgstr "التحديات"
+
+msgid "Challenge progress"
+msgstr "تقدم التحدي"
+
+msgid "Leaderboard entry"
+msgstr "إدخال لوحة المتصدرين"
+
+msgid "Leaderboard entries"
+msgstr "إدخالات لوحة المتصدرين"
+
+msgid "Motivation preference"
+msgstr "تفضيل تحفيزي"
+
+msgid "Motivation preferences"
+msgstr "التفضيلات التحفيزية"
+
+msgid "Notifications"
+msgstr "الإشعارات"
+
+# ---- notifications models ----
+msgid "Notification event"
+msgstr "حدث إشعار"
+
+msgid "Notification events"
+msgstr "أحداث الإشعارات"
+
+msgid "Email notification"
+msgstr "إشعار بريدي"
+
+msgid "Email notifications"
+msgstr "الإشعارات البريدية"
+
+msgid "Notification preference"
+msgstr "تفضيل إشعار"
+
+msgid "Notification preferences"
+msgstr "تفضيلات الإشعارات"
+
+msgid "Email verification token"
+msgstr "رمز التحقق من البريد"
+
+msgid "Email verification tokens"
+msgstr "رموز التحقق من البريد"
+
+msgid "Notification template"
+msgstr "قالب إشعار"
+
+msgid "Notification templates"
+msgstr "قوالب الإشعارات"
+
+msgid "Payments"
+msgstr "المدفوعات"
+
+msgid "Payment method account"
+msgstr "حساب وسيلة دفع"
+
+msgid "Payment method accounts"
+msgstr "حسابات وسائل الدفع"
+
+msgid "Payment submission"
+msgstr "طلب دفع"
+
+msgid "Payment submissions"
+msgstr "طلبات الدفع"
+
+msgid "Placement"
+msgstr "تحديد المستوى"
+
+msgid "Placement result"
+msgstr "نتيجة تحديد المستوى"
+
+msgid "Placement results"
+msgstr "نتائج تحديد المستوى"
+
+msgid "Question Factory (Blueprint-driven)"
+msgstr "مصنع الأسئلة (المخططات)"
+
+msgid "Question blueprint"
+msgstr "مخطط سؤال"
+
+msgid "Question blueprints"
+msgstr "مخططات الأسئلة"
+
+msgid "Question variable set"
+msgstr "مجموعة متغيرات سؤال"
+
+msgid "Question variable sets"
+msgstr "مجموعات متغيرات الأسئلة"
+
+msgid "Generated question"
+msgstr "سؤال مُنشأ"
+
+msgid "Generated questions"
+msgstr "الأسئلة المُنشأة"
+
+msgid "Question seed"
+msgstr "بذرة سؤال"
+
+msgid "Question seeds"
+msgstr "بذور الأسئلة"
+
+msgid "User seed history"
+msgstr "سجل بذور المستخدم"
+
+msgid "User seed histories"
+msgstr "سجلات بذور المستخدمين"
+
+msgid "Generation batch"
+msgstr "دفعة توليد"
+
+msgid "Generation batches"
+msgstr "دفعات التوليد"
+
+# ---- existing strings retained ----
 msgid "Onlenco home"
 msgstr "الصفحة الرئيسية لـ Onlenco"
 
-#: templates/_app_header.html:14
 msgid "Analytics"
 msgstr "التحليلات"
+
+msgid "Onlenco Admin Panel"
+msgstr "لوحة تحكم أونلينكو"
+
+msgid "Tutor"
+msgstr "المعلم"
+
+msgid "Tutor conversation"
+msgstr "محادثة معلم"
+
+msgid "Tutor conversations"
+msgstr "محادثات المعلم"
+
+msgid "Tutor message"
+msgstr "رسالة معلم"
+
+msgid "Tutor messages"
+msgstr "رسائل المعلم"

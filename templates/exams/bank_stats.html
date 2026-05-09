@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Question bank" "بنك الأسئلة" %} — Onlenco{% endblock %}
+
+{% block extra_head %}
+<style>
+  .stat-tile { background: #fff; border: 1px solid #e5e9f2; border-radius: 14px; padding: 16px; }
+  .stat-tile .num { font-size: 28px; font-weight: 800; color: #0f172a; }
+  .stat-tile .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .bar { flex: 1; height: 10px; background: #f1f5f9; border-radius: 9999px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 9999px; }
+  .bar.cefr > div  { background: linear-gradient(90deg,#22c55e,#16a34a); }
+  .bar.skill > div { background: linear-gradient(90deg,#4f46e5,#7c3aed); }
+  .bar.qtype > div { background: linear-gradient(90deg,#0ea5e9,#06b6d4); }
+  .bar.gen   > div { background: linear-gradient(90deg,#f59e0b,#d97706); }
+  .pill {
+    display: inline-flex; align-items: center; padding: 2px 10px;
+    border-radius: 9999px; font-size: 11px; font-weight: 700;
+  }
+  .pill.green { background: #dcfce7; color: #166534; }
+  .pill.amber { background: #fef9c3; color: #713f12; }
+  .pill.red   { background: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 max-w-5xl mx-auto space-y-6">
+        <div class="flex items-end justify-between gap-4 flex-wrap">
+            <div>
+                <h1 class="font-display text-3xl font-bold mb-1">{% t_either "Question bank" "بنك الأسئلة" %}</h1>
+                <p class="text-sm text-muted-foreground">
+                    {% t_either "Bank-wide statistics across all CEFR levels and skills." "إحصاءات بنك الأسئلة." %}
+                </p>
+            </div>
+            <a href="{% url 'exam_list' %}" class="btn btn-ghost">
+                <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+                {% t_either "Back" "رجوع" %}
+            </a>
+        </div>
+
+        {# Top tiles #}
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="stat-tile"><div class="num">{{ stats.total }}</div><div class="lbl">{% t_either "Total items" "إجمالي" %}</div></div>
+            <div class="stat-tile"><div class="num">{{ stats.active }}</div><div class="lbl">{% t_either "Active" "نشط" %}</div></div>
+            <div class="stat-tile"><div class="num">{{ stats.reviewed }}</div><div class="lbl">{% t_either "Reviewed" "مُراجَع" %}</div></div>
+            <div class="stat-tile"><div class="num">{{ stats.avg_quality_score }}</div><div class="lbl">{% t_either "Avg quality" "جودة متوسطة" %}</div></div>
+        </section>
+
+        {# Progress towards 300k #}
+        <section class="card p-6 space-y-3">
+            <div class="flex items-center justify-between">
+                <h2 class="font-display text-lg font-semibold">{% t_either "Progress to 300,000" "نحو 300,000" %}</h2>
+                <span class="pill {% if stats.total >= 300000 %}green{% elif stats.total >= 100000 %}amber{% else %}red{% endif %}">
+                    {{ stats.progress_pct }}%
+                </span>
+            </div>
+            <div class="bar cefr"><div style="width: {{ stats.progress_pct }}%"></div></div>
+            <div class="text-xs text-muted-foreground">
+                {{ stats.total }} / 300,000 {% t_either "items" "سؤالاً" %}
+            </div>
+        </section>
+
+        {# Distributions #}
+        <section class="grid md:grid-cols-2 gap-4">
+            {# By CEFR #}
+            <div class="card p-6 space-y-3">
+                <h3 class="font-display text-base font-semibold">{% t_either "By CEFR level" "حسب CEFR" %}</h3>
+                {% for k, v in by_cefr_sorted %}
+                <div class="row">
+                    <div class="w-12 text-xs font-bold text-muted-foreground">{{ k|default:"—" }}</div>
+                    <div class="bar cefr"><div style="width: {{ v.pct }}%"></div></div>
+                    <div class="w-20 text-right text-xs text-muted-foreground tabular-nums">{{ v.count }}</div>
+                </div>
+                {% empty %}
+                <p class="text-sm text-muted-foreground">{% t_either "No data yet." "لا توجد بيانات." %}</p>
+                {% endfor %}
+            </div>
+
+            {# By skill #}
+            <div class="card p-6 space-y-3">
+                <h3 class="font-display text-base font-semibold">{% t_either "By skill" "حسب المهارة" %}</h3>
+                {% for k, v in by_skill_sorted %}
+                <div class="row">
+                    <div class="w-24 text-xs font-medium capitalize">{{ k|default:"—" }}</div>
+                    <div class="bar skill"><div style="width: {{ v.pct }}%"></div></div>
+                    <div class="w-20 text-right text-xs text-muted-foreground tabular-nums">{{ v.count }}</div>
+                </div>
+                {% empty %}
+                <p class="text-sm text-muted-foreground">{% t_either "No data yet." "لا توجد بيانات." %}</p>
+                {% endfor %}
+            </div>
+
+            {# By question type #}
+            <div class="card p-6 space-y-3">
+                <h3 class="font-display text-base font-semibold">{% t_either "By question type" "حسب نوع السؤال" %}</h3>
+                {% for k, v in by_qtype_sorted %}
+                <div class="row">
+                    <div class="w-32 text-xs font-medium capitalize">{{ k|cut:"_"|default:"—" }}</div>
+                    <div class="bar qtype"><div style="width: {{ v.pct }}%"></div></div>
+                    <div class="w-20 text-right text-xs text-muted-foreground tabular-nums">{{ v.count }}</div>
+                </div>
+                {% empty %}
+                <p class="text-sm text-muted-foreground">{% t_either "No data yet." "لا توجد بيانات." %}</p>
+                {% endfor %}
+            </div>
+
+            {# By generator source #}
+            <div class="card p-6 space-y-3">
+                <h3 class="font-display text-base font-semibold">{% t_either "By generator" "حسب المصدر" %}</h3>
+                {% for k, v in by_gen_sorted %}
+                <div class="row">
+                    <div class="w-24 text-xs font-medium capitalize">{{ k|default:"—" }}</div>
+                    <div class="bar gen"><div style="width: {{ v.pct }}%"></div></div>
+                    <div class="w-20 text-right text-xs text-muted-foreground tabular-nums">{{ v.count }}</div>
+                </div>
+                {% empty %}
+                <p class="text-sm text-muted-foreground">{% t_either "No data yet." "لا توجد بيانات." %}</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        {# Recent generation batches #}
+        {% if recent_batches %}
+        <section class="card p-6 space-y-3">
+            <h2 class="font-display text-lg font-semibold">{% t_either "Recent generation batches" "آخر دفعات التوليد" %}</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-xs uppercase text-muted-foreground">
+                        <tr>
+                            <th class="text-left py-2">{% t_either "Batch" "دفعة" %}</th>
+                            <th class="text-left py-2">{% t_either "CEFR" "المستوى" %}</th>
+                            <th class="text-left py-2">{% t_either "Skill" "المهارة" %}</th>
+                            <th class="text-right py-2">{% t_either "Generated" "مُولّد" %}</th>
+                            <th class="text-right py-2">{% t_either "Duplicates" "مكرر" %}</th>
+                            <th class="text-left py-2">{% t_either "Status" "الحالة" %}</th>
+                            <th class="text-left py-2">{% t_either "Started" "بدأت" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        {% for b in recent_batches %}
+                        <tr>
+                            <td class="py-2 font-mono text-xs">{{ b.batch_id }}</td>
+                            <td class="py-2">{{ b.cefr_level|default:"—" }}</td>
+                            <td class="py-2">{{ b.skill|default:"—" }}</td>
+                            <td class="py-2 text-right tabular-nums">{{ b.generated_count }}/{{ b.target_count }}</td>
+                            <td class="py-2 text-right tabular-nums">{{ b.duplicate_count }}</td>
+                            <td class="py-2">
+                                <span class="pill {% if b.status == 'completed' %}green{% elif b.status == 'failed' %}red{% else %}amber{% endif %}">{{ b.get_status_display }}</span>
+                            </td>
+                            <td class="py-2 text-muted-foreground">{{ b.started_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+    </main>
+</div>
+<script>if (window.lucide) lucide.createIcons();</script>
+{% endblock %}

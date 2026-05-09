@@ -127,3 +127,49 @@ class PaymentApprovalTests(TestCase):
     def test_needs_review_status_allowed(self):
         sub = self._submission("needs_review")
         self.assertEqual(sub.status, "needs_review")
+
+
+from django.test import override_settings
+from django.urls import reverse
+
+
+@override_settings(AXES_ENABLED=False)
+class PaymentApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="payapi@x.com", email="payapi@x.com", password="pw"
+        )
+        self.client.login(username="payapi@x.com", password="pw")
+
+    def test_plans_endpoint(self):
+        resp = self.client.get(reverse("payments_api:plans"))
+        self.assertEqual(resp.status_code, 200)
+        codes = {p["code"] for p in resp.json()}
+        self.assertEqual(codes, {"monthly", "quarterly"})
+
+    def test_methods_endpoint(self):
+        resp = self.client.get(reverse("payments_api:methods"))
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        results = data.get("results") or data
+        method_codes = {m["method"] for m in results}
+        self.assertEqual(method_codes, {"bankak", "fawry", "ocash"})
+
+    def test_subscription_endpoint(self):
+        resp = self.client.get(reverse("payments_api:subscription"))
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertIn("subscription_status", body)
+        self.assertFalse(body["is_subscribed"])
+
+    def test_submissions_list_isolates_users(self):
+        other = User.objects.create_user(username="someoneelse@x.com", email="someoneelse@x.com", password="pw")
+        PaymentMethodAccount.objects.filter(method="bankak").update(is_active=True)
+        PaymentSubmission.objects.create(
+            user=other, plan="monthly", method="bankak",
+            amount_sdg=30000, screenshot=SimpleUploadedFile("x.png", _png_bytes()),
+        )
+        resp = self.client.get(reverse("payments_api:submissions"))
+        data = resp.json()
+        results = data["results"] if isinstance(data, dict) and "results" in data else data
+        self.assertEqual(len(results), 0)

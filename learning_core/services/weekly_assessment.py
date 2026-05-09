@@ -26,6 +26,47 @@ logger = logging.getLogger(__name__)
 
 LESSONS_PER_ASSESSMENT = 3
 EXERCISES_PER_ASSESSMENT = 10
+EXERCISES_PER_DAILY = 5
+
+
+def start_daily_assessment(user):
+    """Start (or return today's existing) daily check-in assessment.
+
+    Idempotent within a calendar day: a second call on the same day returns
+    the row already created today.
+    """
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    existing = (
+        WeeklyAssessment.objects.filter(
+            user=user, kind="daily", created_at__gte=today_start
+        ).order_by("-created_at").first()
+    )
+    if existing:
+        return existing
+
+    with transaction.atomic():
+        assessment = WeeklyAssessment.objects.create(
+            user=user, kind="daily", status="pending",
+        )
+        # Bundle 5 exercises: prefer AI-generated targeted ones; fallback to
+        # the warm-up template pool.
+        exercises = list(
+            AdaptiveExercise.objects.filter(attempts__user=user)
+            .distinct().order_by("-created_at")[:EXERCISES_PER_DAILY]
+        )
+        if len(exercises) < EXERCISES_PER_DAILY:
+            try:
+                generated = generate_personalized_exercises(user, count_per_weakness=2)
+                for ex in generated:
+                    if ex not in exercises:
+                        exercises.append(ex)
+                    if len(exercises) >= EXERCISES_PER_DAILY:
+                        break
+            except Exception as e:
+                logger.warning("start_daily_assessment: generation failed: %s", e)
+        assessment.exercises.set(exercises[:EXERCISES_PER_DAILY])
+
+    return assessment
 
 
 def maybe_trigger(user) -> WeeklyAssessment | None:

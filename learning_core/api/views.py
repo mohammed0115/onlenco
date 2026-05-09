@@ -49,6 +49,28 @@ class LearningProfileView(APIView):
         profile, _ = StudentLearningProfile.objects.get_or_create(user=request.user)
         data = StudentLearningProfileSerializer(profile).data
         data["state"] = get_learning_state(request.user)
+
+        # Behavior signals (engagement / churn / speed)
+        try:
+            from analytics.services.scoring import (
+                churn_risk,
+                engagement_score,
+                learning_speed_for,
+            )
+            data["behavior"] = {
+                "engagement_score": engagement_score(request.user),
+                "churn_risk": churn_risk(request.user),
+                "learning_speed": learning_speed_for(request.user),
+            }
+        except Exception:
+            data["behavior"] = {}
+
+        # CEFR progress band — current/next/percent
+        try:
+            from learning_core.services.adaptive_difficulty import cefr_progress
+            data["cefr_progress"] = cefr_progress(profile.theta_score or 0.0)
+        except Exception:
+            data["cefr_progress"] = {}
         return Response(data)
 
 
@@ -148,17 +170,56 @@ class NextExerciseView(APIView):
 
     @extend_schema(responses=AdaptiveExerciseSerializer)
     def get(self, request):
-        attempted_ids = ExerciseAttempt.objects.filter(user=request.user).values_list(
-            "exercise_id", flat=True
+        attempted_ids = list(
+            ExerciseAttempt.objects.filter(user=request.user)
+            .values_list("exercise_id", flat=True)
         )
+        # Level-aware random pick: pull the user's CEFR level off their
+        # learning profile, scope the queryset to the band ±1, then random
+        # order so consecutive `next/` calls return different items.
+        from learning_core.models import StudentLearningProfile
+        prof = StudentLearningProfile.objects.filter(user=request.user).first()
+        level = (prof.current_cefr_level if prof else "") or "A2"
+        levels = ["A0", "A1", "A2", "B1", "B2", "C1", "C2", "C3"]
+        i = levels.index(level) if level in levels else 2
+        bands = {levels[i]}
+        if i > 0:
+            bands.add(levels[i - 1])
+        if i + 1 < len(levels):
+            bands.add(levels[i + 1])
         ex = (
-            AdaptiveExercise.objects.exclude(id__in=list(attempted_ids))
-            .order_by("-created_at")
+            AdaptiveExercise.objects.exclude(id__in=attempted_ids)
+            .filter(cefr_level__in=bands)
+            .order_by("?")
             .first()
         )
         if not ex:
+            # Last-resort: any unattempted exercise.
+            ex = (
+                AdaptiveExercise.objects.exclude(id__in=attempted_ids)
+                .order_by("?")
+                .first()
+            )
+        if not ex:
             return Response({"detail": "No exercises available."}, status=204)
         return Response(AdaptiveExerciseSerializer(ex).data)
+
+
+class MicroPracticeView(APIView):
+    """Return up to N quick exercises tailored to the user right now."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdaptiveExerciseSerializer
+
+    @extend_schema(responses=AdaptiveExerciseSerializer(many=True))
+    def get(self, request):
+        from learning_core.services.micro_practice import micro_practice
+        try:
+            count = max(1, min(int(request.query_params.get("count", "3")), 10))
+        except (TypeError, ValueError):
+            count = 3
+        items = micro_practice(request.user, count=count)
+        return Response(AdaptiveExerciseSerializer(items, many=True).data)
 
 
 class ExerciseAttemptView(APIView):

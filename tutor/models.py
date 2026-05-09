@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 
 
+from django.utils.translation import gettext_lazy as _
 class TutorConversation(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -14,6 +15,8 @@ class TutorConversation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = _("Tutor conversation")
+        verbose_name_plural = _("Tutor conversations")
         ordering = ["-updated_at"]
 
     def __str__(self):
@@ -33,6 +36,8 @@ class TutorMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = _("Tutor message")
+        verbose_name_plural = _("Tutor messages")
         ordering = ["created_at"]
 
     def __str__(self):

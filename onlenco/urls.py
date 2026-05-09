@@ -1,9 +1,42 @@
 """URL configuration for the Onlenco project."""
+from django import forms
 from django.contrib import admin
+from django.contrib.admin.forms import AdminAuthenticationForm
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 from core.views import set_language
+
+
+# --- Brand the admin site as "Onlenco" ---
+# Spec (Part 1): site_header is the big banner, site_title is the
+# <title> tag, index_title is the dashboard greeting.
+admin.site.site_header = "Onlenco Learning Management"
+admin.site.site_title = "Onlenco Admin Panel"
+admin.site.index_title = "Onlenco Admin"
+
+
+class OnlencoAdminLoginForm(AdminAuthenticationForm):
+    """Login form labelled 'Email' instead of 'Username'.
+
+    User accounts are created with `username == email`, so accepting an
+    email here just feeds it into Django's normal username-based auth.
+    """
+
+    username = forms.EmailField(
+        label="Email",
+        max_length=254,
+        widget=forms.EmailInput(
+            attrs={"autocomplete": "email", "autofocus": True, "placeholder": "you@onlenco.local"}
+        ),
+    )
+
+    def clean_username(self):
+        return (self.cleaned_data.get("username") or "").strip().lower()
+
+
+admin.site.login_form = OnlencoAdminLoginForm
+
 
 # Optional 2FA-gated admin. Enable with ENABLE_2FA_ADMIN=1 in env.
 # When enabled, staff must register a TOTP device (e.g. via
@@ -25,6 +58,7 @@ urlpatterns = [
     path("library/", include("library.urls")),
     path("dictionary/", include("dictionary.urls")),
     path("club/", include("club.urls")),
+    path("exams/", include("exams.urls")),
     path("admin-analytics/", include("analytics.urls")),
     path("api/v1/", include("api.v1.urls")),
     path("notifications/", include("notifications.urls")),

@@ -1,0 +1,53 @@
+{
+  "name": "difficulty_estimator",
+  "version": "v0-ridge",
+  "framework": "scikit-learn",
+  "framework_version": "1.8.0",
+  "trained_on": "/home/mohamed/onlenco/datasets/diff_v1-20260508T210603.jsonl",
+  "rows_seen": 1068,
+  "metrics": {
+    "train": {
+      "label": "train",
+      "n": 780,
+      "mae": 0.01966682674842285,
+      "r2": 0.9864605134320382,
+      "mean_actual": 0.29343589743589743,
+      "mean_pred": 0.29343589743589793
+    },
+    "validation": {
+      "label": "validation",
+      "n": 119,
+      "mae": 0.1428641046498748,
+      "r2": 0.34422375142744954,
+      "mean_actual": 0.25806722689075623,
+      "mean_pred": 0.259187203417407
+    },
+    "test": {
+      "label": "test",
+      "n": 169,
+      "mae": 0.1634477978646808,
+      "r2": 0.4159762144297092,
+      "mean_actual": 0.39349112426035504,
+      "mean_pred": 0.3691496202662994
+    }
+  },
+  "baseline": {
+    "train": {
+      "n": 780,
+      "mae": 0.21961262327416173,
+      "constant_pred": 0.29343589743589743
+    },
+    "validation": {
+      "n": 119,
+      "mae": 0.22606291747468216,
+      "constant_pred": 0.29343589743589743
+    },
+    "test": {
+      "n": 169,
+      "mae": 0.24802730996813838,
+      "constant_pred": 0.29343589743589743
+    }
+  },
+  "tfidf_max_features": 20000,
+  "ridge_alpha": 1.0
+}

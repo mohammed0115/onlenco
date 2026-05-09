@@ -6,6 +6,12 @@ urlpatterns = [
     path("", views.auth_view, name="auth"),
     path("logout/", views.logout_view, name="logout"),
     path("verify/<str:token>/", views.verify_email, name="verify_email"),
+    path("verify-email/", views.verify_email_otp, name="verify_email_otp"),
+    path("verify-email/resend/", views.resend_email_otp, name="resend_email_otp"),
+    path("onboarding/", views.onboarding_choice, name="onboarding_choice"),
+    path("onboarding/beginner/", views.onboarding_beginner, name="onboarding_beginner"),
+    path("onboarding/placement/", views.onboarding_placement, name="onboarding_placement"),
+    path("profile/", views.profile_view, name="profile"),
     # Password reset (Django's built-in flow + our email template)
     path(
         "password-reset/",

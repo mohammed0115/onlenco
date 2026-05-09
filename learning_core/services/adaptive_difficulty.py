@@ -61,6 +61,45 @@ def cefr_for_theta(theta: float) -> str:
     return "C2"
 
 
+def cefr_progress(theta: float) -> dict:
+    """Where the learner sits between levels.
+
+    Returns ``{current, next, percent, theta}`` where ``percent`` is the
+    progress (0..100) into the current band toward the next level. C3 is
+    treated as "no next" — percent stays at 100.
+    """
+    levels = list(THETA_TO_CEFR)
+    levels.sort(key=lambda x: x[0])
+    # Find the band [lower, upper) that contains theta.
+    lower_theta = -3.0
+    current = "A0"
+    next_level = None
+    for upper, lvl in levels:
+        if theta < upper:
+            current = lvl
+            # Next level is the level mapped to the next bucket.
+            idx = levels.index((upper, lvl))
+            if idx + 1 < len(levels):
+                next_level = levels[idx + 1][1]
+            break
+        lower_theta = upper
+    else:
+        current = "C2"
+
+    if current == "C3" or next_level is None:
+        return {"current": current, "next": None, "percent": 100, "theta": round(theta, 3)}
+    # Find this band's upper bound
+    upper_theta = next(u for u, l in levels if l == current)
+    span = max(upper_theta - lower_theta, 0.001)
+    pct = (theta - lower_theta) / span * 100.0
+    return {
+        "current": current,
+        "next": next_level,
+        "percent": max(0, min(100, int(round(pct)))),
+        "theta": round(theta, 3),
+    }
+
+
 def _ensure_profile(user) -> StudentLearningProfile:
     profile, _ = StudentLearningProfile.objects.get_or_create(user=user)
     return profile

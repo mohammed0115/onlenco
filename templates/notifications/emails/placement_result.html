@@ -1,4 +1,5 @@
 {% extends "notifications/emails/base_email.html" %}
+{% load humanize_text %}
 {% block content %}
 <h1>{% if lang == "ar" %}نتيجة اختبار التحديد{% else %}Your placement results{% endif %}</h1>
 <p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
@@ -12,17 +13,17 @@
 </p>
 {% if payload.strengths %}
 <p><strong>{% if lang == "ar" %}نقاط قوتك{% else %}Strengths{% endif %}</strong></p>
-<ul>{% for s in payload.strengths %}<li>{{ s }}</li>{% endfor %}</ul>
+<ul>{% for s in payload.strengths %}<li>{{ s|humanize }}</li>{% endfor %}</ul>
 {% endif %}
 {% if payload.weaknesses %}
 <p><strong>{% if lang == "ar" %}مجالات للتحسين{% else %}Areas to improve{% endif %}</strong></p>
-<ul>{% for w in payload.weaknesses %}<li>{{ w }}</li>{% endfor %}</ul>
+<ul>{% for w in payload.weaknesses %}<li>{{ w|humanize }}</li>{% endfor %}</ul>
 {% endif %}
 <p>
   {% if lang == "ar" %}
-    خطوة قادمة موصى بها: {{ payload.next_step|default:"ابدأ أول درس مخصص لك." }}
+    خطوة قادمة موصى بها: {{ payload.next_step|default:"ابدأ أول درس مخصص لك."|humanize }}
   {% else %}
-    Recommended next step: {{ payload.next_step|default:"start your first personalized lesson." }}
+    Recommended next step: {{ payload.next_step|default:"start your first personalized lesson."|humanize }}
   {% endif %}
 </p>
 <p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}افتح اللوحة{% else %}Open dashboard{% endif %}</a></p>

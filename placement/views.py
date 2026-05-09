@@ -72,6 +72,14 @@ def placement(request):
         profile.placement_completed = True
         profile.save(update_fields=["cefr_level", "placement_completed"])
 
+        # Mark onboarding complete via the canonical helper.
+        try:
+            from accounts.onboarding import complete_placement_onboarding
+            complete_placement_onboarding(profile, level=result["level"])
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("complete_placement_onboarding failed")
+
         # Build adaptive diagnostic profile (best-effort).
         try:
             build_diagnostic_profile(request.user, answers, assessment=result)

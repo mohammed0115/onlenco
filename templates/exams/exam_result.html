@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Result" "النتيجة" %} — {{ attempt.exam.title }} — Onlenco{% endblock %}
+
+{% block extra_head %}
+<style>
+  .hero-result {
+    background: linear-gradient(135deg,#4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+    color: #fff; border-radius: 22px;
+  }
+  .hero-result .grade {
+    font-family: var(--font-display, "Fraunces", serif);
+    font-size: 84px; line-height: 1; font-weight: 800;
+    letter-spacing: -.02em;
+  }
+  .stat-tile { background: #fff; border: 1px solid #e5e9f2; border-radius: 14px; padding: 14px 16px; }
+  .stat-tile .num { font-size: 22px; font-weight: 800; color: #0f172a; }
+  .stat-tile .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+  .skill-row { display: flex; align-items: center; gap: 10px; }
+  .skill-bar { flex: 1; height: 10px; background: #f1f5f9; border-radius: 9999px; overflow: hidden; }
+  .skill-bar > div { height: 100%; background: linear-gradient(90deg,#22c55e,#16a34a); border-radius: 9999px; }
+  .qa-row { padding: 14px 0; border-top: 1px solid #f1f5f9; }
+  .qa-row:first-child { border-top: 0; }
+  .qa-tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 9999px;
+    font-weight: 600;
+  }
+  .qa-tag.ok { background: #dcfce7; color: #166534; }
+  .qa-tag.bad { background: #fee2e2; color: #991b1b; }
+  .qa-tag.skip { background: #f1f5f9; color: #475569; }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+
+  <main class="container py-10 max-w-4xl mx-auto space-y-6">
+
+    {# Hero card #}
+    <div class="hero-result p-8 md:p-10 text-center">
+      <div class="text-xs uppercase tracking-widest opacity-80">
+        {{ attempt.exam.get_exam_type_display }} · {{ attempt.exam.cefr_level|default:"–" }}
+      </div>
+      <div class="grade mt-2">{{ attempt.percentage|floatformat:0 }}%</div>
+      <div class="text-sm mt-1 opacity-90">
+        {{ correct_count }} / {{ total_count }} {% t_either "correct" "صحيحة" %}
+        {% if attempt.exam.blueprint %} · {% t_either "pass" "ناجح" %} {{ attempt.exam.blueprint.passing_score }}%{% endif %}
+      </div>
+      <div class="inline-block mt-4 px-4 py-1.5 rounded-full text-sm font-semibold
+                  {% if attempt.passed %}bg-white/20{% else %}bg-white/10{% endif %}">
+        {% if attempt.passed %}
+          🎉 {% t_either "Passed!" "ناجح!" %}
+        {% else %}
+          {% t_either "Keep going — you'll get there." "واصل التمرين — ستصل!" %}
+        {% endif %}
+      </div>
+      {% if attempt.cefr_result %}
+        <div class="mt-3 text-sm">
+          {% t_either "Suggested level" "المستوى المقترح" %}: <strong>{{ attempt.cefr_result }}</strong>
+        </div>
+      {% endif %}
+    </div>
+
+    {# Stat tiles #}
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="stat-tile"><div class="num">{{ correct_count }}</div><div class="lbl">{% t_either "Correct" "صحيحة" %}</div></div>
+      <div class="stat-tile"><div class="num">{{ wrong_count }}</div><div class="lbl">{% t_either "Wrong" "خطأ" %}</div></div>
+      <div class="stat-tile"><div class="num">{{ skipped_count }}</div><div class="lbl">{% t_either "Skipped" "تخطّيت" %}</div></div>
+      <div class="stat-tile"><div class="num">{{ duration_str }}</div><div class="lbl">{% t_either "Time taken" "الوقت" %}</div></div>
+    </section>
+
+    {# Per-skill breakdown #}
+    {% if skill_breakdown %}
+    <section class="card p-6 space-y-3">
+      <h2 class="font-display text-lg font-semibold">{% t_either "Performance by skill" "الأداء حسب المهارة" %}</h2>
+      <div class="space-y-3">
+        {% for s in skill_breakdown %}
+        <div class="skill-row">
+          <div class="w-24 text-sm font-medium capitalize">{{ s.skill }}</div>
+          <div class="skill-bar"><div style="width: {{ s.pct }}%"></div></div>
+          <div class="w-16 text-right text-sm text-muted-foreground tabular-nums">
+            {{ s.correct }}/{{ s.total }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {# Per-question breakdown #}
+    {% if answers %}
+    <section class="card p-6">
+      <details open>
+        <summary class="flex items-center justify-between mb-3">
+          <h2 class="font-display text-lg font-semibold">{% t_either "Per-question feedback" "ملاحظات السؤال" %}</h2>
+          <span class="text-xs text-muted-foreground">{% t_either "tap to expand" "اضغط للتفاصيل" %}</span>
+        </summary>
+        <div>
+          {% for a in answers %}
+          <div class="qa-row">
+            <div class="flex items-start justify-between gap-3">
+              <div class="font-medium">
+                {% t_either "Q" "س" %}{{ forloop.counter }}.
+                <span class="font-normal">{{ a.question.question }}</span>
+              </div>
+              {% if a.user_answer == "" %}
+                <span class="qa-tag skip shrink-0">{% t_either "Skipped" "تخطّيت" %}</span>
+              {% elif a.is_correct %}
+                <span class="qa-tag ok shrink-0">{% t_either "Correct" "صحيح" %}</span>
+              {% else %}
+                <span class="qa-tag bad shrink-0">{% t_either "Wrong" "خطأ" %}</span>
+              {% endif %}
+            </div>
+            <div class="text-xs text-muted-foreground mt-1">
+              {% t_either "Your answer" "إجابتك" %}:
+              <span class="font-mono">{{ a.user_answer|default:"—" }}</span>
+              {% if not a.is_correct %}
+                · {% t_either "Correct" "الإجابة الصحيحة" %}:
+                <span class="font-mono">{{ a.question.correct_answer }}</span>
+              {% endif %}
+            </div>
+            {% if a.feedback %}
+              <div class="text-sm mt-2 text-foreground/80">{{ a.feedback }}</div>
+            {% elif a.question.explanation %}
+              <div class="text-sm mt-2 text-foreground/80">{{ a.question.explanation }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+    </section>
+    {% endif %}
+
+    {# Actions #}
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <a href="{% url 'exam_list' %}" class="btn btn-ghost">
+        <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+        {% t_either "Back to exams" "العودة إلى الاختبارات" %}
+      </a>
+      <div class="flex gap-2">
+        <a href="{% url 'exam_detail' attempt.exam.pk %}" class="btn btn-secondary">
+          {% t_either "Try again" "حاول مجدداً" %}
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-primary">
+          {% t_either "Continue learning" "تابع التعلم" %}
+          <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip ml-1"></i>
+        </a>
+      </div>
+    </div>
+  </main>
+</div>
+<script>if (window.lucide) lucide.createIcons();</script>
+{% endblock %}

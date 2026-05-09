@@ -65,16 +65,108 @@
 
         {# Placement-test prompt — shown until the student takes the test #}
         {% if not profile.placement_completed %}
-        <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="card gradient-hero border-0 shadow-elegant p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
                 <span class="badge badge-popular mb-3">{% t_either "Step 1" "الخطوة 1" %}</span>
                 <h2 class="font-display text-2xl md:text-3xl font-bold mb-2">{% t "dash.takeplacement" %}</h2>
-                <p class="max-w-lg" style="opacity:0.9">{% t "dash.placementdesc" %}</p>
+                <p class="max-w-lg" style="opacity:0.92">{% t "dash.placementdesc" %}</p>
             </div>
             <a href="{% url 'placement' %}" class="btn btn-glass btn-lg">
                 {% t "hero.cta" %}
                 <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
             </a>
+        </div>
+        {% endif %}
+
+        {% comment %}
+          Beginner-onboarding hero — shown only on first dashboard load
+          for a beginner-path user with no LessonProgress rows yet.
+          Disappears once the student attempts a lesson.
+        {% endcomment %}
+        {% if learning_summary.beginner_first_lesson %}
+        <a href="{% url 'lesson_detail' learning_summary.beginner_first_lesson.pk %}"
+           class="card p-7 block transition-smooth hover:shadow-elegant hover:-translate-y-1"
+           style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; border: 0;"
+           data-testid="beginner-first-lesson-hero">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <div class="text-xs uppercase tracking-widest" style="opacity:0.8">
+                        {% t_either "Welcome to Onlenco" "مرحبًا بك في Onlenco" %}
+                    </div>
+                    <div class="font-display text-2xl font-bold mt-1 mb-1">
+                        {% t_either "Your first lesson is ready" "درسك الأول جاهز" %}
+                    </div>
+                    <div class="text-sm" style="opacity:0.92">
+                        {{ learning_summary.beginner_first_lesson.title }}
+                        ·
+                        {% t_either "Tap to start." "اضغط للبدء." %}
+                    </div>
+                </div>
+                <div class="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+                     style="background: rgba(255,255,255,0.2);">
+                    <i data-lucide="play" class="h-6 w-6"></i>
+                </div>
+            </div>
+        </a>
+        {% endif %}
+
+        {# Daily / Weekly exam CTAs (Duolingo-style player) #}
+        {% if profile.placement_completed %}
+        <div class="grid sm:grid-cols-2 gap-4">
+            <a href="{% url 'exam_daily' %}" class="card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block"
+               style="background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%); color: #ffffff; border: 0;">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="h-11 w-11 rounded-xl flex items-center justify-center"
+                         style="background: rgba(255,255,255,0.2);">
+                        <i data-lucide="zap" class="h-5 w-5"></i>
+                    </div>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full"
+                          style="background: rgba(255,255,255,0.2);">5 {% t_either "questions" "أسئلة" %}</span>
+                </div>
+                <div class="font-display text-xl font-bold mb-1">
+                    {% t_either "Daily exam" "تقييم يومي" %}
+                </div>
+                <div class="text-sm" style="opacity:0.92">
+                    {% t_either "A quick 3-minute check to keep your streak alive." "تحقق سريع لمدة 3 دقائق لإبقاء سلسلتك حية." %}
+                </div>
+            </a>
+
+            {% if learning_summary.weekly_assessment_id %}
+            <a href="{% url 'exam_play' learning_summary.weekly_assessment_id %}"
+               class="card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block"
+               style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; border: 0;">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="h-11 w-11 rounded-xl flex items-center justify-center"
+                         style="background: rgba(255,255,255,0.2);">
+                        <i data-lucide="award" class="h-5 w-5"></i>
+                    </div>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full"
+                          style="background: rgba(255,255,255,0.2);">10 {% t_either "questions" "أسئلة" %}</span>
+                </div>
+                <div class="font-display text-xl font-bold mb-1">
+                    {% t_either "Weekly exam" "تقييم أسبوعي" %}
+                </div>
+                <div class="text-sm" style="opacity:0.92">
+                    {% t_either "Refresh your level and get fresh recommendations." "حدّث مستواك واحصل على توصيات جديدة." %}
+                </div>
+            </a>
+            {% else %}
+            <div class="card p-6"
+                 style="background: #f3f4f6; color: #6b7280; border: 2px dashed #d1d5db;">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="h-11 w-11 rounded-xl flex items-center justify-center"
+                         style="background: #e5e7eb;">
+                        <i data-lucide="award" class="h-5 w-5"></i>
+                    </div>
+                </div>
+                <div class="font-display text-xl font-bold mb-1" style="color:#374151">
+                    {% t_either "Weekly exam" "تقييم أسبوعي" %}
+                </div>
+                <div class="text-sm">
+                    {% t_either "Unlocks after every 3 completed lessons." "يُفتح بعد إكمال كل 3 دروس." %}
+                </div>
+            </div>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -151,6 +243,112 @@
                 {% endif %}
             </div>
         </div>
+        {% endif %}
+
+        {# Motivation panel — XP, streak, recent achievements #}
+        {% if motivation %}
+        {% if motivation.cefr_progress.current %}
+        <section class="card p-5">
+            <div class="flex items-center justify-between gap-3 mb-2">
+                <div class="text-sm text-muted-foreground">
+                    {% t_either "Progress to next level" "التقدم نحو المستوى التالي" %}
+                </div>
+                <div class="text-sm font-medium">
+                    {{ motivation.cefr_progress.current }}
+                    {% if motivation.cefr_progress.next %}→ {{ motivation.cefr_progress.next }}{% endif %}
+                </div>
+            </div>
+            <div class="h-2 rounded-full bg-muted overflow-hidden">
+                <div class="h-full bg-primary transition-all"
+                     style="width: {{ motivation.cefr_progress.percent }}%;"></div>
+            </div>
+            <div class="text-xs text-muted-foreground mt-2">
+                {{ motivation.cefr_progress.percent }}%
+                · {% t_either "engagement" "التفاعل" %}: {{ motivation.engagement_score }}/100
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="grid lg:grid-cols-3 gap-4">
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "Total XP" "مجموع نقاط XP" %}</div>
+                <div class="text-3xl font-bold mt-1">{{ motivation.xp_total }}</div>
+                <div class="text-xs text-muted-foreground mt-2">
+                    {% t_either "Level" "المستوى" %} {{ motivation.level_number }}
+                    · {% t_either "this week" "هذا الأسبوع" %}: +{{ motivation.weekly_xp }}
+                </div>
+            </div>
+
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground">{% t_either "Streak" "السلسلة" %}</div>
+                <div class="text-3xl font-bold mt-1">🔥 {{ motivation.current_streak }} {% t_either "days" "يوم" %}</div>
+                {% if motivation.next_milestone %}
+                <div class="text-xs text-muted-foreground mt-2">
+                    {% t_either "Next milestone" "الإنجاز التالي" %}: {{ motivation.next_milestone }} {% t_either "days" "يوم" %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="card p-5">
+                <div class="text-sm text-muted-foreground mb-2">{% t_either "Recent achievements" "إنجازات حديثة" %}</div>
+                {% if motivation.recent_achievements %}
+                <ul class="space-y-1 text-sm">
+                    {% for ua in motivation.recent_achievements %}
+                    <li class="flex justify-between gap-2">
+                        <span>{% if request.LANGUAGE_CODE == "ar" %}{{ ua.achievement.name_ar|default:ua.achievement.name }}{% else %}{{ ua.achievement.name }}{% endif %}</span>
+                        <span class="text-muted-foreground">+{{ ua.achievement.xp_reward }} XP</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-sm text-muted-foreground">{% t_either "Complete a lesson to unlock your first achievement." "أكمل درساً لفتح أول إنجاز." %}</div>
+                {% endif %}
+                <div class="text-xs text-muted-foreground mt-2">
+                    {% t_either "Badges earned" "الشارات المكتسبة" %}: {{ motivation.badges_count }}
+                </div>
+            </div>
+        </section>
+
+        {% if motivation.recent_messages %}
+        <section class="card p-5">
+            <div class="text-sm text-muted-foreground mb-2">{% t_either "Today's encouragement" "تشجيع اليوم" %}</div>
+            <ul class="space-y-2 text-sm">
+                {% for m in motivation.recent_messages|slice:":3" %}
+                <li>
+                    <strong>{{ m.title }}</strong>
+                    <span class="text-muted-foreground">— {{ m.message }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        {% if motivation.challenges %}
+        <section class="card p-5">
+            <div class="text-sm text-muted-foreground mb-3">
+                {% t_either "Active challenges" "تحديات نشطة" %}
+            </div>
+            <div class="space-y-3">
+                {% for c in motivation.challenges %}
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span>
+                            {% if request.LANGUAGE_CODE == "ar" and c.title_ar %}{{ c.title_ar }}{% else %}{{ c.title }}{% endif %}
+                            <span class="text-muted-foreground text-xs">· {{ c.kind }}</span>
+                        </span>
+                        <span class="text-muted-foreground">
+                            {{ c.current }}/{{ c.target }}
+                            {% if c.completed %}✅{% endif %}
+                        </span>
+                    </div>
+                    <div class="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div class="h-full bg-primary" style="width: {{ c.percent }}%;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
         {% endif %}
 
         {# My Learning panel — adaptive learning summary #}

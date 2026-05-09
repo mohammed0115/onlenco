@@ -6,22 +6,54 @@
 <title>{{ subject|default:site_name }}</title>
 <style>
   body{margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:#1a1d21;}
-  .wrap{max-width:560px;margin:0 auto;padding:32px 16px;}
-  .card{background:#ffffff;border-radius:12px;padding:32px;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
-  .brand{font-size:14px;letter-spacing:0.04em;color:#7a8290;text-transform:uppercase;margin-bottom:8px;}
-  h1{font-size:22px;line-height:1.35;margin:0 0 16px 0;}
-  p{font-size:15px;line-height:1.6;margin:0 0 14px 0;color:#3a4049;}
-  .cta{display:inline-block;padding:12px 22px;border-radius:8px;background:#0f4cf2;color:#ffffff !important;text-decoration:none;font-weight:600;}
-  .footer{margin-top:24px;font-size:12px;color:#8a909a;text-align:center;}
+  .wrap{max-width:600px;margin:0 auto;padding:32px 16px;}
+  .card{background:#ffffff;border-radius:14px;padding:40px 32px 32px;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+  .header{display:block;text-align:center;margin-bottom:28px;}
+  .logo{display:inline-block;line-height:0;}
+  .logo img{display:block;height:120px;width:auto;max-width:240px;border:0;outline:none;text-decoration:none;margin:0 auto;}
+  /* Text fallback: only shown when the image fails to render */
+  .brand-fallback{display:none;font-family:"Plus Jakarta Sans","Segoe UI",Roboto,sans-serif;font-size:28px;font-weight:800;color:#1a1d21;letter-spacing:-0.5px;}
+  h1{font-size:24px;line-height:1.3;margin:0 0 18px 0;color:#1a1d21;font-weight:700;}
+  p{font-size:15px;line-height:1.65;margin:0 0 14px 0;color:#3a4049;}
+  .cta{display:inline-block;padding:14px 28px;border-radius:10px;background:#1f7a4d;color:#ffffff !important;text-decoration:none;font-weight:600;font-size:15px;}
+  .cta:hover{background:#1a6740;}
+  .footer{margin-top:28px;font-size:12px;color:#8a909a;text-align:center;line-height:1.6;}
   .muted{color:#8a909a;font-size:13px;}
-  .badge{display:inline-block;padding:2px 8px;border-radius:9999px;background:#eef2ff;color:#0f4cf2;font-size:12px;font-weight:600;}
+  .badge{display:inline-block;padding:3px 10px;border-radius:9999px;background:#e8f5ee;color:#1f7a4d;font-size:12px;font-weight:600;}
   ul{padding-{% if dir == "rtl" %}right{% else %}left{% endif %}:20px;}
+  @media (max-width:480px){
+    .wrap{padding:16px 8px;}
+    .card{padding:24px 20px;border-radius:10px;}
+    .logo img{height:96px;}
+    h1{font-size:20px;}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
-    <div class="brand">{{ site_name|default:"Onlenco" }}</div>
+
+    {% comment %}
+    Brand header — large hero logo. Uses the inline CID image when the
+    client honours it (Gmail/Apple/Outlook desktop), falls back to the
+    public HTTPS URL for clients that strip CID, and finally degrades
+    to a styled text wordmark when both fail. The Onlenco logo image
+    already contains the wordmark, so we do not render a duplicate
+    text label below it.
+    {% endcomment %}
+    <div class="header">
+      <a href="{{ base_url|default:'https://onlenco.com' }}" class="logo"
+         style="text-decoration:none;color:inherit;">
+        <img alt="{{ site_name|default:'Onlenco' }}"
+             {% if logo_cid %}src="cid:{{ logo_cid }}"
+             {% elif logo_public_url %}src="{{ logo_public_url }}"
+             {% else %}src=""{% endif %}
+             height="120"
+             style="display:block;height:120px;width:auto;max-width:240px;border:0;margin:0 auto;">
+      </a>
+      <div class="brand-fallback">{{ site_name|default:"Onlenco" }}</div>
+    </div>
+
     {% block content %}
       <h1>{{ subject }}</h1>
       <p>

@@ -157,6 +157,59 @@ class EmailVerificationTests(TestCase):
         r = self.client.get(reverse("verify_email", args=["bogus"]))
         self.assertEqual(r.status_code, 302)
 
+    def test_token_carries_six_digit_code(self):
+        from notifications.services import issue_verification_token
+
+        u = User.objects.create_user(username="ev3", email="ev3@x", password="pw")
+        token = issue_verification_token(u)
+        self.assertEqual(len(token.code), 6)
+        self.assertTrue(token.code.isdigit())
+
+    def test_consume_by_code_marks_verified(self):
+        from notifications.services import consume_verification_token, issue_verification_token
+
+        u = User.objects.create_user(username="ev4", email="ev4@x", password="pw")
+        token = issue_verification_token(u)
+        self.assertTrue(consume_verification_token(token.code, user=u))
+        u.profile.refresh_from_db()
+        self.assertTrue(u.profile.email_verified)
+
+    def test_otp_form_view_redirects_after_success(self):
+        from notifications.services import issue_verification_token
+
+        u = User.objects.create_user(username="ev5", email="ev5@x", password="pw")
+        token = issue_verification_token(u)
+        self.client.force_login(u)
+        r = self.client.post(reverse("verify_email_otp"), data={"code": token.code})
+        self.assertEqual(r.status_code, 302)
+        u.profile.refresh_from_db()
+        self.assertTrue(u.profile.email_verified)
+
+    def test_otp_form_view_rejects_wrong_code(self):
+        from notifications.services import issue_verification_token
+
+        u = User.objects.create_user(username="ev6", email="ev6@x", password="pw")
+        issue_verification_token(u)
+        self.client.force_login(u)
+        r = self.client.post(reverse("verify_email_otp"), data={"code": "000000"})
+        self.assertEqual(r.status_code, 200)   # stays on the form
+        u.profile.refresh_from_db()
+        self.assertFalse(u.profile.email_verified)
+
+    def test_resend_otp_invalidates_previous_codes(self):
+        from notifications.models import EmailVerificationToken
+        from notifications.services import consume_verification_token, issue_verification_token
+
+        u = User.objects.create_user(username="ev7", email="ev7@x", password="pw")
+        first = issue_verification_token(u)
+        second = issue_verification_token(u)
+        # The old code no longer works
+        self.assertFalse(consume_verification_token(first.code, user=u))
+        # The new one does
+        self.assertTrue(consume_verification_token(second.code, user=u))
+        # And the row count is exactly 2 (we don't delete rows, we mark used_at)
+        self.assertEqual(EmailVerificationToken.objects.filter(user=u).count(), 2)
+
 
 class PreferencesApiTests(TestCase):
     def setUp(self):
@@ -168,7 +221,8 @@ class PreferencesApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         body = r.json()
         self.assertTrue(body["learning_updates"])
-        self.assertEqual(body["language"], "en")
+        # Project default flipped to Arabic — English users opt-out.
+        self.assertEqual(body["language"], "ar")
 
     def test_patch_updates_preferences(self):
         r = self.client.patch(

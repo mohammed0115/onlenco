@@ -57,25 +57,25 @@
                 <div class="grid sm:grid-cols-2 gap-3" id="plan-picker">
                     <label class="card p-5 cursor-pointer transition-smooth hover:shadow-elegant" data-plan-card="monthly">
                         <input type="radio" name="plan" value="monthly" required class="sr-only" data-plan="monthly"
-                               {% if request.POST.plan == "monthly" or (not request.POST.plan and prefill_plan == "monthly") %}checked{% endif %}>
+                               {% if request.POST.plan == "monthly" or not request.POST.plan and prefill_plan == "monthly" %}checked{% endif %}>
                         <div class="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">{% t "price.month" %}</div>
                         <div class="flex items-baseline gap-1 mb-1">
-                            <span class="font-display text-3xl font-bold">8,000</span>
+                            <span class="font-display text-3xl font-bold">{{ plans.monthly.price_sdg|default:30000 }}</span>
                             <span class="text-muted-foreground text-sm">SDG{% t "price.permonth" %}</span>
                         </div>
-                        <p class="text-xs text-muted-foreground">30 {% t_either "days" "يوم" %}</p>
+                        <p class="text-xs text-muted-foreground">{{ plans.monthly.duration_days|default:30 }} {% t_either "days" "يوم" %}</p>
                     </label>
 
                     <label class="card p-5 cursor-pointer transition-smooth hover:shadow-elegant relative" data-plan-card="quarterly">
-                        <span class="badge badge-popular absolute" style="top:-0.625rem;right:1rem">{% t "price.popular" %}</span>
+                        <span class="badge badge-popular absolute" style="top:-0.625rem;inset-inline-end:1rem">{% t "price.popular" %}</span>
                         <input type="radio" name="plan" value="quarterly" required class="sr-only" data-plan="quarterly"
-                               {% if request.POST.plan == "quarterly" or (not request.POST.plan and prefill_plan == "quarterly") %}checked{% endif %}>
+                               {% if request.POST.plan == "quarterly" or not request.POST.plan and prefill_plan == "quarterly" %}checked{% endif %}>
                         <div class="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">{% t "price.quarter" %}</div>
                         <div class="flex items-baseline gap-1 mb-1">
-                            <span class="font-display text-3xl font-bold">18,000</span>
+                            <span class="font-display text-3xl font-bold">{{ plans.quarterly.price_sdg|default:50000 }}</span>
                             <span class="text-muted-foreground text-sm">SDG / 3{% t_either "mo" "شهور" %}</span>
                         </div>
-                        <p class="text-xs text-muted-foreground">90 {% t_either "days" "يوم" %} · {% t "price.save" %}</p>
+                        <p class="text-xs text-muted-foreground">{{ plans.quarterly.duration_days|default:90 }} {% t_either "days" "يوم" %} · {% t "price.save" %}</p>
                     </label>
                 </div>
                 {% if form.plan.errors %}<p class="text-xs text-destructive mt-1">{{ form.plan.errors|join:", " }}</p>{% endif %}
@@ -87,7 +87,7 @@
                     {% for code, info in accounts.items %}
                     <label class="card p-4 cursor-pointer transition-smooth hover:shadow-elegant text-center" data-method-card="{{ code }}">
                         <input type="radio" name="method" value="{{ code }}" required class="sr-only" data-method="{{ code }}"
-                               {% if request.POST.method == code or (not request.POST.method and prefill_method == code) %}checked{% endif %}>
+                               {% if request.POST.method == code or not request.POST.method and prefill_method == code %}checked{% endif %}>
                         <div class="font-display text-lg font-bold mb-1">{{ info.label }}</div>
                         <div class="text-xs text-muted-foreground">{{ info.account }}</div>
                     </label>

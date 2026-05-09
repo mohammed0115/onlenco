@@ -163,6 +163,14 @@ def process_quiz_submission(user, lesson, question_results: Iterable[dict]) -> d
         except Exception as e:
             logger.warning("adaptive_quiz_adapter: lesson_completed notify failed: %s", e)
 
+        # Run the motivation engine so XP/streak/achievements update in real
+        # time. Best-effort: never blocks the user flow.
+        try:
+            from motivation.services.motivation_engine import run_for_user
+            run_for_user(user)
+        except Exception as e:
+            logger.warning("adaptive_quiz_adapter: motivation engine failed: %s", e)
+
     except Exception as e:
         logger.exception("adaptive_quiz_adapter: aborted: %s", e)
 

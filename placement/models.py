@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+from django.utils.translation import gettext_lazy as _
 from accounts.models import CEFR_CHOICES
 
 
@@ -25,6 +26,8 @@ class PlacementResult(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = _("Placement result")
+        verbose_name_plural = _("Placement results")
         ordering = ["-created_at"]
 
     def __str__(self):

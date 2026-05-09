@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -20,7 +21,12 @@ def conversation_list(request):
     if locked:
         return locked
 
-    conversations = TutorConversation.objects.filter(user=request.user)
+    # Hide drafts (no messages yet) so the list only shows resumable chats.
+    conversations = (
+        TutorConversation.objects
+        .filter(user=request.user, messages__isnull=False)
+        .distinct()
+    )
     return render(request, "tutor/list.html", {"conversations": conversations})
 
 
@@ -32,6 +38,20 @@ def new_conversation(request):
         return locked
 
     topic = (request.POST.get("topic") or "").strip()
+
+    # Reuse any existing empty conversation rather than accumulating drafts.
+    existing_empty = (
+        TutorConversation.objects
+        .filter(user=request.user, messages__isnull=True)
+        .order_by("-updated_at")
+        .first()
+    )
+    if existing_empty:
+        if topic and existing_empty.topic != topic:
+            existing_empty.topic = topic
+            existing_empty.save(update_fields=["topic"])
+        return redirect("tutor_detail", pk=existing_empty.pk)
+
     conv = TutorConversation.objects.create(user=request.user, topic=topic)
     return redirect("tutor_detail", pk=conv.pk)
 
@@ -43,7 +63,23 @@ def conversation_detail(request, pk):
         return locked
 
     conv = get_object_or_404(TutorConversation, pk=pk, user=request.user)
-    return render(request, "tutor/detail.html", {"conversation": conv})
+    # Expose the EN+AR humanizer glossaries so the front-end TTS sanitiser
+    # can clean text consistently when the /tutor/sanitize/ endpoint is
+    # unreachable.
+    from core.services.text_humanizer import (
+        _merged_event_glossary,
+        _merged_field_glossary,
+    )
+    humanizer_glossary = {
+        "events_en": _merged_event_glossary("en"),
+        "events_ar": _merged_event_glossary("ar"),
+        "fields_en": _merged_field_glossary("en"),
+        "fields_ar": _merged_field_glossary("ar"),
+    }
+    return render(request, "tutor/detail.html", {
+        "conversation": conv,
+        "humanizer_glossary_json": humanizer_glossary,
+    })
 
 
 @login_required
@@ -59,13 +95,68 @@ def send_message(request, pk):
         messages.error(request, "Message cannot be empty.")
         return redirect("tutor_detail", pk=conv.pk)
 
+    # `speaking_seconds` is sent by the front-end when the user submits via
+    # the mic/auto-send path. Used to credit `speaking_minutes` on the
+    # daily activity snapshot. Optional + bounded.
+    try:
+        speaking_seconds = max(0, min(int(request.POST.get("speaking_seconds") or 0), 3600))
+    except (TypeError, ValueError):
+        speaking_seconds = 0
+
     TutorMessage.objects.create(conversation=conv, role="user", content=text)
 
     if not conv.title:
         conv.title = " ".join(text.split()[:8])[:200]
         conv.save(update_fields=["title"])
 
-    reply = chat(conv, text)
+    # Voice mode = the user submitted speech (mic transcript). The chat
+    # service uses this to enforce a shorter, speech-friendly reply.
+    reply = chat(conv, text, voice=speaking_seconds > 0)
     TutorMessage.objects.create(conversation=conv, role="assistant", content=reply)
 
+    # Credit speaking minutes + writing attempt to today's snapshot before
+    # the motivation engine runs, so xp/achievements see the new totals.
+    try:
+        from motivation.services import activity_collector
+        snap = activity_collector.collect_daily_activity(request.user)
+        updates = []
+        if speaking_seconds > 0:
+            snap.speaking_minutes = (snap.speaking_minutes or 0) + max(1, speaking_seconds // 60)
+            updates.append("speaking_minutes")
+        snap.writing_attempts = (snap.writing_attempts or 0) + 1
+        updates.append("writing_attempts")
+        snap.save(update_fields=updates + ["updated_at"])
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("tutor: activity credit failed")
+
+    # Best-effort motivation refresh — never blocks chat.
+    try:
+        from motivation.services.motivation_engine import run_for_user
+        run_for_user(request.user)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("tutor: motivation engine failed")
+
     return redirect("tutor_detail", pk=conv.pk)
+
+
+@login_required
+@require_POST
+def sanitize_for_speech(request):
+    """Return the speech-safe version of the supplied text.
+
+    Called by the tutor TTS front-end before `speechSynthesis.speak()`.
+    Strips technical artefacts (snake_case, JSON, URLs, file paths) and
+    expands CEFR + percent for natural read-aloud.
+    """
+    from core.services.text_humanizer import humanize_for_speech
+
+    text = (request.POST.get("text") or "")[:8000]
+    language = request.POST.get("language") or "en"
+    if language not in ("en", "ar"):
+        language = "en"
+    return JsonResponse({
+        "text": humanize_for_speech(text, language=language),
+        "language": language,
+    })

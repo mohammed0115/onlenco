@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}
+  {% t_either "Result" "النتيجة" %} — Onlenco
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+
+  <main class="container py-12 max-w-md mx-auto">
+    <div class="card gradient-hero border-0 shadow-elegant p-8 text-center">
+      <p class="text-sm" style="opacity:0.85">
+        {% if assessment.kind == "daily" %}
+          {% t_either "Daily check-in" "تقييم يومي" %}
+        {% else %}
+          {% t_either "Weekly assessment" "تقييم أسبوعي" %}
+        {% endif %}
+      </p>
+      <div class="font-display text-7xl font-bold mt-2 mb-1">
+        {{ assessment.score|floatformat:0 }}%
+      </div>
+      {% if assessment.score >= 80 %}
+        <p class="text-lg">{% t_either "Excellent! Keep it up." "ممتاز! واصل بهذا المستوى." %}</p>
+      {% elif assessment.score >= 50 %}
+        <p class="text-lg">{% t_either "Good work." "عمل جيد." %}</p>
+      {% else %}
+        <p class="text-lg">{% t_either "Keep practising — you'll get there." "استمر في التمرين — ستصل!" %}</p>
+      {% endif %}
+    </div>
+
+    <div class="mt-6 flex flex-col gap-3">
+      <a href="{% url 'dashboard' %}" class="btn btn-hero btn-lg">
+        {% t_either "Back to dashboard" "العودة للوحة" %}
+      </a>
+      {% if assessment.kind == "daily" %}
+        <a href="{% url 'exam_daily' %}" class="btn btn-outline">
+          {% t_either "Try again later" "حاول مجدداً لاحقاً" %}
+        </a>
+      {% endif %}
+    </div>
+  </main>
+</div>
+{% endblock %}

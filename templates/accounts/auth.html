@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n_dict %}
+{% load i18n_dict static %}
 
 {% block title %}{% if mode == "signup" %}{% t "auth.signup" %}{% else %}{% t "auth.signin" %}{% endif %} — Onlenco{% endblock %}
 
@@ -8,11 +8,9 @@
 
     <div class="flex-1 flex flex-col p-8 md:p-12">
         <div class="flex items-center justify-between">
-            <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold">
-                <div class="flex h-8 w-8 items-center justify-center rounded-lg gradient-sunset">
-                    <i data-lucide="sparkles" class="h-4 w-4 text-primary-foreground"></i>
-                </div>
-                Onlenco
+            <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold" aria-label="Onlenco">
+                <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco"
+                     class="h-9 w-auto object-contain" width="36" height="36">
             </a>
             {% include "_lang_toggle.html" %}
         </div>

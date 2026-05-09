@@ -67,7 +67,8 @@ DICT = {
     "price.popular":  {"en": "Most popular", "ar": "الأكثر شيوعاً"},
     "price.cta":      {"en": "Get started",  "ar": "ابدأ الآن"},
     "price.permonth": {"en": "/ month",      "ar": "/ شهر"},
-    "price.save":     {"en": "Save 25%",     "ar": "وفر 25%"},
+    "price.save":     {"en": "Save ~44% vs paying monthly",
+                       "ar": "وفر نحو 44% مقارنة بالدفع الشهري"},
 
     # Auth
     "auth.signin":   {"en": "Welcome back",        "ar": "مرحباً بعودتك"},
@@ -239,6 +240,18 @@ DICT = {
     "pl.retaking":  {"en": "You're retaking the test. Your level will only update if you submit.",
                      "ar": "أنت تعيد الاختبار. مستواك سيتحدث فقط عند الإرسال."},
     "pl.continue":  {"en": "Continue to lessons", "ar": "متابعة إلى الدروس"},
+    # Stepper UI strings
+    "pl.step":      {"en": "Step", "ar": "الخطوة"},
+    "pl.of":        {"en": "of", "ar": "من"},
+    "pl.next":      {"en": "Next", "ar": "التالي"},
+    "pl.back":      {"en": "Back", "ar": "السابق"},
+    "pl.read_aloud": {"en": "Read this question aloud",
+                      "ar": "اقرأ السؤال بصوت عالٍ"},
+    "pl.stop_reading": {"en": "Stop reading", "ar": "إيقاف القراءة"},
+    "pl.required":  {"en": "Please answer this question before continuing.",
+                     "ar": "يرجى الإجابة على هذا السؤال قبل المتابعة."},
+    "pl.q5_required": {"en": "Please record at least 5 sentences before continuing.",
+                       "ar": "يرجى تسجيل 5 جمل على الأقل قبل المتابعة."},
 
     # Payments
     "pay.title":     {"en": "Subscribe to Onlenco",

@@ -28,6 +28,15 @@ AT_RISK_STUDENT = "at_risk_student"
 DAILY_ADMIN_SUMMARY = "daily_admin_summary"
 WEEKLY_ADMIN_SUMMARY = "weekly_admin_summary"
 
+# Motivation engine events (delivered to students)
+MOTIVATION_MESSAGE_GENERATED = "motivation_message_generated"
+ACHIEVEMENT_UNLOCKED         = "achievement_unlocked"
+BADGE_EARNED                 = "badge_earned"
+XP_AWARDED                   = "xp_awarded"
+STREAK_MILESTONE             = "streak_milestone"
+COMEBACK_REMINDER            = "comeback_reminder"
+WEEKLY_MOTIVATION_SUMMARY    = "weekly_motivation_summary"
+
 ALL_STUDENT_EVENTS = [
     USER_REGISTERED,
     EMAIL_VERIFICATION,
@@ -56,7 +65,17 @@ ALL_ADMIN_EVENTS = [
     WEEKLY_ADMIN_SUMMARY,
 ]
 
-ALL_EVENT_TYPES = ALL_STUDENT_EVENTS + ALL_ADMIN_EVENTS
+ALL_MOTIVATION_EVENTS = [
+    MOTIVATION_MESSAGE_GENERATED,
+    ACHIEVEMENT_UNLOCKED,
+    BADGE_EARNED,
+    XP_AWARDED,
+    STREAK_MILESTONE,
+    COMEBACK_REMINDER,
+    WEEKLY_MOTIVATION_SUMMARY,
+]
+
+ALL_EVENT_TYPES = ALL_STUDENT_EVENTS + ALL_ADMIN_EVENTS + ALL_MOTIVATION_EVENTS
 
 EVENT_TYPE_CHOICES = [(e, e) for e in ALL_EVENT_TYPES]
 
@@ -116,6 +135,12 @@ LEARNING_EVENTS = {
     WEEKLY_ASSESSMENT_RESULT,
     LEVEL_IMPROVED,
     INACTIVE_STUDENT_REMINDER,
+    MOTIVATION_MESSAGE_GENERATED,
+    ACHIEVEMENT_UNLOCKED,
+    BADGE_EARNED,
+    XP_AWARDED,
+    STREAK_MILESTONE,
+    COMEBACK_REMINDER,
 }
 
 # Events controlled by `payment_updates`
@@ -130,6 +155,17 @@ PAYMENT_EVENTS = {
 WEEKLY_SUMMARY_EVENTS = {
     WEEKLY_ASSESSMENT_AVAILABLE,
     WEEKLY_ADMIN_SUMMARY,
+    WEEKLY_MOTIVATION_SUMMARY,
+}
+
+# Motivation events governed by MotivationPreference + a learning_updates fallback
+MOTIVATION_LEARNING_EVENTS = {
+    MOTIVATION_MESSAGE_GENERATED,
+    ACHIEVEMENT_UNLOCKED,
+    BADGE_EARNED,
+    XP_AWARDED,
+    STREAK_MILESTONE,
+    COMEBACK_REMINDER,
 }
 
 # Events controlled by `admin_alerts` (recipient must be staff/admin)
@@ -162,25 +198,39 @@ DEFAULT_SUBJECTS = {
     AT_RISK_STUDENT: "[Onlenco admin] At-risk student",
     DAILY_ADMIN_SUMMARY: "[Onlenco admin] Daily summary",
     WEEKLY_ADMIN_SUMMARY: "[Onlenco admin] Weekly summary",
+    MOTIVATION_MESSAGE_GENERATED: "Onlenco — keep going",
+    ACHIEVEMENT_UNLOCKED: "Achievement unlocked!",
+    BADGE_EARNED: "You earned a new badge",
+    XP_AWARDED: "XP earned",
+    STREAK_MILESTONE: "Your streak is on fire",
+    COMEBACK_REMINDER: "We miss you — pick up where you left off",
+    WEEKLY_MOTIVATION_SUMMARY: "Your week on Onlenco",
 }
 
 # Subject line in Arabic (used when language='ar').
 SUBJECTS_AR = {
-    USER_REGISTERED: "مرحبا بك في Onlenco",
-    EMAIL_VERIFICATION: "تأكيد بريدك الإلكتروني",
+    USER_REGISTERED: "مرحبًا بك في Onlenco",
+    EMAIL_VERIFICATION: "تأكيد بريدك الإلكتروني في Onlenco",
     PASSWORD_RESET: "إعادة تعيين كلمة المرور",
-    PLACEMENT_COMPLETED: "نتيجة اختبار التحديد",
-    WEAKNESS_DETECTED: "نقطة ضعف جديدة للتركيز عليها",
-    EXERCISES_GENERATED: "تمارين مخصصة جاهزة لك",
+    PLACEMENT_COMPLETED: "نتيجة اختبار تحديد المستوى",
+    WEAKNESS_DETECTED: "تم تحديد نقطة تحتاج إلى تدريب",
+    EXERCISES_GENERATED: "تم تجهيز تمارين جديدة لك",
     LESSON_COMPLETED: "أحسنت — اكتمل الدرس",
-    WEEKLY_ASSESSMENT_AVAILABLE: "تقييمك الأسبوعي جاهز",
-    WEEKLY_ASSESSMENT_RESULT: "نتيجة التقييم الأسبوعي",
+    WEEKLY_ASSESSMENT_AVAILABLE: "اختبارك الأسبوعي جاهز",
+    WEEKLY_ASSESSMENT_RESULT: "نتيجة الاختبار الأسبوعي",
     LEVEL_IMPROVED: "تهانينا — مستواك تحسن",
     SUBSCRIPTION_EXPIRING: "اشتراكك على وشك الانتهاء",
-    PAYMENT_SUBMITTED: "استلمنا دفعتك",
-    PAYMENT_APPROVED: "تم تفعيل اشتراكك",
-    PAYMENT_REJECTED: "دفعتك بحاجة إلى انتباه",
+    PAYMENT_SUBMITTED: "تم استلام طلب الدفع",
+    PAYMENT_APPROVED: "تم قبول الدفع وتفعيل اشتراكك",
+    PAYMENT_REJECTED: "تم رفض طلب الدفع",
     INACTIVE_STUDENT_REMINDER: "نفتقدك في Onlenco",
+    MOTIVATION_MESSAGE_GENERATED: "Onlenco — استمر، أنت تتقدم!",
+    ACHIEVEMENT_UNLOCKED: "إنجاز جديد!",
+    BADGE_EARNED: "حصلت على شارة جديدة",
+    XP_AWARDED: "حصلت على نقاط XP",
+    STREAK_MILESTONE: "سلسلتك مشتعلة!",
+    COMEBACK_REMINDER: "نفتقدك — أكمل من حيث توقفت",
+    WEEKLY_MOTIVATION_SUMMARY: "ملخص تقدمك الأسبوعي",
 }
 
 # Map event_type → template filename (relative to templates/notifications/emails/)
@@ -200,6 +250,13 @@ TEMPLATE_NAMES = {
     PAYMENT_APPROVED: "payment_approved.html",
     PAYMENT_REJECTED: "payment_rejected.html",
     INACTIVE_STUDENT_REMINDER: "inactive_student_reminder.html",
+    MOTIVATION_MESSAGE_GENERATED: "motivation_message.html",
+    ACHIEVEMENT_UNLOCKED: "achievement_unlocked.html",
+    BADGE_EARNED: "badge_earned.html",
+    XP_AWARDED: "xp_awarded.html",
+    STREAK_MILESTONE: "streak_milestone.html",
+    COMEBACK_REMINDER: "comeback_reminder.html",
+    WEEKLY_MOTIVATION_SUMMARY: "weekly_motivation_summary.html",
     NEW_STUDENT_REGISTERED: "admin_new_student.html",
     NEW_PAYMENT_PENDING: "admin_new_payment_pending.html",
     AI_USAGE_HIGH: "admin_ai_usage_high.html",

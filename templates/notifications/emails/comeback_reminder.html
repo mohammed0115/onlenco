@@ -1,0 +1,15 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}نفتقدك ✨{% else %}We miss you ✨{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    مرّ {{ payload.inactive_days|default:3 }} أيام منذ آخر تدريب. عشر دقائق اليوم تكفي لإعادة الزخم.
+  {% else %}
+    It's been {{ payload.inactive_days|default:3 }} days since your last practice. 10 minutes today is enough to rebuild momentum.
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">
+  {% if lang == "ar" %}عودة سريعة (3 دقائق){% else %}Quick comeback (3 min){% endif %}
+</a></p>
+{% endblock %}

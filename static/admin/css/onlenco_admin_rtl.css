@@ -1,0 +1,34 @@
+/* Onlenco Admin — RTL overrides for Arabic locale.
+ * Loaded after onlenco_admin.css when LANGUAGE_CODE == 'ar'.
+ */
+
+html[lang="ar"] body,
+body.rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+html[lang="ar"] #header,
+body.rtl #header {
+  direction: rtl;
+}
+
+html[lang="ar"] #user-tools,
+body.rtl #user-tools {
+  float: left;
+}
+
+html[lang="ar"] .onlenco-brand-link,
+body.rtl .onlenco-brand-link {
+  flex-direction: row-reverse;
+}
+
+html[lang="ar"] div.breadcrumbs,
+body.rtl div.breadcrumbs {
+  text-align: right;
+}
+
+html[lang="ar"] .submit-row,
+body.rtl .submit-row {
+  text-align: left;
+}

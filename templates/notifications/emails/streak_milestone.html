@@ -1,0 +1,15 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>🔥 {% if lang == "ar" %}سلسلة {{ payload.days }} يوماً!{% else %}{{ payload.days }}-day streak!{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    تعلّمت {{ payload.days }} أيام متتالية. تحفّظ على الإيقاع — كل يوم يضاف لرحلتك.
+  {% else %}
+    You've studied {{ payload.days }} days in a row. Keep the rhythm — every day stacks up.
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">
+  {% if lang == "ar" %}واصل اليوم{% else %}Keep going today{% endif %}
+</a></p>
+{% endblock %}

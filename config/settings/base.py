@@ -70,6 +70,14 @@ INSTALLED_APPS = [
     "analytics",
     "learning_core",
     "notifications",
+    "motivation",
+    "exams",
+    "factory",
+    "question_factory",
+    "ai_training",
+    "ai_engine",
+    "courses",
+    "speech",
 ]
 
 REST_FRAMEWORK = {
@@ -177,8 +185,15 @@ AUTH_PASSWORD_VALIDATORS = [
     }
 ]
 
-LANGUAGE_CODE = "en"
-LANGUAGES = [("en", "English"), ("ar", "Arabic")]
+# Project default is Arabic — the primary audience is Arabic-speaking
+# learners. Authenticated users override via `Profile.preferred_language`
+# through `LanguagePreferenceMiddleware`. AR is listed first so the
+# language toggle in the header surfaces it as the primary option.
+LANGUAGE_CODE = "ar"
+LANGUAGES = [
+    ("ar", "العربية"),
+    ("en", "English"),
+]
 LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = "Africa/Khartoum"
 USE_I18N = True
@@ -204,7 +219,29 @@ LOGOUT_REDIRECT_URL = "/"
 
 AI_API_KEY = env_get("AI_API_KEY", "")
 AI_API_BASE = env_get("AI_API_BASE", "https://api.openai.com/v1")
+
+# Speech / voice
+# Number of days to retain raw audio uploads (SpeakingAttempt.audio_file).
+# Transcripts + duration + confidence stay forever; the raw audio is the
+# privacy-sensitive part and gets purged on the schedule below.
+SPEECH_AUDIO_RETENTION_DAYS = int(env_get("SPEECH_AUDIO_RETENTION_DAYS", "7") or 7)
 AI_MODEL = env_get("AI_MODEL", "gpt-4o-mini")
+
+# --- ai_engine local providers -----------------------------------------
+# Set AI_LOCAL_CLASSIFIER_ENABLED=1 in env to let the router try local
+# classifiers before falling through to LLMs. Per-task model paths are
+# resolved at first-call time.
+AI_LOCAL_CLASSIFIER_ENABLED = env_get("AI_LOCAL_CLASSIFIER_ENABLED", "0") == "1"
+AI_DIFFICULTY_MODEL_PATH = env_get(
+    "AI_DIFFICULTY_MODEL_PATH",
+    str(BASE_DIR / "local_models" / "difficulty_estimator" / "v0" / "model.joblib"),
+)
+AI_DIFFICULTY_MODEL_VERSION = env_get("AI_DIFFICULTY_MODEL_VERSION", "v0-ridge")
+AI_CEFR_MODEL_PATH = env_get(
+    "AI_CEFR_MODEL_PATH",
+    str(BASE_DIR / "local_models" / "cefr_classifier" / "v0" / "model.joblib"),
+)
+AI_CEFR_MODEL_VERSION = env_get("AI_CEFR_MODEL_VERSION", "v0-logreg")
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
@@ -215,7 +252,15 @@ EMAIL_PORT = int(env_get("EMAIL_PORT", "25"))
 EMAIL_HOST_USER = env_get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = env_get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
-DEFAULT_FROM_EMAIL = env_get("DEFAULT_FROM_EMAIL", "no-reply@onlenco.local")
+DEFAULT_FROM_EMAIL = env_get("DEFAULT_FROM_EMAIL", "Onlenco <info@onlenco.com>")
+# Friendly display name used by EmailService when DEFAULT_FROM_EMAIL is bare.
+EMAIL_BRAND_NAME = env_get("EMAIL_BRAND_NAME", "Onlenco")
+# Where users' replies should land when they hit "Reply" on an Onlenco
+# email. Leave blank to omit the Reply-To header.
+EMAIL_REPLY_TO = env_get("EMAIL_REPLY_TO", "")
+# Public base URL used for HTTPS-hosted assets in email bodies (logo
+# fallback, CTA links). Provider strips of CID images hit this URL.
+ONLENCO_BASE_URL = env_get("ONLENCO_BASE_URL", "")
 
 LOGGING = {
     "version": 1,

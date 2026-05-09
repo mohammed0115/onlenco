@@ -1,0 +1,17 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}+{{ payload.xp }} نقطة XP{% else %}+{{ payload.xp }} XP{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    حصلت على {{ payload.xp }} نقطة XP بفضل {{ payload.reason|default:"تقدمك اليوم" }}.
+    إجمالي نقاطك الآن: {{ payload.total_xp }}.
+  {% else %}
+    You earned {{ payload.xp }} XP for {{ payload.reason|default:"today's progress" }}.
+    Your total is now {{ payload.total_xp }}.
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">
+  {% if lang == "ar" %}افتح اللوحة{% else %}Open dashboard{% endif %}
+</a></p>
+{% endblock %}

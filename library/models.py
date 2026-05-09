@@ -1,15 +1,16 @@
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import CEFR_CHOICES
 
 
 CATEGORY_CHOICES = [
-    ("novel", "Novel"),
-    ("short", "Short story"),
-    ("grammar", "Grammar reference"),
-    ("article", "Article"),
-    ("video", "Long video"),
+    ("novel",   _("Novel")),
+    ("short",   _("Short story")),
+    ("grammar", _("Grammar reference")),
+    ("article", _("Article")),
+    ("video",   _("Long video")),
 ]
 
 
@@ -28,6 +29,8 @@ class Book(models.Model):
 
     class Meta:
         ordering = ["-published_at", "title"]
+        verbose_name = _("Book")
+        verbose_name_plural = _("Books")
 
     def __str__(self):
         return f"{self.title} ({self.level})"
@@ -41,6 +44,8 @@ class Chapter(models.Model):
 
     class Meta:
         ordering = ["sort_order", "id"]
+        verbose_name = _("Chapter")
+        verbose_name_plural = _("Chapters")
 
     def __str__(self):
         return f"{self.book.title} — Chapter {self.sort_order}: {self.title}"
@@ -67,6 +72,8 @@ class VocabularyExtract(models.Model):
                 fields=["chapter", "term"], name="unique_chapter_term"
             )
         ]
+        verbose_name = _("Vocabulary extract")
+        verbose_name_plural = _("Vocabulary extracts")
 
     def __str__(self):
         return self.term
@@ -87,6 +94,8 @@ class GrammarExtract(models.Model):
 
     class Meta:
         ordering = ["chapter", "topic"]
+        verbose_name = _("Grammar extract")
+        verbose_name_plural = _("Grammar extracts")
 
     def __str__(self):
         return f"{self.topic} ({self.chapter})"
@@ -108,6 +117,8 @@ class ComprehensionQuestion(models.Model):
 
     class Meta:
         ordering = ["chapter", "sort_order", "id"]
+        verbose_name = _("Comprehension question")
+        verbose_name_plural = _("Comprehension questions")
 
     def __str__(self):
         return f"Q on {self.chapter}: {self.question[:40]}"
@@ -137,6 +148,8 @@ class LibraryProgress(models.Model):
             )
         ]
         indexes = [models.Index(fields=["user", "completed"])]
+        verbose_name = _("Library progress")
+        verbose_name_plural = _("Library progress")
 
     def __str__(self):
         return f"LibProg<{self.user_id}> ch={self.chapter_id} done={self.completed}"

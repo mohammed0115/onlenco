@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
 
@@ -59,8 +60,8 @@ class PaymentMethodAccount(models.Model):
 
     class Meta:
         ordering = ["sort_order", "method"]
-        verbose_name = "Payment method account"
-        verbose_name_plural = "Payment method accounts"
+        verbose_name = _("Payment method account")
+        verbose_name_plural = _("Payment method accounts")
 
     def __str__(self):
         return f"{self.label} - {self.account_number}"
@@ -104,6 +105,8 @@ class PaymentSubmission(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = _("Payment submission")
+        verbose_name_plural = _("Payment submissions")
         ordering = ["-created_at"]
 
     def __str__(self):

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n_dict %}
+{% load i18n_dict humanize_text static %}
 
 {% block title %}{% t "pl.title" %} — Onlenco{% endblock %}
 
@@ -10,16 +10,29 @@
     <main class="container py-10" style="max-width:42rem">
 
         {% if not result %}
-            <div class="mb-8 text-center">
-                <h1 class="font-display text-4xl font-bold mb-3">{% t "pl.title" %}</h1>
+            <div class="mb-6 text-center">
+                <h1 class="font-display text-4xl font-bold mb-2">{% t "pl.title" %}</h1>
                 <p class="text-muted-foreground">{% t "pl.intro" %}</p>
             </div>
 
-            <form method="post" class="card gradient-card shadow-elegant p-8 space-y-8" id="placement-form">
+            {# Progress bar #}
+            <div class="mb-4 flex items-center gap-3">
+                <span class="text-sm text-muted-foreground whitespace-nowrap">
+                    <span id="step-label">{% t "pl.step" %} 1 {% t "pl.of" %} 5</span>
+                </span>
+                <div class="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                    <div id="step-progress"
+                         class="h-full bg-primary transition-all"
+                         style="width: 20%;"></div>
+                </div>
+            </div>
+
+            <form method="post" class="card gradient-card shadow-elegant p-8 space-y-6"
+                  id="placement-form" novalidate>
                 {% csrf_token %}
 
                 {% if retaking %}
-                <div class="card p-5 bg-muted/30">
+                <div class="card p-4 bg-muted/30">
                     <div class="flex items-start gap-3">
                         <i data-lucide="info" class="h-5 w-5 text-secondary mt-0.5"></i>
                         <p class="text-sm text-muted-foreground">{% t "pl.retaking" %}</p>
@@ -27,52 +40,97 @@
                 </div>
                 {% endif %}
 
-                {# Q1 — MCQ "She ___ to school every day." #}
-                <div class="space-y-3">
-                    <p class="text-base font-semibold">1. {% t "pl.q1" %}</p>
-                    {% for opt in q1_choices %}
-                    <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-smooth cursor-pointer">
-                        <input type="radio" name="q1" value="{{ opt }}" {% if request.POST.q1 == opt %}checked{% endif %} required>
-                        <span class="flex-1 font-normal">{{ opt }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
+                {# ---------- STEP 1 — MCQ "She ___ to school every day." ---------- #}
+                <section class="step" data-step="1" data-question-text="{% t 'pl.q1' %}">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <p class="text-base font-semibold flex-1">1. {% t "pl.q1" %}</p>
+                        <button type="button" class="btn btn-ghost shrink-0 read-btn"
+                                style="height:2.25rem;padding:0 0.65rem"
+                                title="{% t 'pl.read_aloud' %}">
+                            <i data-lucide="volume-2" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        {% for opt in q1_choices %}
+                        <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-smooth cursor-pointer">
+                            <input type="radio" name="q1" value="{{ opt }}"
+                                   data-step-input="1"
+                                   {% if request.POST.q1 == opt %}checked{% endif %}>
+                            <span class="flex-1 font-normal" dir="ltr">{{ opt }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </section>
 
-                {# Q2 — MCQ correct sentence #}
-                <div class="space-y-3">
-                    <p class="text-base font-semibold">2. {% t "pl.q2" %}</p>
-                    {% for opt in q2_choices %}
-                    <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-smooth cursor-pointer">
-                        <input type="radio" name="q2" value="{{ opt }}" {% if request.POST.q2 == opt %}checked{% endif %} required>
-                        <span class="flex-1 font-normal">{{ opt }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
+                {# ---------- STEP 2 — MCQ correct sentence ---------- #}
+                <section class="step hidden" data-step="2" data-question-text="{% t 'pl.q2' %}">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <p class="text-base font-semibold flex-1">2. {% t "pl.q2" %}</p>
+                        <button type="button" class="btn btn-ghost shrink-0 read-btn"
+                                style="height:2.25rem;padding:0 0.65rem"
+                                title="{% t 'pl.read_aloud' %}">
+                            <i data-lucide="volume-2" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        {% for opt in q2_choices %}
+                        <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-smooth cursor-pointer">
+                            <input type="radio" name="q2" value="{{ opt }}"
+                                   data-step-input="2"
+                                   {% if request.POST.q2 == opt %}checked{% endif %}>
+                            <span class="flex-1 font-normal" dir="ltr">{{ opt }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </section>
 
-                {# Q3 — short writing #}
-                <div class="space-y-3">
-                    <label class="label text-base font-semibold" for="id_q3">3. {% t "pl.q3" %}</label>
-                    <textarea class="textarea" id="id_q3" name="q3" rows="3" maxlength="500"
-                              dir="ltr" required minlength="10">{{ request.POST.q3|default_if_none:'' }}</textarea>
-                </div>
+                {# ---------- STEP 3 — short writing ---------- #}
+                <section class="step hidden" data-step="3" data-question-text="{% t 'pl.q3' %}">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <label class="label text-base font-semibold flex-1" for="id_q3">3. {% t "pl.q3" %}</label>
+                        <button type="button" class="btn btn-ghost shrink-0 read-btn"
+                                style="height:2.25rem;padding:0 0.65rem"
+                                title="{% t 'pl.read_aloud' %}">
+                            <i data-lucide="volume-2" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <textarea class="textarea" id="id_q3" name="q3" rows="4" maxlength="500"
+                              data-step-input="3" data-step-min="10"
+                              dir="ltr" minlength="10">{{ request.POST.q3|default_if_none:'' }}</textarea>
+                </section>
 
-                {# Q4 — past-tense writing #}
-                <div class="space-y-3">
-                    <label class="label text-base font-semibold" for="id_q4">4. {% t "pl.q4" %}</label>
-                    <textarea class="textarea" id="id_q4" name="q4" rows="5" maxlength="1000"
-                              dir="ltr" required minlength="20">{{ request.POST.q4|default_if_none:'' }}</textarea>
-                </div>
+                {# ---------- STEP 4 — past-tense writing ---------- #}
+                <section class="step hidden" data-step="4" data-question-text="{% t 'pl.q4' %}">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <label class="label text-base font-semibold flex-1" for="id_q4">4. {% t "pl.q4" %}</label>
+                        <button type="button" class="btn btn-ghost shrink-0 read-btn"
+                                style="height:2.25rem;padding:0 0.65rem"
+                                title="{% t 'pl.read_aloud' %}">
+                            <i data-lucide="volume-2" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <textarea class="textarea" id="id_q4" name="q4" rows="6" maxlength="1000"
+                              data-step-input="4" data-step-min="20"
+                              dir="ltr" minlength="20">{{ request.POST.q4|default_if_none:'' }}</textarea>
+                </section>
 
-                {# Q5 — Speaking task #}
-                <div class="space-y-3">
-                    <p class="text-base font-semibold">5. {% t "pl.q5" %}</p>
-                    <p class="text-sm text-muted-foreground">{% t "pl.q5_intro" %}</p>
+                {# ---------- STEP 5 — Speaking task ---------- #}
+                <section class="step hidden" data-step="5" data-question-text="{% t 'pl.q5_intro' %}">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <p class="text-base font-semibold flex-1">5. {% t "pl.q5" %}</p>
+                        <button type="button" class="btn btn-ghost shrink-0 read-btn"
+                                style="height:2.25rem;padding:0 0.65rem"
+                                title="{% t 'pl.read_aloud' %}">
+                            <i data-lucide="volume-2" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <p class="text-sm text-muted-foreground mb-3">{% t "pl.q5_intro" %}</p>
 
                     <div class="card p-5 bg-muted/30" id="q5-rec-wrap">
                         <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
                             <div class="flex items-center gap-3">
                                 <button type="button" id="rec-toggle" class="btn btn-hero">
-                                    <i data-lucide="mic" class="h-4 w-4"></i>
+                                    <span class="rec-icon" aria-hidden="true">🎙️</span>
                                     <span id="rec-label">{% t "pl.q5_record" %}</span>
                                 </button>
                                 <span id="rec-timer" class="text-sm text-muted-foreground font-mono" hidden>0:00</span>
@@ -80,37 +138,64 @@
                             <span id="rec-status" class="text-sm text-muted-foreground"></span>
                         </div>
                         <textarea id="q5-transcript-display" rows="5" readonly
-                                  dir="ltr" class="font-mono text-sm"
+                                  dir="ltr" class="font-mono text-sm w-full"
                                   placeholder="{% t 'pl.q5_transcript_hint' %}"></textarea>
-                        <input type="hidden" name="q5_transcript" id="q5-transcript" value="{{ request.POST.q5_transcript|default_if_none:'' }}">
+                        <input type="hidden" name="q5_transcript" id="q5-transcript"
+                               data-step-input="5" data-step-min="30"
+                               value="{{ request.POST.q5_transcript|default_if_none:'' }}">
                     </div>
 
-                    <div class="card p-5 bg-muted/30" id="q5-fallback" hidden>
+                    <div class="card p-5 bg-muted/30 mt-3" id="q5-fallback" hidden>
                         <p class="text-sm text-muted-foreground mb-3">{% t "pl.q5_unsupported" %}</p>
-                        <textarea name="q5_transcript" id="q5-fallback-text" rows="5" dir="ltr" required minlength="30" disabled>{{ request.POST.q5_transcript|default_if_none:'' }}</textarea>
+                        <textarea name="q5_transcript" id="q5-fallback-text" rows="5" dir="ltr"
+                                  data-step-input="5-fallback" data-step-min="30"
+                                  minlength="30" disabled>{{ request.POST.q5_transcript|default_if_none:'' }}</textarea>
                     </div>
 
-                    <p class="text-xs text-muted-foreground">{% t "pl.q5_note" %}</p>
+                    <p class="text-xs text-muted-foreground mt-2">{% t "pl.q5_note" %}</p>
+                </section>
+
+                {# ---------- Navigation ---------- #}
+                <div class="flex items-center justify-between gap-3 pt-2 border-t">
+                    <button type="button" id="prev-btn" class="btn btn-ghost" disabled>
+                        <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+                        {% t "pl.back" %}
+                    </button>
+
+                    <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span id="step-dot-1" class="step-dot bg-primary"></span>
+                        <span id="step-dot-2" class="step-dot bg-muted"></span>
+                        <span id="step-dot-3" class="step-dot bg-muted"></span>
+                        <span id="step-dot-4" class="step-dot bg-muted"></span>
+                        <span id="step-dot-5" class="step-dot bg-muted"></span>
+                    </div>
+
+                    <button type="button" id="next-btn" class="btn btn-hero">
+                        {% t "pl.next" %}
+                        <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                    </button>
+                    <button type="submit" id="submit-btn" class="btn btn-hero hidden"
+                            style="height:3rem">
+                        <span class="submit-text inline-flex items-center gap-2">
+                            {% t "pl.submit" %}
+                            <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+                        </span>
+                        <span class="submit-loading hidden items-center gap-2">
+                            <i data-lucide="loader-2" class="h-4 w-4 animate-spin"></i>
+                            {% t "pl.analyzing" %}
+                        </span>
+                    </button>
                 </div>
 
-                <button type="submit" class="btn btn-hero btn-lg w-full" id="submit-btn"
-                        style="height:3rem">
-                    <span class="submit-text inline-flex items-center gap-2">
-                        {% t "pl.submit" %}
-                        <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
-                    </span>
-                    <span class="submit-loading hidden items-center gap-2">
-                        <i data-lucide="loader-2" class="h-4 w-4 animate-spin"></i>
-                        {% t "pl.analyzing" %}
-                    </span>
-                </button>
+                {# Inline error message slot, surfaced by the validator #}
+                <p id="step-error" class="text-sm text-destructive mt-1" hidden></p>
             </form>
 
         {% else %}
             <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-10 text-center">
                 <p class="mb-2" style="opacity:0.9">{% t "pl.result" %}</p>
                 <div class="font-display text-7xl font-bold mb-4">{{ result.level }}</div>
-                <p class="max-w-md mx-auto mb-8 leading-relaxed" style="opacity:0.9">{{ result.feedback }}</p>
+                <p class="max-w-md mx-auto mb-8 leading-relaxed" style="opacity:0.9">{{ result.feedback|humanize }}</p>
                 <a href="{% url 'dashboard' %}" class="btn btn-glass btn-lg">
                     {% t "pl.continue" %}
                     <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
@@ -120,108 +205,229 @@
     </main>
 </div>
 
+<style>
+    .step-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; display: inline-block; }
+</style>
+
 {% if not result %}
+<script src="{% static 'js/speech_clean.js' %}"></script>
 <script>
-  // Show the spinner while the AI is grading
-  const form = document.getElementById('placement-form');
-  if (form) {
-    form.addEventListener('submit', () => {
-      const btn = document.getElementById('submit-btn');
-      btn.disabled = true;
-      btn.querySelector('.submit-text').classList.add('hidden');
-      const loading = btn.querySelector('.submit-loading');
-      loading.classList.remove('hidden');
-      loading.classList.add('flex');
-    });
-  }
+(function () {
+    'use strict';
 
-  // Speaking task (Web Speech API transcription; no audio upload).
-  (function () {
+    // ====================================================================
+    // 1. Stepper navigation
+    // ====================================================================
+    const TOTAL = 5;
+    let current = 1;
+
+    const sections    = document.querySelectorAll('section.step');
+    const stepLabel   = document.getElementById('step-label');
+    const progressBar = document.getElementById('step-progress');
+    const prevBtn     = document.getElementById('prev-btn');
+    const nextBtn     = document.getElementById('next-btn');
+    const submitBtn   = document.getElementById('submit-btn');
+    const errEl       = document.getElementById('step-error');
+
+    const STEP_TPL = '{% t "pl.step" %}';
+    const OF_TPL   = '{% t "pl.of" %}';
+    const REQ_MSG    = '{% t "pl.required" %}';
+    const Q5_REQ_MSG = '{% t "pl.q5_required" %}';
+
+    function showStep(n) {
+        current = Math.max(1, Math.min(TOTAL, n));
+        sections.forEach(s => {
+            const v = parseInt(s.getAttribute('data-step'), 10);
+            s.classList.toggle('hidden', v !== current);
+        });
+        // Progress + dots
+        if (stepLabel) stepLabel.textContent = `${STEP_TPL} ${current} ${OF_TPL} ${TOTAL}`;
+        if (progressBar) progressBar.style.width = `${(current / TOTAL) * 100}%`;
+        for (let i = 1; i <= TOTAL; i++) {
+            const dot = document.getElementById(`step-dot-${i}`);
+            if (!dot) continue;
+            dot.classList.toggle('bg-primary', i <= current);
+            dot.classList.toggle('bg-muted',   i >  current);
+        }
+        // Buttons
+        if (prevBtn)   prevBtn.disabled = current === 1;
+        if (nextBtn)   nextBtn.classList.toggle('hidden',   current === TOTAL);
+        if (submitBtn) submitBtn.classList.toggle('hidden', current !== TOTAL);
+        if (errEl)     { errEl.hidden = true; errEl.textContent = ''; }
+        // Cancel any in-flight TTS so a new step is silent unless the user
+        // clicks the speaker button.
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+    }
+
+    function validateStep(n) {
+        if (n === 1 || n === 2) {
+            const r = document.querySelector(`input[name="q${n}"]:checked`);
+            return r ? null : REQ_MSG;
+        }
+        if (n === 3 || n === 4) {
+            const ta = document.querySelector(`textarea[name="q${n}"]`);
+            const min = parseInt(ta.getAttribute('data-step-min') || '0', 10);
+            return (ta.value.trim().length >= min) ? null : REQ_MSG;
+        }
+        if (n === 5) {
+            const t = (document.getElementById('q5-transcript') || {}).value || '';
+            const fb = document.getElementById('q5-fallback-text');
+            const v = (fb && !fb.disabled) ? (fb.value || '') : t;
+            return (v.trim().length >= 30) ? null : Q5_REQ_MSG;
+        }
+        return null;
+    }
+
+    nextBtn && nextBtn.addEventListener('click', () => {
+        const err = validateStep(current);
+        if (err) {
+            if (errEl) { errEl.textContent = err; errEl.hidden = false; }
+            return;
+        }
+        showStep(current + 1);
+    });
+
+    prevBtn && prevBtn.addEventListener('click', () => showStep(current - 1));
+
+    // ====================================================================
+    // 2. Voice assistant — TTS for each question
+    // ====================================================================
+    document.querySelectorAll('.read-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const section = btn.closest('section.step');
+            const text = (section && section.getAttribute('data-question-text')) || '';
+            // onlencoSpeak handles `_____` (blank-runs), parentheticals,
+            // brackets, snake_case and JSON before passing the text to TTS.
+            (window.onlencoSpeak || (() => {}))(text, { rate: 0.95 });
+        });
+    });
+
+    // ====================================================================
+    // 3. Speaking task — fixed mic event
+    // The earlier version called `btn.querySelector('i').setAttribute(...)`
+    // but lucide replaces <i> with <svg> on first render, so that line
+    // threw `Cannot read properties of null (reading 'setAttribute')` and
+    // the click handler aborted. We now drive the icon via plain DOM text
+    // (no lucide dependency) to keep the toggle bullet-proof.
+    // ====================================================================
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recWrap = document.getElementById('q5-rec-wrap');
-    const fallback = document.getElementById('q5-fallback');
+    const recWrap      = document.getElementById('q5-rec-wrap');
+    const fallback     = document.getElementById('q5-fallback');
     const fallbackText = document.getElementById('q5-fallback-text');
-    const btn = document.getElementById('rec-toggle');
-    const timerEl = document.getElementById('rec-timer');
-    const statusEl = document.getElementById('rec-status');
-    const display = document.getElementById('q5-transcript-display');
-    const hidden = document.getElementById('q5-transcript');
+    const recBtn       = document.getElementById('rec-toggle');
+    const timerEl      = document.getElementById('rec-timer');
+    const statusEl     = document.getElementById('rec-status');
+    const recDisplay   = document.getElementById('q5-transcript-display');
+    const recHidden    = document.getElementById('q5-transcript');
+    const recIcon      = recBtn && recBtn.querySelector('.rec-icon');
+    const recLabel     = recBtn && recBtn.querySelector('#rec-label');
 
-    if (hidden && display && hidden.value) display.value = hidden.value;
+    if (recHidden && recDisplay && recHidden.value) recDisplay.value = recHidden.value;
 
-    if (!SpeechRecognition || !recWrap || !fallback || !btn || !display || !hidden) {
-      if (recWrap) recWrap.hidden = true;
-      if (fallback) fallback.hidden = false;
-      if (hidden) hidden.disabled = true;
-      if (fallbackText) fallbackText.disabled = false;
-      return;
+    if (!SpeechRecognition || !recWrap || !fallback || !recBtn || !recDisplay || !recHidden) {
+        if (recWrap) recWrap.hidden = true;
+        if (fallback) fallback.hidden = false;
+        if (recHidden) recHidden.disabled = true;
+        if (fallbackText) fallbackText.disabled = false;
+    } else {
+        const rec = new SpeechRecognition();
+        rec.lang = 'en-US';
+        rec.continuous = true;
+        rec.interimResults = true;
+
+        let recording  = false;
+        let finalText  = '';
+        let seconds    = 0;
+        let timer      = null;
+
+        const REC_LBL  = '{% t "pl.q5_record" %}';
+        const STOP_LBL = '{% t "pl.q5_stop" %}';
+        const RE_LBL   = '{% t "pl.q5_rerecord" %}';
+        const REC_MSG  = '{% t "pl.q5_recording" %}';
+        const DONE_MSG = '{% t "pl.q5_done" %}';
+
+        function fmt(s) {
+            const m = Math.floor(s / 60);
+            const r = (s % 60).toString().padStart(2, '0');
+            return `${m}:${r}`;
+        }
+
+        function setRecUi(isRecording) {
+            recording = isRecording;
+            if (recIcon)  recIcon.textContent = isRecording ? '⏺️' : '🎙️';
+            if (recLabel) recLabel.textContent = isRecording
+                ? STOP_LBL
+                : (finalText ? RE_LBL : REC_LBL);
+            if (statusEl) statusEl.textContent = isRecording ? REC_MSG : DONE_MSG;
+            if (timerEl)  timerEl.hidden = !isRecording;
+        }
+
+        function stopRecording(reason) {
+            if (timer) { clearInterval(timer); timer = null; }
+            try { rec.stop(); } catch (_) {}
+            setRecUi(false);
+            if (reason && statusEl) statusEl.textContent = reason;
+        }
+
+        function startRecording() {
+            finalText = '';
+            seconds   = 0;
+            recDisplay.value = '';
+            recHidden.value  = '';
+            if (timerEl) timerEl.textContent = fmt(0);
+            timer = setInterval(() => {
+                seconds += 1;
+                if (timerEl) timerEl.textContent = fmt(seconds);
+                if (seconds >= 60) stopRecording("Time's up!");
+            }, 1000);
+            setRecUi(true);
+            try {
+                rec.start();
+            } catch (e) {
+                // Some browsers throw InvalidStateError if start() is
+                // called too quickly after stop(). Retry once after a tick.
+                setTimeout(() => { try { rec.start(); } catch (_) {} }, 250);
+            }
+        }
+
+        recBtn.addEventListener('click', () => {
+            recording ? stopRecording() : startRecording();
+        });
+
+        rec.onresult = (e) => {
+            let interim = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                const t = e.results[i][0].transcript;
+                if (e.results[i].isFinal) finalText += t + ' ';
+                else interim += t;
+            }
+            const text = (finalText + interim).trim();
+            recDisplay.value = text;
+            recHidden.value  = text;
+        };
+        rec.onerror = (e) => stopRecording(e && e.error ? `mic: ${e.error}` : 'mic error');
+        rec.onend   = () => { if (recording) stopRecording(); };
     }
 
-    const rec = new SpeechRecognition();
-    rec.lang = 'en-US';
-    rec.continuous = true;
-    rec.interimResults = true;
-
-    let recording = false;
-    let finalText = '';
-    let seconds = 0;
-    let timer = null;
-
-    function fmt(s) {
-      const m = Math.floor(s / 60);
-      const r = (s % 60).toString().padStart(2, '0');
-      return `${m}:${r}`;
+    // ====================================================================
+    // 4. Submit-loading spinner (existing behaviour)
+    // ====================================================================
+    const form = document.getElementById('placement-form');
+    if (form) {
+        form.addEventListener('submit', () => {
+            const btn = document.getElementById('submit-btn');
+            if (!btn) return;
+            btn.disabled = true;
+            btn.querySelector('.submit-text').classList.add('hidden');
+            const loading = btn.querySelector('.submit-loading');
+            loading.classList.remove('hidden');
+            loading.classList.add('flex');
+        });
     }
 
-    function stop(reason) {
-      recording = false;
-      if (timer) clearInterval(timer);
-      timer = null;
-      if (timerEl) timerEl.hidden = true;
-      if (statusEl) statusEl.textContent = reason || '{% t "pl.q5_done" %}';
-      btn.querySelector('#rec-label').textContent = '{% t "pl.q5_rerecord" %}';
-      btn.querySelector('i').setAttribute('data-lucide', 'mic');
-      if (window.lucide) lucide.createIcons();
-      try { rec.stop(); } catch (e) {}
-    }
-
-    btn.addEventListener('click', () => {
-      if (!recording) {
-        recording = true;
-        finalText = '';
-        seconds = 0;
-        display.value = '';
-        hidden.value = '';
-        if (statusEl) statusEl.textContent = '{% t "pl.q5_recording" %}';
-        btn.querySelector('#rec-label').textContent = '{% t "pl.q5_stop" %}';
-        btn.querySelector('i').setAttribute('data-lucide', 'mic-off');
-        if (window.lucide) lucide.createIcons();
-        if (timerEl) { timerEl.hidden = false; timerEl.textContent = fmt(0); }
-        timer = setInterval(() => {
-          seconds += 1;
-          if (timerEl) timerEl.textContent = fmt(seconds);
-          if (seconds >= 60) stop(\"Time's up!\");
-        }, 1000);
-        try { rec.start(); } catch (e) {}
-        return;
-      }
-      stop();
-    });
-
-    rec.onresult = (e) => {
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalText += t + ' ';
-        else interim += t;
-      }
-      const text = (finalText + interim).trim();
-      display.value = text;
-      hidden.value = text;
-    };
-    rec.onerror = () => stop();
-    rec.onend = () => { if (recording) stop(); };
-  })();
+    // Initial render
+    showStep(1);
+})();
 </script>
 {% endif %}
 {% endblock %}

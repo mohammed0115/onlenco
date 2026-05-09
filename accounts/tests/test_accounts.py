@@ -9,10 +9,17 @@ User = get_user_model()
 
 class AccountsTests(TestCase):
     def test_register_user_creates_profile(self):
+        # Defaults to Arabic per project policy.
         u = register_user(username="kaz", email="k@z", password="pw", full_name="Ka Zoo")
         self.assertEqual(u.profile.full_name, "Ka Zoo")
-        self.assertEqual(u.profile.preferred_language, "en")
+        self.assertEqual(u.profile.preferred_language, "ar")
         self.assertEqual(u.profile.role, "student")
+
+    def test_register_user_honours_explicit_language(self):
+        u = register_user(
+            username="enuser", email="en@z", password="pw", language="en",
+        )
+        self.assertEqual(u.profile.preferred_language, "en")
 
     def test_profile_auto_created_on_user_create(self):
         u = User.objects.create_user(username="auto", password="pw")

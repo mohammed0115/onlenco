@@ -1,6 +1,7 @@
 from django.db import models
 
 
+from django.utils.translation import gettext_lazy as _
 POS_CHOICES = [
     ("noun", "Noun"),
     ("verb", "Verb"),
@@ -26,6 +27,8 @@ class DictionaryEntry(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = _("Dictionary entry")
+        verbose_name_plural = _("Dictionary entries")
         ordering = ["english"]
         unique_together = [("english", "arabic")]
 

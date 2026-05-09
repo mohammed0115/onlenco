@@ -16,6 +16,7 @@ urlpatterns = [
     ),
     path("exercises/generate/", views.GenerateExercisesView.as_view(), name="exercises_generate"),
     path("exercises/next/", views.NextExerciseView.as_view(), name="exercises_next"),
+    path("exercises/micro/", views.MicroPracticeView.as_view(), name="exercises_micro"),
     path(
         "exercises/<int:exercise_id>/attempt/",
         views.ExerciseAttemptView.as_view(),

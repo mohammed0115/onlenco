@@ -1,8 +1,31 @@
 {% extends "notifications/emails/base_email.html" %}
 {% block content %}
-<h1>{% if lang == "ar" %}تأكيد بريدك الإلكتروني{% else %}Verify your email{% endif %}</h1>
+<h1>{% if lang == "ar" %}رمز التحقق من البريد{% else %}Your verification code{% endif %}</h1>
 <p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
-<p>{% if lang == "ar" %}الرجاء النقر على الرابط أدناه لتأكيد بريدك الإلكتروني.{% else %}Please click the button below to confirm your email address.{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    أدخل هذا الرمز في صفحة التحقق لتأكيد بريدك الإلكتروني. الرمز صالح لمدة {{ payload.ttl_minutes|default:15 }} دقيقة.
+  {% else %}
+    Enter this code on the verification page to confirm your email. It is valid for {{ payload.ttl_minutes|default:15 }} minutes.
+  {% endif %}
+</p>
+
+<div style="margin:24px 0; padding:18px 24px; background:#f4f5f7; border-radius:10px; text-align:center;">
+  <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+              font-size:34px; font-weight:700; letter-spacing:8px;
+              color:#0f4cf2;">{{ payload.code|default:"------" }}</div>
+</div>
+
+{% if cta_url %}
+<p>
+  {% if lang == "ar" %}
+    أو اضغط الرابط لإكمال التحقق تلقائياً:
+  {% else %}
+    Or click this link to verify automatically:
+  {% endif %}
+</p>
 <p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}تأكيد البريد{% else %}Verify email{% endif %}</a></p>
+{% endif %}
+
 <p class="muted">{% if lang == "ar" %}إذا لم تطلب هذا، تجاهل الرسالة.{% else %}If you didn't request this, you can safely ignore this email.{% endif %}</p>
 {% endblock %}

@@ -10,28 +10,36 @@ logger = logging.getLogger(__name__)
 class LanguagePreferenceMiddleware:
     """Activates the user's preferred language for each request.
 
-    Priority order (highest first):
-      1. ?lang= querystring (handled by /set-language/ view, which writes
-         a session value)
-      2. Session value `django_language` (set by the toggle button)
-      3. Authenticated user's Profile.preferred_language
-      4. Browser Accept-Language header (handled by LocaleMiddleware)
+    For **authenticated users** the profile is authoritative — we
+    always re-apply `Profile.preferred_language` (and re-sync the
+    session so subsequent middleware sees a consistent value).
+
+    For **anonymous users** we let Django's `LocaleMiddleware` do its
+    normal job: ?lang= → session → Accept-Language → settings.LANGUAGE_CODE.
+
+    Why the older "respect session over profile" rule was wrong:
+    a stale `django_language` cookie from an anonymous visit could
+    override an explicit AR profile preference, leaving the user
+    stuck on EN even though their profile said AR.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # Only step 3 is our responsibility; LocaleMiddleware handles 1, 2, 4.
         if (
             request.user.is_authenticated
-            and "django_language" not in request.session
             and hasattr(request.user, "profile")
         ):
             lang = request.user.profile.preferred_language
-            if lang:
+            if lang in {"ar", "en"}:
                 translation.activate(lang)
                 request.LANGUAGE_CODE = lang
+                # Keep the session in sync so the next page load (and
+                # any code that reads session['django_language'] directly)
+                # agrees with the profile.
+                if request.session.get("django_language") != lang:
+                    request.session["django_language"] = lang
         return self.get_response(request)
 
 

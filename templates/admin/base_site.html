@@ -1,0 +1,30 @@
+{% extends "admin/base.html" %}
+{% load static i18n %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Onlenco Admin Panel') }}{% endblock %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" type="text/css" href="{% static 'admin/css/onlenco_admin.css' %}">
+  {% get_current_language as LANGUAGE_CODE %}
+  {% if LANGUAGE_CODE == 'ar' %}
+    <link rel="stylesheet" type="text/css" href="{% static 'admin/css/onlenco_admin_rtl.css' %}">
+  {% endif %}
+{% endblock %}
+
+{% block branding %}
+<div id="onlenco-branding">
+  <a href="{% url 'admin:index' %}" class="onlenco-brand-link">
+    <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco" class="onlenco-admin-logo">
+    <span class="onlenco-admin-title">
+      {% if LANGUAGE_CODE == 'ar' %}
+        لوحة تحكم أونلينكو
+      {% else %}
+        Onlenco Learning Management
+      {% endif %}
+    </span>
+  </a>
+</div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

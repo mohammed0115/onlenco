@@ -42,6 +42,25 @@ services:
       timeout: 5s
       retries: 5
 
+  cron:
+    # Scheduled background worker: runs daily/weekly motivation pipelines,
+    # sends comeback reminders, dispatches digests. Same image + env as
+    # `web` but its command is the simple in-Python scheduler in
+    # `scripts/scheduler.py` (no celery/beat required).
+    image: onlenco-web:latest
+    build: .
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - media_data:/app/media
+    restart: unless-stopped
+    command: ["python", "scripts/scheduler.py"]
+
 volumes:
   postgres_data:
   media_data:

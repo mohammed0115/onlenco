@@ -1,0 +1,607 @@
+"""JSON endpoints driving the AI Tutor SPA.
+
+Why these live in `tutor/api/` rather than alongside the page views:
+the page view returns HTML/redirects (login_required → 302 to /auth/),
+which is the wrong response for an in-page fetch() call. The DRF views
+below return clean JSON with proper 401/403/400 status codes so the
+front-end can branch without HTML-vs-JSON sniffing.
+"""
+from __future__ import annotations
+
+import json
+import logging
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse, StreamingHttpResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from core.services.text_humanizer import humanize_for_speech, humanize_text
+from tutor.models import TutorConversation, TutorMessage
+from tutor.services import chat, chat_stream_tokens
+
+
+logger = logging.getLogger(__name__)
+
+MAX_MESSAGE_CHARS = 4000
+
+
+def _ajax_login_required(view):
+    """Auth guard that returns 401 JSON instead of a 302 redirect.
+
+    StreamingHttpResponse can't sit behind DRF's `@api_view`, so we
+    use this thin decorator on the streaming endpoint to keep the
+    no-page-refresh contract intact.
+    """
+    from functools import wraps
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"success": False, "error": "auth_required"},
+                status=401,
+            )
+        return view(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def _detect_lang(text: str) -> str:
+    return "ar" if any("؀" <= ch <= "ۿ" for ch in (text or "")) else "en"
+
+
+def _require_subscription(user):
+    """Return None if the user can chat with the tutor; else an error tuple."""
+    profile = getattr(user, "profile", None)
+    if profile and getattr(profile, "is_subscribed", False):
+        return None
+    return Response(
+        {"success": False, "error": "subscription_required",
+         "message": "Subscribe to chat with the AI tutor."},
+        status=status.HTTP_402_PAYMENT_REQUIRED,
+    )
+
+
+def _get_conversation_for(user, conversation_id):
+    """Look up a conversation, enforce ownership, return (conv, error_response)."""
+    try:
+        conv = TutorConversation.objects.get(pk=conversation_id)
+    except TutorConversation.DoesNotExist:
+        return None, Response(
+            {"success": False, "error": "not_found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    if conv.user_id != user.id:
+        return None, Response(
+            {"success": False, "error": "forbidden"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return conv, None
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def chat_send(request):
+    """Send a text message and get the assistant's reply, in JSON.
+
+    Mirrors `tutor.views.send_message` but never redirects — failures
+    return structured JSON so the SPA can show a friendly toast.
+    """
+    locked = _require_subscription(request.user)
+    if locked is not None:
+        return locked
+
+    payload = request.data or {}
+    text = (payload.get("message") or "").strip()
+    conversation_id = payload.get("conversation_id")
+    voice = bool(payload.get("voice"))
+
+    if not text:
+        return Response(
+            {"success": False, "error": "empty_message"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    text = text[:MAX_MESSAGE_CHARS]
+
+    if conversation_id is None:
+        conv = TutorConversation.objects.create(user=request.user)
+    else:
+        conv, err = _get_conversation_for(request.user, conversation_id)
+        if err is not None:
+            return err
+
+    user_msg = TutorMessage.objects.create(
+        conversation=conv, role="user", content=text,
+    )
+    if not conv.title:
+        conv.title = " ".join(text.split()[:8])[:200]
+        conv.save(update_fields=["title"])
+
+    try:
+        reply = chat(conv, text, voice=voice)
+    except Exception:
+        logger.exception("Tutor chat call crashed")
+        return Response(
+            {"success": False, "error": "ai_unavailable",
+             "message": "The AI tutor is temporarily unavailable. Try again in a moment."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    ai_msg = TutorMessage.objects.create(
+        conversation=conv, role="assistant", content=reply,
+    )
+
+    try:
+        from motivation.services import activity_collector
+        snap = activity_collector.collect_daily_activity(request.user)
+        snap.writing_attempts = (snap.writing_attempts or 0) + 1
+        speaking_seconds = max(0, min(int(payload.get("speaking_seconds") or 0), 3600))
+        if speaking_seconds > 0:
+            snap.speaking_minutes = (snap.speaking_minutes or 0) + max(1, speaking_seconds // 60)
+        snap.save(update_fields=["writing_attempts", "speaking_minutes", "updated_at"])
+    except Exception:
+        logger.exception("Tutor SPA: activity credit failed")
+    try:
+        from motivation.services.motivation_engine import run_for_user
+        run_for_user(request.user)
+    except Exception:
+        logger.exception("Tutor SPA: motivation engine failed")
+
+    return Response({
+        "success": True,
+        "conversation_id": conv.id,
+        "user_message": {
+            "id": user_msg.id,
+            "content": text,
+            "created_at": user_msg.created_at.isoformat(),
+        },
+        "ai_message": {
+            "id": ai_msg.id,
+            "content": reply,
+            "content_humanized": humanize_text(reply, language=_detect_lang(reply)),
+            "speech_text": humanize_for_speech(reply, language=_detect_lang(reply)),
+            "created_at": ai_msg.created_at.isoformat(),
+        },
+        "state": "completed",
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def voice_transcribe(request):
+    """Receive a recorded audio blob and return its transcript.
+
+    Validates mime + size (10 MB cap) before handing to Whisper. Saves a
+    `SpeakingAttempt` row so the result is auditable.
+    """
+    audio = request.FILES.get("audio")
+    if audio is None:
+        return Response(
+            {"success": False, "error": "no_audio"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    from speech.services.audio_validation import validate_audio_upload
+    err = validate_audio_upload(audio)
+    if err is not None:
+        return Response(
+            {"success": False, "error": err["code"], "message": err["message"]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    from placement.services.stt import transcribe
+    try:
+        result = transcribe(audio)
+    except Exception:
+        logger.exception("Tutor STT failed")
+        return Response(
+            {"success": False, "error": "stt_unavailable",
+             "message": "Couldn't transcribe your audio. Try again."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    transcript = (result.get("transcript") or "").strip()
+    duration = int(result.get("duration_seconds") or 0)
+
+    from speech.models import SpeakingAttempt
+    attempt = SpeakingAttempt.objects.create(
+        user=request.user,
+        audio_file=audio,
+        transcript=transcript,
+        duration_seconds=duration,
+        confidence=float(result.get("confidence") or 0.0),
+        source="tutor",
+    )
+
+    if not transcript:
+        return Response({
+            "success": True,
+            "attempt_id": attempt.id,
+            "transcript": "",
+            "duration_seconds": duration,
+            "message": "I didn't catch that — could you try again?",
+        })
+
+    return Response({
+        "success": True,
+        "attempt_id": attempt.id,
+        "transcript": transcript,
+        "duration_seconds": duration,
+    })
+
+
+@require_POST
+@_ajax_login_required
+@csrf_protect
+def voice_respond_stream(request):
+    """Streaming variant of voice_respond — typewriter SSE response.
+
+    Same shape as `chat_stream` but the input is a transcript already
+    produced by `voice_transcribe`, plus a `speaking_seconds` counter
+    used for activity stats. Returns SSE so the assistant bubble paints
+    word-by-word as the AI generates, instead of waiting for the full
+    reply.
+    """
+    profile = getattr(request.user, "profile", None)
+    if not (profile and getattr(profile, "is_subscribed", False)):
+        return JsonResponse(
+            {"success": False, "error": "subscription_required"},
+            status=402,
+        )
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({"success": False, "error": "bad_json"}, status=400)
+
+    transcript = (payload.get("transcript") or "").strip()
+    if not transcript:
+        return JsonResponse({"success": False, "error": "empty_transcript"}, status=400)
+    transcript = transcript[:MAX_MESSAGE_CHARS]
+    conversation_id = payload.get("conversation_id")
+
+    if conversation_id is None:
+        conv = TutorConversation.objects.create(user=request.user)
+    else:
+        try:
+            conv = TutorConversation.objects.get(pk=conversation_id)
+        except TutorConversation.DoesNotExist:
+            return JsonResponse({"success": False, "error": "not_found"}, status=404)
+        if conv.user_id != request.user.id:
+            return JsonResponse({"success": False, "error": "forbidden"}, status=403)
+
+    user_msg = TutorMessage.objects.create(
+        conversation=conv, role="user", content=transcript,
+    )
+    if not conv.title:
+        conv.title = " ".join(transcript.split()[:8])[:200]
+        conv.save(update_fields=["title"])
+    ai_msg = TutorMessage.objects.create(
+        conversation=conv, role="assistant", content="",
+    )
+
+    # Activity stats (cheap, sync) — speaking_seconds + writing_attempts
+    try:
+        speaking_seconds = max(0, min(int(payload.get("speaking_seconds") or 0), 3600))
+        from motivation.services import activity_collector
+        snap = activity_collector.collect_daily_activity(request.user)
+        if speaking_seconds > 0:
+            snap.speaking_minutes = (snap.speaking_minutes or 0) + max(1, speaking_seconds // 60)
+        snap.writing_attempts = (snap.writing_attempts or 0) + 1
+        snap.save(update_fields=["speaking_minutes", "writing_attempts", "updated_at"])
+    except Exception:
+        logger.exception("voice_respond_stream: activity stats failed")
+
+    response = StreamingHttpResponse(
+        _live_stream_response(
+            conv, transcript, voice=True,
+            user_msg_id=user_msg.id, ai_msg_id=ai_msg.id,
+            request_user=request.user,
+        ),
+        content_type="text/event-stream",
+    )
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def voice_respond(request):
+    """Take a transcript, run the tutor pipeline, return the AI reply.
+
+    Separated from `chat_send` so the SPA can show the transcript to the
+    user before the AI reply finishes (better-feeling UX).
+    """
+    locked = _require_subscription(request.user)
+    if locked is not None:
+        return locked
+
+    payload = request.data or {}
+    transcript = (payload.get("transcript") or "").strip()
+    if not transcript:
+        return Response(
+            {"success": False, "error": "empty_transcript"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    transcript = transcript[:MAX_MESSAGE_CHARS]
+    conversation_id = payload.get("conversation_id")
+
+    if conversation_id is None:
+        conv = TutorConversation.objects.create(user=request.user)
+    else:
+        conv, err = _get_conversation_for(request.user, conversation_id)
+        if err is not None:
+            return err
+
+    user_msg = TutorMessage.objects.create(
+        conversation=conv, role="user", content=transcript,
+    )
+    if not conv.title:
+        conv.title = " ".join(transcript.split()[:8])[:200]
+        conv.save(update_fields=["title"])
+
+    try:
+        reply = chat(conv, transcript, voice=True)
+    except Exception:
+        logger.exception("Tutor voice respond crashed")
+        return Response(
+            {"success": False, "error": "ai_unavailable"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    ai_msg = TutorMessage.objects.create(
+        conversation=conv, role="assistant", content=reply,
+    )
+
+    try:
+        speaking_seconds = max(0, min(int(payload.get("speaking_seconds") or 0), 3600))
+        from motivation.services import activity_collector
+        snap = activity_collector.collect_daily_activity(request.user)
+        if speaking_seconds > 0:
+            snap.speaking_minutes = (snap.speaking_minutes or 0) + max(1, speaking_seconds // 60)
+        snap.writing_attempts = (snap.writing_attempts or 0) + 1
+        snap.save(update_fields=["speaking_minutes", "writing_attempts", "updated_at"])
+        from motivation.services.motivation_engine import run_for_user
+        run_for_user(request.user)
+    except Exception:
+        logger.exception("Tutor voice respond: activity/motivation hook failed")
+
+    lang = _detect_lang(reply)
+    return Response({
+        "success": True,
+        "conversation_id": conv.id,
+        "user_message": {
+            "id": user_msg.id, "content": transcript,
+            "created_at": user_msg.created_at.isoformat(),
+        },
+        "ai_message": {
+            "id": ai_msg.id,
+            "content": reply,
+            "content_humanized": humanize_text(reply, language=lang),
+            "speech_text": humanize_for_speech(reply, language=lang),
+            "language": lang,
+            "created_at": ai_msg.created_at.isoformat(),
+        },
+        "state": "completed",
+    })
+
+
+@api_view(["GET", "DELETE"])
+@permission_classes([IsAuthenticated])
+def voice_history(request):
+    """Privacy controls: list or delete the user's saved voice recordings.
+
+    GET   → list of `SpeakingAttempt` rows belonging to the request user
+            (id, transcript, duration, source, created_at, has_audio).
+    DELETE → delete the audio_file on every row; transcripts are kept
+            so the learning-error history isn't lost. Mirrors a "delete
+            my voice history" button shown in the Tutor UI.
+    """
+    from speech.models import SpeakingAttempt
+
+    qs = SpeakingAttempt.objects.filter(user=request.user).order_by("-created_at")
+
+    if request.method == "DELETE":
+        deleted = 0
+        for att in qs.iterator():
+            try:
+                if att.audio_file:
+                    att.audio_file.delete(save=False)
+                    att.audio_file = None
+                    att.save(update_fields=["audio_file"])
+                    deleted += 1
+            except Exception:
+                logger.exception("Voice history delete failed for id=%s", att.id)
+        return Response({"success": True, "deleted": deleted})
+
+    items = [
+        {
+            "id": a.id,
+            "transcript": a.transcript[:200],
+            "duration_seconds": a.duration_seconds,
+            "source": a.source,
+            "has_audio": bool(a.audio_file),
+            "created_at": a.created_at.isoformat(),
+        }
+        for a in qs[:200]
+    ]
+    return Response({"success": True, "count": len(items), "items": items})
+
+
+def _sse(event: dict) -> bytes:
+    """Format one Server-Sent Event payload."""
+    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode("utf-8")
+
+
+def _live_stream_response(conversation, user_message, *, voice,
+                          user_msg_id, ai_msg_id, request_user):
+    """Generator that drives the SSE response.
+
+    Real token-by-token streaming from the upstream AI provider. We
+    open the upstream HTTP request, forward each delta as a `token`
+    SSE event, accumulate the full reply, and persist it to the
+    `TutorMessage` row at the end. The user sees the first word in
+    ~300 ms instead of after the full 5–8 s round-trip.
+    """
+    yield _sse({
+        "type": "start",
+        "user_message_id": user_msg_id,
+        "ai_message_id": ai_msg_id,
+        "conversation_id": conversation.id,
+        "language": "auto",
+    })
+
+    parts = []
+    try:
+        for token in chat_stream_tokens(conversation, user_message, voice=voice):
+            parts.append(token)
+            yield _sse({"type": "token", "token": token})
+    except Exception:
+        logger.exception("chat_stream generator crashed")
+        yield _sse({"type": "error", "error": "ai_unavailable"})
+        return
+
+    full = "".join(parts).strip() or "Could you say a bit more?"
+    lang = _detect_lang(full)
+
+    # Persist the assistant message AFTER streaming completes — this is
+    # the canonical record. The token events were transient.
+    try:
+        TutorMessage.objects.filter(pk=ai_msg_id).update(content=full)
+    except Exception:
+        logger.exception("chat_stream: failed to persist final reply")
+
+    # Best-effort gamification — mirrors chat_send.
+    try:
+        from motivation.services import activity_collector
+        snap = activity_collector.collect_daily_activity(request_user)
+        snap.writing_attempts = (snap.writing_attempts or 0) + 1
+        snap.save(update_fields=["writing_attempts", "updated_at"])
+        from motivation.services.motivation_engine import run_for_user
+        run_for_user(request_user)
+    except Exception:
+        logger.exception("chat_stream: activity/motivation hook failed")
+
+    yield _sse({
+        "type": "done",
+        "content": full,
+        "content_humanized": humanize_text(full, language=lang),
+        "speech_text": humanize_for_speech(full, language=lang),
+        "language": lang,
+    })
+
+
+@require_POST
+@_ajax_login_required
+@csrf_protect
+def chat_stream(request):
+    """Streaming variant of chat_send — typewriter SSE response.
+
+    Same contract as chat_send (subscription gate, ownership, message
+    persistence, motivation hooks) but emits Server-Sent Events so the
+    front-end can paint tokens as they arrive instead of waiting for
+    the full reply.
+    """
+    profile = getattr(request.user, "profile", None)
+    if not (profile and getattr(profile, "is_subscribed", False)):
+        return JsonResponse(
+            {"success": False, "error": "subscription_required"},
+            status=402,
+        )
+
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({"success": False, "error": "bad_json"}, status=400)
+
+    text = (payload.get("message") or "").strip()
+    if not text:
+        return JsonResponse({"success": False, "error": "empty_message"}, status=400)
+    text = text[:MAX_MESSAGE_CHARS]
+    voice = bool(payload.get("voice"))
+    conversation_id = payload.get("conversation_id")
+
+    if conversation_id is None:
+        conv = TutorConversation.objects.create(user=request.user)
+    else:
+        try:
+            conv = TutorConversation.objects.get(pk=conversation_id)
+        except TutorConversation.DoesNotExist:
+            return JsonResponse({"success": False, "error": "not_found"}, status=404)
+        if conv.user_id != request.user.id:
+            return JsonResponse({"success": False, "error": "forbidden"}, status=403)
+
+    user_msg = TutorMessage.objects.create(
+        conversation=conv, role="user", content=text,
+    )
+    if not conv.title:
+        conv.title = " ".join(text.split()[:8])[:200]
+        conv.save(update_fields=["title"])
+
+    # Pre-create the assistant row so the SSE generator has an id to
+    # update with the final text once the stream completes. Empty
+    # content for now; gets filled in `_live_stream_response`.
+    ai_msg = TutorMessage.objects.create(
+        conversation=conv, role="assistant", content="",
+    )
+
+    response = StreamingHttpResponse(
+        _live_stream_response(
+            conv, text, voice=voice,
+            user_msg_id=user_msg.id, ai_msg_id=ai_msg.id,
+            request_user=request.user,
+        ),
+        content_type="text/event-stream",
+    )
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"  # disable nginx buffering
+    return response
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def voice_tts(request):
+    """Synthesize speech-safe text to MP3 (server-side TTS, opt-in).
+
+    The browser's `speechSynthesis` is the default everywhere; this
+    endpoint exists so we can swap to a higher-quality voice when we
+    decide to spend tokens. Always pass the input through
+    `humanize_for_speech` first.
+    """
+    payload = request.data or {}
+    text = (payload.get("text") or "")[:3000]
+    language = payload.get("language") or _detect_lang(text)
+    if language not in ("en", "ar"):
+        language = "en"
+    if not text.strip():
+        return Response(
+            {"success": False, "error": "empty_text"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    cleaned = humanize_for_speech(text, language=language)
+    from tutor.services.tts import synthesize
+    try:
+        result = synthesize(cleaned)
+    except Exception:
+        logger.exception("Tutor TTS crashed")
+        return Response(
+            {"success": False, "error": "tts_unavailable"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return Response({
+        "success": True,
+        "audio_b64": result.get("audio_b64", ""),
+        "format": result.get("format", ""),
+        "language": language,
+        "speech_text": cleaned,
+    })

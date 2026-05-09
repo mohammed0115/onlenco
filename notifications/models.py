@@ -1,10 +1,11 @@
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from . import constants as C
 
 
-LANGUAGE_CHOICES = [("en", "English"), ("ar", "Arabic")]
+LANGUAGE_CHOICES = [("en", _("English")), ("ar", _("Arabic"))]
 
 
 class NotificationEvent(models.Model):
@@ -50,6 +51,8 @@ class NotificationEvent(models.Model):
             models.Index(fields=["status"]),
             models.Index(fields=["user", "event_type"]),
         ]
+        verbose_name = _("Notification event")
+        verbose_name_plural = _("Notification events")
 
     def __str__(self):
         return f"NotificationEvent<{self.id}> {self.event_type} {self.status}"
@@ -95,6 +98,8 @@ class EmailNotification(models.Model):
             models.Index(fields=["recipient_email"]),
             models.Index(fields=["template_name"]),
         ]
+        verbose_name = _("Email notification")
+        verbose_name_plural = _("Email notifications")
 
     def __str__(self):
         return f"EmailNotification<{self.id}> → {self.recipient_email} {self.status}"
@@ -116,16 +121,26 @@ class NotificationPreference(models.Model):
         help_text="Only honored for staff/admin recipients.",
     )
     marketing_emails = models.BooleanField(default=False)
-    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="en")
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default="ar")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Notification preference")
+        verbose_name_plural = _("Notification preferences")
 
     def __str__(self):
         return f"NotificationPreference<{self.user_id}>"
 
 
 class EmailVerificationToken(models.Model):
-    """Single-use token sent in the email_verification email."""
+    """Single-use email verification credential.
+
+    Two redemption forms are supported simultaneously:
+      - the long URL `token` (clicked from the email link)
+      - the 6-digit numeric `code` (typed into the verify-email form)
+    Either one consumes the row.
+    """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -133,17 +148,32 @@ class EmailVerificationToken(models.Model):
         related_name="email_verification_tokens",
     )
     token = models.CharField(max_length=64, unique=True)
+    code = models.CharField(
+        max_length=6,
+        blank=True,
+        db_index=True,
+        help_text="6-digit OTP shown in the email body; typed by the user.",
+    )
+    attempts = models.PositiveSmallIntegerField(default=0)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    MAX_ATTEMPTS = 5
+
     class Meta:
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["user", "-created_at"])]
+        verbose_name = _("Email verification token")
+        verbose_name_plural = _("Email verification tokens")
 
     def is_valid(self) -> bool:
         from django.utils import timezone
-        return self.used_at is None and self.expires_at > timezone.now()
+        return (
+            self.used_at is None
+            and self.expires_at > timezone.now()
+            and self.attempts < self.MAX_ATTEMPTS
+        )
 
     def __str__(self):
         return f"VerifyToken<{self.user_id}> used={bool(self.used_at)}"
@@ -175,6 +205,8 @@ class NotificationTemplate(models.Model):
                 name="unique_template_per_event_language",
             )
         ]
+        verbose_name = _("Notification template")
+        verbose_name_plural = _("Notification templates")
 
     def __str__(self):
         return f"Template<{self.event_type}/{self.language}> {self.template_name}"

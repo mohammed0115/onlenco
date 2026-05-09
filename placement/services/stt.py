@@ -46,7 +46,7 @@ def transcribe(audio_file) -> dict:
                 "model": getattr(settings, "AI_STT_MODEL", "whisper-1"),
                 "response_format": "verbose_json",
             },
-            timeout=60,
+            timeout=(5, 25),
         )
         resp.raise_for_status()
         body = resp.json()
@@ -96,7 +96,8 @@ def pronunciation_score(transcript: str, stt_confidence: float, fluency: int) ->
 
     A real phoneme-level model is out of scope; this proxy correlates with
     intelligibility well enough to band students. Documented as such on the
-    placement page so users aren't misled.
+    placement page so users aren't misled. For a more accurate signal when
+    the user is reading a known prompt, call `pronunciation_score_against`.
     """
     if not transcript:
         return 0
@@ -108,3 +109,73 @@ def pronunciation_score(transcript: str, stt_confidence: float, fluency: int) ->
         + 0.1 * length_signal * 100.0
     )
     return max(0, min(100, int(round(score))))
+
+
+def _normalise_word(w: str) -> str:
+    """Strip punctuation + lowercase for word-level comparison."""
+    out = []
+    for ch in (w or "").lower():
+        if ch.isalpha() or ch.isdigit() or ch in "'-":
+            out.append(ch)
+    return "".join(out)
+
+
+def _alignment_accuracy(expected: list[str], heard: list[str]) -> float:
+    """Word-level alignment accuracy via Levenshtein distance.
+
+    Returns the proportion of expected words that survived intact through
+    the transcript — i.e. (matches) / max(len(expected), 1). Insertions in
+    the transcript don't penalise; substitutions and deletions do.
+    """
+    if not expected:
+        return 0.0
+    n, m = len(expected), len(heard)
+    # Standard edit-distance DP.
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            cost = 0 if expected[i - 1] == heard[j - 1] else 1
+            dp[i][j] = min(
+                dp[i - 1][j] + 1,
+                dp[i][j - 1] + 1,
+                dp[i - 1][j - 1] + cost,
+            )
+    edits = dp[n][m]
+    matches = max(0, n - edits)
+    return matches / n
+
+
+def pronunciation_score_against(
+    transcript: str,
+    expected_text: str,
+    *,
+    stt_confidence: float = 1.0,
+    fluency: int = 50,
+) -> int:
+    """Read-aloud scorer: 0..100 based on word-level alignment.
+
+    Use this when the student was asked to read a known prompt; the score
+    drops sharply when words are missing or wrong, regardless of how
+    confident the STT was. Mixed with confidence + fluency for a final
+    band.
+
+    Algorithm:
+      - normalise + tokenise both strings
+      - compute Levenshtein-based alignment accuracy
+      - blend: 0.6 × alignment + 0.25 × confidence + 0.15 × (fluency/100)
+    """
+    expected_tokens = [t for t in (_normalise_word(w) for w in expected_text.split()) if t]
+    heard_tokens = [t for t in (_normalise_word(w) for w in transcript.split()) if t]
+    if not expected_tokens or not heard_tokens:
+        return 0
+    align = _alignment_accuracy(expected_tokens, heard_tokens)
+    blended = (
+        0.60 * align * 100.0
+        + 0.25 * (stt_confidence or 0.0) * 100.0
+        + 0.15 * (fluency or 0)
+    )
+    return max(0, min(100, int(round(blended))))

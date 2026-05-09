@@ -36,9 +36,12 @@ def set_language(request):
     simpler and also saves the choice on the user's Profile so it sticks
     across devices.
     """
-    lang = request.POST.get("language") or request.GET.get("lang") or "en"
+    # Default fallback is Arabic — matches `settings.LANGUAGE_CODE` and
+    # the project's primary audience. Anonymous flow users with no
+    # profile yet still land in AR.
+    lang = request.POST.get("language") or request.GET.get("lang") or "ar"
     if lang not in dict(settings.LANGUAGES):
-        lang = "en"
+        lang = "ar"
 
     translation.activate(lang)
     request.session["django_language"] = lang

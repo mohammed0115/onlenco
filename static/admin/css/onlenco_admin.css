@@ -1,0 +1,122 @@
+/* Onlenco Admin Branding
+ * Overrides Django's default admin look with Onlenco colors + logo bar.
+ */
+
+:root {
+  --onlenco-primary: #2563eb;
+  --onlenco-primary-dark: #1e40af;
+  --onlenco-accent: #f59e0b;
+  --onlenco-bg: #ffffff;
+  --onlenco-surface: #f8fafc;
+  --onlenco-border: #e2e8f0;
+  --onlenco-text: #0f172a;
+  --onlenco-text-muted: #475569;
+  --onlenco-success: #16a34a;
+  --onlenco-danger: #dc2626;
+}
+
+/* Header bar */
+#header {
+  background: linear-gradient(90deg, var(--onlenco-primary-dark), var(--onlenco-primary));
+  color: #ffffff;
+  padding: 12px 24px;
+  border-bottom: 3px solid var(--onlenco-accent);
+}
+
+#header a:link,
+#header a:visited {
+  color: #ffffff;
+}
+
+#branding h1 {
+  font-weight: 700;
+}
+
+/* Onlenco logo + title block */
+#onlenco-branding {
+  display: flex;
+  align-items: center;
+}
+.onlenco-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+.onlenco-admin-logo {
+  height: 36px;
+  width: auto;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.onlenco-admin-title {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* User tools */
+#user-tools {
+  font-weight: 500;
+}
+
+/* Buttons — primary action */
+.button.default,
+input[type=submit].default,
+.submit-row input.default {
+  background: var(--onlenco-primary);
+  color: #ffffff;
+  border: 0;
+}
+.button.default:hover,
+input[type=submit].default:hover {
+  background: var(--onlenco-primary-dark);
+}
+
+/* Module headers (the bands above each app's table) */
+.module h2,
+.module caption,
+.inline-group h2 {
+  background: var(--onlenco-primary);
+  color: #ffffff;
+}
+
+/* Selected row highlight */
+.row1 { background: var(--onlenco-bg); }
+.row2 { background: var(--onlenco-surface); }
+tr.selected td { background: #dbeafe; }
+
+/* Status badges (rendered by admin via .status-pill class) */
+.status-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.6;
+}
+.status-pill.draft           { background: #e2e8f0; color: #334155; }
+.status-pill.pending_review  { background: #fef3c7; color: #92400e; }
+.status-pill.published       { background: #dcfce7; color: #166534; }
+.status-pill.archived        { background: #fee2e2; color: #991b1b; }
+
+/* Breadcrumbs */
+div.breadcrumbs {
+  background: var(--onlenco-surface);
+  color: var(--onlenco-text-muted);
+  border-bottom: 1px solid var(--onlenco-border);
+}
+div.breadcrumbs a { color: var(--onlenco-primary); }
+
+/* Login screen */
+.login #header { padding: 16px; }
+.login #content { padding-top: 24px; }
+.login #container {
+  border: 1px solid var(--onlenco-border);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  border-radius: 10px;
+}

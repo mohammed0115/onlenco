@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import CEFR_CHOICES
 
@@ -48,6 +49,9 @@ QUESTION_TYPE_CHOICES = [
     ("sentence_building", "Sentence building"),
     ("translation", "Translation"),
     ("short_answer", "Short answer"),
+    ("picture_word", "Picture → word"),
+    ("picture_verb", "Picture → verb"),
+    ("picture_adjective", "Picture → adjective"),
 ]
 
 RECOMMENDATION_STATUS_CHOICES = [
@@ -99,6 +103,8 @@ class Skill(models.Model):
                 name="unique_skill_name_category_level",
             )
         ]
+        verbose_name = _("Skill")
+        verbose_name_plural = _("Skills")
 
     def __str__(self):
         return f"{self.get_category_display()} · {self.name}"
@@ -123,6 +129,8 @@ class GrammarTopic(models.Model):
             models.Index(fields=["cefr_level"]),
             models.Index(fields=["is_active"]),
         ]
+        verbose_name = _("Grammar topic")
+        verbose_name_plural = _("Grammar topics")
 
     def __str__(self):
         return f"[{self.cefr_level or '-'}] {self.name}"
@@ -159,6 +167,8 @@ class StudentLearningProfile(models.Model):
             models.Index(fields=["current_cefr_level"]),
             models.Index(fields=["theta_score"]),
         ]
+        verbose_name = _("Student learning profile")
+        verbose_name_plural = _("Student learning profiles")
 
     def __str__(self):
         return f"LearningProfile<{self.user_id}> θ={self.theta_score:.2f}"
@@ -197,6 +207,8 @@ class SkillMastery(models.Model):
             models.Index(fields=["user", "skill"]),
             models.Index(fields=["mastery_score"]),
         ]
+        verbose_name = _("Skill mastery")
+        verbose_name_plural = _("Skill masteries")
 
     def __str__(self):
         return f"{self.user_id}·{self.skill_id} {self.mastery_score:.1f}%"
@@ -249,6 +261,8 @@ class UserError(models.Model):
             models.Index(fields=["error_type"]),
             models.Index(fields=["source_type"]),
         ]
+        verbose_name = _("User error")
+        verbose_name_plural = _("User errors")
 
     def __str__(self):
         return f"Err<{self.user_id}> {self.error_type} sev={self.severity}"
@@ -303,6 +317,8 @@ class UserWeakness(models.Model):
             models.Index(fields=["priority_score"]),
             models.Index(fields=["weakness_score"]),
         ]
+        verbose_name = _("User weakness")
+        verbose_name_plural = _("User weaknesses")
 
     def __str__(self):
         bits = [str(self.user_id)]
@@ -342,7 +358,41 @@ class AdaptiveExercise(models.Model):
     explanation = models.TextField(blank=True)
     generated_by_ai = models.BooleanField(default=False)
     metadata = models.JSONField(default=dict, blank=True)
+
+    # Question-bank fields. Added by the exams app so AdaptiveExercise can
+    # serve as the single 300k+ item store without duplicating models.
+    code = models.CharField(
+        max_length=160, blank=True, db_index=True,
+        help_text="Deterministic identifier — enables idempotent bulk generation.",
+    )
+    text_hash = models.CharField(
+        max_length=40, blank=True, db_index=True,
+        help_text="SHA-1 of normalised question text — used for duplicate detection.",
+    )
+    quality_score = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="0..100. Computed by question_quality service.",
+    )
+    is_active = models.BooleanField(default=True)
+    is_reviewed = models.BooleanField(default=False)
+    acceptable_answers = models.JSONField(default=list, blank=True)
+    feedback_correct = models.TextField(blank=True)
+    feedback_wrong = models.TextField(blank=True)
+    estimated_time_seconds = models.PositiveSmallIntegerField(default=30)
+    points = models.PositiveSmallIntegerField(default=1)
+    language = models.CharField(max_length=2, default="en")
+    GENERATED_BY_CHOICES = [
+        ("template", "Template"),
+        ("ai", "AI"),
+        ("manual", "Manual"),
+        ("imported", "Imported"),
+    ]
+    generated_by = models.CharField(
+        max_length=10, choices=GENERATED_BY_CHOICES, default="manual",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -351,7 +401,29 @@ class AdaptiveExercise(models.Model):
             models.Index(fields=["question_type"]),
             models.Index(fields=["difficulty_score"]),
             models.Index(fields=["generated_by_ai"]),
+            models.Index(fields=["is_active", "is_reviewed"]),
+            models.Index(fields=["cefr_level", "question_type", "is_active"]),
+            models.Index(fields=["generated_by"]),
+            models.Index(fields=["quality_score"]),
+            # Partial index covering the exam-assembly hot path:
+            # SELECT … WHERE is_active AND is_reviewed AND cefr_level=? AND question_type=?
+            # On Postgres this is much smaller than a 300k×4-column index
+            # because it indexes only the rows the assembler will ever look at.
+            models.Index(
+                fields=["cefr_level", "question_type"],
+                condition=models.Q(is_active=True, is_reviewed=True),
+                name="adex_assembly_hot_idx",
+            ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code"],
+                condition=models.Q(code__gt=""),
+                name="adaptive_exercise_unique_code",
+            ),
+        ]
+        verbose_name = _("Adaptive exercise")
+        verbose_name_plural = _("Adaptive exercises")
 
     def __str__(self):
         return f"Ex<{self.id}> {self.question_type} d={self.difficulty_score:.2f}"
@@ -385,6 +457,8 @@ class ExerciseAttempt(models.Model):
             models.Index(fields=["user", "-created_at"]),
             models.Index(fields=["is_correct"]),
         ]
+        verbose_name = _("Exercise attempt")
+        verbose_name_plural = _("Exercise attempts")
 
     def __str__(self):
         return f"Att<{self.user_id}> ex={self.exercise_id} ok={self.is_correct}"
@@ -431,22 +505,36 @@ class LearningRecommendation(models.Model):
             models.Index(fields=["user", "status"]),
             models.Index(fields=["priority"]),
         ]
+        verbose_name = _("Learning recommendation")
+        verbose_name_plural = _("Learning recommendations")
 
     def __str__(self):
         return f"Rec<{self.user_id}> {self.recommendation_type} p={self.priority:.1f}"
 
 
-class WeeklyAssessment(models.Model):
-    """A periodic assessment triggered every N completed lessons.
+ASSESSMENT_KIND_CHOICES = [
+    ("daily", "Daily check-in"),
+    ("weekly", "Weekly assessment"),
+    ("milestone", "Milestone"),
+]
 
-    The score is the percentage correct across the bundled exercises. On
-    completion, theta + weaknesses + recommendations are refreshed.
+
+class WeeklyAssessment(models.Model):
+    """A periodic assessment.
+
+    Despite the legacy class name, this model hosts both *daily* (short,
+    one per day, ~5 questions) and *weekly* (every 3 lessons, ~10 questions)
+    formats. The `kind` field discriminates. On completion, theta +
+    weaknesses + recommendations are refreshed.
     """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="weekly_assessments",
+    )
+    kind = models.CharField(
+        max_length=15, choices=ASSESSMENT_KIND_CHOICES, default="weekly"
     )
     triggered_after_lessons_count = models.PositiveIntegerField(default=0)
     exercises = models.ManyToManyField(
@@ -467,8 +555,11 @@ class WeeklyAssessment(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["user", "status"]),
+            models.Index(fields=["user", "kind", "-created_at"]),
             models.Index(fields=["-created_at"]),
         ]
+        verbose_name = _("Weekly assessment")
+        verbose_name_plural = _("Weekly assessments")
 
     def __str__(self):
-        return f"WeeklyAsmt<{self.user_id}> {self.status} score={self.score:.0f}"
+        return f"{self.kind.title()}Asmt<{self.user_id}> {self.status} score={self.score:.0f}"

@@ -41,3 +41,25 @@ class EmailLoginForm(AuthenticationForm):
 
     def clean_username(self):
         return self.cleaned_data["username"].strip().lower()
+
+
+class EmailOTPForm(forms.Form):
+    """6-digit code typed by the user from the verification email."""
+
+    code = forms.CharField(
+        label="Verification code",
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            "inputmode": "numeric",
+            "autocomplete": "one-time-code",
+            "pattern": r"[0-9]{6}",
+            "placeholder": "123456",
+        }),
+    )
+
+    def clean_code(self):
+        code = (self.cleaned_data["code"] or "").strip()
+        if not code.isdigit() or len(code) != 6:
+            raise forms.ValidationError("Enter the 6-digit code from your email.")
+        return code

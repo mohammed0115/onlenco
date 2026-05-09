@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}
+  {% t_either "How would you like to start?" "كيف تريد أن تبدأ؟" %} — Onlenco
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .ob-shell        { min-height: calc(100vh - 4rem); background: #f7f8fb; }
+  .ob-card         { background: #fff; border-radius: 22px; box-shadow: 0 6px 28px rgba(20,30,60,.06); }
+  .ob-choice {
+    display: flex; flex-direction: column; gap: 18px;
+    padding: 28px;
+    border: 2px solid #e5e9f2; border-radius: 18px;
+    transition: all .15s ease; cursor: pointer; background: #fff;
+    height: 100%;
+  }
+  .ob-choice:hover { border-color: #4f46e5; transform: translateY(-2px);
+                     box-shadow: 0 10px 30px rgba(79,70,229,.10); }
+  .ob-choice .icon-circle {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+  .ob-choice.placement .icon-circle { background: #eef2ff; color: #4f46e5; }
+  .ob-choice.beginner .icon-circle  { background: #dcfce7; color: #166534; }
+  .ob-btn {
+    border-radius: 12px; padding: 14px 18px; font-weight: 700; font-size: 15px;
+    width: 100%; transition: all .15s ease;
+    border: none; cursor: pointer;
+  }
+  .ob-btn.primary  { background: #4f46e5; color: #fff; }
+  .ob-btn.primary:hover  { background: #4338ca; }
+  .ob-btn.green    { background: #16a34a; color: #fff; }
+  .ob-btn.green:hover    { background: #15803d; }
+  .ob-meta { font-size: 13px; color: #6b7280; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="ob-shell">
+  {% include "_app_header.html" %}
+
+  <main class="container py-12 max-w-3xl mx-auto">
+    <div class="text-center mb-10">
+      <h1 class="font-display text-4xl font-bold mb-3">
+        {% t_either "How would you like to start?" "كيف تريد أن تبدأ؟" %}
+      </h1>
+      <p class="text-base text-muted-foreground">
+        {% t_either "Let's personalize your English journey." "لنخصص لك رحلة تعلم الإنجليزية حسب مستواك." %}
+      </p>
+    </div>
+
+    <div class="ob-card p-6 md:p-10">
+      <div class="grid md:grid-cols-2 gap-6">
+
+        {# Choice 1 — Placement test #}
+        <form method="post" action="{% url 'onboarding_placement' %}"
+              class="ob-choice placement">
+          {% csrf_token %}
+          <div class="icon-circle">📝</div>
+          <h2 class="font-display text-xl font-bold">
+            {% t_either "Take Placement Test" "اختبار تحديد المستوى" %}
+          </h2>
+          <p class="text-sm text-muted-foreground">
+            {% t_either "Already know some English? Take a short test so we can place you at the right level." "هل لديك معرفة سابقة باللغة الإنجليزية؟ خذ اختبارًا قصيرًا لنحدد مستواك المناسب." %}
+          </p>
+          <div class="flex-1"></div>
+          <button type="submit" class="ob-btn primary">
+            {% t_either "Start Placement Test" "ابدأ اختبار تحديد المستوى" %}
+          </button>
+          <div class="ob-meta">
+            {% t_either "Around 5 minutes · Reading + writing + speaking" "حوالي ٥ دقائق · قراءة وكتابة وتحدّث" %}
+          </div>
+        </form>
+
+        {# Choice 2 — Beginner #}
+        <form method="post" action="{% url 'onboarding_beginner' %}"
+              class="ob-choice beginner">
+          {% csrf_token %}
+          <div class="icon-circle">🌱</div>
+          <h2 class="font-display text-xl font-bold">
+            {% t_either "Start From Beginner" "ابدأ من البداية" %}
+          </h2>
+          <p class="text-sm text-muted-foreground">
+            {% t_either "New to English? Start from the beginning with simple lessons." "جديد في تعلم الإنجليزية؟ ابدأ من الصفر بدروس سهلة ومناسبة." %}
+          </p>
+          <div class="flex-1"></div>
+          <button type="submit" class="ob-btn green">
+            {% t_either "Start From Beginner" "ابدأ من البداية" %}
+          </button>
+          <div class="ob-meta">
+            {% t_either "We'll begin with simple words and short sentences." "سنبدأ بكلمات بسيطة وجمل قصيرة." %}
+          </div>
+        </form>
+
+      </div>
+
+      <p class="text-center text-xs text-muted-foreground mt-8">
+        {% t_either "You can take the placement test later from your profile." "يمكنك إجراء اختبار تحديد المستوى لاحقًا من صفحة حسابك." %}
+      </p>
+    </div>
+  </main>
+</div>
+{% endblock %}

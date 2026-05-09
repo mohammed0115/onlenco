@@ -1,0 +1,105 @@
+"""Lightweight scheduler — runs forever, dispatches periodic Django jobs.
+
+Designed as a small alternative to celery beat for projects that don't
+need a full task broker. Each job is a single management command that's
+idempotent on its own. The loop sleeps in 60-second ticks and fires a
+job when the configured schedule matches the current minute.
+
+Schedules (Africa/Khartoum local time, configured in settings):
+  - 02:00 daily         → `run_motivation_engine`     (XP + streak rolls,
+                                                       comeback emails)
+  - 03:00 daily         → admin daily summary digest
+  - Mon 09:00 weekly    → `run_motivation_engine --weekly`  (per-user summary)
+  - Mon 09:30 weekly    → admin weekly summary
+
+Failures are logged and never crash the loop.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import sys
+import time
+from datetime import datetime, timedelta
+
+# Bootstrap Django.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
+
+import django  # noqa: E402
+
+django.setup()
+
+from django.core.management import call_command  # noqa: E402
+from django.utils import timezone  # noqa: E402
+
+logging.basicConfig(
+    level=os.environ.get("DJANGO_LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s scheduler %(message)s",
+)
+log = logging.getLogger("scheduler")
+
+
+def _run(name: str, *args, **opts) -> None:
+    log.info("→ %s %s %s", name, args, opts)
+    try:
+        call_command(name, *args, **opts)
+    except Exception as e:
+        log.exception("%s failed: %s", name, e)
+
+
+def fire(now) -> None:
+    """Decide which jobs (if any) should run at this minute."""
+    hh, mm = now.hour, now.minute
+    weekday = now.weekday()  # Monday = 0
+
+    if hh == 2 and mm == 0:
+        _run("run_motivation_engine")
+
+    if hh == 2 and mm == 30:
+        _run("compute_behavior_metrics")
+
+    if hh == 2 and mm == 45:
+        # Rotate / seed today's challenges and rebuild the leaderboard.
+        try:
+            from motivation.services import challenge_service, leaderboard_service
+            challenge_service.rotate_weekly()
+            leaderboard_service.rebuild_all()
+        except Exception as e:
+            log.exception("challenge/leaderboard refresh failed: %s", e)
+
+    if hh == 3 and mm == 0:
+        try:
+            from notifications.services.digest_service import DigestService
+            DigestService().send_daily_admin_summary()
+        except Exception as e:
+            log.exception("admin daily summary failed: %s", e)
+
+    if weekday == 0 and hh == 9 and mm == 0:
+        _run("run_motivation_engine", weekly=True)
+
+    if weekday == 0 and hh == 9 and mm == 30:
+        try:
+            from notifications.services.digest_service import DigestService
+            DigestService().send_weekly_admin_summary()
+        except Exception as e:
+            log.exception("admin weekly summary failed: %s", e)
+
+
+def main() -> int:
+    log.info("scheduler started; tz=%s", timezone.get_current_timezone_name())
+    last_minute = None
+    while True:
+        try:
+            now = timezone.localtime()
+            current_minute = now.replace(second=0, microsecond=0)
+            if current_minute != last_minute:
+                last_minute = current_minute
+                fire(now)
+        except Exception as e:
+            log.exception("tick failed: %s", e)
+        time.sleep(20)
+
+
+if __name__ == "__main__":
+    sys.exit(main() or 0)

@@ -219,6 +219,7 @@ class NotificationService:
             recipient_email=recipient.email,
             subject=rendered.subject,
             html_body=rendered.html,
+            list_unsubscribe_url=ctx.get("unsubscribe_url") or None,
         )
         if result.success:
             notif.status = C.STATUS_SENT
@@ -289,6 +290,14 @@ class NotificationService:
         except Exception:
             pass
 
+        # Logo: every email attaches the brand logo as a CID inline image
+        # (`cid:logo@onlenco`). Templates also receive a public-URL
+        # fallback so providers that strip CID can still load the asset
+        # over HTTPS.
+        logo_public_url = ""
+        if base_url:
+            logo_public_url = f"{base_url}/static/img/onlenco-logo.png"
+
         return {
             "recipient": recipient,
             "recipient_name": recipient_name,
@@ -299,4 +308,6 @@ class NotificationService:
             "cta_url": cta_url,
             "cta_label": (event.payload or {}).get("cta_label", "Open Onlenco"),
             "unsubscribe_url": unsubscribe_url,
+            "logo_cid": "logo@onlenco",
+            "logo_public_url": logo_public_url,
         }

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import CEFR_CHOICES
 
@@ -28,6 +29,8 @@ class Lesson(models.Model):
 
     class Meta:
         ordering = ["sort_order", "level", "title"]
+        verbose_name = _("Lesson")
+        verbose_name_plural = _("Lessons")
 
     def __str__(self):
         return f"[{self.level}] {self.title}"
@@ -38,6 +41,10 @@ class Quiz(models.Model):
 
     lesson = models.OneToOneField(Lesson, on_delete=models.CASCADE, related_name="quiz")
     pass_score = models.PositiveSmallIntegerField(default=70)
+
+    class Meta:
+        verbose_name = _("Quiz")
+        verbose_name_plural = _("Quizzes")
 
     def __str__(self):
         return f"Quiz: {self.lesson}"
@@ -59,6 +66,8 @@ class Question(models.Model):
 
     class Meta:
         ordering = ["sort_order", "id"]
+        verbose_name = _("Question")
+        verbose_name_plural = _("Questions")
 
     def __str__(self):
         return f"Q{self.id} ({self.quiz.lesson})"
@@ -85,6 +94,8 @@ class LessonProgress(models.Model):
 
     class Meta:
         unique_together = [("user", "lesson")]
+        verbose_name = _("Lesson progress")
+        verbose_name_plural = _("Lesson progress")
 
     @property
     def is_complete(self):

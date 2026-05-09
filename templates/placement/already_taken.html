@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n_dict %}
+{% load i18n_dict humanize_text %}
 
 {% block title %}{% t "pl.title" %} — Onlenco{% endblock %}
 
@@ -13,7 +13,7 @@
       <div class="font-display text-7xl font-bold mb-4">{{ profile.cefr_level }}</div>
       {% if latest %}
       <p class="max-w-md mx-auto leading-relaxed mb-6" style="opacity:0.9">
-        {{ latest.feedback }}
+        {{ latest.feedback|humanize }}
       </p>
       <p class="text-xs" style="opacity:0.7">
         {% t_either "Last taken" "آخر اختبار" %}: {{ latest.created_at|date:"Y-m-d" }}

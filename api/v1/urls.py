@@ -12,5 +12,9 @@ urlpatterns = [
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger_ui"),
     path("redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     path("notifications/", include("notifications.api.urls")),
+    path("motivation/", include("motivation.api.urls")),
+    path("payments/", include("payments.api.urls")),
+    path("exams/", include("exams.api.urls")),
+    path("tutor/", include("tutor.api.urls")),
     path("", include("learning_core.api.urls")),
 ]

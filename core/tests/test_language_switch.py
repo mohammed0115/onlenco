@@ -16,13 +16,16 @@ class LanguageSwitchTests(TestCase):
         u.profile.refresh_from_db()
         self.assertEqual(u.profile.preferred_language, "ar")
 
-    def test_set_language_unknown_falls_back_to_english(self):
+    def test_set_language_unknown_falls_back_to_arabic(self):
+        # Project default is Arabic — `set_language` falls back to "ar"
+        # for unsupported languages (was "en" before the i18n audit).
+        # Spec: "If user language is unknown, default to Arabic."
         u = User.objects.create_user(username="bobby", password="pw")
         self.client.force_login(u)
         r = self.client.post(reverse("set_language"), data={"language": "fr", "next": "/"})
         self.assertEqual(r.status_code, 302)
         u.profile.refresh_from_db()
-        self.assertEqual(u.profile.preferred_language, "en")
+        self.assertEqual(u.profile.preferred_language, "ar")
 
     def test_dir_flips_for_arabic(self):
         from django.utils import translation

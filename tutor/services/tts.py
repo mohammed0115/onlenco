@@ -39,7 +39,7 @@ def synthesize(text: str) -> dict:
                 "Content-Type": "application/json",
             },
             json=payload,
-            timeout=30,
+            timeout=(5, 15),
         )
         resp.raise_for_status()
         audio_b64 = base64.b64encode(resp.content).decode("ascii")

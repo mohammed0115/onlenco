@@ -1,0 +1,13 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}🎖️ شارة جديدة{% else %}🎖️ New badge{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}حصلت على شارة:{% else %}You earned the badge:{% endif %}
+  <strong>{{ payload.badge_name }}</strong>
+</p>
+{% if payload.description %}<p>{{ payload.description }}</p>{% endif %}
+<p><a href="{{ cta_url }}" class="cta">
+  {% if lang == "ar" %}افتح اللوحة{% else %}Open dashboard{% endif %}
+</a></p>
+{% endblock %}

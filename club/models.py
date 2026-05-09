@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
 from accounts.models import CEFR_CHOICES
@@ -22,6 +23,8 @@ class ClubEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = _("Club event")
+        verbose_name_plural = _("Club events")
         ordering = ["starts_at"]
 
     @property
@@ -55,6 +58,8 @@ class ClubRSVP(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = _("Club rsvp")
+        verbose_name_plural = _("Club rsvps")
         unique_together = [("event", "user")]
         ordering = ["-created_at"]
 

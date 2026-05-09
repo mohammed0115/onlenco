@@ -72,6 +72,9 @@ class WeeklyAssessmentTests(TestCase):
 
         self.user.email = "stud@example.com"
         self.user.save(update_fields=["email"])
+        # Force English so we can match the subject string deterministically.
+        self.user.profile.preferred_language = "en"
+        self.user.profile.save(update_fields=["preferred_language"])
         self._complete_n(LESSONS_PER_ASSESSMENT)
         maybe_trigger(self.user)
         # maybe_trigger also generates exercises → exercises_generated email fires too.

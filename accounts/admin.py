@@ -13,14 +13,30 @@ class ProfileAdmin(admin.ModelAdmin):
         "full_name",
         "role",
         "cefr_level",
+        "initial_cefr_level",
+        "onboarding_path",
+        "onboarding_completed",
         "subscription_state",
         "expires_in_days",
         "placement_completed",
         "created_at",
     )
-    list_filter = ("role", "subscription_status", "cefr_level", "placement_completed")
+    list_filter = (
+        "role", "subscription_status", "cefr_level",
+        "placement_completed", "onboarding_completed", "onboarding_path",
+    )
     search_fields = ("full_name", "user__email", "user__username")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "onboarding_completed_at")
+    actions = ["reset_onboarding"]
+
+    @admin.action(description="Reset onboarding (let student choose again)")
+    def reset_onboarding(self, request, queryset):
+        n = queryset.update(
+            onboarding_completed=False,
+            onboarding_path="",
+            onboarding_completed_at=None,
+        )
+        self.message_user(request, f"Reset onboarding for {n} student(s).")
 
     @admin.display(description="Subscription")
     def subscription_state(self, obj):

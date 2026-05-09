@@ -8,9 +8,11 @@ from ..models import NotificationPreference
 class PreferenceService:
     @staticmethod
     def get_or_create_for(user) -> NotificationPreference:
+        # Language priority: explicit profile preference → site default ("ar").
+        # Any future addition (request locale, IP geolocation) plugs in here.
         defaults = {
-            "language": getattr(getattr(user, "profile", None), "preferred_language", "en")
-            or "en",
+            "language": getattr(getattr(user, "profile", None), "preferred_language", "ar")
+            or "ar",
         }
         pref, _ = NotificationPreference.objects.get_or_create(user=user, defaults=defaults)
         return pref
@@ -54,9 +56,11 @@ class PreferenceService:
         return True
 
     def get_language(self, user) -> str:
+        # Final fallback is Arabic — the project default — when no profile
+        # / preference data is available.
         if user is None:
-            return "en"
+            return "ar"
         try:
-            return self.get_or_create_for(user).language or "en"
+            return self.get_or_create_for(user).language or "ar"
         except Exception:
-            return "en"
+            return "ar"
