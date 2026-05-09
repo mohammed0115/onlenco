@@ -152,9 +152,15 @@ def _user_attempt(request, attempt_id: int) -> PlacementAttempt:
 
 
 @login_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 def placement_start(request):
-    """Create a new attempt and redirect into the written step."""
+    """Create a new attempt and redirect into the written step.
+
+    Accepts GET (so a redirect from `onboarding_placement` lands cleanly
+    in the browser) AND POST (when the dashboard CTA is a form). Both
+    do the same thing: create one `PlacementAttempt` for the user and
+    forward them to Step 1.
+    """
     attempt = create_placement_attempt(request.user)
     return redirect("placement_written", attempt_id=attempt.id)
 
