@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Your placement result" "نتيجة تحديد المستوى" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+
+  <main class="container py-10 max-w-3xl mx-auto">
+    <div class="card p-8 md:p-10 text-center">
+      <div class="mx-auto h-16 w-16 rounded-2xl gradient-sunset flex items-center justify-center mb-4">
+        <i data-lucide="award" class="h-8 w-8 text-primary-foreground"></i>
+      </div>
+      <h1 class="font-display text-4xl font-bold mb-2">
+        {% t_either "Your level is" "مستواك" %}
+        <span class="text-primary">{{ attempt.recommended_cefr_level|default:"A1" }}</span>
+      </h1>
+      <p class="text-muted-foreground max-w-lg mx-auto">
+        {{ attempt.feedback|default:"Great work! We'll personalise your lessons from here." }}
+      </p>
+
+      <div class="grid sm:grid-cols-3 gap-4 mt-8 text-left">
+        <div class="p-4 rounded-xl bg-muted/50">
+          <div class="text-xs text-muted-foreground">{% t_either "Written score" "علامة الكتابة" %}</div>
+          <div class="text-2xl font-bold">{{ attempt.written_score|default:0 }}/100</div>
+        </div>
+        <div class="p-4 rounded-xl bg-muted/50">
+          <div class="text-xs text-muted-foreground">{% t_either "Speaking score" "علامة التحدث" %}</div>
+          <div class="text-2xl font-bold">{{ attempt.speaking_score|default:0 }}/100</div>
+        </div>
+        <div class="p-4 rounded-xl bg-muted/50">
+          <div class="text-xs text-muted-foreground">{% t_either "Overall" "المجموع" %}</div>
+          <div class="text-2xl font-bold">{{ attempt.overall_score|default:0 }}/100</div>
+        </div>
+      </div>
+
+      <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <a href="{% url 'dashboard' %}" class="btn btn-hero btn-lg">
+          {% t_either "Go to dashboard" "اذهب إلى لوحة التحكم" %}
+          <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+        </a>
+        <a href="{% url 'tutor' %}" class="btn btn-outline btn-lg">
+          <i data-lucide="message-circle" class="h-4 w-4"></i>
+          {% t_either "Chat with AI Tutor" "تحدث مع المعلم الذكي" %}
+        </a>
+      </div>
+    </div>
+
+    <details class="mt-6">
+      <summary class="cursor-pointer text-sm text-muted-foreground">
+        {% t_either "View questions and answers" "عرض الأسئلة والإجابات" %}
+      </summary>
+      <div class="mt-4 space-y-3">
+        {% for aq in written %}
+          <div class="card p-4">
+            <div class="text-xs uppercase tracking-widest text-muted-foreground mb-1">
+              {% t_either "Written" "كتابي" %} · {{ forloop.counter }}
+            </div>
+            <p class="font-semibold mb-1" dir="auto">
+              {% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}
+            </p>
+            <p class="text-sm text-muted-foreground" dir="ltr">{{ aq.user_answer_text|default:"—" }}</p>
+          </div>
+        {% endfor %}
+        {% for aq in speaking %}
+          <div class="card p-4">
+            <div class="text-xs uppercase tracking-widest text-muted-foreground mb-1">
+              {% t_either "Speaking" "تحدث" %} · {{ forloop.counter }}
+            </div>
+            <p class="font-semibold mb-1" dir="auto">
+              {% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}
+            </p>
+            <p class="text-sm text-muted-foreground" dir="ltr">{{ aq.transcript|default:"—" }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </details>
+  </main>
+</div>
+{% endblock %}

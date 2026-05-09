@@ -156,6 +156,34 @@ class GetUserLanguageTests(TestCase):
         u.profile.save(update_fields=["preferred_language"])
         self.assertEqual(get_user_language(u), "ar")
 
+    def test_force_language_override_arabic(self):
+        from django.test import override_settings
+        u = User.objects.create_user(username="f@x.com", email="f@x.com",
+                                     password="pw")
+        u.profile.preferred_language = "en"   # user wants English
+        u.profile.save(update_fields=["preferred_language"])
+        # …but operator overrides every email to Arabic.
+        with override_settings(EMAIL_FORCE_LANGUAGE="ar"):
+            self.assertEqual(get_user_language(u), "ar")
+
+    def test_force_language_override_english(self):
+        from django.test import override_settings
+        u = User.objects.create_user(username="g@x.com", email="g@x.com",
+                                     password="pw")
+        u.profile.preferred_language = "ar"
+        u.profile.save(update_fields=["preferred_language"])
+        with override_settings(EMAIL_FORCE_LANGUAGE="en"):
+            self.assertEqual(get_user_language(u), "en")
+
+    def test_force_language_blank_honours_user_preference(self):
+        from django.test import override_settings
+        u = User.objects.create_user(username="h@x.com", email="h@x.com",
+                                     password="pw")
+        u.profile.preferred_language = "en"
+        u.profile.save(update_fields=["preferred_language"])
+        with override_settings(EMAIL_FORCE_LANGUAGE=""):
+            self.assertEqual(get_user_language(u), "en")
+
 
 class DefaultFromEmailTests(TestCase):
     """Spec rule: emails come from `Onlenco <info@onlenco.com>` (the

@@ -120,14 +120,16 @@ class PlacementJourneyTests(TestCase):
             reverse("onboarding_choice"),
         )
 
-        # 2. Pick the placement card → redirects to /placement/.
+        # 2. Pick the placement card → redirects to the new dynamic flow.
         resp = self.client.post(reverse("onboarding_placement"))
-        self.assertRedirects(resp, reverse("placement"),
+        self.assertRedirects(resp, reverse("placement_start"),
                              fetch_redirect_response=False)
 
-        # 3. Submit the placement test. We mock both the AI grader and
-        # the diagnostic engine so the test doesn't depend on either
-        # external service.
+        # 3. Submit the legacy single-page placement test directly. We mock
+        # the AI grader + diagnostic engine. (The new dynamic flow has its
+        # own coverage in placement/tests/test_dynamic_flow.py — this
+        # journey test still locks the legacy path so users mid-flight
+        # don't break.)
         fake_assess = {
             "level": "B1", "written_score": 78, "speaking_score": 70,
             "feedback": "Solid grammar; expand vocabulary range.",

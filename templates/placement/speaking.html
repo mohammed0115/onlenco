@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load static i18n_dict %}
+
+{% block title %}{% t_either "Placement Test — Step 2 of 2" "اختبار تحديد المستوى — الخطوة 2 من 2" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+
+  <main class="container py-10 max-w-3xl mx-auto">
+    <div class="mb-6">
+      <div class="text-xs uppercase tracking-widest text-muted-foreground mb-1">
+        {% t_either "Step 2 of 2" "الخطوة 2 من 2" %}
+      </div>
+      <h1 class="font-display text-3xl font-bold">
+        {% t_either "Speaking Test" "اختبار التحدث" %}
+      </h1>
+      <p class="text-muted-foreground mt-2">
+        {% t_either "Tap the microphone for each question and answer in English. Your speech is transcribed in your browser." "اضغط على الميكروفون لكل سؤال وأجب بالإنجليزية. يتم تحويل صوتك إلى نص في متصفحك." %}
+      </p>
+      <div class="h-2 mt-4 bg-muted rounded-full overflow-hidden">
+        <div class="h-full bg-primary" style="width: 100%"></div>
+      </div>
+    </div>
+
+    <form method="post" action="" class="card p-6 md:p-8 space-y-6" id="speaking-form">
+      {% csrf_token %}
+      {% for aq in questions %}
+        <div class="border border-border rounded-xl p-5 bg-white" data-q="{{ aq.id }}">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="badge badge-outline">{{ forloop.counter }}/{{ questions|length }}</span>
+            <p class="font-semibold flex-1" dir="auto">
+              {% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 mb-3">
+            <button type="button" class="btn btn-outline rec-btn" data-rec="{{ aq.id }}">
+              <i data-lucide="mic" class="h-4 w-4"></i>
+              <span class="rec-label">{% t_either "Record" "تسجيل" %}</span>
+            </button>
+            <span class="text-sm text-muted-foreground rec-status" id="status-{{ aq.id }}"></span>
+          </div>
+
+          <textarea name="q_{{ aq.id }}_transcript" id="transcript-{{ aq.id }}"
+                    rows="3" dir="ltr"
+                    class="textarea w-full"
+                    placeholder="{% t_either 'Your spoken answer appears here. You can also type if mic is unavailable.' 'إجابتك المحكية تظهر هنا. يمكنك الكتابة لو الميكروفون غير متاح.' %}">{{ aq.transcript }}</textarea>
+        </div>
+      {% endfor %}
+
+      <div class="flex items-center justify-between gap-3 pt-2">
+        <a href="{% url 'placement_written' attempt.id %}" class="btn btn-ghost">
+          <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+          {% t_either "Back" "رجوع" %}
+        </a>
+        <button type="submit" class="btn btn-hero btn-lg">
+          {% t_either "Submit & see my level" "أرسل واعرف مستواي" %}
+          <i data-lucide="check" class="h-4 w-4"></i>
+        </button>
+      </div>
+    </form>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      document.querySelectorAll('.rec-btn').forEach(function (b) {
+        b.disabled = true;
+        b.title = 'Speech recognition not supported by this browser. Type instead.';
+      });
+      return;
+    }
+    document.querySelectorAll('.rec-btn').forEach(function (btn) {
+      var qid = btn.getAttribute('data-rec');
+      var ta  = document.getElementById('transcript-' + qid);
+      var st  = document.getElementById('status-' + qid);
+      var rec = new SR();
+      rec.lang = 'en-US';
+      rec.continuous = false;
+      rec.interimResults = true;
+      var recording = false;
+      rec.onresult = function (e) {
+        var t = '';
+        for (var i = e.resultIndex; i < e.results.length; i++) {
+          t += e.results[i][0].transcript;
+        }
+        ta.value = (ta.value + ' ' + t).trim();
+      };
+      rec.onstart = function () {
+        recording = true;
+        btn.querySelector('.rec-label').textContent = 'Stop';
+        st.textContent = 'Listening…';
+      };
+      rec.onend = function () {
+        recording = false;
+        btn.querySelector('.rec-label').textContent = 'Record';
+        st.textContent = 'Done. You can edit the text or record again.';
+      };
+      rec.onerror = function () {
+        recording = false;
+        btn.querySelector('.rec-label').textContent = 'Record';
+        st.textContent = 'Mic error — please type instead.';
+      };
+      btn.addEventListener('click', function () {
+        if (recording) { try { rec.stop(); } catch (e) {} }
+        else           { try { rec.start(); } catch (e) {} }
+      });
+    });
+  })();
+</script>
+{% endblock %}

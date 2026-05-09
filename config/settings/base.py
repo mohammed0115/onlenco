@@ -255,6 +255,10 @@ EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
 DEFAULT_FROM_EMAIL = env_get("DEFAULT_FROM_EMAIL", "Onlenco <info@onlenco.com>")
 # Friendly display name used by EmailService when DEFAULT_FROM_EMAIL is bare.
 EMAIL_BRAND_NAME = env_get("EMAIL_BRAND_NAME", "Onlenco")
+# Force every outbound email to a single language regardless of per-user
+# preference. "" = honour user preference (default). "ar" = always Arabic.
+# "en" = always English. Useful when the platform is single-locale.
+EMAIL_FORCE_LANGUAGE = env_get("EMAIL_FORCE_LANGUAGE", "")
 # Where users' replies should land when they hit "Reply" on an Onlenco
 # email. Leave blank to omit the Reply-To header.
 EMAIL_REPLY_TO = env_get("EMAIL_REPLY_TO", "")

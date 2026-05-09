@@ -63,16 +63,23 @@
             </div>
         {% endif %}
 
-        {# Placement-test prompt — shown until the student takes the test #}
-        {% if not profile.placement_completed %}
+        {% comment %}Onboarding hero — show until the student picks a path.
+        Onboarding offers TWO choices: take placement test, OR start from
+        A0 (beginner). Sends them to the choice page so they see both
+        buttons rather than being railroaded into the placement test.{% endcomment %}
+        {% if not profile.onboarding_completed %}
         <div class="card gradient-hero border-0 shadow-elegant p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
                 <span class="badge badge-popular mb-3">{% t_either "Step 1" "الخطوة 1" %}</span>
-                <h2 class="font-display text-2xl md:text-3xl font-bold mb-2">{% t "dash.takeplacement" %}</h2>
-                <p class="max-w-lg" style="opacity:0.92">{% t "dash.placementdesc" %}</p>
+                <h2 class="font-display text-2xl md:text-3xl font-bold mb-2">
+                    {% t_either "Choose how to start" "اختر كيف تبدأ" %}
+                </h2>
+                <p class="max-w-lg" style="opacity:0.92">
+                    {% t_either "Take the placement test, or start from beginner (A0). You can switch later." "خذ اختبار تحديد المستوى، أو ابدأ من المبتدئ (A0). يمكنك التغيير لاحقاً." %}
+                </p>
             </div>
-            <a href="{% url 'placement' %}" class="btn btn-glass btn-lg">
-                {% t "hero.cta" %}
+            <a href="{% url 'onboarding_choice' %}" class="btn btn-glass btn-lg">
+                {% t_either "Get started" "ابدأ الآن" %}
                 <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
             </a>
         </div>

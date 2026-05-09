@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Placement Test — Step 1 of 2" "اختبار تحديد المستوى — الخطوة 1 من 2" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+
+  <main class="container py-10 max-w-3xl mx-auto">
+    <div class="mb-6">
+      <div class="text-xs uppercase tracking-widest text-muted-foreground mb-1">
+        {% t_either "Step 1 of 2" "الخطوة 1 من 2" %}
+      </div>
+      <h1 class="font-display text-3xl font-bold">
+        {% t_either "Written Test" "الاختبار الكتابي" %}
+      </h1>
+      <p class="text-muted-foreground mt-2">
+        {% t_either "Answer the 5 questions below in English. Your answers help us pick the right level for you." "أجب عن الأسئلة الخمسة بالإنجليزية. إجاباتك تساعدنا في اختيار المستوى المناسب لك." %}
+      </p>
+      <div class="h-2 mt-4 bg-muted rounded-full overflow-hidden">
+        <div class="h-full bg-primary" style="width: 50%"></div>
+      </div>
+    </div>
+
+    <form method="post" action="" class="card p-6 md:p-8 space-y-6" id="written-form">
+      {% csrf_token %}
+      {% for aq in questions %}
+        <div class="border border-border rounded-xl p-5 bg-white">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="badge badge-outline">{{ forloop.counter }}/{{ questions|length }}</span>
+            <p class="font-semibold flex-1" dir="auto">
+              {% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}
+            </p>
+          </div>
+
+          {% if aq.question.expected_answer_type == "mcq" %}
+            <div class="space-y-2">
+              {% for opt in aq.question.options %}
+                <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/40 cursor-pointer">
+                  <input type="radio" name="q_{{ aq.id }}" value="{{ opt }}"
+                         {% if aq.user_answer_text == opt %}checked{% endif %} required>
+                  <span dir="ltr">{{ opt }}</span>
+                </label>
+              {% endfor %}
+            </div>
+
+          {% elif aq.question.expected_answer_type == "paragraph" %}
+            <textarea name="q_{{ aq.id }}" rows="6" maxlength="1500" minlength="20"
+                      dir="ltr" required
+                      class="textarea w-full"
+                      placeholder="{% t_either 'Write 4-6 sentences in English…' 'اكتب 4-6 جمل بالإنجليزية…' %}">{{ aq.user_answer_text }}</textarea>
+
+          {% else %}
+            <textarea name="q_{{ aq.id }}" rows="3" maxlength="800" minlength="5"
+                      dir="ltr" required
+                      class="textarea w-full"
+                      placeholder="{% t_either 'Type your answer in English…' 'اكتب إجابتك بالإنجليزية…' %}">{{ aq.user_answer_text }}</textarea>
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      <div class="flex items-center justify-between gap-3 pt-2">
+        <a href="{% url 'dashboard' %}" class="btn btn-ghost">
+          {% t_either "Cancel" "إلغاء" %}
+        </a>
+        <button type="submit" class="btn btn-hero btn-lg">
+          {% t_either "Continue to speaking" "تابع إلى التحدث" %}
+          <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+        </button>
+      </div>
+    </form>
+  </main>
+</div>
+{% endblock %}

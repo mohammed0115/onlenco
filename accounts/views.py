@@ -244,10 +244,15 @@ def onboarding_beginner(request):
 @login_required
 @require_POST
 def onboarding_placement(request):
-    """Action for the "Take Placement Test" card. Just redirects to the
-    placement page — the placement view will mark onboarding complete
-    when the test finishes."""
-    return redirect("placement")
+    """Action for the "Take Placement Test" card.
+
+    Routes into the new dynamic-bank flow which creates a
+    `PlacementAttempt` and walks the student through Step 1 (5 written
+    questions) → Step 2 (5 speaking questions) → result page. The old
+    monolithic `/placement/` page is still available as a backward-
+    compatible fallback for users mid-flight on the previous design.
+    """
+    return redirect("placement_start")
 
 
 # ---------------------------------------------------------------------------

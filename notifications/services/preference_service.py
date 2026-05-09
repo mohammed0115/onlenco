@@ -1,6 +1,8 @@
 """PreferenceService — decides whether a user can receive an event by email."""
 from __future__ import annotations
 
+from django.conf import settings
+
 from .. import constants as C
 from ..models import NotificationPreference
 
@@ -58,6 +60,14 @@ class PreferenceService:
     def get_language(self, user) -> str:
         # Final fallback is Arabic — the project default — when no profile
         # / preference data is available.
+        #
+        # `EMAIL_FORCE_LANGUAGE` is the operator override: set to "ar" or
+        # "en" in .env to send every email in that language regardless of
+        # per-user preference. Useful when the platform is single-locale
+        # and the user-preference field hasn't been backfilled.
+        forced = (getattr(settings, "EMAIL_FORCE_LANGUAGE", "") or "").strip().lower()
+        if forced in ("ar", "en"):
+            return forced
         if user is None:
             return "ar"
         try:

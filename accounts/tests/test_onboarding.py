@@ -48,10 +48,13 @@ class OnboardingChoiceTests(TestCase):
     # 2. Placement choice redirects to placement --------------------------
 
     def test_placement_choice_redirects_to_placement(self):
+        # The "Take Placement Test" card now drops the student into the
+        # dynamic-bank flow which creates a PlacementAttempt and walks
+        # them through written → speaking → result.
         self.client.force_login(self.user)
         resp = self.client.post(reverse("onboarding_placement"))
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp.url, reverse("placement"))
+        self.assertEqual(resp.url, reverse("placement_start"))
 
     # 3. Beginner choice creates profile + redirects to dashboard --------
 
