@@ -18,7 +18,7 @@ in the technical document.
 
 ```bash
 # 1. Create a virtualenv
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 
 # 2. Install dependencies
@@ -28,14 +28,14 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # 4. Apply migrations
-python manage.py migrate
+python3 manage.py migrate
 
 # 5. Seed an admin user + 12 demo lessons (one shot)
-python manage.py seed_demo
+python3 manage.py seed_demo
 #   → creates admin@onlenco.local / onlenco123
 
 # 6. Run
-python manage.py runserver
+python3 manage.py runserver
 ```
 
 Then open [http://localhost:8000](http://localhost:8000).
@@ -53,12 +53,12 @@ Settings are now split by environment:
 Override per command when needed:
 
 ```bash
-DJANGO_SETTINGS_MODULE=config.settings.production python manage.py check --deploy
+DJANGO_SETTINGS_MODULE=config.settings.production python3 manage.py check --deploy
 ```
 
 > The default admin password is fine for local demos but **change it before
 > deploying anywhere reachable**:
-> `python manage.py seed_demo --admin-email you@example.com --admin-password "your-strong-pw"`
+> `python3 manage.py seed_demo --admin-email you@example.com --admin-password "your-strong-pw"`
 
 ## Routes
 
@@ -93,7 +93,7 @@ sentence count, and lexical variety.
 
 Mirrors section 4 of the technical document:
 
-1. Student picks a plan (Monthly 8,000 SDG / Quarterly 18,000 SDG)
+1. Student picks a plan (Monthly 30,000 SDG / Quarterly 50,000 SDG)
 2. Student picks a method (Bankak / Fawry / O-Cash) and sees the destination
    account details
 3. Student transfers the amount out-of-band
@@ -142,4 +142,6 @@ The active language is stored in the session and (for logged-in users) on the
 - [ ] Review `PaymentMethodAccount` entries in `/admin/` (real account numbers, availability)
 - [ ] Set `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`
 - [ ] Real email backend for signup confirmation / password reset
+- [ ] Set `API_TOKEN_MAX_AGE_DAYS` (default: 30) for mobile/API token expiry
+- [ ] Set `ENABLE_2FA_ADMIN=1` and enroll staff TOTP devices
 - [ ] `gunicorn` + `whitenoise` (or a CDN) for static files

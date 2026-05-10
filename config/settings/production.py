@@ -20,6 +20,9 @@ if env_get("DJANGO_DATABASE_URL"):
         ssl_require=env_bool("DJANGO_DB_SSL_REQUIRE", True),
     )
 else:
+    if not env_get("POSTGRES_PASSWORD"):
+        raise RuntimeError("POSTGRES_PASSWORD must be set in production")
+
     DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": env_get("POSTGRES_DB", "onlenco"),

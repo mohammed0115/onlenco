@@ -19,7 +19,9 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import status
+from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
@@ -113,6 +115,25 @@ def _get_conversation_for(user, conversation_id):
     return conv, None
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="TutorChatSendRequest",
+        fields={
+            "message": drf_serializers.CharField(),
+            "conversation_id": drf_serializers.IntegerField(required=False),
+            "voice": drf_serializers.BooleanField(required=False),
+            "speaking_seconds": drf_serializers.IntegerField(required=False),
+        },
+    ),
+    responses=inline_serializer(
+        name="TutorChatSendResponse",
+        fields={
+            "success": drf_serializers.BooleanField(),
+            "conversation_id": drf_serializers.IntegerField(),
+            "state": drf_serializers.CharField(),
+        },
+    ),
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def chat_send(request):
@@ -200,6 +221,24 @@ def chat_send(request):
     })
 
 
+@extend_schema(
+    request={
+        "multipart/form-data": {
+            "type": "object",
+            "properties": {"audio": {"type": "string", "format": "binary"}},
+            "required": ["audio"],
+        }
+    },
+    responses=inline_serializer(
+        name="TutorVoiceTranscribeResponse",
+        fields={
+            "success": drf_serializers.BooleanField(),
+            "attempt_id": drf_serializers.IntegerField(required=False),
+            "transcript": drf_serializers.CharField(allow_blank=True),
+            "duration_seconds": drf_serializers.IntegerField(),
+        },
+    ),
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
@@ -351,6 +390,24 @@ def voice_respond_stream(request):
     return response
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="TutorVoiceRespondRequest",
+        fields={
+            "transcript": drf_serializers.CharField(),
+            "conversation_id": drf_serializers.IntegerField(required=False),
+            "speaking_seconds": drf_serializers.IntegerField(required=False),
+        },
+    ),
+    responses=inline_serializer(
+        name="TutorVoiceRespondResponse",
+        fields={
+            "success": drf_serializers.BooleanField(),
+            "conversation_id": drf_serializers.IntegerField(),
+            "state": drf_serializers.CharField(),
+        },
+    ),
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def voice_respond(request):
@@ -433,6 +490,16 @@ def voice_respond(request):
     })
 
 
+@extend_schema(
+    responses=inline_serializer(
+        name="TutorVoiceHistoryResponse",
+        fields={
+            "success": drf_serializers.BooleanField(),
+            "count": drf_serializers.IntegerField(required=False),
+            "deleted": drf_serializers.IntegerField(required=False),
+        },
+    ),
+)
 @api_view(["GET", "DELETE"])
 @permission_classes([IsAuthenticated])
 def voice_history(request):
@@ -637,6 +704,25 @@ def chat_stream(request):
     return response
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="TutorVoiceTTSRequest",
+        fields={
+            "text": drf_serializers.CharField(),
+            "language": drf_serializers.CharField(required=False),
+        },
+    ),
+    responses=inline_serializer(
+        name="TutorVoiceTTSResponse",
+        fields={
+            "success": drf_serializers.BooleanField(),
+            "audio_b64": drf_serializers.CharField(allow_blank=True),
+            "format": drf_serializers.CharField(allow_blank=True),
+            "language": drf_serializers.CharField(),
+            "speech_text": drf_serializers.CharField(),
+        },
+    ),
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def voice_tts(request):

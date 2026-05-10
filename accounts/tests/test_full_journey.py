@@ -16,6 +16,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts import onboarding as onboarding_lib
+from courses.models import Course, CourseLevel, Lesson as CourseLesson
 from learning_core.models import LearningRecommendation, StudentLearningProfile
 from lessons.models import Lesson, LessonProgress
 
@@ -36,13 +37,28 @@ class BeginnerJourneyTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        # The platform must have at least one A0 lesson for the
-        # beginner hero card to fire.
+        # Legacy lessons remain for compatibility tests.
         cls.first_lesson = Lesson.objects.create(
             title="A0 Hello", skill="grammar", level="A0", sort_order=1,
         )
         cls.second_lesson = Lesson.objects.create(
             title="A1 Greetings", skill="grammar", level="A1", sort_order=10,
+        )
+        # The student dashboard learning path is backed by the courses app.
+        level = CourseLevel.objects.create(code="A0", name="A0", order=0)
+        cls.course = Course.objects.create(
+            title="A0 Starter Course",
+            slug="a0-starter-course",
+            level=level,
+            status="published",
+            is_active=True,
+            is_free=True,
+        )
+        cls.course_lesson = CourseLesson.objects.create(
+            course=cls.course,
+            title="A0 Course Hello",
+            status="published",
+            is_active=True,
         )
 
     def test_full_beginner_journey_register_to_first_lesson(self):
@@ -82,11 +98,12 @@ class BeginnerJourneyTests(TestCase):
             ).exists()
         )
 
-        # 7. Dashboard shows the beginner hero card.
+        # 7. Dashboard shows the courses-backed recommendation card.
         resp = self.client.get(reverse("dashboard"))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "data-testid=\"beginner-first-lesson-hero\"")
-        self.assertContains(resp, "A0 Hello")  # the chosen first lesson
+        self.assertContains(resp, "data-testid=\"recommended-course-hero\"")
+        self.assertContains(resp, "A0 Starter Course")
+        self.assertContains(resp, "A0 Course Hello")
 
     def test_dashboard_no_beginner_hero_after_first_lesson_attempted(self):
         user = _make_verified_user()

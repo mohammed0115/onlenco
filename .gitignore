@@ -8,6 +8,9 @@ db.sqlite3
 db.sqlite3-journal
 media/
 staticfiles/
+datasets/*.jsonl
+datasets/ai_training/*.jsonl
+local_models/**/model.joblib
 .DS_Store
 .idea/
 .vscode/

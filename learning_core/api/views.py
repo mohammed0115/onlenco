@@ -38,6 +38,21 @@ from .serializers import (
 )
 
 
+def _subscription_required_response():
+    return Response(
+        {
+            "detail": "subscription required",
+            "error": "subscription_required",
+        },
+        status=status.HTTP_402_PAYMENT_REQUIRED,
+    )
+
+
+def _has_active_subscription(user) -> bool:
+    profile = getattr(user, "profile", None)
+    return bool(profile and getattr(profile, "is_subscribed", False))
+
+
 class LearningProfileView(APIView):
     """Return the authenticated user's adaptive learning profile."""
 
@@ -323,6 +338,9 @@ class TutorVoiceApiView(APIView):
         from tutor.models import TutorConversation, TutorMessage
         from tutor.services import chat, synthesize
 
+        if not _has_active_subscription(request.user):
+            return _subscription_required_response()
+
         audio = request.FILES.get("audio")
         if audio is None:
             return Response({"detail": "audio file required"}, status=400)
@@ -393,6 +411,9 @@ class TutorChatApiView(APIView):
         from .serializers import TutorChatInputSerializer
         from tutor.models import TutorConversation, TutorMessage
         from tutor.services import chat
+
+        if not _has_active_subscription(request.user):
+            return _subscription_required_response()
 
         s = TutorChatInputSerializer(data=request.data)
         s.is_valid(raise_exception=True)

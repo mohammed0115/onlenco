@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ lesson.title }} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-8">
+        <a href="{% url 'courses:course_detail' course.pk %}" class="btn btn-outline btn-sm">
+            <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+            {{ course.title }}
+        </a>
+
+        <section class="space-y-4">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="badge badge-secondary">{{ course.level.code }}</span>
+                <span class="badge badge-outline">{{ lesson.get_lesson_type_display }}</span>
+                {% if lesson.duration_minutes %}
+                    <span class="badge badge-outline">{{ lesson.duration_minutes }} {% t_either "min" "د" %}</span>
+                {% endif %}
+            </div>
+            <h1 class="font-display text-4xl font-bold">{{ lesson.title }}</h1>
+        </section>
+
+        {% if video %}
+            <section class="card overflow-hidden">
+                {% if video.kind == "youtube" or video.kind == "vimeo" %}
+                    <div class="aspect-video bg-black">
+                        <iframe src="{{ video.embed_url }}" class="w-full h-full" title="{{ lesson.title }}" allowfullscreen></iframe>
+                    </div>
+                {% elif video.kind == "file" or video.kind == "direct" %}
+                    <video class="w-full aspect-video bg-black" controls preload="metadata">
+                        <source src="{{ video.url }}">
+                    </video>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        {% if lesson.audio_file %}
+            <section class="card p-5">
+                <audio class="w-full" controls src="{{ lesson.audio_file.url }}"></audio>
+            </section>
+        {% endif %}
+
+        {% if lesson.content_html %}
+            <section class="card p-6">
+                <div class="prose max-w-none">{{ lesson.content_html|safe }}</div>
+            </section>
+        {% endif %}
+
+        {% if lesson.transcript %}
+            <section class="card p-6">
+                <h2 class="font-display text-xl font-bold mb-3">{% t_either "Transcript" "النص" %}</h2>
+                <div class="prose max-w-none text-sm text-muted-foreground">{{ lesson.transcript|linebreaks }}</div>
+            </section>
+        {% endif %}
+
+        {% if lesson.pdf_file or lesson.resources.all %}
+            <section class="card p-6">
+                <h2 class="font-display text-xl font-bold mb-4">{% t_either "Resources" "المرفقات" %}</h2>
+                <div class="space-y-3">
+                    {% if lesson.pdf_file %}
+                        <a href="{{ lesson.pdf_file.url }}" class="btn btn-outline" target="_blank" rel="noopener">
+                            <i data-lucide="file-text" class="h-4 w-4"></i>
+                            {% t_either "Open PDF" "فتح الملف" %}
+                        </a>
+                    {% endif %}
+                    {% for resource in lesson.resources.all %}
+                        {% if resource.file %}
+                            <a href="{{ resource.file.url }}" class="btn btn-outline" target="_blank" rel="noopener">
+                                <i data-lucide="paperclip" class="h-4 w-4"></i>
+                                {{ resource.title }}
+                            </a>
+                        {% elif resource.url %}
+                            <a href="{{ resource.url }}" class="btn btn-outline" target="_blank" rel="noopener">
+                                <i data-lucide="external-link" class="h-4 w-4"></i>
+                                {{ resource.title }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

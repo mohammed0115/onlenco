@@ -23,10 +23,11 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = (
     "You are an expert English language assessor using the CEFR framework "
     "(A0, A1, A2, B1, B2, C1, C2). Evaluate the learner's responses across "
-    "grammar accuracy, vocabulary range, fluency, and complexity. Return a "
-    "JSON object via the assess_level tool with: level (CEFR), written_score "
-    "(0-100), speaking_score (0-100), feedback (2-3 sentences, encouraging, "
-    "in English)."
+    "grammar accuracy, spelling, vocabulary range, sentence structure, clarity, "
+    "task completion, fluency, and complexity. Return a JSON object via the "
+    "assess_level tool. If the request includes dynamic items, include a "
+    "question_scores row for every attempt_question_id. Do not invent "
+    "pronunciation scores unless a real pronunciation scorer is provided."
 )
 
 ASSESS_TOOL = {
@@ -41,16 +42,63 @@ ASSESS_TOOL = {
                           "enum": ["A0", "A1", "A2", "B1", "B2", "C1", "C2"]},
                 "written_score": {"type": "integer"},
                 "speaking_score": {"type": "integer"},
+                "grammar_score": {"type": "integer"},
+                "vocabulary_score": {"type": "integer"},
+                "fluency_score": {"type": "integer"},
+                "overall_score": {"type": "integer"},
                 "feedback": {"type": "string"},
+                "question_scores": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "attempt_question_id": {"type": "integer"},
+                            "score": {"type": "integer"},
+                            "skill_score": {"type": "integer"},
+                            "grammar_score": {"type": "integer"},
+                            "vocabulary_score": {"type": "integer"},
+                            "fluency_score": {"type": "integer"},
+                            "feedback": {"type": "string"},
+                            "error_analysis": {"type": "object"},
+                        },
+                        "required": ["attempt_question_id", "score", "feedback"],
+                        "additionalProperties": True,
+                    },
+                },
             },
             "required": ["level", "written_score", "speaking_score", "feedback"],
-            "additionalProperties": False,
+            "additionalProperties": True,
         },
     },
 }
 
 
 def _build_user_prompt(answers: dict) -> str:
+    if answers.get("mode") == "dynamic" and answers.get("items"):
+        lines = [
+            "Learner completed a dynamic CEFR placement test.",
+            "Evaluate every item below using the question text, skill, topic, expected answer type, difficulty, and answer.",
+            "Return question_scores with one row for every attempt_question_id.",
+            "For written items evaluate grammar, spelling, vocabulary, sentence structure, clarity, and task completion.",
+            "For speaking items evaluate transcript completeness, grammar from transcript, vocabulary, clarity, and transcript-based fluency.",
+            "Do not return pronunciation_score unless a real pronunciation scorer is available.",
+            "Aggregate final written_score, speaking_score, grammar_score, vocabulary_score, fluency_score, overall_score, and level from the item scores.",
+            "",
+        ]
+        for item in answers.get("items", []):
+            lines.append(
+                f"{item.get('section', '').title()} #{item.get('order')}: "
+                f"[{item.get('code')}] skill={item.get('skill')} "
+                f"topic={item.get('topic')} type={item.get('expected_answer_type')} "
+                f"difficulty={item.get('difficulty_score')}"
+            )
+            lines.append(f"Question: {item.get('question_text', '')}")
+            if item.get("options"):
+                lines.append(f"Options: {', '.join(map(str, item.get('options') or []))}")
+            lines.append(f"Answer: {item.get('answer', '')}")
+            lines.append("")
+        return "\n".join(lines)
+
     return (
         "Learner answers:\n"
         f"1. Grammar MCQ ('She ___ to school every day'): {answers.get('q1','')}\n"

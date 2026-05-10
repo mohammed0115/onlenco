@@ -15,8 +15,11 @@ class PlacementResult(models.Model):
     )
     written_score = models.PositiveSmallIntegerField(null=True, blank=True)
     speaking_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    grammar_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    vocabulary_score = models.PositiveSmallIntegerField(null=True, blank=True)
     pronunciation_score = models.PositiveSmallIntegerField(null=True, blank=True)
     fluency_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    overall_score = models.PositiveSmallIntegerField(null=True, blank=True)
     level = models.CharField(max_length=2, choices=CEFR_CHOICES)
     feedback = models.TextField(blank=True)
     transcript = models.JSONField(default=dict)
@@ -178,6 +181,10 @@ class PlacementAttempt(models.Model):
     )
     written_score = models.PositiveSmallIntegerField(null=True, blank=True)
     speaking_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    grammar_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    vocabulary_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    fluency_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    pronunciation_score = models.PositiveSmallIntegerField(null=True, blank=True)
     overall_score = models.PositiveSmallIntegerField(null=True, blank=True)
     recommended_cefr_level = models.CharField(
         max_length=2, choices=CEFR_CHOICES, blank=True,
@@ -232,8 +239,14 @@ class PlacementAttemptQuestion(models.Model):
         upload_to="placement/attempts/%Y/%m/", blank=True, null=True,
     )
     score = models.FloatField(null=True, blank=True)
+    skill_score = models.FloatField(null=True, blank=True)
+    grammar_score = models.FloatField(null=True, blank=True)
+    vocabulary_score = models.FloatField(null=True, blank=True)
+    fluency_score = models.FloatField(null=True, blank=True)
+    pronunciation_score = models.FloatField(null=True, blank=True)
     feedback = models.TextField(blank=True)
     error_analysis = models.JSONField(default=dict, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["attempt", "section", "order", "id"]

@@ -24,6 +24,7 @@ from learning_core.models import (
     SkillMastery,
     StudentLearningProfile,
     UserError,
+    UserWeakness,
 )
 from learning_core.services.adaptive_difficulty import cefr_for_theta
 from learning_core.services.error_analyzer import analyze_text
@@ -44,21 +45,103 @@ CEFR_TO_THETA = {
     "C2": 2.5,
 }
 
+CORE_SKILL_NAMES = {
+    "grammar": "Grammar core",
+    "vocabulary": "Vocabulary core",
+    "writing": "Writing core",
+    "speaking": "Speaking core",
+    "pronunciation": "Pronunciation core",
+}
+
 
 def _seed_theta_from_cefr(level: str) -> float:
     return CEFR_TO_THETA.get(level, 0.0)
 
 
-def _ensure_skill_masteries(user) -> None:
-    """Ensure a SkillMastery row exists for each active Skill (so dashboards
-    don't show empty data on day 1)."""
-    skills = Skill.objects.filter(is_active=True)
-    rows = []
-    for skill in skills:
-        if not SkillMastery.objects.filter(user=user, skill=skill).exists():
-            rows.append(SkillMastery(user=user, skill=skill, mastery_score=0.0))
-    if rows:
-        SkillMastery.objects.bulk_create(rows)
+def _ensure_core_skills() -> dict[str, Skill]:
+    skills = {}
+    for category, name in CORE_SKILL_NAMES.items():
+        skill = (
+            Skill.objects.filter(category=category, cefr_level="", is_active=True)
+            .order_by("id")
+            .first()
+        )
+        if not skill:
+            skill, _ = Skill.objects.get_or_create(
+                name=name,
+                category=category,
+                cefr_level="",
+                defaults={"is_active": True},
+            )
+        skills[category] = skill
+    return skills
+
+
+def _skill_score_map(assessment: dict) -> dict[str, int | None]:
+    return {
+        "grammar": _score_or_none(assessment.get("grammar_score")),
+        "vocabulary": _score_or_none(assessment.get("vocabulary_score")),
+        "writing": _score_or_none(assessment.get("written_score")),
+        "speaking": _score_or_none(assessment.get("speaking_score")),
+        "pronunciation": _score_or_none(assessment.get("pronunciation_score")),
+    }
+
+
+def _score_or_none(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        return max(0, min(100, int(round(float(value)))))
+    except (TypeError, ValueError):
+        return None
+
+
+def _ensure_skill_masteries(user, assessment: dict, skills: dict[str, Skill]) -> None:
+    """Seed/update skill mastery from placement dimensions."""
+    scores = _skill_score_map(assessment)
+    for category, skill in skills.items():
+        score = scores.get(category)
+        mastery = float(score if score is not None else 0)
+        touched = score is not None
+        SkillMastery.objects.update_or_create(
+            user=user,
+            skill=skill,
+            defaults={
+                "mastery_score": mastery,
+                "attempts_count": 1 if touched else 0,
+                "correct_count": 1 if touched and mastery >= 70 else 0,
+                "wrong_count": 1 if touched and mastery < 70 else 0,
+            },
+        )
+
+
+def _seed_placement_weaknesses(user, assessment: dict, skills: dict[str, Skill]) -> None:
+    """Create placement weaknesses from low dimension scores.
+
+    Error analysis can fail or produce no typed errors. Placement dimensions
+    still give us enough signal to seed safe, transparent weakness rows.
+    """
+    scores = _skill_score_map(assessment)
+    for category in ("grammar", "vocabulary", "writing", "speaking"):
+        score = scores.get(category)
+        skill = skills.get(category)
+        if score is None or score >= 70 or skill is None:
+            continue
+        weakness = round(100 - score, 2)
+        severity = max(1.0, min(10.0, (100 - score) / 10))
+        UserWeakness.objects.update_or_create(
+            user=user,
+            skill=skill,
+            grammar_topic=None,
+            defaults={
+                "weakness_score": weakness,
+                "frequency": 1,
+                "severity_average": round(severity, 2),
+                "recency_score": 1.0,
+                "priority_score": max(25.0, weakness),
+                "status": "active",
+            },
+        )
 
 
 def build_diagnostic_profile(user, answers: dict, assessment: dict | None = None) -> dict:
@@ -82,18 +165,33 @@ def build_diagnostic_profile(user, answers: dict, assessment: dict | None = None
         **(profile.metadata or {}),
         "placement": {
             "level": cefr_level,
+            "initial_cefr_level": cefr_level,
             "written_score": written_score,
             "speaking_score": speaking_score,
+            "grammar_score": raw.get("grammar_score"),
+            "vocabulary_score": raw.get("vocabulary_score"),
+            "fluency_score": raw.get("fluency_score"),
+            "pronunciation_score": raw.get("pronunciation_score"),
+            "overall_score": raw.get("overall_score"),
+            "pronunciation_available": bool(raw.get("pronunciation_score") is not None),
         },
     }
     profile.save(update_fields=[
         "current_cefr_level", "theta_score", "metadata", "updated_at",
     ])
 
-    # 2. Error analysis on free-form answers (q3 = hobbies, q4 = past)
-    written_text = " ".join(
-        [str(answers.get("q3", "") or ""), str(answers.get("q4", "") or "")]
-    ).strip()
+    # 2. Error analysis on free-form written answers.
+    if answers.get("mode") == "dynamic":
+        written_text = " ".join(
+            str(item.get("answer") or "")
+            for item in (answers.get("items") or [])
+            if item.get("section") == "written"
+            and item.get("expected_answer_type") != "mcq"
+        ).strip()
+    else:
+        written_text = " ".join(
+            [str(answers.get("q3", "") or ""), str(answers.get("q4", "") or "")]
+        ).strip()
     if written_text:
         try:
             analyze_text(user, written_text, source_type="placement")
@@ -106,11 +204,19 @@ def build_diagnostic_profile(user, answers: dict, assessment: dict | None = None
     except Exception as e:
         logger.warning("Diagnostic engine: weakness update failed: %s", e)
 
-    # 4. Initialize skill masteries
+    # 4. Initialize adaptive learning artifacts from placement dimensions.
     try:
-        _ensure_skill_masteries(user)
+        skills = _ensure_core_skills()
+        _ensure_skill_masteries(user, raw, skills)
+        _seed_placement_weaknesses(user, raw, skills)
     except Exception as e:
-        logger.warning("Diagnostic engine: mastery init failed: %s", e)
+        logger.warning("Diagnostic engine: placement learning seed failed: %s", e)
+
+    try:
+        from learning_core.services.recommendation_engine import generate_recommendations
+        generate_recommendations(user)
+    except Exception as e:
+        logger.warning("Diagnostic engine: recommendation generation failed: %s", e)
 
     weaknesses = get_top_weaknesses(user, limit=5)
     user_errors = list(

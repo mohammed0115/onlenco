@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
+from courses.models import Course, CourseLevel, Lesson
 from learning_core.models import (
     AdaptiveExercise,
     ExerciseAttempt,
@@ -115,3 +116,31 @@ class RecommendationEngineTests(TestCase):
         recs = generate_recommendations(self.user)
         types = {r.recommendation_type for r in recs}
         self.assertNotIn("ask_tutor", types)
+
+    def test_course_recommendation_uses_published_course_for_student_level(self):
+        self.user.profile.cefr_level = "A2"
+        self.user.profile.save(update_fields=["cefr_level"])
+        level = CourseLevel.objects.create(code="A2", name="A2", order=2)
+        course = Course.objects.create(
+            title="A2 Course",
+            slug="a2-course",
+            level=level,
+            status="published",
+            is_active=True,
+            is_free=True,
+        )
+        Lesson.objects.create(
+            course=course,
+            title="A2 Lesson",
+            status="published",
+            is_active=True,
+        )
+
+        recs = generate_recommendations(self.user)
+        course_rec = next(
+            r for r in recs
+            if r.recommendation_type == "continue_lesson"
+            and r.metadata.get("course_id") == course.pk
+        )
+
+        self.assertEqual(course_rec.metadata["course_level"], "A2")

@@ -4,10 +4,11 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-from rest_framework.authtoken.views import obtain_auth_token
+
+from .auth import ObtainExpiringAuthToken
 
 urlpatterns = [
-    path("auth/token/", obtain_auth_token, name="api_token_auth"),
+    path("auth/token/", ObtainExpiringAuthToken.as_view(), name="api_token_auth"),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger_ui"),
     path("redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),

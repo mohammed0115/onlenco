@@ -8,7 +8,10 @@ from .models import (
 
 @admin.register(PlacementResult)
 class PlacementResultAdmin(admin.ModelAdmin):
-    list_display = ("user", "level", "written_score", "speaking_score", "created_at")
+    list_display = (
+        "user", "level", "overall_score", "written_score", "speaking_score",
+        "grammar_score", "vocabulary_score", "created_at",
+    )
     list_filter = ("level",)
     search_fields = ("user__email", "user__username", "feedback")
     readonly_fields = ("created_at",)
@@ -48,8 +51,12 @@ class PlacementQuestionAdmin(admin.ModelAdmin):
 class PlacementAttemptQuestionInline(admin.TabularInline):
     model = PlacementAttemptQuestion
     extra = 0
-    fields = ("section", "order", "question", "score", "user_answer_text",
-              "transcript")
+    fields = (
+        "section", "order", "question", "score", "skill_score",
+        "grammar_score", "vocabulary_score", "fluency_score",
+        "pronunciation_score", "completed_at", "user_answer_text",
+        "transcript",
+    )
     readonly_fields = ("section", "order", "question")
     show_change_link = True
 
@@ -58,7 +65,8 @@ class PlacementAttemptQuestionInline(admin.TabularInline):
 class PlacementAttemptAdmin(admin.ModelAdmin):
     list_display = (
         "id", "user", "status", "recommended_cefr_level",
-        "written_score", "speaking_score", "overall_score", "started_at",
+        "written_score", "speaking_score", "grammar_score",
+        "vocabulary_score", "fluency_score", "overall_score", "started_at",
     )
     list_filter = ("status", "recommended_cefr_level")
     search_fields = ("user__email", "user__username")
@@ -69,7 +77,11 @@ class PlacementAttemptAdmin(admin.ModelAdmin):
 
 @admin.register(PlacementAttemptQuestion)
 class PlacementAttemptQuestionAdmin(admin.ModelAdmin):
-    list_display = ("id", "attempt", "section", "order", "question", "score")
+    list_display = (
+        "id", "attempt", "section", "order", "question", "score",
+        "grammar_score", "vocabulary_score", "fluency_score",
+        "pronunciation_score", "completed_at",
+    )
     list_filter = ("section",)
     search_fields = ("question__code", "user_answer_text", "transcript")
     raw_id_fields = ("attempt", "question")

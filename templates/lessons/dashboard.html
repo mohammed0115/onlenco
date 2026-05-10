@@ -85,28 +85,25 @@
         </div>
         {% endif %}
 
-        {% comment %}
-          Beginner-onboarding hero — shown only on first dashboard load
-          for a beginner-path user with no LessonProgress rows yet.
-          Disappears once the student attempts a lesson.
-        {% endcomment %}
-        {% if learning_summary.beginner_first_lesson %}
-        <a href="{% url 'lesson_detail' learning_summary.beginner_first_lesson.pk %}"
+        {% if learning_plan.recommended_course %}
+        <a href="{{ learning_plan.continue_url }}"
            class="card p-7 block transition-smooth hover:shadow-elegant hover:-translate-y-1"
            style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; border: 0;"
-           data-testid="beginner-first-lesson-hero">
+           data-testid="recommended-course-hero">
             <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0">
                     <div class="text-xs uppercase tracking-widest" style="opacity:0.8">
-                        {% t_either "Welcome to Onlenco" "مرحبًا بك في Onlenco" %}
+                        {% t_either "Continue learning" "تابع التعلم" %}
                     </div>
                     <div class="font-display text-2xl font-bold mt-1 mb-1">
-                        {% t_either "Your first lesson is ready" "درسك الأول جاهز" %}
+                        {{ learning_plan.recommended_course.title }}
                     </div>
                     <div class="text-sm" style="opacity:0.92">
-                        {{ learning_summary.beginner_first_lesson.title }}
-                        ·
-                        {% t_either "Tap to start." "اضغط للبدء." %}
+                        {% if learning_plan.recommended_lesson %}
+                            {{ learning_plan.recommended_lesson.title }}
+                        {% else %}
+                            {% t_either "Your course is ready." "الكورس جاهز." %}
+                        {% endif %}
                     </div>
                 </div>
                 <div class="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
@@ -363,7 +360,7 @@
         <section class="grid lg:grid-cols-3 gap-4">
             <div class="card p-5">
                 <div class="text-sm text-muted-foreground">{% t_either "My English level" "مستواي بالإنجليزية" %}</div>
-                <div class="text-3xl font-bold mt-1">{{ learning_summary.cefr_level|default:"—" }}</div>
+                <div class="text-3xl font-bold mt-1">{{ learning_plan.current_level|default:learning_summary.cefr_level|default:"—" }}</div>
                 {% if learning_summary.exercise_success_rate is not None %}
                 <div class="text-xs text-muted-foreground mt-2">
                     {% t_either "Exercise success rate" "نسبة نجاح التمارين" %}: {{ learning_summary.exercise_success_rate }}%
@@ -376,28 +373,34 @@
             </div>
 
             <div class="card p-5">
-                <div class="text-sm text-muted-foreground mb-2">{% t_either "My top weaknesses" "أهم نقاط ضعفي" %}</div>
-                {% if learning_summary.top_weaknesses %}
-                <ul class="space-y-1 text-sm">
-                    {% for w in learning_summary.top_weaknesses %}
-                    <li class="flex justify-between"><span>{{ w.label }}</span><span class="text-muted-foreground">p={{ w.priority }}</span></li>
-                    {% endfor %}
-                </ul>
+                <div class="text-sm text-muted-foreground mb-2">{% t_either "Recommended course" "الكورس الموصى به" %}</div>
+                {% if learning_plan.recommended_course %}
+                    <div class="font-semibold">{{ learning_plan.recommended_course.title }}</div>
+                    <div class="text-xs text-muted-foreground mt-1">
+                        {{ learning_plan.recommended_course.level.code }}
+                        · {{ learning_plan.progress_percentage|floatformat:0 }}% {% t_either "progress" "تقدم" %}
+                    </div>
+                    <div class="h-2 rounded-full bg-muted overflow-hidden mt-3">
+                        <div class="h-full bg-primary" style="width: {{ learning_plan.progress_percentage|floatformat:0 }}%;"></div>
+                    </div>
                 {% else %}
-                <div class="text-sm text-muted-foreground">{% t_either "No weaknesses tracked yet — keep practising!" "لا توجد نقاط ضعف مسجلة بعد — استمر في التدرب!" %}</div>
+                    <div class="text-sm text-muted-foreground">{% t_either "No published course is available for your level yet." "لا يوجد كورس منشور لمستواك بعد." %}</div>
                 {% endif %}
             </div>
 
             <div class="card p-5">
-                <div class="text-sm text-muted-foreground mb-2">{% t_either "Recommended for you" "موصى لك" %}</div>
-                {% if learning_summary.recommendations %}
-                <ul class="space-y-1 text-sm">
-                    {% for r in learning_summary.recommendations %}
-                    <li class="flex justify-between"><span>{{ r.title }}</span></li>
-                    {% endfor %}
-                </ul>
+                <div class="text-sm text-muted-foreground mb-2">{% t_either "Next lesson" "الدرس التالي" %}</div>
+                {% if learning_plan.recommended_lesson %}
+                    <div class="font-semibold">{{ learning_plan.recommended_lesson.title }}</div>
+                    <div class="text-xs text-muted-foreground mt-1">
+                        {{ learning_plan.quiz_status.label }}
+                    </div>
+                    <a href="{{ learning_plan.continue_url }}" class="btn btn-hero btn-sm mt-4">
+                        <i data-lucide="play" class="h-4 w-4"></i>
+                        {% t_either "Continue learning" "تابع التعلم" %}
+                    </a>
                 {% else %}
-                <div class="text-sm text-muted-foreground">{% t_either "Recommendations will appear after a few exercises." "ستظهر التوصيات بعد بعض التمارين." %}</div>
+                    <div class="text-sm text-muted-foreground">{% t_either "Lessons will appear after the course is published." "ستظهر الدروس بعد نشر الكورس." %}</div>
                 {% endif %}
             </div>
         </section>
@@ -418,64 +421,51 @@
         {% endif %}
         {% endif %}
 
-        {# Lessons grid #}
-        <div>
+        {% if student_courses %}
+        <section>
             <div class="flex items-center justify-between mb-5">
-                <h2 class="font-display text-2xl font-bold">{% t "dash.lessons" %}</h2>
-                {% if not is_subscribed %}
-                <span class="badge badge-outline gap-1.5">
-                    <i data-lucide="lock" class="h-3 w-3"></i> {% t "dash.locked" %}
-                </span>
-                {% endif %}
+                <h2 class="font-display text-2xl font-bold">{% t_either "Courses" "الكورسات" %}</h2>
             </div>
-
-            {% if lessons %}
             <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for l in lessons %}
-                <a href="{% url 'lesson_detail' l.pk %}" class="card gradient-card p-6 transition-smooth block relative {% if is_subscribed %}hover:shadow-elegant hover:-translate-y-1{% else %}opacity-75{% endif %}">
-                    {% if l.progress and l.progress.is_complete %}
-                        <span class="badge badge-outline" style="position:absolute; top:1rem; inset-inline-end:1rem; border-color:hsl(150 50% 70%); background:hsl(150 50% 96%); color:hsl(150 60% 25%)">
-                            <i data-lucide="award" class="h-3 w-3"></i> {% t "lesson.completed" %}
-                        </span>
-                    {% endif %}
+                {% for course in student_courses %}
+                <a href="{% url 'courses:course_detail' course.pk %}" class="card gradient-card p-6 transition-smooth block relative hover:shadow-elegant hover:-translate-y-1">
                     <div class="flex items-start justify-between mb-3">
                         <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
-                            {% if l.skill == "reading" %}<i data-lucide="book-open" class="h-5 w-5 text-primary-foreground"></i>
-                            {% elif l.skill == "writing" %}<i data-lucide="pen-line" class="h-5 w-5 text-primary-foreground"></i>
-                            {% elif l.skill == "listening" %}<i data-lucide="headphones" class="h-5 w-5 text-primary-foreground"></i>
-                            {% elif l.skill == "speaking" %}<i data-lucide="mic" class="h-5 w-5 text-primary-foreground"></i>
-                            {% else %}<i data-lucide="book-open" class="h-5 w-5 text-primary-foreground"></i>{% endif %}
+                            <i data-lucide="layers" class="h-5 w-5 text-primary-foreground"></i>
                         </div>
-                        {% if is_subscribed %}
-                            <span class="badge badge-secondary text-xs">{{ l.level }}</span>
-                        {% else %}
-                            <i data-lucide="lock" class="h-4 w-4 text-muted-foreground"></i>
-                        {% endif %}
+                        <span class="badge badge-secondary text-xs">{{ course.level.code }}</span>
                     </div>
-                    <h3 class="font-display text-lg font-bold mb-1">{{ l.title }}</h3>
-                    <p class="text-sm text-muted-foreground mb-3">{{ l.description|truncatewords:18 }}</p>
+                    <h3 class="font-display text-lg font-bold mb-1">{{ course.title }}</h3>
+                    {% if course.description %}
+                        <p class="text-sm text-muted-foreground mb-3">{{ course.description|truncatewords:18 }}</p>
+                    {% endif %}
                     <div class="flex items-center justify-between text-xs text-muted-foreground">
-                        <span class="capitalize">{{ l.skill }}</span>
-                        <span>{{ l.duration_minutes }} {% t_either "min" "د" %}</span>
+                        <span>
+                            {{ course.published_lessons_count }}
+                            {% t_either "lessons" "دروس" %}
+                        </span>
+                        {% if course.student_enrollment %}
+                            <span>{{ course.student_enrollment.progress_percentage|floatformat:0 }}%</span>
+                        {% elif course.student_has_access %}
+                            <span>{% t_either "Ready" "جاهز" %}</span>
+                        {% else %}
+                            <span class="inline-flex items-center gap-1">
+                                <i data-lucide="lock" class="h-3 w-3"></i>
+                                {% t_either "Locked" "مقفل" %}
+                            </span>
+                        {% endif %}
                     </div>
                 </a>
                 {% endfor %}
             </div>
-            {% else %}
-            <div class="card p-10 text-center text-muted-foreground">
-                {% t_either "No lessons available yet — check back soon!" "لا توجد دروس متاحة بعد — تابع لاحقاً!" %}
-            </div>
-            {% endif %}
+        </section>
+        {% endif %}
 
-            {% if not is_subscribed %}
-            <div class="mt-6 text-center">
-                <a href="{% url 'subscribe' %}" class="btn btn-hero btn-lg">
-                    {% t "dash.subscribe" %}
-                    <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
-                </a>
-            </div>
-            {% endif %}
+        {% if not student_courses and profile.onboarding_completed %}
+        <div class="card p-10 text-center text-muted-foreground">
+            {% t_either "No published courses are available for your level yet — check back soon!" "لا توجد كورسات منشورة لمستواك بعد — تابع لاحقاً!" %}
         </div>
+        {% endif %}
     </main>
 </div>
 

@@ -49,7 +49,17 @@ def generate_recommendations(user) -> list[LearningRecommendation]:
     candidates: list[dict] = []
     seen_keys: set[tuple] = set()
 
-    def _add(*, type_, title, description, priority, skill=None, weakness=None, key=None):
+    def _add(
+        *,
+        type_,
+        title,
+        description,
+        priority,
+        skill=None,
+        weakness=None,
+        key=None,
+        metadata=None,
+    ):
         key = key or (type_, title)
         if key in seen_keys:
             return
@@ -62,10 +72,38 @@ def generate_recommendations(user) -> list[LearningRecommendation]:
                 "priority": float(priority),
                 "related_skill": skill,
                 "related_weakness": weakness,
+                "metadata": metadata or {},
             }
         )
 
-    # 1. From active weaknesses
+    # 1. From the published courses catalog.
+    try:
+        from courses.services.student_flow import (
+            first_published_lesson_for_course,
+            recommended_course_for_user,
+        )
+        course = recommended_course_for_user(user)
+        lesson = first_published_lesson_for_course(course)
+        if course:
+            metadata = {
+                "source": "learning_core",
+                "course_id": course.id,
+                "course_level": course.level.code,
+            }
+            if lesson:
+                metadata["lesson_id"] = lesson.id
+            _add(
+                type_="continue_lesson",
+                title=f"Continue {course.title}",
+                description=f"Your next course at {course.level.code} is ready.",
+                priority=90.0,
+                key=("continue_course", course.id),
+                metadata=metadata,
+            )
+    except Exception:
+        pass
+
+    # 2. From active weaknesses
     weaknesses = get_top_weaknesses(user, limit=5)
     for w in weaknesses:
         topic_label = (
@@ -98,7 +136,7 @@ def generate_recommendations(user) -> list[LearningRecommendation]:
                 key=("practice_skill", w.id),
             )
 
-    # 2. From low-mastery skills (skills the user has touched but is weak in)
+    # 3. From low-mastery skills (skills the user has touched but is weak in)
     low_masteries: Iterable[SkillMastery] = (
         SkillMastery.objects.filter(user=user, mastery_score__lt=LOW_MASTERY_THRESHOLD, attempts_count__gt=0)
         .select_related("skill")
@@ -116,7 +154,7 @@ def generate_recommendations(user) -> list[LearningRecommendation]:
             key=("practice_skill_mastery", m.skill_id),
         )
 
-    # 3. Recent inactivity → ask tutor
+    # 4. Recent inactivity → ask tutor
     last_attempt = (
         ExerciseAttempt.objects.filter(user=user).order_by("-created_at").first()
     )
@@ -135,7 +173,7 @@ def generate_recommendations(user) -> list[LearningRecommendation]:
             key=("ask_tutor", "inactivity"),
         )
 
-    # 4. Placement retake suggestion if 30+ days old
+    # 5. Placement retake suggestion if 30+ days old
     age = _placement_age_days(user)
     if age is not None and age >= PLACEMENT_RETAKE_DAYS:
         _add(
@@ -148,7 +186,7 @@ def generate_recommendations(user) -> list[LearningRecommendation]:
             key=("retake_placement", "stale"),
         )
 
-    # 5. Always include a fallback "continue_lesson" if we still don't have enough
+    # 6. Always include a fallback "continue_lesson" if we still don't have enough
     if len(candidates) < MIN_RECS:
         _add(
             type_="continue_lesson",
@@ -176,6 +214,7 @@ def generate_recommendations(user) -> list[LearningRecommendation]:
                 related_skill=c["related_skill"],
                 related_weakness=c["related_weakness"],
                 status="pending",
+                metadata=c["metadata"],
             )
             for c in chosen
         ]

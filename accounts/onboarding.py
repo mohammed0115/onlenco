@@ -153,6 +153,13 @@ def _seed_starter_recommendation(user) -> None:
     try:
         if LearningRecommendation.objects.filter(user=user).exists():
             return
+        try:
+            from courses.services.student_flow import seed_beginner_course_recommendation
+            seed_beginner_course_recommendation(user)
+        except Exception as e:
+            logger.warning("beginner onboarding: course rec seed failed: %s", e)
+        if LearningRecommendation.objects.filter(user=user).exists():
+            return
         LearningRecommendation.objects.create(
             user=user,
             recommendation_type="continue_lesson",

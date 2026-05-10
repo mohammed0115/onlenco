@@ -12,12 +12,13 @@ User = get_user_model()
 
 
 def _png_bytes(size: int = 200) -> bytes:
-    # 1x1 PNG with padding to reach desired size for size validation tests
-    base = (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0eIDAT"
-        b"\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa3'\x99\x9d\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
+    from PIL import Image
+
+    # 1x1 PNG with padding to reach desired size for size validation tests.
+    # Build it through Pillow so DRF's ImageField sees a genuinely valid image.
+    buf = BytesIO()
+    Image.new("RGBA", (1, 1), (255, 255, 255, 0)).save(buf, format="PNG")
+    base = buf.getvalue()
     if size > len(base):
         return base + b"\x00" * (size - len(base))
     return base
@@ -173,3 +174,58 @@ class PaymentApiTests(TestCase):
         data = resp.json()
         results = data["results"] if isinstance(data, dict) and "results" in data else data
         self.assertEqual(len(results), 0)
+
+    def test_create_submission_calculates_amount_server_side(self):
+        PaymentMethodAccount.objects.filter(method="bankak").update(is_active=True)
+        image = SimpleUploadedFile("x.png", _png_bytes(), content_type="image/png")
+
+        resp = self.client.post(
+            reverse("payments_api:submissions"),
+            data={
+                "plan": "monthly",
+                "method": "bankak",
+                "transaction_reference": "api-ref",
+                "amount_sdg": 1,
+                "screenshot": image,
+            },
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        sub = PaymentSubmission.objects.get(user=self.user)
+        self.assertEqual(sub.amount_sdg, 30000)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.subscription_status, "pending")
+
+    def test_create_submission_rejects_inactive_method(self):
+        PaymentMethodAccount.objects.filter(method="bankak").update(is_active=False)
+        image = SimpleUploadedFile("x.png", _png_bytes(), content_type="image/png")
+
+        resp = self.client.post(
+            reverse("payments_api:submissions"),
+            data={
+                "plan": "monthly",
+                "method": "bankak",
+                "transaction_reference": "api-ref",
+                "screenshot": image,
+            },
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("method", resp.json())
+
+    def test_create_submission_rejects_non_image_upload(self):
+        PaymentMethodAccount.objects.filter(method="bankak").update(is_active=True)
+        bad = SimpleUploadedFile("x.pdf", b"%PDF-1.4\n%fake", content_type="application/pdf")
+
+        resp = self.client.post(
+            reverse("payments_api:submissions"),
+            data={
+                "plan": "monthly",
+                "method": "bankak",
+                "transaction_reference": "api-ref",
+                "screenshot": bad,
+            },
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("screenshot", resp.json())

@@ -56,7 +56,15 @@ class PaymentSubmissionListCreateView(generics.ListCreateAPIView):
         return PaymentSubmission.objects.filter(user=self.request.user).order_by("-created_at")
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user, status="pending")
+        submission = serializer.save(
+            user=self.request.user,
+            status="pending",
+            amount_sdg=PLAN_DETAILS[serializer.validated_data["plan"]]["price_sdg"],
+        )
+        profile = self.request.user.profile
+        profile.subscription_status = "pending"
+        profile.save(update_fields=["subscription_status"])
+        return submission
 
 
 class CurrentSubscriptionView(APIView):

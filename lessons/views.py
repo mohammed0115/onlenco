@@ -31,31 +31,10 @@ def _to_embed_url(url: str) -> str:
 
 @login_required
 def dashboard(request):
-    """Student dashboard. Shows the placement-test prompt (if not yet
-    taken), the lesson grid, and a subscribe CTA when the student isn't
-    on an active plan."""
+    """Student dashboard backed by the courses app learning catalog."""
 
     profile = request.user.profile
-    qs = Lesson.objects.all()
-
-    # If the learner has a CEFR level, surface their level + the next two
-    # levels so they can see the path forward without overwhelming them.
-    if profile.cefr_level:
-        order = ["A0", "A1", "A2", "B1", "B2", "C1", "C2"]
-        try:
-            i = order.index(profile.cefr_level)
-            visible = order[i:i + 3]
-            qs = qs.filter(level__in=visible)
-        except ValueError:
-            pass
-
-    lessons = list(qs)
-    progress_map = {
-        p.lesson_id: p
-        for p in LessonProgress.objects.filter(user=request.user, lesson__in=lessons)
-    }
-    for l in lessons:
-        l.progress = progress_map.get(l.id)
+    lessons = []
 
     next_club_event = None
     next_club_rsvp = None
@@ -97,32 +76,21 @@ def dashboard(request):
         "recent_errors": [],
         "recommendations": [],
         "exercise_success_rate": None,
-        # Hero card for beginners with no progress yet — set below.
         "beginner_first_lesson": None,
     }
-
-    # Day-1 hero for beginner-path users: surface the first lesson as a
-    # full-bleed card so the dashboard isn't a wall of empty grids. Skip
-    # for placement-test users (they get the recommendations engine).
-    if (
-        getattr(profile, "onboarding_path", "") == "beginner_start"
-        and not LessonProgress.objects.filter(user=request.user).exists()
-    ):
-        try:
-            from accounts.onboarding import first_beginner_lesson
-            learning_summary["beginner_first_lesson"] = first_beginner_lesson()
-        except Exception:
-            import logging
-            logging.getLogger(__name__).exception("beginner first-lesson lookup failed")
 
     try:
         from learning_core.models import (
             ExerciseAttempt,
             LearningRecommendation,
+            StudentLearningProfile,
             UserError,
         )
         from learning_core.services.weakness_engine import get_top_weaknesses
 
+        learning_profile = StudentLearningProfile.objects.filter(user=request.user).first()
+        if learning_profile and learning_profile.current_cefr_level:
+            learning_summary["cefr_level"] = learning_profile.current_cefr_level
         top = get_top_weaknesses(request.user, limit=3)
         learning_summary["top_weaknesses"] = [
             {
@@ -155,10 +123,24 @@ def dashboard(request):
         logging.getLogger(__name__).exception("Dashboard learning summary failed")
 
     motivation_widget = _build_motivation_widget(request.user)
+    student_courses = []
+    learning_plan = {}
+    try:
+        from courses.services.student_flow import (
+            dashboard_courses_for_user,
+            dashboard_learning_plan_for_user,
+        )
+        student_courses = dashboard_courses_for_user(request.user)
+        learning_plan = dashboard_learning_plan_for_user(request.user)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Dashboard course lookup failed")
 
     return render(request, "lessons/dashboard.html", {
         "profile": profile,
         "lessons": lessons,
+        "student_courses": student_courses,
+        "learning_plan": learning_plan,
         "is_subscribed": profile.is_subscribed,
         "next_club_event": next_club_event,
         "next_club_rsvp": next_club_rsvp,

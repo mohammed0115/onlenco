@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from rest_framework.authtoken.models import Token
 
@@ -35,6 +36,21 @@ class TokenAuthTests(TestCase):
         )
         self.assertEqual(r.status_code, 200)
 
+    @override_settings(API_TOKEN_MAX_AGE_DAYS=30)
+    def test_expired_token_is_rejected(self):
+        u = User.objects.create_user(username="oldtoken", password="pw")
+        token = Token.objects.create(user=u)
+        Token.objects.filter(pk=token.pk).update(
+            created=timezone.now() - timezone.timedelta(days=31)
+        )
+
+        r = self.client.get(
+            reverse("learning_api:profile"), HTTP_AUTHORIZATION=f"Token {token.key}"
+        )
+
+        self.assertEqual(r.status_code, 401)
+        self.assertFalse(Token.objects.filter(pk=token.pk).exists())
+
 
 @override_settings(AI_API_KEY="")
 class OpenAPISchemaTests(TestCase):
@@ -51,7 +67,23 @@ class OpenAPISchemaTests(TestCase):
 class TutorAPITests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="t", password="pw")
+        self.user.profile.subscription_status = "active"
+        self.user.profile.subscription_expires_at = timezone.now() + timezone.timedelta(days=30)
+        self.user.profile.save(update_fields=["subscription_status", "subscription_expires_at"])
         self.client.force_login(self.user)
+
+    def test_tutor_chat_requires_subscription(self):
+        self.user.profile.subscription_status = "inactive"
+        self.user.profile.subscription_expires_at = None
+        self.user.profile.save(update_fields=["subscription_status", "subscription_expires_at"])
+
+        r = self.client.post(
+            reverse("learning_api:tutor_chat"),
+            data={"message": "Hello tutor", "topic": "greetings"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(r.status_code, 402)
 
     def test_tutor_chat_creates_conversation_and_returns_reply(self):
         r = self.client.post(
@@ -186,7 +218,19 @@ class SpeakingPersistenceTests(TestCase):
 class TutorVoiceApiTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="tv", password="pw")
+        self.user.profile.subscription_status = "active"
+        self.user.profile.subscription_expires_at = timezone.now() + timezone.timedelta(days=30)
+        self.user.profile.save(update_fields=["subscription_status", "subscription_expires_at"])
         self.client.force_login(self.user)
+
+    def test_voice_endpoint_requires_subscription(self):
+        self.user.profile.subscription_status = "inactive"
+        self.user.profile.subscription_expires_at = None
+        self.user.profile.save(update_fields=["subscription_status", "subscription_expires_at"])
+
+        r = self.client.post(reverse("learning_api:tutor_voice"))
+
+        self.assertEqual(r.status_code, 402)
 
     def test_voice_endpoint_rejects_missing_audio(self):
         r = self.client.post(reverse("learning_api:tutor_voice"))

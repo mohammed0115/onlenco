@@ -8,6 +8,7 @@ from .models import (
 )
 from .services import assess
 from .services.diagnostic_engine import build_diagnostic_profile
+from .services.dynamic_scoring import score_placement_attempt
 from .services.placement_question_selector import create_placement_attempt
 
 
@@ -265,30 +266,24 @@ def _score_and_finalise(request, attempt: PlacementAttempt) -> None:
     import logging
     log = logging.getLogger(__name__)
 
-    written_qs  = list(attempt.questions.filter(section="written").select_related("question"))
-    speaking_qs = list(attempt.questions.filter(section="speaking").select_related("question"))
+    result = score_placement_attempt(attempt, assessor=assess)
 
-    # Build a {qN: text} payload the legacy assessor understands. We send
-    # 4 writtens + 1 spoken transcript (concatenated speaking answers)
-    # to stay within the existing prompt shape.
-    answers = {}
-    for i, aq in enumerate(written_qs[:4], start=1):
-        answers[f"q{i}"] = aq.user_answer_text or ""
-    answers["q5"] = "  ".join(aq.transcript or "" for aq in speaking_qs).strip()
-
-    try:
-        result = assess(answers)
-    except Exception:
-        log.exception("placement: AI assess crashed; using fallback")
-        result = _rule_based_score(attempt)
-
-    written_score  = int(result.get("written_score") or 0)
+    written_score = int(result.get("written_score") or 0)
     speaking_score = int(result.get("speaking_score") or 0)
-    level = result.get("level") or _rule_based_score(attempt)["level"]
+    grammar_score = result.get("grammar_score")
+    vocabulary_score = result.get("vocabulary_score")
+    fluency_score = result.get("fluency_score")
+    pronunciation_score = result.get("pronunciation_score")
+    overall_score = int(result.get("overall_score") or 0)
+    level = result.get("recommended_cefr_level") or result.get("level") or "A1"
 
-    attempt.written_score  = written_score
+    attempt.written_score = written_score
     attempt.speaking_score = speaking_score
-    attempt.overall_score  = (written_score + speaking_score) // 2
+    attempt.grammar_score = grammar_score
+    attempt.vocabulary_score = vocabulary_score
+    attempt.fluency_score = fluency_score
+    attempt.pronunciation_score = pronunciation_score
+    attempt.overall_score = overall_score
     attempt.recommended_cefr_level = level
     attempt.feedback = result.get("feedback", "") or ""
     attempt.status = "completed"
@@ -300,21 +295,28 @@ def _score_and_finalise(request, attempt: PlacementAttempt) -> None:
         level=level,
         written_score=written_score,
         speaking_score=speaking_score,
+        grammar_score=grammar_score,
+        vocabulary_score=vocabulary_score,
+        fluency_score=fluency_score,
+        pronunciation_score=pronunciation_score,
+        overall_score=overall_score,
         feedback=result.get("feedback", "") or "",
-        transcript={**{f"q{i}": (aq.user_answer_text or "")
-                       for i, aq in enumerate(written_qs[:4], start=1)},
-                    "q5": answers["q5"]},
+        transcript=result.get("transcript") or {},
     )
     attempt.result = placement_result
     attempt.save(update_fields=[
-        "written_score", "speaking_score", "overall_score",
+        "written_score", "speaking_score", "grammar_score",
+        "vocabulary_score", "fluency_score", "pronunciation_score",
+        "overall_score",
         "recommended_cefr_level", "feedback", "status", "completed_at", "result",
     ])
 
     profile = request.user.profile
     profile.cefr_level = level
+    if not profile.initial_cefr_level:
+        profile.initial_cefr_level = level
     profile.placement_completed = True
-    profile.save(update_fields=["cefr_level", "placement_completed"])
+    profile.save(update_fields=["cefr_level", "initial_cefr_level", "placement_completed"])
 
     try:
         from accounts.onboarding import complete_placement_onboarding
@@ -322,37 +324,15 @@ def _score_and_finalise(request, attempt: PlacementAttempt) -> None:
     except Exception:
         log.exception("complete_placement_onboarding failed")
     try:
-        build_diagnostic_profile(request.user, answers, assessment=result)
+        build_diagnostic_profile(
+            request.user,
+            result.get("diagnostic_answers") or {},
+            assessment=result,
+        )
     except Exception:
         log.exception("Diagnostic engine failed")
-
-
-def _rule_based_score(attempt: PlacementAttempt) -> dict:
-    """Deterministic fallback: score by answer length + difficulty proxy.
-
-    Used when the AI provider is unreachable. We never crash the
-    student's onboarding flow on an upstream outage.
-    """
-    written_qs  = attempt.questions.filter(section="written").select_related("question")
-    speaking_qs = attempt.questions.filter(section="speaking").select_related("question")
-    written_chars = sum(len(aq.user_answer_text or "") for aq in written_qs)
-    speaking_chars = sum(len(aq.transcript or "") for aq in speaking_qs)
-
-    written_score  = max(10, min(80, written_chars // 6))
-    speaking_score = max(10, min(80, speaking_chars // 8))
-    overall = (written_score + speaking_score) // 2
-
-    if overall < 16:   level = "A0"
-    elif overall < 31: level = "A1"
-    elif overall < 46: level = "A2"
-    elif overall < 61: level = "B1"
-    elif overall < 76: level = "B2"
-    elif overall < 91: level = "C1"
-    else:              level = "C2"
-
-    return {
-        "level": level,
-        "written_score": written_score,
-        "speaking_score": speaking_score,
-        "feedback": "Auto-scored — AI feedback unavailable. Keep practising daily.",
-    }
+    try:
+        from courses.services.student_flow import seed_level_course_recommendation
+        seed_level_course_recommendation(request.user, level, source="placement")
+    except Exception:
+        log.exception("Placement course recommendation failed")

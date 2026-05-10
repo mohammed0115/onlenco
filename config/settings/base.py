@@ -82,8 +82,8 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "core.authentication.ExpiringTokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PERMISSION_CLASSES": [
@@ -104,6 +104,8 @@ REST_FRAMEWORK = {
         "ai_placement": "10/hour",
     },
 }
+
+API_TOKEN_MAX_AGE_DAYS = int(env_get("API_TOKEN_MAX_AGE_DAYS", "30") or 30)
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Onlenco API",

@@ -3,6 +3,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import CEFR_CHOICES
+from courses.validators import validate_document, validate_image, validate_video_url
 
 
 CATEGORY_CHOICES = [
@@ -20,8 +21,14 @@ class Book(models.Model):
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
     level = models.CharField(max_length=2, choices=CEFR_CHOICES)
     summary = models.TextField(blank=True)
-    cover = models.ImageField(upload_to="library/covers/", blank=True, null=True)
-    pdf = models.FileField(upload_to="library/pdfs/", blank=True, null=True)
+    cover = models.ImageField(
+        upload_to="library/covers/", blank=True, null=True,
+        validators=[validate_image],
+    )
+    pdf = models.FileField(
+        upload_to="library/pdfs/", blank=True, null=True,
+        validators=[validate_document],
+    )
     video_url = models.URLField(blank=True)
     published_at = models.DateField(blank=True, null=True)
     is_published = models.BooleanField(default=True)
@@ -34,6 +41,11 @@ class Book(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.level})"
+
+    def clean(self):
+        super().clean()
+        if self.video_url:
+            validate_video_url(self.video_url)
 
 
 class Chapter(models.Model):
@@ -153,4 +165,3 @@ class LibraryProgress(models.Model):
 
     def __str__(self):
         return f"LibProg<{self.user_id}> ch={self.chapter_id} done={self.completed}"
-

@@ -93,3 +93,45 @@ class DiagnosticEngineTests(TestCase):
         result = build_diagnostic_profile(self.user, SAMPLE_ANSWERS, assessment=canned)
         self.assertEqual(result["cefr_level"], "B1")
         self.assertEqual(result["written_score"], 60)
+
+    @override_settings(AI_API_KEY="")
+    def test_dynamic_answers_feed_all_written_text_to_error_analysis(self):
+        canned = {
+            "level": "B1",
+            "written_score": 60,
+            "speaking_score": 55,
+            "feedback": "ok",
+        }
+        dynamic_answers = {
+            "mode": "dynamic",
+            "items": [
+                {
+                    "section": "written",
+                    "expected_answer_type": "short_text",
+                    "answer": "First dynamic writing answer.",
+                },
+                {
+                    "section": "written",
+                    "expected_answer_type": "mcq",
+                    "answer": "goes",
+                },
+                {
+                    "section": "written",
+                    "expected_answer_type": "paragraph",
+                    "answer": "Fifth dynamic writing answer should be analyzed too.",
+                },
+                {
+                    "section": "speaking",
+                    "expected_answer_type": "voice",
+                    "answer": "Speaking answer.",
+                },
+            ],
+        }
+
+        with patch("placement.services.diagnostic_engine.analyze_text") as mocked:
+            build_diagnostic_profile(self.user, dynamic_answers, assessment=canned)
+
+        analyzed_text = mocked.call_args.args[1]
+        self.assertIn("First dynamic writing answer", analyzed_text)
+        self.assertIn("Fifth dynamic writing answer", analyzed_text)
+        self.assertNotIn("goes", analyzed_text)

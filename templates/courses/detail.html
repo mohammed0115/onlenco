@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ course.title }} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-8">
+        <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm">
+            <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+            {% t_either "Dashboard" "لوحة التعلم" %}
+        </a>
+
+        <section class="grid lg:grid-cols-[1.5fr_0.8fr] gap-6 items-start">
+            <div class="space-y-4">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="badge badge-secondary">{{ course.level.code }}</span>
+                    {% if course.is_free %}
+                        <span class="badge badge-outline">{% t_either "Free" "مجاني" %}</span>
+                    {% else %}
+                        <span class="badge badge-outline">
+                            <i data-lucide="{% if has_access %}unlock{% else %}lock{% endif %}" class="h-3 w-3"></i>
+                            {% if has_access %}{% t_either "Included" "ضمن الاشتراك" %}{% else %}{% t_either "Subscription" "اشتراك" %}{% endif %}
+                        </span>
+                    {% endif %}
+                </div>
+                <div>
+                    <h1 class="font-display text-4xl font-bold">{{ course.title }}</h1>
+                    {% if course.description %}
+                        <p class="text-muted-foreground mt-3 max-w-3xl">{{ course.description }}</p>
+                    {% endif %}
+                </div>
+                {% if course.learning_objectives %}
+                    <div class="card p-5">
+                        <h2 class="font-display text-xl font-bold mb-2">{% t_either "What you will learn" "ماذا ستتعلم" %}</h2>
+                        <div class="prose max-w-none text-sm text-muted-foreground">{{ course.learning_objectives|linebreaks }}</div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <aside class="card p-5 space-y-4">
+                <div>
+                    <div class="text-sm text-muted-foreground">{% t_either "Lessons" "الدروس" %}</div>
+                    <div class="text-3xl font-bold">{{ course.published_lessons_count }}</div>
+                </div>
+                {% if enrollment %}
+                    <div>
+                        <div class="flex justify-between text-sm mb-2">
+                            <span>{% t_either "Progress" "التقدم" %}</span>
+                            <span>{{ enrollment.progress_percentage|floatformat:0 }}%</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-muted overflow-hidden">
+                            <div class="h-full bg-primary" style="width: {{ enrollment.progress_percentage|floatformat:0 }}%;"></div>
+                        </div>
+                    </div>
+                {% elif not has_access %}
+                    <div class="rounded-md bg-muted p-4 text-sm text-muted-foreground">
+                        {% t_either "Subscribe to open this course and its lessons." "اشترك لفتح هذا الكورس ودروسه." %}
+                    </div>
+                    <a href="{% url 'subscribe' %}" class="btn btn-hero w-full">
+                        <i data-lucide="lock" class="h-4 w-4"></i>
+                        {% t "dash.subscribe" %}
+                    </a>
+                {% endif %}
+            </aside>
+        </section>
+
+        <section>
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="font-display text-2xl font-bold">{% t_either "Course lessons" "دروس الكورس" %}</h2>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for lesson in lessons %}
+                    {% if has_access %}
+                        <a href="{% url 'courses:lesson_detail' course.pk lesson.pk %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                    {% else %}
+                        <div class="card gradient-card p-6 opacity-75">
+                    {% endif %}
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                                {% if lesson.skill == "reading" %}<i data-lucide="book-open" class="h-5 w-5 text-primary-foreground"></i>
+                                {% elif lesson.skill == "writing" %}<i data-lucide="pen-line" class="h-5 w-5 text-primary-foreground"></i>
+                                {% elif lesson.skill == "listening" %}<i data-lucide="headphones" class="h-5 w-5 text-primary-foreground"></i>
+                                {% elif lesson.skill == "speaking" %}<i data-lucide="mic" class="h-5 w-5 text-primary-foreground"></i>
+                                {% else %}<i data-lucide="book-open" class="h-5 w-5 text-primary-foreground"></i>{% endif %}
+                            </div>
+                            {% if has_access %}
+                                <span class="badge badge-secondary text-xs">{{ lesson.get_lesson_type_display }}</span>
+                            {% else %}
+                                <i data-lucide="lock" class="h-4 w-4 text-muted-foreground"></i>
+                            {% endif %}
+                        </div>
+                        <h3 class="font-display text-lg font-bold mb-1">{{ lesson.title }}</h3>
+                        {% if lesson.content_html %}
+                            <p class="text-sm text-muted-foreground mb-3">{{ lesson.content_html|striptags|truncatewords:18 }}</p>
+                        {% endif %}
+                        <div class="text-xs text-muted-foreground">
+                            {{ lesson.duration_minutes }} {% t_either "min" "د" %}
+                        </div>
+                    {% if has_access %}
+                        </a>
+                    {% else %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+</div>
+{% endblock %}

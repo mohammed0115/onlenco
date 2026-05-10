@@ -8,6 +8,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts import onboarding as onboarding_lib
+from courses.models import Course, CourseLevel, Lesson as CourseLesson
+from learning_core.models import LearningRecommendation
 from lessons.models import Lesson
 
 User = get_user_model()
@@ -87,6 +89,33 @@ class OnboardingChoiceTests(TestCase):
         )
         # Helper picks the lowest-level / lowest-sort-order lesson.
         self.assertEqual(onboarding_lib.first_beginner_lesson(), first_a0)
+
+    def test_beginner_choice_recommends_first_published_beginner_course(self):
+        level = CourseLevel.objects.create(code="A1", name="A1", order=1)
+        course = Course.objects.create(
+            title="Beginner Course",
+            slug="beginner-course",
+            level=level,
+            status="published",
+            is_active=True,
+            is_free=True,
+        )
+        CourseLesson.objects.create(
+            course=course,
+            title="Welcome",
+            status="published",
+            is_active=True,
+        )
+
+        onboarding_lib.complete_beginner_onboarding(self.user)
+
+        self.assertTrue(
+            LearningRecommendation.objects.filter(
+                user=self.user,
+                metadata__source="beginner_onboarding",
+                metadata__course_id=course.pk,
+            ).exists()
+        )
 
     # 4. Completed onboarding does not show again ------------------------
 
