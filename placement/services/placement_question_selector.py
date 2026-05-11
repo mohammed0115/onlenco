@@ -71,13 +71,37 @@ def _previously_seen_question_ids(user) -> set[int]:
     )
 
 
-def _bucket_pool(question_type: str, topic: str, exclude_ids: Iterable[int]):
-    """Active questions for one (type, topic) bucket, minus exclusions."""
-    return list(
-        PlacementQuestion.objects.filter(
-            question_type=question_type, topic=topic, is_active=True,
-        ).exclude(id__in=list(exclude_ids))
-    )
+def _bucket_pool(question_type: str, topic: str, exclude_ids: Iterable[int],
+                 *, prefer_mcq: bool = True):
+    """Active questions for one (type, topic) bucket, minus exclusions.
+
+    When `prefer_mcq=True` (the default for the placement test), MCQ
+    rows are returned first so the selector picks selection-based
+    questions when the bucket has them. Free-text rows still appear
+    as fallbacks if the bucket runs out of MCQs.
+    """
+    qs = PlacementQuestion.objects.filter(
+        question_type=question_type, topic=topic, is_active=True,
+    ).exclude(id__in=list(exclude_ids))
+    rows = list(qs)
+    if prefer_mcq:
+        rows.sort(key=lambda q: 0 if q.expected_answer_type == "mcq" else 1)
+    return rows
+
+
+def _pick_one_from(bucket: list[PlacementQuestion],
+                   rng: random.Random) -> PlacementQuestion | None:
+    """Pick one question from a bucket, preferring MCQs.
+
+    The bucket is already sorted MCQ-first by `_bucket_pool`. We pick
+    randomly from the leading MCQ slice when present, otherwise any.
+    """
+    if not bucket:
+        return None
+    mcqs = [q for q in bucket if q.expected_answer_type == "mcq"]
+    if mcqs:
+        return rng.choice(mcqs)
+    return rng.choice(bucket)
 
 
 def _difficulty_band(q: PlacementQuestion) -> str:
@@ -107,7 +131,9 @@ def _pick_with_variety(buckets: list[list[PlacementQuestion]], rng: random.Rando
     for bucket in buckets:
         if not bucket:
             continue
-        choice = rng.choice(bucket)
+        choice = _pick_one_from(bucket, rng)
+        if choice is None:
+            continue
         selected.append(choice)
         bucket_for_index.append([q for q in bucket if q.id != choice.id])
 

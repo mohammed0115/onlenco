@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load static i18n_dict %}
+
+{% block title %}{% t_either "Voice call with Layla" "مكالمة صوتية مع ليلى" %} — Onlenco{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/ai_tutor_voice.css' %}">
+<link rel="stylesheet" href="{% static 'css/ai_tutor_realtime.css' %}">
+{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20 flex flex-col">
+    {% include "_app_header.html" %}
+
+    <main class="onlenco-call-shell flex-1 flex items-center justify-center px-4 py-8">
+        <section class="onlenco-call-card" id="callCard" data-state="idle">
+
+            <div class="onlenco-call-head">
+                <a href="{% url 'tutor_detail' conversation.pk %}" class="btn btn-ghost btn-sm">
+                    <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+                    <span>{% t_either "Back to chat" "العودة للمحادثة" %}</span>
+                </a>
+                <div class="onlenco-call-minutes" id="minutesPill">
+                    <i data-lucide="clock" class="h-3.5 w-3.5"></i>
+                    <span>{{ minutes_remaining }}</span>
+                    <span class="onlenco-min-suffix">{% t_either "min left today" "دقيقة متبقية اليوم" %}</span>
+                </div>
+            </div>
+
+            <div class="onlenco-call-orb-wrap">
+                <div class="onlenco-call-orb" id="callOrb">
+                    <div class="onlenco-call-orb-inner">
+                        <i data-lucide="phone" class="h-10 w-10" id="callOrbIcon"></i>
+                    </div>
+                    <span class="onlenco-call-orb-ring"></span>
+                    <span class="onlenco-call-orb-ring"></span>
+                    <span class="onlenco-call-orb-ring"></span>
+                </div>
+            </div>
+
+            <div class="onlenco-call-status">
+                <h1 class="onlenco-call-title" id="callTitle">
+                    {% t_either "Tap to call Layla" "اضغط لبدء المكالمة مع ليلى" %}
+                </h1>
+                <p class="onlenco-call-sub" id="callSub">
+                    {% t_either "She'll greet you and start a real English conversation." "ستحييك وتبدأ محادثة إنجليزية حقيقية." %}
+                </p>
+                <div class="onlenco-call-timer" id="callTimer" hidden>00:00</div>
+            </div>
+
+            <div class="onlenco-call-actions">
+                <button type="button" class="onlenco-call-start-btn" id="startCallBtn">
+                    <i data-lucide="phone-call" class="h-5 w-5"></i>
+                    <span>{% t_either "Start call" "ابدأ المكالمة" %}</span>
+                </button>
+                <button type="button" class="onlenco-call-end-btn" id="endCallBtn" hidden>
+                    <i data-lucide="phone-off" class="h-5 w-5"></i>
+                    <span>{% t_either "End call" "إنهاء المكالمة" %}</span>
+                </button>
+                <button type="button" class="onlenco-call-mute-btn" id="muteBtn" hidden aria-pressed="false">
+                    <i data-lucide="mic" class="h-5 w-5" id="muteIcon"></i>
+                    <span id="muteLabel">{% t_either "Mute" "كتم" %}</span>
+                </button>
+            </div>
+
+            <div class="onlenco-call-error" id="callError" hidden></div>
+
+            <div class="onlenco-call-transcript" id="callTranscript" hidden></div>
+
+            <audio id="callAudio" autoplay></audio>
+
+        </section>
+    </main>
+</div>
+
+<script src="{% static 'js/ai_tutor_realtime.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.onlencoCall) return;
+    window.onlencoCall.init({
+      sessionUrl:    "{% url 'api_tutor_voice_call_session' %}",
+      logUrl:        "{% url 'api_tutor_voice_call_log' %}",
+      conversationId: {{ conversation.pk }},
+      backUrl:       "{% url 'tutor_detail' conversation.pk %}",
+      language:      "{{ request.LANGUAGE_CODE|default:'en' }}",
+    });
+    if (window.lucide) window.lucide.createIcons();
+  });
+</script>
+{% endblock %}

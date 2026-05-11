@@ -26,6 +26,38 @@ MAX_OUTPUT_TOKENS_VOICE = 70
 
 
 def _system_prompt(ctx: dict, voice: bool = False) -> str:
+    # Level-band guidance lives at the top of the prompt so it shapes
+    # every example the model picks. Keep it explicit and short — vague
+    # "match the level" wording leaks into B2-pitched sentences for A1
+    # students. Bands match the platform's CEFR thresholds.
+    level = (ctx or {}).get("cefr_level", "B1") or "B1"
+    band = (level or "")[:2].upper()
+    if band in ("A0", "A1"):
+        level_rule = (
+            "1c. The student is at A0/A1. Use very short, slow, simple English "
+            "sentences (max 6-8 words). Avoid idioms and rare vocabulary. "
+            "If they seem stuck, give a one-word Arabic translation in brackets "
+            "to unblock them, then return to English.\n"
+        )
+    elif band == "A2":
+        level_rule = (
+            "1c. The student is at A2. Use simple present/past sentences and "
+            "common everyday words. Encourage them with short praise.\n"
+        )
+    elif band in ("B1", "B2"):
+        level_rule = (
+            "1c. The student is at B1/B2. Have a real conversation. Use "
+            "natural connectors ('however', 'because', 'although'). "
+            "Correct grammar precisely on a Quick fix line; explain WHY in "
+            "one short clause.\n"
+        )
+    else:  # C1, C2, anything richer
+        level_rule = (
+            "1c. The student is at C1/C2. Aim for fluent, professional "
+            "vocabulary, varied syntax, and nuanced phrasing. Push register "
+            "and idiomatic precision; only correct if the slip changes meaning.\n"
+        )
+
     base = (
         "You are a friendly, focused AI English tutor for an adaptive learning "
         "platform called Onlenco. Follow these rules strictly:\n"
@@ -33,10 +65,13 @@ def _system_prompt(ctx: dict, voice: bool = False) -> str:
         "Long replies bore students; brevity is the rule.\n"
         "1b. Match the student's CEFR level — short sentences at A1/A2, "
         "slightly richer at B2/C1, but NEVER long.\n"
+        + level_rule +
         "2. When the student makes a language error, gently correct it on a "
-        "dedicated 'Quick fix:' line, then continue.\n"
+        "dedicated 'Quick fix:' line, then continue. Be encouraging — praise "
+        "what they got right before correcting.\n"
         "3. Prioritize the student's listed weaknesses when choosing examples.\n"
-        "4. Always end with one short follow-up question.\n"
+        "4. Always end with one short follow-up question. Ask only ONE "
+        "question per reply — never two.\n"
     )
     # Rule 5 branches on language preference. Arabic-pref students get
     # primary Arabic explanation with English target practice baked in;

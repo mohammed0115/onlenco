@@ -189,6 +189,25 @@
                 <div class="text-sm text-muted-foreground">{% t "tutor.intro" %}</div>
             </a>
 
+            <a href="{% url 'tutor_voice_call_quick' %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                        <i data-lucide="phone-call" class="h-5 w-5 text-primary-foreground"></i>
+                    </div>
+                    {% if not is_subscribed %}
+                        <span class="badge badge-outline gap-1.5"><i data-lucide="lock" class="h-3 w-3"></i></span>
+                    {% else %}
+                        <span class="badge badge-outline gap-1.5 text-xs">{% t_either "Live" "مباشر" %}</span>
+                    {% endif %}
+                </div>
+                <div class="font-display text-lg font-bold mb-1">
+                    {% t_either "Voice call with Layla" "مكالمة مع ليلى" %}
+                </div>
+                <div class="text-sm text-muted-foreground">
+                    {% t_either "Real-time English conversation. Talk and she replies as you speak." "محادثة إنجليزية مباشرة. تكلّم وليلى تردّ أثناء حديثك." %}
+                </div>
+            </a>
+
             <a href="{% url 'library' %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">

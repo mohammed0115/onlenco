@@ -229,6 +229,21 @@ AI_API_BASE = env_get("AI_API_BASE", "https://api.openai.com/v1")
 SPEECH_AUDIO_RETENTION_DAYS = int(env_get("SPEECH_AUDIO_RETENTION_DAYS", "7") or 7)
 AI_MODEL = env_get("AI_MODEL", "gpt-4o-mini")
 
+# --- Realtime voice tutor (OpenAI Realtime API) ------------------------
+# Drives the live phone-call style tutoring page. Browser opens a
+# WebRTC peer to OpenAI Realtime; the server only ever sees the
+# ephemeral token request and the final usage stats.
+AI_REALTIME_MODEL = env_get("AI_REALTIME_MODEL", "gpt-4o-realtime-preview-2024-12-17")
+AI_REALTIME_VOICE = env_get("AI_REALTIME_VOICE", "alloy")
+# Soft cap: per-user daily voice-call minutes. Past this threshold the
+# session endpoint refuses with `limit_reached` and the user is nudged
+# back to the text chat (which is unmetered).
+AI_REALTIME_DAILY_MINUTE_CAP = int(env_get("AI_REALTIME_DAILY_MINUTE_CAP", "30") or 30)
+# Hard cap on a single session length so a forgotten tab doesn't burn
+# minutes for hours. Server returns this to the browser; browser
+# auto-ends when reached.
+AI_REALTIME_MAX_SESSION_SECONDS = int(env_get("AI_REALTIME_MAX_SESSION_SECONDS", "900") or 900)
+
 # --- ai_engine local providers -----------------------------------------
 # Set AI_LOCAL_CLASSIFIER_ENABLED=1 in env to let the router try local
 # classifiers before falling through to LLMs. Per-task model paths are

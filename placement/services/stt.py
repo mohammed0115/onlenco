@@ -46,7 +46,10 @@ def transcribe(audio_file) -> dict:
                 "model": getattr(settings, "AI_STT_MODEL", "whisper-1"),
                 "response_format": "verbose_json",
             },
-            timeout=(5, 25),
+            # 5s connect, 15s read. Whisper normally returns in 1-3s for
+            # short tutor recordings; capping at 15s prevents the voice
+            # path from feeling stuck when the upstream is degraded.
+            timeout=(5, 15),
         )
         resp.raise_for_status()
         body = resp.json()

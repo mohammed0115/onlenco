@@ -31,7 +31,18 @@
     language:           'en',
     serverTts:          false,
     streaming:          true,   // typewriter on by default; falls back if SSE fails
-    maxRecordingMs:     60_000,
+    // Recording stays live until the user explicitly hits Stop. The 5
+    // minute hard cap is a safety net so a forgotten/stuck recording
+    // can't grow unbounded in memory — normal use never reaches it.
+    maxRecordingMs:     300_000,
+    // Silence-based auto-stop is OFF: per user request the mic only
+    // ends when the Stop button is pressed. The VAD threshold below is
+    // still here so it can be re-enabled by setting `autoStopOnSilence`
+    // to true, but the runtime check skips the cutoff when it's false.
+    autoStopOnSilence:  false,
+    silenceMinRecordMs: 1200,
+    silenceHangoverMs:  1500,
+    silenceLevel:       0.04,
     glossary:           null,
   };
 
@@ -78,6 +89,7 @@
       auth_expired:   'Your session expired — please sign in again.',
       confirm_delete_voice: 'Delete all your voice recordings? Transcripts will stay.',
       voice_history_deleted: 'Voice recordings deleted.',
+      timeout:        'That took too long — please try again.',
     },
     ar: {
       idle:           'اضغط للتحدث',
@@ -95,6 +107,7 @@
       auth_expired:   'انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.',
       confirm_delete_voice: 'حذف كل تسجيلاتك الصوتية؟ سيبقى النص المكتوب.',
       voice_history_deleted: 'تم حذف التسجيلات الصوتية.',
+      timeout:        'استغرق الأمر وقتًا طويلًا، حاول مرة أخرى.',
     },
   };
 
@@ -110,6 +123,32 @@
   let recordingStart = 0;
   let recordingStopTimer = null;
   let audioCtx = null, analyser = null, vizRaf = null;
+  // Carry-over flags for the in-flight send so streamSend / fallback
+  // know whether the message originated from a voice transcript.
+  let pendingSpeakingSeconds = 0;
+  let pendingVoiceMode = false;
+
+  // Live in-browser speech recognition (Web Speech API). When available,
+  // we run it alongside MediaRecorder so the user sees their words land
+  // in a placeholder bubble as they speak — no waiting for the upstream
+  // Whisper round-trip on stop. MediaRecorder still uploads the audio
+  // for SpeakingAttempt persistence in the background.
+  let speechRecog = null;          // SpeechRecognition instance
+  let liveTranscript = '';         // accumulated final segments
+  let liveInterim = '';            // current interim hypothesis
+  let liveBubble = null;           // bubble element being filled live
+  let livePlaceholderRow = null;   // row container so we can remove on cancel
+  let liveStarted = false;         // was the recognition actually started?
+
+  // Continuous-conversation auto-commit. While recording, every time
+  // the user stops speaking for ~1.2 s, the accumulated transcript is
+  // committed as a turn and sent to the AI immediately. Recording does
+  // NOT stop — the next utterance starts a fresh user bubble. This is
+  // how a phone-call style flow works: the AI is replying while the
+  // student is gathering their next thought.
+  const COMMIT_PAUSE_MS = 1200;
+  const MIN_COMMIT_CHARS = 3;
+  let commitTimer = null;
   let inFlight = false;          // guards against double submits
 
   /* ---- DOM refs -------------------------------------------------------- */
@@ -137,36 +176,82 @@
       if (label) label.textContent = t(next);
     }
     if (els.thinking) els.thinking.hidden = (next !== 'thinking' && next !== 'transcribing');
+    // Reveal a prominent Stop button during the live recording states
+    // so users have an obvious way to end short utterances early. Hidden
+    // again as soon as we leave the recording flow so it doesn't clutter
+    // the composer.
+    if (els.stop) {
+      els.stop.hidden = !(next === 'listening' || next === 'recording');
+    }
   }
 
   /* ---- Chat rendering --------------------------------------------------- */
 
+  // The welcome state is server-rendered inside #chatMessages on a brand
+  // new conversation. Once the user sends anything we strip it so it
+  // doesn't sit between the new bubbles and the previous ones — both
+  // text and voice paths funnel through this helper.
+  function dismissWelcome() {
+    const w = document.getElementById('welcomeState');
+    if (w && w.parentNode) w.parentNode.removeChild(w);
+  }
+
   function appendUserMessage(text) {
     if (!els.messages) return;
+    dismissWelcome();
+    const row = document.createElement('div');
+    row.className = 'onlenco-row onlenco-row-user';
     const wrap = document.createElement('div');
-    wrap.className = 'flex justify-end';
+    wrap.className = 'onlenco-bubble-wrap';
+    const meta = document.createElement('div');
+    meta.className = 'onlenco-bubble-meta';
+    meta.textContent = (Config.language === 'ar') ? 'أنت' : 'You';
     const bubble = document.createElement('div');
     bubble.className = 'onlenco-bubble-user';
     bubble.dir = 'ltr';
     bubble.textContent = text;
+    wrap.appendChild(meta);
     wrap.appendChild(bubble);
-    els.messages.appendChild(wrap);
+    row.appendChild(wrap);
+    els.messages.appendChild(row);
     scrollToBottom();
+  }
+
+  function _buildAIBubble(opts) {
+    // Shared between the streaming pipeline and the one-shot fallback so
+    // the rendered DOM looks identical in both paths (avatar + meta +
+    // bubble), which keeps the CSS rules trivial.
+    opts = opts || {};
+    const row = document.createElement('div');
+    row.className = 'onlenco-row onlenco-row-ai';
+    row.setAttribute('data-msg-role', 'assistant');
+    if (opts.last) row.setAttribute('data-last-assistant', '');
+    const avatar = document.createElement('div');
+    avatar.className = 'onlenco-avatar';
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.innerHTML = '<i data-lucide="sparkles" class="h-4 w-4"></i>';
+    const wrap = document.createElement('div');
+    wrap.className = 'onlenco-bubble-wrap';
+    const meta = document.createElement('div');
+    meta.className = 'onlenco-bubble-meta';
+    meta.textContent = (Config.language === 'ar') ? 'المعلم' : 'Tutor';
+    const bubble = document.createElement('div');
+    bubble.className = 'onlenco-bubble-ai';
+    bubble.dir = 'ltr';
+    wrap.appendChild(meta);
+    wrap.appendChild(bubble);
+    row.appendChild(avatar);
+    row.appendChild(wrap);
+    return { row: row, bubble: bubble };
   }
 
   function appendAIMessage(text, opts) {
     if (!els.messages) return;
-    opts = opts || {};
-    const wrap = document.createElement('div');
-    wrap.className = 'flex justify-start';
-    wrap.setAttribute('data-msg-role', 'assistant');
-    if (opts.last) wrap.setAttribute('data-last-assistant', '');
-    const bubble = document.createElement('div');
-    bubble.className = 'onlenco-bubble-ai';
-    bubble.dir = 'ltr';
+    dismissWelcome();
+    const { row, bubble } = _buildAIBubble(opts);
     bubble.textContent = text;
-    wrap.appendChild(bubble);
-    els.messages.appendChild(wrap);
+    els.messages.appendChild(row);
+    if (window.lucide) try { window.lucide.createIcons({ root: row }); } catch(e){}
     scrollToBottom();
   }
 
@@ -203,7 +288,15 @@
     setTimeout(() => { if (state === 'error') setState('idle'); }, 800);
   }
 
-  /* ---- Visualizer ------------------------------------------------------ */
+  /* ---- Visualizer + VAD + elapsed counter ------------------------------ */
+
+  // The RAF loop does three jobs in one pass: drive the orb pulse
+  // (--mic-level), track the time since the last loud sample for VAD
+  // auto-stop, and update the elapsed-seconds counter shown in the
+  // status pill. Sharing the AnalyserNode means the cost is unchanged
+  // versus the old visualizer-only loop.
+  let lastVoiceAt = 0;       // ms timestamp of last above-threshold sample
+  let elapsedRaf = 0;        // last UI update time, used to throttle counter
 
   function startVisualizer(stream) {
     try {
@@ -215,6 +308,8 @@
       analyser.fftSize = 256; analyser.smoothingTimeConstant = 0.7;
       src.connect(analyser);
       const buf = new Uint8Array(analyser.frequencyBinCount);
+      lastVoiceAt = Date.now();
+      elapsedRaf = 0;
       const tick = () => {
         if (!analyser) return;
         analyser.getByteTimeDomainData(buf);
@@ -226,10 +321,48 @@
         const rms = Math.sqrt(sum / buf.length);
         const level = Math.min(1, rms * 3.2);
         if (els.mic) els.mic.style.setProperty('--mic-level', level.toFixed(3));
+
+        const now = Date.now();
+        // Only the elapsed counter runs in the loop now. Silence-based
+        // auto-stop is disabled by default (Config.autoStopOnSilence)
+        // so the mic continues until the user presses Stop.
+        if (state === 'recording') {
+          const elapsed = now - recordingStart;
+
+          if (Config.autoStopOnSilence) {
+            if (rms > Config.silenceLevel) lastVoiceAt = now;
+            const silentFor = now - lastVoiceAt;
+            if (elapsed >= Config.silenceMinRecordMs &&
+                silentFor >= Config.silenceHangoverMs) {
+              stopRecording();
+            }
+          }
+
+          // Update the elapsed-seconds counter at most ~4× per second.
+          // Rendered into the status pill label, so no extra DOM nodes.
+          if (now - elapsedRaf > 250) {
+            elapsedRaf = now;
+            updateElapsedLabel(elapsed);
+          }
+        }
         vizRaf = requestAnimationFrame(tick);
       };
       tick();
     } catch (e) { /* silent — visualizer is decorative */ }
+  }
+
+  function updateElapsedLabel(elapsedMs) {
+    if (!els.status) return;
+    const label = els.status.querySelector('.onlenco-status-label');
+    if (!label) return;
+    const sec = Math.floor(elapsedMs / 1000);
+    const base = (Config.language === 'ar') ? 'جارٍ التسجيل' : 'Recording';
+    // No "/ Xs" suffix any more — recording continues until the user
+    // presses Stop, so showing a remaining-time fraction would lie.
+    const hint = (Config.language === 'ar')
+      ? 'اضغط إيقاف عند الانتهاء'
+      : 'tap Stop when done';
+    label.textContent = `${base} · ${sec}s · ${hint}`;
   }
 
   function stopVisualizer() {
@@ -241,8 +374,21 @@
 
   /* ---- Network helpers ------------------------------------------------- */
 
+  // Single timeout knob for non-streaming requests. SSE responses set
+  // their own timeouts via the upstream LLM call; this only protects
+  // the JSON one-shot fallbacks (transcribe, send, voice respond, tts).
+  // 20s is generous enough for a slow STT+chat round trip without
+  // letting users stare at a frozen UI forever.
+  const FETCH_TIMEOUT_MS = 20000;
+
+  function _withTimeout(p, controller, ms) {
+    const id = setTimeout(() => { try { controller.abort(); } catch(e){} }, ms);
+    return p.finally(() => clearTimeout(id));
+  }
+
   function postJSON(url, body) {
-    return fetch(url, {
+    const controller = new AbortController();
+    return _withTimeout(fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -252,11 +398,18 @@
         'Accept':       'application/json',
       },
       body: JSON.stringify(body || {}),
-    }).then(handleResponse);
+      signal: controller.signal,
+    }), controller, FETCH_TIMEOUT_MS).then(handleResponse).catch((e) => {
+      if (e && e.name === 'AbortError') {
+        const err = new Error('timeout'); err.code = 'timeout'; throw err;
+      }
+      throw e;
+    });
   }
 
   function postMultipart(url, formData) {
-    return fetch(url, {
+    const controller = new AbortController();
+    return _withTimeout(fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -265,7 +418,13 @@
         'Accept':       'application/json',
       },
       body: formData,
-    }).then(handleResponse);
+      signal: controller.signal,
+    }), controller, FETCH_TIMEOUT_MS).then(handleResponse).catch((e) => {
+      if (e && e.name === 'AbortError') {
+        const err = new Error('timeout'); err.code = 'timeout'; throw err;
+      }
+      throw e;
+    });
   }
 
   function handleResponse(r) {
@@ -304,13 +463,27 @@
   }
 
   function serverSpeak(text, language) {
-    // Premium voice: backend TTS (currently OpenAI-compatible). Falls
-    // back to browser speechSynthesis on any error so a TTS outage
-    // never silently drops the audio reply.
+    // Premium voice: backend TTS (currently OpenAI-compatible). The
+    // round-trip can take 5-6 s, which feels slow when the user wants
+    // instant audio. We race the fetch against a 2.5 s deadline: if
+    // server TTS hasn't returned by then, we kick off the browser TTS
+    // so playback starts immediately. The server fetch is abandoned —
+    // the user gets quality on a fast network, latency on a slow one.
     if (!Config.voiceTtsUrl || !text) return browserSpeak(text, language);
     setState('speaking');
+    let fellBack = false;
+    const fallbackDelay = 2500;
+    const fallbackTimer = setTimeout(() => {
+      fellBack = true;
+      browserSpeak(text, language);
+    }, fallbackDelay);
+
     return postJSON(Config.voiceTtsUrl, { text: text, language: language || 'en' })
       .then((j) => {
+        clearTimeout(fallbackTimer);
+        // Browser TTS already started — don't double-speak. Drop the
+        // server payload and let speechSynthesis carry the reply.
+        if (fellBack) return;
         const b64 = j && j.audio_b64;
         if (!b64) { setState('idle'); return; }
         return new Promise((resolve) => {
@@ -321,7 +494,11 @@
           player.play().catch(() => { setState('idle'); resolve(); });
         });
       })
-      .catch(() => browserSpeak(text, language));
+      .catch(() => {
+        clearTimeout(fallbackTimer);
+        if (fellBack) return;            // browser TTS already speaking
+        return browserSpeak(text, language);
+      });
   }
 
   function speakReply(text, language) {
@@ -334,15 +511,10 @@
 
   function appendStreamingBubble() {
     if (!els.messages) return null;
-    const wrap = document.createElement('div');
-    wrap.className = 'flex justify-start';
-    wrap.setAttribute('data-msg-role', 'assistant');
-    wrap.setAttribute('data-last-assistant', '');
-    const bubble = document.createElement('div');
-    bubble.className = 'onlenco-bubble-ai';
-    bubble.dir = 'ltr';
-    wrap.appendChild(bubble);
-    els.messages.appendChild(wrap);
+    dismissWelcome();
+    const { row, bubble } = _buildAIBubble({ last: true });
+    els.messages.appendChild(row);
+    if (window.lucide) try { window.lucide.createIcons({ root: row }); } catch(e){}
     scrollToBottom();
     return bubble;
   }
@@ -353,9 +525,27 @@
     if (!text) return Promise.resolve();
     inFlight = true;
 
+    // If this text came from a voice transcript, the recording duration
+    // is stored on the textarea's dataset by handleRecordingStop. Pull
+    // it out here so the chat endpoint can credit speaking minutes,
+    // then clear it so the next typed message doesn't reuse the value.
+    let speakingSeconds = 0;
+    if (els.input && els.input.dataset && els.input.dataset.speakingSeconds) {
+      speakingSeconds = parseInt(els.input.dataset.speakingSeconds, 10) || 0;
+      delete els.input.dataset.speakingSeconds;
+    }
+    pendingSpeakingSeconds = speakingSeconds;
+    pendingVoiceMode = speakingSeconds > 0;
+
     appendUserMessage(text);
     broadcast('user', text);
-    if (els.input) els.input.value = '';
+    if (els.input) {
+      els.input.value = '';
+      // Reset autogrow back to a single row.
+      try {
+        els.input.dispatchEvent(new Event('input', { bubbles: true }));
+      } catch (e) {}
+    }
     setState('thinking');
 
     if (Config.streaming && Config.chatStreamUrl && window.fetch) {
@@ -365,11 +555,15 @@
         return sendTextFallback(text, /*alreadyAppended*/ true);
       }).finally(() => {
         inFlight = false;
+        pendingSpeakingSeconds = 0;
+        pendingVoiceMode = false;
         if (state === 'thinking' || state === 'transcribing') setState('idle');
       });
     }
     return sendTextFallback(text, /*alreadyAppended*/ true).finally(() => {
       inFlight = false;
+      pendingSpeakingSeconds = 0;
+      pendingVoiceMode = false;
       if (state === 'thinking') setState('idle');
     });
   }
@@ -469,6 +663,10 @@
       body: JSON.stringify({
         conversation_id: Config.conversationId,
         message: text,
+        // Forward voice-mode flag + duration so the server uses the
+        // shorter voice-mode token cap and credits speaking minutes.
+        voice: pendingVoiceMode,
+        speaking_seconds: pendingSpeakingSeconds,
       }),
     }).then((r) => {
       if (r.status === 401 || r.status === 403) {
@@ -541,6 +739,8 @@
     return postJSON(Config.chatSendUrl, {
       conversation_id: Config.conversationId,
       message: text,
+      voice: pendingVoiceMode,
+      speaking_seconds: pendingSpeakingSeconds,
     }).then((j) => {
       if (j.conversation_id) {
         Config.conversationId = j.conversation_id;
@@ -556,11 +756,230 @@
     }).catch((err) => {
       if (err && err.code === 401) return;
       const code = err && err.body && err.body.error;
-      const key = code === 'ai_unavailable' ? 'ai_unavailable'
+      const key = err && err.code === 'timeout' ? 'timeout'
+                : code === 'ai_unavailable' ? 'ai_unavailable'
                 : code === 'subscription_required' ? 'auth_expired'
                 : 'error';
       handleError(err, key);
     });
+  }
+
+  /* ---- Live in-browser speech recognition ------------------------------ */
+
+  function _SpeechRecogCtor() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
+  function liveRecogSupported() {
+    return !!_SpeechRecogCtor();
+  }
+
+  function startLiveRecognition() {
+    const Ctor = _SpeechRecogCtor();
+    if (!Ctor) return false;          // caller falls back to Whisper
+
+    // Reset live transcript state for the new turn.
+    liveTranscript = '';
+    liveInterim = '';
+    liveStarted = false;
+
+    // Create the live placeholder bubble that fills in word by word.
+    dismissWelcome();
+    livePlaceholderRow = document.createElement('div');
+    livePlaceholderRow.className = 'onlenco-row onlenco-row-user';
+    const wrap = document.createElement('div');
+    wrap.className = 'onlenco-bubble-wrap';
+    const meta = document.createElement('div');
+    meta.className = 'onlenco-bubble-meta';
+    meta.textContent = (Config.language === 'ar') ? 'أنت' : 'You';
+    liveBubble = document.createElement('div');
+    liveBubble.className = 'onlenco-bubble-user';
+    liveBubble.dir = 'ltr';
+    liveBubble.dataset.live = '1';
+    // Initial placeholder so the bubble isn't empty before the first word
+    // is recognised. Uses a subtle dot pulse via inline style — no extra
+    // CSS dependency.
+    liveBubble.innerHTML = '<span style="opacity:.55">' +
+      ((Config.language === 'ar') ? 'يستمع…' : 'Listening…') +
+      '</span>';
+    wrap.appendChild(meta);
+    wrap.appendChild(liveBubble);
+    livePlaceholderRow.appendChild(wrap);
+    if (els.messages) {
+      els.messages.appendChild(livePlaceholderRow);
+      scrollToBottom();
+    }
+
+    try {
+      speechRecog = new Ctor();
+      // Always recognize English. This is an English-tutor product:
+      // students speak English to practice, even when the UI is in
+      // Arabic. Forcing 'en-US' prevents Chrome from trying to parse
+      // their English speech as Arabic on AR-locale pages.
+      speechRecog.lang = 'en-US';
+      speechRecog.continuous = true;
+      speechRecog.interimResults = true;
+      speechRecog.maxAlternatives = 1;
+    } catch (e) {
+      console.warn('[onlenco] SpeechRecognition init failed:', e);
+      return false;
+    }
+
+    speechRecog.onresult = (ev) => {
+      // The Web Speech API delivers an array of results; each has either
+      // final or interim text. We accumulate finals and replace the
+      // interim segment so the bubble stays a single coherent string.
+      let interim = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const r = ev.results[i];
+        const txt = r[0] && r[0].transcript ? r[0].transcript : '';
+        if (r.isFinal) {
+          liveTranscript = (liveTranscript + ' ' + txt).trim();
+        } else {
+          interim += txt;
+        }
+      }
+      liveInterim = interim.trim();
+      const composed = (liveTranscript + ' ' + liveInterim).trim();
+      if (liveBubble) {
+        if (composed) {
+          liveBubble.textContent = composed;
+        } else {
+          liveBubble.innerHTML = '<span style="opacity:.55">' +
+            ((Config.language === 'ar') ? 'يستمع…' : 'Listening…') +
+            '</span>';
+        }
+      }
+      scrollToBottom();
+
+      // Schedule auto-commit on pause: every time we get new audio we
+      // push the deadline back. When the user stops talking long enough
+      // for the timer to fire, the accumulated transcript is sent to
+      // the AI and a fresh live bubble starts for the next utterance.
+      // The mic itself keeps running.
+      if (state === 'recording') {
+        if (commitTimer) clearTimeout(commitTimer);
+        const willHave = (liveTranscript + ' ' + liveInterim).trim();
+        if (willHave.length >= MIN_COMMIT_CHARS) {
+          commitTimer = setTimeout(commitLiveTurn, COMMIT_PAUSE_MS);
+        }
+      }
+    };
+
+    speechRecog.onerror = (ev) => {
+      // `no-speech` and `aborted` are expected lifecycle events, not
+      // errors worth toasting. Real errors (network, not-allowed) are
+      // logged but the audio path still flows so we can fall back.
+      const code = ev && ev.error;
+      if (code && code !== 'no-speech' && code !== 'aborted') {
+        console.warn('[onlenco] speech recognition error:', code);
+      }
+    };
+
+    speechRecog.onend = () => {
+      // Chrome stops the recognizer after extended pauses even with
+      // continuous=true. While the user is still recording we want
+      // the live transcript to keep flowing, so restart it.
+      if (state === 'recording') {
+        try { speechRecog.start(); } catch (e) { /* ignore — will retry on next event */ }
+      }
+    };
+
+    try {
+      speechRecog.start();
+      liveStarted = true;
+      return true;
+    } catch (e) {
+      console.warn('[onlenco] speechRecog.start() threw:', e);
+      return false;
+    }
+  }
+
+  function stopLiveRecognition() {
+    if (commitTimer) { clearTimeout(commitTimer); commitTimer = null; }
+    if (!speechRecog) return;
+    try {
+      // Mute the auto-restart in onend before stopping.
+      speechRecog.onend = null;
+      speechRecog.stop();
+    } catch (e) {}
+    speechRecog = null;
+  }
+
+  function clearLiveBubble() {
+    if (livePlaceholderRow && livePlaceholderRow.parentNode) {
+      livePlaceholderRow.parentNode.removeChild(livePlaceholderRow);
+    }
+    livePlaceholderRow = null;
+    liveBubble = null;
+  }
+
+  // Send whatever the user has said so far to the AI without stopping
+  // the recording. This is what produces the phone-call feel: the AI
+  // replies *while* the user is still in mid-conversation, instead of
+  // waiting for them to press Stop.
+  function commitLiveTurn() {
+    if (commitTimer) { clearTimeout(commitTimer); commitTimer = null; }
+    const text = (liveTranscript + ' ' + liveInterim).trim();
+    if (!text || text.length < MIN_COMMIT_CHARS) return;
+
+    // Lock the current bubble as a committed user message and detach
+    // our live references so the next utterance gets a fresh bubble.
+    if (liveBubble) {
+      liveBubble.textContent = text;
+      delete liveBubble.dataset.live;
+    }
+    livePlaceholderRow = null;
+    liveBubble = null;
+    liveTranscript = '';
+    liveInterim = '';
+
+    broadcast('user', text);
+
+    // Fire the chat stream request without flipping global state to
+    // 'thinking' — recording is still live and that state takes
+    // precedence. The thinking indicator strip provides the secondary
+    // affordance for the in-flight reply.
+    if (els.thinking) els.thinking.hidden = false;
+    pendingSpeakingSeconds = Math.max(1, Math.round((Date.now() - recordingStart) / 1000));
+    pendingVoiceMode = true;
+
+    const send = (Config.streaming && Config.chatStreamUrl)
+      ? streamSend(text).catch(() => sendTextFallback(text, true))
+      : sendTextFallback(text, true);
+
+    Promise.resolve(send).finally(() => {
+      pendingSpeakingSeconds = 0;
+      pendingVoiceMode = false;
+      if (els.thinking) els.thinking.hidden = true;
+    });
+
+    // Open a fresh live bubble for the next utterance so the user sees
+    // their continued speech without interruption. We do not call
+    // setState — the mic stays in 'recording' state.
+    const row = document.createElement('div');
+    row.className = 'onlenco-row onlenco-row-user';
+    const wrap = document.createElement('div');
+    wrap.className = 'onlenco-bubble-wrap';
+    const meta = document.createElement('div');
+    meta.className = 'onlenco-bubble-meta';
+    meta.textContent = (Config.language === 'ar') ? 'أنت' : 'You';
+    const bub = document.createElement('div');
+    bub.className = 'onlenco-bubble-user';
+    bub.dir = 'ltr';
+    bub.dataset.live = '1';
+    bub.innerHTML = '<span style="opacity:.55">' +
+      ((Config.language === 'ar') ? 'يستمع…' : 'Listening…') +
+      '</span>';
+    wrap.appendChild(meta);
+    wrap.appendChild(bub);
+    row.appendChild(wrap);
+    if (els.messages) {
+      els.messages.appendChild(row);
+      scrollToBottom();
+    }
+    livePlaceholderRow = row;
+    liveBubble = bub;
   }
 
   function startRecording() {
@@ -620,6 +1039,12 @@
       recordingStart = Date.now();
       setState('recording');
       startVisualizer(stream);
+      // Kick off the in-browser live recognition. If it works, the
+      // bubble fills as the user speaks and on stop we send the
+      // accumulated transcript straight to the AI (skipping the slow
+      // Whisper round-trip). If unsupported / fails to start, we fall
+      // back to Whisper inside handleRecordingStop.
+      startLiveRecognition();
       recordingStopTimer = setTimeout(() => stopRecording(), Config.maxRecordingMs);
     }).catch((err) => {
       // Most useful branch — surface the *actual* DOMException so users
@@ -669,34 +1094,112 @@
       mediaStream = null;
     }
     stopVisualizer();
+    stopLiveRecognition();
 
-    if (!recordedChunks.length) { setState('idle'); return; }
+    // Capture whatever the live recognizer collected before we tear it
+    // down. Browser STT was running while the user spoke, so we already
+    // have a transcript with zero extra latency on stop.
+    const liveText = (liveTranscript + ' ' + liveInterim).trim();
+    const liveRow = livePlaceholderRow;
+    const liveBub = liveBubble;
+    livePlaceholderRow = null;
+    liveBubble = null;
+    liveTranscript = '';
+    liveInterim = '';
+
+    // Build the audio blob (still used for SpeakingAttempt persistence).
     const mime = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
-    const blob = new Blob(recordedChunks, { type: mime });
+    const blob = recordedChunks.length ? new Blob(recordedChunks, { type: mime }) : null;
     recordedChunks = [];
 
-    if (blob.size === 0) { setState('idle'); return; }
+    // Fast path: live in-browser recognition produced text. Fire the AI
+    // streaming request immediately — no Whisper round-trip — and
+    // upload the audio in parallel for SpeakingAttempt storage.
+    if (liveText) {
+      if (liveBub) {
+        // Lock in the final text and clear the live marker so the bubble
+        // is treated like any committed user message.
+        liveBub.textContent = liveText;
+        delete liveBub.dataset.live;
+      }
+      broadcast('user', liveText);
+      if (els.input) els.input.value = '';
+      setState('thinking');
+
+      // Background audio upload: don't block the AI request. Fire-and-
+      // forget so SpeakingAttempt rows still get the recording.
+      if (blob && blob.size > 0) {
+        const fd = new FormData();
+        const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('ogg') ? 'ogg' : 'webm');
+        fd.append('audio', blob, `recording.${ext}`);
+        // Mark the upload so the server can opt to skip Whisper if we
+        // ever add a "transcript hint" payload. For now it just stores.
+        postMultipart(Config.voiceTranscribeUrl, fd).catch(() => {});
+      }
+
+      // Pump straight into the chat-stream pipeline (same path as a
+      // typed message). voice=true keeps the reply short + counts the
+      // speaking minutes for activity stats.
+      pendingSpeakingSeconds = seconds;
+      pendingVoiceMode = true;
+      const chain = (Config.streaming && Config.chatStreamUrl)
+        ? streamSend(liveText).catch(() => sendTextFallback(liveText, true))
+        : sendTextFallback(liveText, true);
+      return Promise.resolve(chain).finally(() => {
+        pendingSpeakingSeconds = 0;
+        pendingVoiceMode = false;
+        if (state === 'thinking' || state === 'transcribing') setState('idle');
+      });
+    }
+
+    // No live transcript (browser STT unsupported or no speech detected).
+    // Fall back to Whisper via the existing voice/transcribe endpoint.
+    if (liveRow && liveRow.parentNode) liveRow.parentNode.removeChild(liveRow);
+
+    if (!blob || blob.size === 0) { setState('idle'); return; }
 
     setState('transcribing');
     const fd = new FormData();
     const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('ogg') ? 'ogg' : 'webm');
     fd.append('audio', blob, `recording.${ext}`);
 
+    // Optimistic placeholder bubble for the Whisper path so the user
+    // still sees immediate feedback while STT is in flight.
+    dismissWelcome();
+    const placeholderRow = document.createElement('div');
+    placeholderRow.className = 'onlenco-row onlenco-row-user';
+    const placeholderWrap = document.createElement('div');
+    placeholderWrap.className = 'onlenco-bubble-wrap';
+    const placeholderMeta = document.createElement('div');
+    placeholderMeta.className = 'onlenco-bubble-meta';
+    placeholderMeta.textContent = (Config.language === 'ar') ? 'أنت' : 'You';
+    const placeholderBubble = document.createElement('div');
+    placeholderBubble.className = 'onlenco-bubble-user';
+    placeholderBubble.dir = 'ltr';
+    placeholderBubble.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 animate-spin"></i> ' +
+                                  ((Config.language === 'ar') ? 'جارٍ التحويل…' : 'Transcribing…');
+    placeholderWrap.appendChild(placeholderMeta);
+    placeholderWrap.appendChild(placeholderBubble);
+    placeholderRow.appendChild(placeholderWrap);
+    if (els.messages) {
+      els.messages.appendChild(placeholderRow);
+      if (window.lucide) try { window.lucide.createIcons({ root: placeholderRow }); } catch(e){}
+      scrollToBottom();
+    }
+
     postMultipart(Config.voiceTranscribeUrl, fd).then((j) => {
       const transcript = (j.transcript || '').trim();
       if (!transcript) {
+        if (placeholderRow.parentNode) placeholderRow.parentNode.removeChild(placeholderRow);
         toast(j.message || t('empty_audio'));
         setState('idle');
         return;
       }
-      appendUserMessage(transcript);
+      placeholderBubble.textContent = transcript;
       broadcast('user', transcript);
       if (els.input) els.input.value = '';
       setState('thinking');
 
-      // Prefer the streaming endpoint so the user hears the first token
-      // in ~300 ms instead of waiting for the full reply. Fall back to
-      // one-shot JSON if the proxy strips SSE.
       if (Config.voiceRespondStreamUrl) {
         return streamVoiceRespond(transcript, seconds).catch(() => {
           return voiceRespondFallback(transcript, seconds);
@@ -704,9 +1207,13 @@
       }
       return voiceRespondFallback(transcript, seconds);
     }).catch((err) => {
+      if (placeholderRow && placeholderRow.parentNode) {
+        placeholderRow.parentNode.removeChild(placeholderRow);
+      }
       if (err && err.code === 401) return;
       const code = err && err.body && err.body.error;
-      const key = code === 'too_large' ? 'error'
+      const key = err && err.code === 'timeout' ? 'timeout'
+                : code === 'too_large' ? 'error'
                 : code === 'ai_unavailable' ? 'ai_unavailable'
                 : code === 'stt_unavailable' ? 'ai_unavailable'
                 : 'network';
@@ -817,15 +1324,31 @@
         stopRecording();
       });
     }
+    // Suggested prompts now auto-send: less friction for new students
+    // and removes the "type into the box first" puzzle. The button text
+    // already matches what they want to ask, so there's no value in
+    // making them edit it before submitting.
     document.querySelectorAll('[data-prompt]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        if (els.input) {
-          els.input.value = btn.getAttribute('data-prompt') || '';
-          els.input.focus();
-        }
+        const prompt = btn.getAttribute('data-prompt') || '';
+        if (!prompt) return;
+        if (els.input) els.input.value = prompt;
+        sendText(prompt);
       });
     });
+
+    // Textarea auto-grow: keeps the composer feeling like a modern chat
+    // without exploding past max-height (handled by CSS).
+    if (els.input) {
+      const grow = () => {
+        els.input.style.height = 'auto';
+        els.input.style.height = Math.min(els.input.scrollHeight, 128) + 'px';
+      };
+      els.input.addEventListener('input', grow);
+      grow();
+    }
+
     scrollToBottom();
   }
 

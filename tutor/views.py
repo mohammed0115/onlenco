@@ -70,6 +70,8 @@ def conversation_detail(request, pk):
         _merged_event_glossary,
         _merged_field_glossary,
     )
+    from .services.sidebar_context import build_sidebar_payload
+
     humanizer_glossary = {
         "events_en": _merged_event_glossary("en"),
         "events_ar": _merged_event_glossary("ar"),
@@ -79,6 +81,7 @@ def conversation_detail(request, pk):
     return render(request, "tutor/detail.html", {
         "conversation": conv,
         "humanizer_glossary_json": humanizer_glossary,
+        "sidebar": build_sidebar_payload(request.user),
     })
 
 
@@ -139,6 +142,42 @@ def send_message(request, pk):
         logging.getLogger(__name__).exception("tutor: motivation engine failed")
 
     return redirect("tutor_detail", pk=conv.pk)
+
+
+@login_required
+def voice_call_page(request, pk):
+    """Render the live voice-call page for a single conversation."""
+    locked = _require_subscription(request)
+    if locked:
+        return locked
+    conv = get_object_or_404(TutorConversation, pk=pk, user=request.user)
+    from tutor.services.realtime_session import daily_minute_cap_remaining
+    return render(request, "tutor/voice_call.html", {
+        "conversation": conv,
+        "minutes_remaining": daily_minute_cap_remaining(request.user),
+    })
+
+
+@login_required
+def voice_call_quick(request):
+    """Dashboard one-click entry point: pick or create a conversation
+    and go straight to the voice-call page. Lets the dashboard card
+    read 'Voice call' without needing the user to first open a chat.
+    """
+    locked = _require_subscription(request)
+    if locked:
+        return locked
+    # Reuse the most recent conversation if one exists; otherwise create
+    # a fresh one so the page always has a context to attach turns to.
+    conv = (
+        TutorConversation.objects
+        .filter(user=request.user)
+        .order_by("-updated_at")
+        .first()
+    )
+    if conv is None:
+        conv = TutorConversation.objects.create(user=request.user)
+    return redirect("tutor_voice_call", pk=conv.pk)
 
 
 @login_required

@@ -282,16 +282,50 @@ def voice_transcribe(request):
     transcript = (result.get("transcript") or "").strip()
     duration = int(result.get("duration_seconds") or 0)
 
+    # Persist a lightweight SpeakingAttempt row WITHOUT the audio file so
+    # the response can return immediately. Slow storage backends (S3 with
+    # retries, network FS) were taking many seconds on `audio_file=audio`,
+    # which blocked the transcript and made the whole voice path feel
+    # unresponsive (users reported multi-minute waits before the bubble
+    # appeared). The audio bytes are read once here and written from a
+    # daemon thread so the request can return in <100 ms after STT.
     with _timer("attempt_save", user_id=user_id):
         from speech.models import SpeakingAttempt
         attempt = SpeakingAttempt.objects.create(
             user=request.user,
-            audio_file=audio,
             transcript=transcript,
             duration_seconds=duration,
             confidence=float(result.get("confidence") or 0.0),
             source="tutor",
         )
+
+    try:
+        audio.seek(0)
+        audio_bytes = audio.read()
+        audio_name = getattr(audio, "name", "recording.webm") or "recording.webm"
+    except Exception:
+        audio_bytes, audio_name = b"", "recording.webm"
+
+    if audio_bytes:
+        import threading
+        from django.core.files.base import ContentFile
+
+        def _persist_audio(att_id: int, name: str, blob: bytes) -> None:
+            try:
+                from speech.models import SpeakingAttempt as _SA
+                row = _SA.objects.filter(id=att_id).first()
+                if row is None:
+                    return
+                row.audio_file.save(name, ContentFile(blob), save=True)
+            except Exception:
+                logger.exception("Tutor: deferred audio save failed for attempt %s", att_id)
+
+        threading.Thread(
+            target=_persist_audio,
+            args=(attempt.id, audio_name, audio_bytes),
+            name="tutor-audio-persist",
+            daemon=True,
+        ).start()
 
     perf_logger.info(
         "[tutor.perf] step=transcribe_total ms=%d user=%s chars=%d",
@@ -760,4 +794,156 @@ def voice_tts(request):
         "format": result.get("format", ""),
         "language": language,
         "speech_text": cleaned,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Realtime voice-call (OpenAI Realtime API)
+# ---------------------------------------------------------------------------
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def voice_call_session(request):
+    """Mint an ephemeral OpenAI Realtime client_secret for the browser.
+
+    The browser uses the returned token to open a WebRTC peer connection
+    directly to OpenAI's `/v1/realtime` endpoint — Django is no longer
+    in the audio path after this. We only check subscription + soft cap
+    + return a short-lived secret + the personalised system prompt.
+    """
+    sub_err = _require_subscription(request.user)
+    if sub_err is not None:
+        return sub_err
+
+    from django.conf import settings as dj_settings
+    from tutor.services.realtime_session import (
+        build_voice_system_prompt,
+        request_ephemeral_session,
+        daily_minute_cap_remaining,
+    )
+
+    remaining = daily_minute_cap_remaining(request.user)
+    if remaining <= 0:
+        return Response(
+            {"success": False, "error": "limit_reached",
+             "message": "You've reached your daily voice-call limit. Try the chat tutor."},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    conversation_id = request.data.get("conversation_id")
+    conv = None
+    if conversation_id:
+        conv, err = _get_conversation_for(request.user, conversation_id)
+        if err is not None:
+            return err
+
+    voice = request.data.get("voice") or getattr(dj_settings, "AI_REALTIME_VOICE", "alloy")
+    if not isinstance(voice, str) or len(voice) > 32:
+        voice = "alloy"
+
+    prompt = build_voice_system_prompt(request.user, conv)
+    try:
+        with _timer("realtime_session", user_id=request.user.id):
+            session = request_ephemeral_session(system_prompt=prompt, voice=voice)
+    except Exception:
+        logger.exception("Tutor realtime session request failed")
+        return Response(
+            {"success": False, "error": "ai_unavailable",
+             "message": "Voice tutor is temporarily unavailable. Please try the chat instead."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    if session is None:
+        return Response(
+            {"success": False, "error": "ai_unavailable",
+             "message": "Voice tutor is not configured."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    client_secret = (session.get("client_secret") or {}).get("value")
+    if not client_secret:
+        logger.error("Tutor realtime: no client_secret in upstream response")
+        return Response(
+            {"success": False, "error": "ai_unavailable"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    return Response({
+        "success": True,
+        "client_secret": client_secret,
+        "session_id": session.get("id"),
+        "expires_at": session.get("expires_at"),
+        "model": getattr(dj_settings, "AI_REALTIME_MODEL", ""),
+        "voice": voice,
+        "max_session_seconds": int(getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900)),
+        "minutes_remaining": remaining,
+        "language": getattr(getattr(request.user, "profile", None), "preferred_language", "en"),
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def voice_call_log(request):
+    """Record a finished voice-call session.
+
+    Browser POSTs `{seconds, transcript[]}` after the user hangs up. We
+    update the daily soft-cap counter, persist any spoken turns as
+    TutorMessage rows so the conversation list reflects the call, and
+    credit speaking_minutes on today's activity snapshot.
+    """
+    from tutor.services.realtime_session import record_session_seconds
+
+    try:
+        seconds = max(0, min(int(request.data.get("seconds") or 0), 24 * 60 * 60))
+    except (TypeError, ValueError):
+        seconds = 0
+
+    conversation_id = request.data.get("conversation_id")
+    conv = None
+    if conversation_id:
+        conv, err = _get_conversation_for(request.user, conversation_id)
+        if err is not None:
+            return err
+
+    transcript = request.data.get("transcript") or []
+    if not isinstance(transcript, list):
+        transcript = []
+
+    if conv is not None:
+        for turn in transcript[:50]:        # cap so a misbehaving client can't spam
+            if not isinstance(turn, dict):
+                continue
+            role = turn.get("role")
+            content = (turn.get("content") or "").strip()[:MAX_MESSAGE_CHARS]
+            if role not in ("user", "assistant") or not content:
+                continue
+            TutorMessage.objects.create(
+                conversation=conv, role=role, content=content,
+            )
+        if transcript and not conv.title:
+            first_user = next(
+                (t.get("content", "") for t in transcript if t.get("role") == "user"),
+                "",
+            )
+            if first_user:
+                conv.title = " ".join(first_user.split()[:8])[:200]
+                conv.save(update_fields=["title"])
+
+    used_total = record_session_seconds(request.user, seconds)
+
+    # Credit speaking-minutes for today's activity snapshot (same metric
+    # the text-mode mic flow uses).
+    if seconds > 0:
+        try:
+            from motivation.services import activity_collector
+            snap = activity_collector.collect_daily_activity(request.user)
+            snap.speaking_minutes = (snap.speaking_minutes or 0) + max(1, seconds // 60)
+            snap.save(update_fields=["speaking_minutes", "updated_at"])
+        except Exception:
+            logger.exception("Tutor realtime: activity credit failed")
+
+    return Response({
+        "success": True,
+        "logged_seconds": seconds,
+        "used_total_seconds": used_total,
     })
