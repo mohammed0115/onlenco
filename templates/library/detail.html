@@ -69,6 +69,32 @@
                 <section class="card p-7 lg:col-span-3" id="chapter-section">
                     {% if chapter %}
                         <h2 class="font-display text-2xl font-bold mb-4">{{ chapter.title }}</h2>
+                        <div class="mb-5 rounded-lg border border-border bg-muted/30 p-4">
+                            <div class="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                                🎧 {% t_either "Listen to this chapter" "استمع إلى هذا الفصل" %}
+                            </div>
+                            {% if chapter.has_audio %}
+                                <audio controls preload="metadata"
+                                       src="{{ chapter.get_audio_src }}"
+                                       class="w-full"></audio>
+                                {% if chapter.duration_seconds %}
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    ~{{ chapter.duration_seconds }} {% t_either "seconds" "ثانية" %}
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                <button type="button"
+                                        id="chapter-tts-play"
+                                        data-tts-text="{{ chapter.body|escapejs }}"
+                                        class="btn btn-outline w-full">
+                                    🔊 {% t_either "Play with voice" "استمع بالصوت" %}
+                                </button>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    {% t_either "Voice played by your browser. Stop any time."
+                                                "يتم تشغيل الصوت بواسطة متصفحك. يمكنك الإيقاف في أي وقت." %}
+                                </div>
+                            {% endif %}
+                        </div>
                         <div class="text-lg leading-relaxed" id="chapter-body" style="line-height:1.7">
                             {{ chapter.body|linebreaks }}
                         </div>
@@ -167,6 +193,51 @@
         {% endif %}
     </main>
 </div>
+
+{% if chapter %}
+<script>
+(function () {
+    // Chapter TTS button — browser-side fallback when no audio_file/url
+    // is uploaded. Strips Arabic + long digit runs and refuses to speak
+    // nonsense, matching the daily-plan voice contract.
+    const btn = document.getElementById('chapter-tts-play');
+    if (!btn || !('speechSynthesis' in window)) return;
+    const planLevel = "{{ book.level|default:'' }}";
+    const isA0 = (planLevel === "A0");
+    const cleanForTTS = (s) => {
+        if (!s) return '';
+        let out = s.replace(
+            /[֐-׿؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]+/g, ''
+        );
+        out = out.replace(/\d{2,}/g, '');
+        out = out.replace(/[ \t]+/g, ' ').trim();
+        return out;
+    };
+    let playing = false;
+    btn.addEventListener('click', () => {
+        if (playing) {
+            window.speechSynthesis.cancel();
+            playing = false;
+            btn.textContent = '🔊 ' + ("{% t_either 'Play with voice' 'استمع بالصوت' %}");
+            return;
+        }
+        const text = cleanForTTS(btn.getAttribute('data-tts-text') || '');
+        if (!text || text.length < 2) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US';
+        u.rate = isA0 ? 0.75 : 0.9;
+        u.onend = () => {
+            playing = false;
+            btn.textContent = '🔊 ' + ("{% t_either 'Play with voice' 'استمع بالصوت' %}");
+        };
+        window.speechSynthesis.speak(u);
+        playing = true;
+        btn.textContent = '⏸ ' + ("{% t_either 'Stop' 'إيقاف' %}");
+    });
+})();
+</script>
+{% endif %}
 
 {% if chapter and not book.pdf %}
 <script>

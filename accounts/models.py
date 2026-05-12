@@ -121,6 +121,23 @@ class Profile(models.Model):
         from django.utils import timezone
         return self.subscription_expires_at > timezone.now()
 
+    @property
+    def is_in_free_tier(self):
+        """True for the first 7 days after onboarding completes.
+
+        Lets brand-new free students reach the first lesson + first
+        personalised exercise without a paid subscription. The window
+        is intentionally short — enough to demonstrate value, not
+        enough to replace the paywall."""
+        if self.is_subscribed:
+            return True
+        from datetime import timedelta
+        from django.utils import timezone
+        completed_at = self.onboarding_completed_at
+        if not completed_at:
+            return False
+        return (timezone.now() - completed_at) <= timedelta(days=7)
+
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_profile(sender, instance, created, **kwargs):

@@ -78,7 +78,24 @@ INSTALLED_APPS = [
     "ai_engine",
     "courses",
     "speech",
+    "daily_learning",
 ]
+
+# --- Daily Learning Engine ----------------------------------------------
+# Hard cap on OpenAI / paid-provider calls per user per day from the
+# daily plan generator. The generator always tries question-bank /
+# template paths first; AI only fires when those return nothing AND
+# this cap hasn't been hit. Set to 0 to disable AI entirely.
+DAILY_LEARNING_AI_DAILY_CAP_PER_USER = int(env_get("DAILY_LEARNING_AI_DAILY_CAP_PER_USER", "1") or 1)
+# Master kill-switch — if False the generator never calls ai_engine.
+DAILY_LEARNING_USE_AI = env_bool("DAILY_LEARNING_USE_AI", True)
+# Target number of items per daily plan. Spec says 5–8.
+DAILY_LEARNING_MIN_ITEMS = 5
+DAILY_LEARNING_MAX_ITEMS = 8
+# Comeback plan (inactive student) is intentionally shorter.
+DAILY_LEARNING_COMEBACK_ITEMS = 4
+# Recent-mistakes window (days) used by review service.
+DAILY_LEARNING_MISTAKE_LOOKBACK_DAYS = 7
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

@@ -93,6 +93,48 @@ class SelectorTests(TestCase):
         )
         self.assertEqual(first_ids, refetched)
 
+    def test_a0_beginner_path_never_sees_hard_questions(self):
+        """A learner who chose beginner_start (or whose profile is A0)
+        must never be handed a question above the A0 ceiling (0.45)."""
+        self.user.profile.onboarding_path = "beginner_start"
+        self.user.profile.cefr_level = "A0"
+        self.user.profile.save(update_fields=["onboarding_path", "cefr_level"])
+        attempt = create_placement_attempt(self.user)
+        difficulties = list(
+            attempt.questions.values_list("question__difficulty_score", flat=True)
+        )
+        self.assertTrue(difficulties, "attempt must produce some questions")
+        self.assertTrue(
+            all(d <= 0.45 for d in difficulties),
+            f"A0 placement leaked difficulty>0.45: {sorted(difficulties)}",
+        )
+
+    def test_a1_user_sees_capped_but_higher_questions(self):
+        """A1 ceiling is 0.55 — A2 grammar OK, B1 subjunctive not."""
+        self.user.profile.cefr_level = "A1"
+        self.user.profile.save(update_fields=["cefr_level"])
+        attempt = create_placement_attempt(self.user)
+        difficulties = list(
+            attempt.questions.values_list("question__difficulty_score", flat=True)
+        )
+        self.assertTrue(all(d <= 0.55 for d in difficulties))
+
+    def test_unknown_level_user_can_still_see_hard_questions(self):
+        """No level signal means we keep the full-range probe so the
+        test can actually discover the learner's ceiling."""
+        # Default: profile.cefr_level blank, onboarding_path blank.
+        attempt = create_placement_attempt(self.user)
+        difficulties = list(
+            attempt.questions.values_list("question__difficulty_score", flat=True)
+        )
+        # The selector aims for at least one hard (>=0.65) when ceiling
+        # is unset and the bank can supply it.
+        self.assertTrue(
+            max(difficulties) >= 0.65,
+            f"unknown-level user should still see at least one hard question; "
+            f"got max={max(difficulties)}",
+        )
+
     def test_selection_avoids_recently_used_questions(self):
         # Run two attempts back-to-back. With 100+ active questions and 5
         # picks, the selector should prefer unseen questions on the second

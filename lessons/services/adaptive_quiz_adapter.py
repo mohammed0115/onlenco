@@ -171,6 +171,25 @@ def process_quiz_submission(user, lesson, question_results: Iterable[dict]) -> d
         except Exception as e:
             logger.warning("adaptive_quiz_adapter: motivation engine failed: %s", e)
 
+        # Generate a small batch of personalised exercises so the result
+        # page can surface them as a "drill your weak spot" CTA.
+        # Only when there were wrong answers — a perfect quiz has nothing
+        # to drill, and generating exercises anyway would create stray
+        # AdaptiveExercise rows that surprise downstream tests/queries.
+        if summary["errors_created"] > 0:
+            try:
+                from learning_core.services.exercise_generator import (
+                    generate_personalized_exercises,
+                )
+                generated = generate_personalized_exercises(user, count_per_weakness=2)
+                summary["personalised_exercise_ids"] = [
+                    ex.id for ex in (generated or [])[:3]
+                ]
+            except Exception as e:
+                logger.warning(
+                    "adaptive_quiz_adapter: personalised exercise gen failed: %s", e,
+                )
+
     except Exception as e:
         logger.exception("adaptive_quiz_adapter: aborted: %s", e)
 

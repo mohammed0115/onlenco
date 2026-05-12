@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ quiz.title }} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-6 max-w-2xl">
+        <a href="{% url 'courses:lesson_detail' course.pk lesson.pk %}" class="btn btn-outline btn-sm">
+            <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+            {{ lesson.title }}
+        </a>
+        <h1 class="font-display text-3xl font-bold">{{ quiz.title }}</h1>
+        <p class="text-muted-foreground text-sm">
+            {% t_either "Passing score" "درجة النجاح" %}: {{ quiz.passing_score }}%
+        </p>
+
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+            {% for q in questions %}
+            <div class="card p-5">
+                <p class="font-medium mb-3">{{ forloop.counter }}. {{ q.question_text }}</p>
+                <div class="space-y-2 text-sm">
+                    {% for opt in q.options %}
+                    <label class="flex items-center gap-2 rounded border border-border px-3 py-2 cursor-pointer">
+                        <input type="radio" name="q_{{ q.id }}" value="{{ opt }}">
+                        <span>{{ opt }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-hero w-full">
+                {% t_either "Submit answers" "إرسال الإجابات" %}
+            </button>
+        </form>
+    </main>
+</div>
+{% endblock %}

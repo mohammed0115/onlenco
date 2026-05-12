@@ -23,7 +23,7 @@
       </div>
     </div>
 
-    <form method="post" action="" class="card p-6 md:p-8 space-y-6" id="speaking-form">
+    <form method="post" action="" enctype="multipart/form-data" class="card p-6 md:p-8 space-y-6" id="speaking-form">
       {% csrf_token %}
       {% for aq in questions %}
         <div class="border border-border rounded-xl p-5 bg-white" data-q="{{ aq.id }}">
@@ -46,6 +46,8 @@
                     rows="3" dir="ltr"
                     class="textarea w-full"
                     placeholder="{% t_either 'Your spoken answer appears here. You can also type if mic is unavailable.' 'إجابتك المحكية تظهر هنا. يمكنك الكتابة لو الميكروفون غير متاح.' %}">{{ aq.transcript }}</textarea>
+          <input type="file" name="q_{{ aq.id }}_audio" id="audio-{{ aq.id }}"
+                 accept="audio/*" class="hidden">
         </div>
       {% endfor %}
 
@@ -67,9 +69,50 @@
   (function () {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      document.querySelectorAll('.rec-btn').forEach(function (b) {
-        b.disabled = true;
-        b.title = 'Speech recognition not supported by this browser. Type instead.';
+      // Fallback: capture audio via MediaRecorder, attach to the
+      // hidden file input, let the server transcribe on submit.
+      if (!window.MediaRecorder || !navigator.mediaDevices) {
+        document.querySelectorAll('.rec-btn').forEach(function (b) {
+          b.disabled = true;
+          b.title = 'Speech recognition not supported. Type instead.';
+        });
+        return;
+      }
+      document.querySelectorAll('.rec-btn').forEach(function (btn) {
+        var qid = btn.getAttribute('data-rec');
+        var st  = document.getElementById('status-' + qid);
+        var fileInput = document.getElementById('audio-' + qid);
+        var mediaRecorder = null;
+        var chunks = [];
+        btn.addEventListener('click', async function () {
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            return;
+          }
+          try {
+            var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            chunks = [];
+            mediaRecorder.ondataavailable = function (e) { chunks.push(e.data); };
+            mediaRecorder.onstart = function () {
+              btn.querySelector('.rec-label').textContent = 'Stop';
+              st.textContent = 'Recording…';
+            };
+            mediaRecorder.onstop = function () {
+              btn.querySelector('.rec-label').textContent = 'Record';
+              st.textContent = 'Saved. Will be transcribed on submit.';
+              var blob = new Blob(chunks, { type: 'audio/webm' });
+              var file = new File([blob], 'q-' + qid + '.webm', { type: 'audio/webm' });
+              var dt = new DataTransfer();
+              dt.items.add(file);
+              fileInput.files = dt.files;
+              stream.getTracks().forEach(function (t) { t.stop(); });
+            };
+            mediaRecorder.start();
+          } catch (err) {
+            st.textContent = 'Mic permission denied — please type instead.';
+          }
+        });
       });
       return;
     }

@@ -214,12 +214,28 @@ def placement_speaking(request, attempt_id: int):
     if request.method == "POST":
         for aq in questions:
             transcript = (request.POST.get(f"q_{aq.id}_transcript") or "").strip()
-            aq.transcript = transcript[:4000]
             audio = request.FILES.get(f"q_{aq.id}_audio")
             update_fields = ["transcript"]
             if audio is not None:
                 aq.audio_file = audio
                 update_fields.append("audio_file")
+                # Server-side STT fallback for browsers without the Web
+                # Speech API (Firefox, iOS Safari). Only fires when the
+                # client-side transcript is empty.
+                if not transcript:
+                    try:
+                        from placement.services.stt import transcribe
+                        audio.seek(0)
+                        result = transcribe(audio) or {}
+                        server_transcript = (result.get("transcript") or "").strip()
+                        if server_transcript:
+                            transcript = server_transcript
+                    except Exception:
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            "placement speaking: server STT failed", exc_info=True,
+                        )
+            aq.transcript = transcript[:4000]
             aq.save(update_fields=update_fields)
         if attempt.status in ("started", "written_completed"):
             attempt.status = "speaking_completed"

@@ -55,6 +55,32 @@ EASY_MAX = 0.35
 HARD_MIN = 0.65
 RECENT_ATTEMPTS_TO_AVOID = 2
 
+# Per-known-level difficulty ceilings. When the user already has a
+# known CEFR level (e.g. they came in as A0 via beginner_start, or are
+# retaking placement after a prior result), the selector caps question
+# difficulty so we don't hand a brand-new A0 learner a B2 subjunctive
+# question they cannot reasonably answer. `None` means "no cap".
+DIFFICULTY_CEILING_BY_LEVEL = {
+    "A0": 0.45,    # easy + low-medium only; never hard.
+    "A1": 0.55,
+    "A2": 0.70,
+    # B1+ use the full range so the test can still discover ceiling.
+}
+
+
+def _difficulty_ceiling_for_user(user) -> float | None:
+    """Decide the max difficulty this user should ever see in placement."""
+    try:
+        profile = user.profile
+    except Exception:
+        return None
+    # Beginner-start path = the learner explicitly told us they're at
+    # zero. Even if Profile.cefr_level is blank, cap at A0.
+    if (profile.onboarding_path or "") == "beginner_start":
+        return DIFFICULTY_CEILING_BY_LEVEL["A0"]
+    level = (profile.cefr_level or "").upper()
+    return DIFFICULTY_CEILING_BY_LEVEL.get(level)
+
 
 def _previously_seen_question_ids(user) -> set[int]:
     """Return the question IDs the user answered in their last N attempts.
@@ -72,17 +98,23 @@ def _previously_seen_question_ids(user) -> set[int]:
 
 
 def _bucket_pool(question_type: str, topic: str, exclude_ids: Iterable[int],
-                 *, prefer_mcq: bool = True):
+                 *, prefer_mcq: bool = True,
+                 difficulty_ceiling: float | None = None):
     """Active questions for one (type, topic) bucket, minus exclusions.
 
     When `prefer_mcq=True` (the default for the placement test), MCQ
     rows are returned first so the selector picks selection-based
     questions when the bucket has them. Free-text rows still appear
     as fallbacks if the bucket runs out of MCQs.
+
+    `difficulty_ceiling` (0..1) caps the rows returned so a known A0
+    learner is never offered a B2 question.
     """
     qs = PlacementQuestion.objects.filter(
         question_type=question_type, topic=topic, is_active=True,
     ).exclude(id__in=list(exclude_ids))
+    if difficulty_ceiling is not None:
+        qs = qs.filter(difficulty_score__lte=difficulty_ceiling)
     rows = list(qs)
     if prefer_mcq:
         rows.sort(key=lambda q: 0 if q.expected_answer_type == "mcq" else 1)
@@ -113,6 +145,7 @@ def _difficulty_band(q: PlacementQuestion) -> str:
 
 
 def _pick_with_variety(buckets: list[list[PlacementQuestion]], rng: random.Random,
+                       *, difficulty_ceiling: float | None = None,
                       ) -> list[PlacementQuestion]:
     """One question per bucket, then rebalance toward difficulty mix.
 
@@ -125,6 +158,10 @@ def _pick_with_variety(buckets: list[list[PlacementQuestion]], rng: random.Rando
       3. If a bucket was empty in step 1 OR a swap couldn't find a
          candidate, backfill from any remaining active question of the
          right `question_type` (last-resort, preserves the count of 5).
+
+    When ``difficulty_ceiling`` is set below the HARD_MIN threshold,
+    the "force one hard question" rebalance is skipped — we never
+    upgrade a question past the ceiling.
     """
     selected: list[PlacementQuestion] = []
     bucket_for_index: list[list[PlacementQuestion]] = []
@@ -137,12 +174,15 @@ def _pick_with_variety(buckets: list[list[PlacementQuestion]], rng: random.Rando
         selected.append(choice)
         bucket_for_index.append([q for q in bucket if q.id != choice.id])
 
-    # Rebalance: ensure at least one easy + one hard.
+    # Rebalance: ensure at least one easy, plus one hard *only* when
+    # the ceiling allows it.
+    desired_bands = ["easy"]
+    if difficulty_ceiling is None or difficulty_ceiling >= HARD_MIN:
+        desired_bands.append("hard")
     bands = [_difficulty_band(q) for q in selected]
-    for desired in ("easy", "hard"):
+    for desired in desired_bands:
         if desired in bands:
             continue
-        # Find a slot whose bucket can supply the missing band.
         for i, alts in enumerate(bucket_for_index):
             replacement = next(
                 (q for q in alts if _difficulty_band(q) == desired), None,
@@ -157,16 +197,23 @@ def _pick_with_variety(buckets: list[list[PlacementQuestion]], rng: random.Rando
 
 def _backfill(selected: list[PlacementQuestion], target: int,
               question_type: str, exclude_ids: set[int],
-              rng: random.Random) -> list[PlacementQuestion]:
-    """Top up to `target` count by sampling any remaining active question."""
+              rng: random.Random,
+              *, difficulty_ceiling: float | None = None,
+              ) -> list[PlacementQuestion]:
+    """Top up to `target` count by sampling any remaining active question.
+
+    Respects ``difficulty_ceiling`` so a known A0 learner never gets a
+    hard question through the backfill escape hatch.
+    """
     if len(selected) >= target:
         return selected[:target]
     have_ids = {q.id for q in selected} | set(exclude_ids)
-    pool = list(
-        PlacementQuestion.objects.filter(
-            question_type=question_type, is_active=True,
-        ).exclude(id__in=list(have_ids))
-    )
+    qs = PlacementQuestion.objects.filter(
+        question_type=question_type, is_active=True,
+    ).exclude(id__in=list(have_ids))
+    if difficulty_ceiling is not None:
+        qs = qs.filter(difficulty_score__lte=difficulty_ceiling)
+    pool = list(qs)
     rng.shuffle(pool)
     selected.extend(pool[: (target - len(selected))])
     return selected
@@ -174,29 +221,41 @@ def _backfill(selected: list[PlacementQuestion], target: int,
 
 def select_written_questions(user, count: int = 5,
                              rng: random.Random | None = None,
+                             *, difficulty_ceiling: float | None = None,
                              ) -> list[PlacementQuestion]:
     rng = rng or random.Random()
     seen = _previously_seen_question_ids(user)
+    if difficulty_ceiling is None:
+        difficulty_ceiling = _difficulty_ceiling_for_user(user)
     buckets = [
-        _bucket_pool("written", topic, seen)
+        _bucket_pool("written", topic, seen,
+                     difficulty_ceiling=difficulty_ceiling)
         for topic, _label in WRITTEN_DISTRIBUTION
     ]
-    selected = _pick_with_variety(buckets, rng)
-    selected = _backfill(selected, count, "written", seen, rng)
+    selected = _pick_with_variety(buckets, rng,
+                                  difficulty_ceiling=difficulty_ceiling)
+    selected = _backfill(selected, count, "written", seen, rng,
+                         difficulty_ceiling=difficulty_ceiling)
     return selected[:count]
 
 
 def select_speaking_questions(user, count: int = 5,
                               rng: random.Random | None = None,
+                              *, difficulty_ceiling: float | None = None,
                               ) -> list[PlacementQuestion]:
     rng = rng or random.Random()
     seen = _previously_seen_question_ids(user)
+    if difficulty_ceiling is None:
+        difficulty_ceiling = _difficulty_ceiling_for_user(user)
     buckets = [
-        _bucket_pool("speaking", topic, seen)
+        _bucket_pool("speaking", topic, seen,
+                     difficulty_ceiling=difficulty_ceiling)
         for topic, _label in SPEAKING_DISTRIBUTION
     ]
-    selected = _pick_with_variety(buckets, rng)
-    selected = _backfill(selected, count, "speaking", seen, rng)
+    selected = _pick_with_variety(buckets, rng,
+                                  difficulty_ceiling=difficulty_ceiling)
+    selected = _backfill(selected, count, "speaking", seen, rng,
+                         difficulty_ceiling=difficulty_ceiling)
     return selected[:count]
 
 
@@ -212,8 +271,13 @@ def create_placement_attempt(user, *, count: int = 5,
     selector again.
     """
     rng = rng or random.Random()
-    written = select_written_questions(user, count=count, rng=rng)
-    speaking = select_speaking_questions(user, count=count, rng=rng)
+    ceiling = _difficulty_ceiling_for_user(user)
+    written = select_written_questions(
+        user, count=count, rng=rng, difficulty_ceiling=ceiling,
+    )
+    speaking = select_speaking_questions(
+        user, count=count, rng=rng, difficulty_ceiling=ceiling,
+    )
     if len(written) < count or len(speaking) < count:
         logger.warning(
             "create_placement_attempt: bank short — got %d written, %d speaking "

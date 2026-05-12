@@ -57,6 +57,33 @@
             </section>
         {% endif %}
 
+        <section class="card p-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="text-sm">
+                {% if progress.completed_at %}
+                    <span class="badge badge-secondary">{% t_either "Lesson completed" "اكتمل الدرس" %} ✓</span>
+                {% elif progress.video_completed %}
+                    <span class="badge badge-outline">{% t_either "Video watched" "تمت المشاهدة" %}</span>
+                {% else %}
+                    <span class="text-muted-foreground">{% t_either "Not yet watched" "لم تتم المشاهدة بعد" %}</span>
+                {% endif %}
+            </div>
+            <div class="flex gap-3 flex-wrap">
+                {% if not progress.video_completed %}
+                <form method="post" action="{% url 'courses:mark_lesson_complete' course.pk lesson.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary">
+                        {% t_either "Mark as watched" "وضع علامة كتمت المشاهدة" %}
+                    </button>
+                </form>
+                {% endif %}
+                {% if quiz %}
+                <a href="{% url 'courses:lesson_quiz_attempt' course.pk lesson.pk %}" class="btn btn-hero">
+                    {% t_either "Take quiz" "ابدأ الاختبار" %}
+                </a>
+                {% endif %}
+            </div>
+        </section>
+
         {% if lesson.pdf_file or lesson.resources.all %}
             <section class="card p-6">
                 <h2 class="font-display text-xl font-bold mb-4">{% t_either "Resources" "المرفقات" %}</h2>

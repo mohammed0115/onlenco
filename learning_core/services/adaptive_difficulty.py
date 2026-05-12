@@ -61,34 +61,52 @@ def cefr_for_theta(theta: float) -> str:
     return "C2"
 
 
-def cefr_progress(theta: float) -> dict:
+def cefr_progress(theta: float, current_level: str | None = None) -> dict:
     """Where the learner sits between levels.
 
     Returns ``{current, next, percent, theta}`` where ``percent`` is the
     progress (0..100) into the current band toward the next level. C3 is
     treated as "no next" — percent stays at 100.
+
+    ``current_level`` is an optional override — when provided (typically
+    ``Profile.cefr_level``), it pins the displayed band to the user's
+    own profile rather than deriving it from theta. This isolates each
+    user's dashboard from theta drift: an A0 learner whose theta has
+    momentarily climbed into the A2 band still sees "A0 → A1", with the
+    bar pegged at 100% to signal they're ready to graduate.
     """
     levels = list(THETA_TO_CEFR)
     levels.sort(key=lambda x: x[0])
-    # Find the band [lower, upper) that contains theta.
-    lower_theta = -3.0
-    current = "A0"
-    next_level = None
-    for upper, lvl in levels:
-        if theta < upper:
-            current = lvl
-            # Next level is the level mapped to the next bucket.
-            idx = levels.index((upper, lvl))
-            if idx + 1 < len(levels):
-                next_level = levels[idx + 1][1]
-            break
-        lower_theta = upper
+
+    # When the caller pins the level, use it as the source of truth.
+    # Otherwise derive from theta as before.
+    pinned = (current_level or "").upper() if current_level else ""
+    available_levels = {l for _u, l in levels}
+    if pinned and pinned in available_levels:
+        current = pinned
+        # lower_theta = floor of the pinned band. The floor is the
+        # `upper` of the band *before* this one; A0 floors at -3.0.
+        idx = next(i for i, (_u, l) in enumerate(levels) if l == current)
+        lower_theta = -3.0 if idx == 0 else levels[idx - 1][0]
+        next_level = levels[idx + 1][1] if idx + 1 < len(levels) else None
     else:
-        current = "C2"
+        # Find the band [lower, upper) that contains theta.
+        lower_theta = -3.0
+        current = "A0"
+        next_level = None
+        for upper, lvl in levels:
+            if theta < upper:
+                current = lvl
+                next_idx = levels.index((upper, lvl)) + 1
+                if next_idx < len(levels):
+                    next_level = levels[next_idx][1]
+                break
+            lower_theta = upper
+        else:
+            current = "C2"
 
     if current == "C3" or next_level is None:
         return {"current": current, "next": None, "percent": 100, "theta": round(theta, 3)}
-    # Find this band's upper bound
     upper_theta = next(u for u, l in levels if l == current)
     span = max(upper_theta - lower_theta, 0.001)
     pct = (theta - lower_theta) / span * 100.0

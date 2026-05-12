@@ -132,7 +132,14 @@ def first_published_course_for_levels(level_codes: tuple[str, ...] | list[str]) 
 
 
 def first_beginner_course() -> Course | None:
-    """Return the first beginner course a new learner should start."""
+    """Return the first beginner course a new learner should start.
+
+    A0 is preferred over A1 when both have published courses — a true
+    beginner should not silently land on A1 just because A0 has fewer
+    courses or none are seeded yet."""
+    a0 = first_published_course_for_levels(("A0",))
+    if a0 is not None:
+        return a0
     return first_published_course_for_levels(BEGINNER_LEVELS)
 
 

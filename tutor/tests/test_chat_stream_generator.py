@@ -34,10 +34,15 @@ class ChatStreamTokensTests(TestCase):
         self.conv = TutorConversation.objects.create(user=self.user, topic="grammar")
 
     @override_settings(AI_API_KEY="")
-    def test_no_api_key_yields_stub_reply(self):
+    def test_no_api_key_yields_friendly_fallback(self):
+        """When the API key is missing, the stream yields one friendly,
+        jargon-free chunk that echoes what the user wrote."""
         out = list(chat_stream_tokens(self.conv, "I goes home"))
         self.assertEqual(len(out), 1)
-        self.assertIn("stub", out[0])
+        self.assertNotIn("Quick fix:", out[0],
+                         "stream fallback must not leak 'Quick fix:'")
+        self.assertIn("I goes home", out[0],
+                      "stream fallback should echo the user's message")
 
     @override_settings(AI_API_KEY="k", AI_API_BASE="https://x", AI_MODEL="m")
     def test_yields_each_delta_in_order(self):

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Quiz result" "نتيجة الاختبار" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-6 max-w-2xl">
+        <div class="card p-7 text-center">
+            <div class="text-sm uppercase text-muted-foreground tracking-widest mb-2">
+                {% t_either "Your score" "نتيجتك" %}
+            </div>
+            <div class="font-display text-6xl font-bold mb-2">{{ score }}%</div>
+            {% if passed %}
+                <span class="badge badge-secondary">{% t_either "Passed" "ناجح" %} ✓</span>
+            {% else %}
+                <span class="badge badge-outline">{% t_either "Try again" "أعد المحاولة" %}</span>
+            {% endif %}
+        </div>
+
+        <section class="card p-6 space-y-3">
+            {% for r in results %}
+            <div class="border-b border-border last:border-0 pb-3 last:pb-0">
+                <p class="font-medium">{{ forloop.counter }}. {{ r.q.question_text }}</p>
+                <p class="text-sm">
+                    {% t_either "Your answer" "إجابتك" %}:
+                    <span class="{% if r.is_correct %}text-secondary{% else %}text-destructive{% endif %}">
+                        {{ r.chosen|default:"—" }}
+                    </span>
+                </p>
+                {% if not r.is_correct %}
+                    <p class="text-sm text-muted-foreground">
+                        {% t_either "Correct answer" "الإجابة الصحيحة" %}: {{ r.correct }}
+                    </p>
+                {% endif %}
+                {% if r.q.explanation %}
+                    <p class="text-xs text-muted-foreground mt-1">{{ r.q.explanation }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </section>
+
+        {% if personalised_exercises %}
+        <section class="card p-6">
+            <h2 class="font-display text-xl font-bold mb-3">
+                {% t_either "Practice your weak spots" "تدرّب على نقاط ضعفك" %}
+            </h2>
+            <p class="text-sm text-muted-foreground mb-4">
+                {% t_either "We picked these exercises based on the mistakes you just made."
+                            "اخترنا هذه التمارين بناءً على الأخطاء التي ارتكبتها للتو." %}
+            </p>
+            <ul class="space-y-3">
+                {% for ex in personalised_exercises %}
+                <li class="rounded border border-border p-3">
+                    <div class="text-xs text-muted-foreground mb-1">{{ ex.cefr_level }} · {{ ex.question_type }}</div>
+                    <p class="text-sm">{{ ex.question }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <div class="flex gap-3 flex-wrap justify-between">
+            <a href="{% url 'courses:lesson_detail' course.pk lesson.pk %}" class="btn btn-outline">
+                {% t_either "Back to lesson" "العودة إلى الدرس" %}
+            </a>
+            <a href="{% url 'dashboard' %}" class="btn btn-hero">
+                {% t_either "Continue learning" "واصل التعلم" %}
+            </a>
+        </div>
+    </main>
+</div>
+{% endblock %}

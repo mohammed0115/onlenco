@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Review mistakes" "راجع أخطاءك" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-6 max-w-3xl">
+        <div class="space-y-2">
+            <span class="badge badge-secondary">
+                {% t_either "Daily learning" "خطة اليوم" %} · {% t_either "Review" "مراجعة" %}
+            </span>
+            <h1 class="font-display text-3xl font-bold">
+                {% t_either "Review your mistakes" "راجع أخطاءك" %}
+            </h1>
+            <p class="text-muted-foreground">
+                {% t_either "Look at what went wrong recently. Try to rewrite each sentence correctly."
+                            "انظر إلى الأخطاء الأخيرة. حاول إعادة كتابة كل جملة بشكل صحيح." %}
+            </p>
+        </div>
+
+        {% if items %}
+        <ol class="space-y-4">
+            {% for item in items %}
+            <li class="card p-5">
+                <div class="text-xs uppercase text-muted-foreground mb-1">
+                    {{ forloop.counter }}. {% t_either "Past mistake" "خطأ سابق" %}
+                </div>
+                <h3 class="font-semibold mb-2">{{ item.title }}</h3>
+                <p class="text-sm text-muted-foreground mb-2">{{ item.instructions }}</p>
+                {% if item.content_text %}
+                    <pre class="text-sm whitespace-pre-wrap mb-2">{{ item.content_text }}</pre>
+                {% endif %}
+                {% if item.explanation %}
+                    <p class="text-xs text-muted-foreground">{{ item.explanation }}</p>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+        {% else %}
+        <p class="text-muted-foreground">
+            {% t_either "No recent mistakes to review. Keep up the great work!"
+                        "لا توجد أخطاء حديثة للمراجعة. أحسنت!" %}
+        </p>
+        {% endif %}
+
+        <div>
+            <a href="{% url 'daily_learning:daily_plan' %}" class="btn btn-outline">
+                {% t_either "Back to today's plan" "العودة إلى خطة اليوم" %}
+            </a>
+        </div>
+    </main>
+</div>
+{% endblock %}

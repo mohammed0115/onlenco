@@ -52,6 +52,7 @@ urlpatterns = [
     path("", include("core.urls")),
     path("auth/", include("accounts.urls")),
     path("dashboard/", include("lessons.urls")),
+    path("daily/", include("daily_learning.urls")),
     path("placement/", include("placement.urls")),
     path("payments/", include("payments.urls")),
     path("tutor/", include("tutor.urls")),

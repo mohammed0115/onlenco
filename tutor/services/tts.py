@@ -21,9 +21,22 @@ DEFAULT_VOICE = "alloy"
 DEFAULT_FORMAT = "mp3"
 
 
-def synthesize(text: str) -> dict:
+def synthesize(text: str, *, language: str = "en") -> dict:
+    """Synthesise speech.
+
+    Defence-in-depth: ALWAYS runs ``humanize_for_speech`` on the input
+    before sending it upstream, regardless of whether the caller already
+    sanitised. This guards every TTS path — chat, daily-learning audio
+    command, ad-hoc admin scripts — so raw technical identifiers
+    (``user_answer``, ``UA_*``, ``cefr_level``) cannot leak into a
+    recording even when a future caller forgets to pre-sanitise.
+    """
     if not settings.AI_API_KEY or not text:
         return {"audio_b64": "", "format": "", "voice": ""}
+
+    # Inline import keeps this module free of a hard core dependency.
+    from core.services.text_humanizer import humanize_for_speech
+    text = humanize_for_speech(text, language=language) or text
 
     payload = {
         "model": getattr(settings, "AI_TTS_MODEL", "tts-1"),

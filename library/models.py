@@ -3,7 +3,9 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import CEFR_CHOICES
-from courses.validators import validate_document, validate_image, validate_video_url
+from courses.validators import (
+    validate_audio, validate_document, validate_image, validate_video_url,
+)
 
 
 CATEGORY_CHOICES = [
@@ -52,6 +54,26 @@ class Chapter(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="chapters")
     title = models.CharField(max_length=200)
     body = models.TextField()
+    # Optional audio for this chapter so it can also serve as a
+    # standalone listening unit (A0 audio lessons live here). Upload
+    # `audio_file` for a self-hosted recording, or set `audio_url` to
+    # point at a CDN / external host. Either renders an `<audio>`
+    # element on the chapter page.
+    audio_file = models.FileField(
+        upload_to="library/audio/%Y/%m/", blank=True, null=True,
+        validators=[validate_audio],
+        verbose_name=_("Audio file"),
+        help_text=_("Upload an audio file (mp3, m4a, webm). Plays before the text."),
+    )
+    audio_url = models.URLField(
+        blank=True,
+        verbose_name=_("Audio URL"),
+        help_text=_("Optional hosted audio URL — used only when no file is uploaded."),
+    )
+    duration_seconds = models.PositiveIntegerField(
+        default=0, verbose_name=_("Audio duration (seconds)"),
+        help_text=_("Approximate audio length for filtering / listing."),
+    )
     sort_order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -61,6 +83,19 @@ class Chapter(models.Model):
 
     def __str__(self):
         return f"{self.book.title} — Chapter {self.sort_order}: {self.title}"
+
+    @property
+    def has_audio(self) -> bool:
+        return bool(self.audio_file or self.audio_url)
+
+    def get_audio_src(self) -> str:
+        """Resolve the audio source to play. File wins over URL."""
+        if self.audio_file:
+            try:
+                return self.audio_file.url
+            except Exception:
+                pass
+        return self.audio_url or ""
 
 
 class VocabularyExtract(models.Model):

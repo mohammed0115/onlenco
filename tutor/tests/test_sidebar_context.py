@@ -120,10 +120,35 @@ class SystemPromptUsesLevelAndWeaknessesTests(TestCase):
         StudentLearningProfile.objects.create(user=self.user, current_cefr_level="A1")
         ctx = build_tutor_context(self.user, "")
         prompt = _system_prompt(ctx, voice=False)
-        self.assertIn("A0/A1", prompt)
+        # A1 has its own branch (separate from A0 since the A0 spec
+        # mandates 3-5 word sentences vs A1's 6-8). Lock both signals.
+        self.assertIn("student is at A1", prompt)
         self.assertIn("simple English", prompt)
-        # Profile metadata also ends up rendered into the prompt body.
         self.assertIn("A1", prompt)
+
+    def test_a0_band_has_dedicated_beginner_rule(self):
+        """A0 must NOT collapse into the A1 prompt — A0 needs 3-5 word
+        sentences, no grammar theory, no 'Quick fix:' labels, no
+        technical tokens, and gentle echo-style correction."""
+        from learning_core.models import StudentLearningProfile
+        StudentLearningProfile.objects.create(user=self.user, current_cefr_level="A0")
+        ctx = build_tutor_context(self.user, "")
+        prompt = _system_prompt(ctx, voice=False)
+        self.assertIn("absolute beginner", prompt)
+        self.assertIn("No grammar theory", prompt)
+        self.assertIn("3 to 5 words", prompt)
+        # Gentle correction style — no "Quick fix:" label for A0.
+        self.assertIn("GENTLE CORRECTION (A0 style)", prompt)
+        self.assertIn("do NOT label it", prompt)
+        # The literal phrase "Quick fix:" must be explicitly forbidden
+        # for A0 (the rule mentions it only to ban it).
+        self.assertIn("No 'Quick fix:'", prompt)
+        # Explicit "never speak technical tokens" rule.
+        self.assertIn("NEVER speak technical tokens", prompt)
+        # And the universal one-question-per-turn rule still applies.
+        self.assertIn("one short follow-up question", prompt)
+        # Praise-first encouragement is locked.
+        self.assertIn("praise first", prompt.lower())
 
     def test_c1_band_pushes_fluency(self):
         from learning_core.models import StudentLearningProfile

@@ -69,15 +69,18 @@ class TimeoutFallbackTests(TestCase):
                 content_type="application/json",
             )
         # Same contract as /chat/send/'s normal path — JSON, 200, with a
-        # graceful fallback string in `content` (the chat() service
-        # returns the "(stub: AI temporarily unavailable)" text when
-        # upstream raises). The user sees a friendly bubble, not a
-        # 500 page.
+        # graceful fallback string in `content`. The user sees a friendly
+        # bubble (no 500 page, no "Quick fix:" technical token).
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r["Content-Type"].split(";")[0], "application/json")
         body = r.json()
         self.assertTrue(body["success"])
-        self.assertIn("temporarily unavailable", body["ai_message"]["content"].lower())
+        content = body["ai_message"]["content"]
+        self.assertTrue(content, "fallback must produce text")
+        self.assertNotIn("Quick fix:", content,
+                         "timeout fallback must not leak the 'Quick fix:' label")
+        # Gentle ask-again wording (the new fallback).
+        self.assertIn("again", content.lower())
 
     def test_voice_transcribe_returns_503_json_on_stt_failure(self):
         from django.core.files.uploadedfile import SimpleUploadedFile

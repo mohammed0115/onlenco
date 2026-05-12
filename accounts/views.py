@@ -252,6 +252,13 @@ def onboarding_placement(request):
     monolithic `/placement/` page is still available as a backward-
     compatible fallback for users mid-flight on the previous design.
     """
+    # Stamp the chosen path immediately so abandoned-mid-test users are
+    # still recognisable as "started placement, never finished" rather
+    # than orphaned with an empty onboarding_path.
+    profile = request.user.profile
+    if profile.onboarding_path != "placement_test":
+        profile.onboarding_path = "placement_test"
+        profile.save(update_fields=["onboarding_path"])
     return redirect("placement_start")
 
 

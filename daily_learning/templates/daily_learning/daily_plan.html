@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Today's plan" "خطة اليوم" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+    {% include "_app_header.html" %}
+
+    <main class="container py-10 space-y-6 max-w-2xl">
+        <div class="space-y-2">
+            <span class="badge badge-secondary">
+                {% t_either "Daily learning" "خطة اليوم" %}
+                {% if plan.cefr_level %} · {{ plan.cefr_level }}{% endif %}
+            </span>
+            <h1 class="font-display text-2xl md:text-3xl font-bold">
+                {% if plan %}{{ plan.title }}{% else %}{% t_either "No plan yet" "لا توجد خطة بعد" %}{% endif %}
+            </h1>
+            {% if plan.description %}
+                <p class="text-muted-foreground text-sm">{{ plan.description }}</p>
+            {% endif %}
+        </div>
+
+        {% if plan %}
+        {# Stepper dots — one circle per item, current step is filled. #}
+        <div class="flex items-center gap-2" data-stepper-dots>
+            {% for item in items %}
+            <span class="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <span class="block h-full bg-primary transition-all"
+                      data-stepper-dot="{{ forloop.counter0 }}"
+                      style="width: 0%;"></span>
+            </span>
+            {% endfor %}
+        </div>
+        <div class="text-xs text-muted-foreground flex items-center justify-between">
+            <span data-stepper-counter>1 / {{ items|length }}</span>
+            <span>{{ plan.estimated_minutes }} min · {{ streak }} 🔥</span>
+        </div>
+
+        {% comment %}
+        Each item is a step — only the current step is visible.
+        Step navigation is client-side; "Mark done" still POSTs so
+        progress persists across reloads.
+        {% endcomment %}
+        <div data-stepper-steps>
+            {% for item in items %}
+            <section data-step="{{ forloop.counter0 }}"
+                     data-item-id="{{ item.id }}"
+                     data-item-type="{{ item.item_type }}"
+                     data-completed="{{ item.is_completed|yesno:'1,0' }}"
+                     class="card p-6 {% if not forloop.first %}hidden{% endif %}">
+                <div class="text-xs uppercase text-muted-foreground tracking-wide mb-1">
+                    {{ forloop.counter }}. {{ item.get_item_type_display }}
+                    {% if item.skill %} · {{ item.get_skill_display }}{% endif %}
+                </div>
+                <h3 class="font-semibold text-lg mb-3">{{ item.title }}</h3>
+
+                {% if item.instructions %}
+                    <p class="text-sm text-muted-foreground mb-3">{{ item.instructions }}</p>
+                {% endif %}
+
+                {% if item.image_url %}
+                    <img src="{{ item.image_url }}" alt="" class="mb-3 rounded-lg max-h-48 object-contain mx-auto">
+                {% endif %}
+
+                {% if item.content_text %}
+                    <pre class="text-base whitespace-pre-wrap mb-3 font-sans leading-relaxed">{{ item.content_text }}</pre>
+                {% endif %}
+
+                {% if item.audio_url %}
+                    <audio controls preload="none" src="{{ item.audio_url }}" class="w-full mb-3"></audio>
+                {% endif %}
+
+                {% comment %}
+                Big "Listen" button on every speaking/listening/vocab
+                step — uses browser TTS when no audio_url. For A0 it
+                auto-plays the moment the step is shown.
+                {% endcomment %}
+                {% if item.item_type == "listening" or item.item_type == "speaking" or item.item_type == "vocabulary" or item.item_type == "grammar_tip" %}
+                {% if item.content_text %}
+                    <button type="button"
+                            data-tts="{{ item.content_text|escapejs }}"
+                            class="btn btn-outline w-full mb-3 text-base"
+                            title="{% t_either 'Play with voice' 'استمع بالصوت' %}">
+                        🔊 {% t_either "Listen" "استمع" %}
+                    </button>
+                {% endif %}
+                {% endif %}
+
+                {% if item.question %}
+                    <p class="font-medium text-base mb-3">{{ item.question }}</p>
+                {% endif %}
+
+                {% if item.item_type == "writing" %}
+                    <p class="text-xs text-muted-foreground mb-2">
+                        {% t_either "Type the word." "اكتب الكلمة." %}
+                    </p>
+                    <input type="text" data-writing-input="{{ item.id }}"
+                           data-writing-target="{{ item.correct_answer|escapejs }}"
+                           autocomplete="off" autocapitalize="off" spellcheck="false"
+                           class="w-full px-3 py-2 rounded border border-border text-base"
+                           placeholder="{{ item.correct_answer }}">
+                    <p data-writing-feedback="{{ item.id }}" class="text-xs mt-1"></p>
+                {% elif item.item_type == "word_order" %}
+                    <p class="text-xs text-muted-foreground mb-2">
+                        {% t_either "Tap each word in the correct order." "اضغط كل كلمة بالترتيب الصحيح." %}
+                    </p>
+                    <div class="flex flex-wrap gap-2" data-word-order="{{ item.id }}"
+                         data-word-order-target="{{ item.correct_answer|escapejs }}">
+                        {% for opt in item.options %}
+                        <button type="button"
+                                data-word="{{ opt }}"
+                                class="px-3 py-2 rounded border border-border text-sm">{{ opt }}</button>
+                        {% endfor %}
+                    </div>
+                    <input type="text" data-word-order-answer="{{ item.id }}"
+                           class="mt-2 w-full px-3 py-2 rounded border border-border text-sm" readonly>
+                    <button type="button" data-word-order-reset="{{ item.id }}"
+                            class="btn btn-outline btn-sm mt-2">
+                        {% t_either "Clear" "مسح" %}
+                    </button>
+                    <p data-word-order-feedback="{{ item.id }}" class="text-xs mt-1"></p>
+                {% elif item.options %}
+                    <div class="space-y-2" data-quiz-options="{{ item.id }}"
+                         data-quiz-target="{{ item.correct_answer|escapejs }}">
+                        {% for opt in item.options %}
+                        <button type="button"
+                                data-option="{{ opt }}"
+                                class="block w-full px-3 py-2 rounded border border-border text-sm text-start hover:bg-muted">
+                            {{ opt }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                    <p data-quiz-feedback="{{ item.id }}" class="text-xs mt-2"></p>
+                {% endif %}
+
+                {% if item.explanation %}
+                    <p class="text-xs text-muted-foreground mt-3 hidden"
+                       data-explanation="{{ item.id }}">{{ item.explanation }}</p>
+                {% endif %}
+
+                <div class="flex items-center justify-between pt-5 mt-4 border-t border-border">
+                    <button type="button" data-stepper-prev
+                            class="btn btn-outline btn-sm {% if forloop.first %}invisible{% endif %}">
+                        ← {% t_either "Back" "رجوع" %}
+                    </button>
+                    {% if forloop.last %}
+                    <button type="button" data-stepper-finish
+                            class="btn btn-hero">
+                        {% t_either "Finish for today" "أنهِ اليوم" %} ✓
+                    </button>
+                    {% else %}
+                    <button type="button" data-stepper-next
+                            class="btn btn-hero">
+                        {% t_either "Next" "التالي" %} →
+                    </button>
+                    {% endif %}
+                </div>
+            </section>
+            {% endfor %}
+        </div>
+
+        <div class="flex flex-wrap gap-3 justify-between pt-2 text-sm">
+            <a href="{% url 'daily_learning:daily_review' %}" class="text-muted-foreground hover:text-foreground">
+                {% t_either "Review mistakes" "راجع أخطاءك" %}
+            </a>
+            <a href="/tutor/" class="text-muted-foreground hover:text-foreground">
+                {% t_either "Practice with AI tutor" "تحدث مع المعلم الذكي" %}
+            </a>
+        </div>
+
+        {% if motivation_message %}
+        <p class="text-center text-muted-foreground italic pt-2 text-sm">{{ motivation_message }}</p>
+        {% endif %}
+        {% else %}
+        <p class="text-muted-foreground">
+            {% t_either "Come back tomorrow — we'll prepare a new plan for you." "عُد غداً — سنُعد لك خطة جديدة." %}
+        </p>
+        {% endif %}
+    </main>
+</div>
+
+<script>
+(function () {
+  const getCookie = (name) => {
+    const m = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[2]) : '';
+  };
+  const csrftoken = getCookie('csrftoken');
+  const planLevel = "{{ plan.cefr_level|default:'' }}";
+  const isA0 = (planLevel === "A0");
+
+  // ----- Voice (browser TTS) helpers -----
+  // Strip:
+  //   1. Arabic / Hebrew / RTL glyphs (en-US engine reads them as
+  //      codepoints — "zero six two C …").
+  //   2. Standalone digit runs (an engine reading "1000" letter-by-letter
+  //      sounds like "one zero zero zero", or worse with the rate
+  //      controlled — produces the "you 000000" the user reported).
+  //   3. Leftover dashes after Arabic / digit removal.
+  const cleanForTTS = (s) => {
+    if (!s) return '';
+    let out = s.replace(
+      /[֐-׿؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]+/g,
+      ''
+    );
+    // Drop runs of 2+ digits — they sound like noise when the engine
+    // reads them digit-by-digit and rarely add learning value.
+    out = out.replace(/\d{2,}/g, '');
+    out = out.replace(/[–—\-]+\s*$/gm, '');
+    out = out.replace(/\s+[–—\-]+\s*\n/g, '\n');
+    out = out.replace(/[ \t]+/g, ' ').trim();
+    return out;
+  };
+
+  const speak = (text, opts = {}) => {
+    const clean = cleanForTTS(text);
+    // Refuse to speak if the cleaned text is suspiciously short or all
+    // punctuation — that's the symptom that produces surprise "0 0 0".
+    if (!clean || clean.length < 2 || !/[a-zA-Z]/.test(clean)) return;
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = opts.lang || 'en-US';
+    u.rate = opts.rate || (isA0 ? 0.75 : 0.9);   // A0 = slower
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  };
+  document.querySelectorAll('[data-tts]').forEach((btn) => {
+    btn.addEventListener('click', () => speak(btn.getAttribute('data-tts')));
+  });
+
+  // ----- Stepper navigation -----
+  const steps = Array.from(document.querySelectorAll('[data-step]'));
+  const dots  = Array.from(document.querySelectorAll('[data-stepper-dot]'));
+  const counter = document.querySelector('[data-stepper-counter]');
+  let current = 0;
+
+  const showStep = (idx) => {
+    steps.forEach((el, i) => el.classList.toggle('hidden', i !== idx));
+    dots.forEach((d, i) => {
+      d.style.width = (i < idx) ? '100%' : (i === idx ? '100%' : '0%');
+    });
+    if (counter) counter.textContent = (idx + 1) + ' / ' + steps.length;
+    current = idx;
+    const step = steps[idx];
+    if (!step) return;
+    // Cancel any in-flight TTS from the previous step so the user
+    // doesn't get a startling overlap when moving forward fast.
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    // TTS is strictly user-initiated — auto-play was producing surprise
+    // output (digit runs, unfamiliar voices). The Listen button on each
+    // step is the only path to voice now.
+    // Focus the writing input so the keyboard pops open on mobile.
+    const writingInput = step.querySelector('[data-writing-input]');
+    if (writingInput) writingInput.focus();
+  };
+
+  // Wire next/prev/finish on each step
+  steps.forEach((step) => {
+    const next = step.querySelector('[data-stepper-next]');
+    const prev = step.querySelector('[data-stepper-prev]');
+    const finish = step.querySelector('[data-stepper-finish]');
+    if (next) {
+      next.addEventListener('click', async () => {
+        await markItemComplete(step);
+        if (current < steps.length - 1) showStep(current + 1);
+      });
+    }
+    if (prev) {
+      prev.addEventListener('click', () => {
+        if (current > 0) showStep(current - 1);
+      });
+    }
+    if (finish) {
+      finish.addEventListener('click', async () => {
+        await markItemComplete(step);
+        await finishPlan();
+      });
+    }
+  });
+
+  // ----- Mark item complete (server) -----
+  const markItemComplete = async (step) => {
+    if (step.getAttribute('data-completed') === '1') return;
+    const id = step.getAttribute('data-item-id');
+    if (!id) return;
+    try {
+      const resp = await fetch('/daily/items/' + id + '/complete/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken, 'Accept': 'application/json' },
+        credentials: 'same-origin',
+      });
+      if (resp.ok) step.setAttribute('data-completed', '1');
+    } catch (_) { /* swallow — never block navigation */ }
+  };
+
+  // ----- Finish entire plan -----
+  const finishPlan = async () => {
+    const fd = new FormData();
+    fd.append('force', '1');
+    try {
+      const resp = await fetch('/daily/complete/', {
+        method: 'POST', body: fd,
+        headers: { 'X-CSRFToken': csrftoken, 'Accept': 'application/json' },
+        credentials: 'same-origin',
+      });
+      if (resp.ok) { window.location.href = '/dashboard/'; }
+    } catch (_) {}
+  };
+
+  // ----- Quiz interaction -----
+  document.querySelectorAll('[data-quiz-options]').forEach((container) => {
+    const itemId = container.getAttribute('data-quiz-options');
+    const target = container.getAttribute('data-quiz-target') || '';
+    const feedback = document.querySelector('[data-quiz-feedback="' + itemId + '"]');
+    const explanation = document.querySelector('[data-explanation="' + itemId + '"]');
+    container.querySelectorAll('button[data-option]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const chosen = btn.getAttribute('data-option') || '';
+        const correct = chosen.trim().toLowerCase() === target.trim().toLowerCase();
+        container.querySelectorAll('button[data-option]').forEach((b) => {
+          b.disabled = true;
+          b.classList.add('opacity-60');
+        });
+        btn.classList.remove('opacity-60');
+        btn.style.borderColor = correct ? '#16a34a' : '#dc2626';
+        if (feedback) {
+          feedback.textContent = correct
+            ? '{% t_either "Correct!" "إجابة صحيحة!" %}'
+            : '{% t_either "Try again — see the explanation." "حاول مجدداً — انظر الشرح." %}';
+          feedback.style.color = correct ? '#16a34a' : '#dc2626';
+        }
+        if (explanation) explanation.classList.remove('hidden');
+      });
+    });
+  });
+
+  // ----- Word-order interaction (tap to build, reset clears) -----
+  document.querySelectorAll('[data-word-order]').forEach((container) => {
+    const id = container.getAttribute('data-word-order');
+    const target = container.getAttribute('data-word-order-target') || '';
+    const answer = document.querySelector('[data-word-order-answer="' + id + '"]');
+    const reset = document.querySelector('[data-word-order-reset="' + id + '"]');
+    const feedback = document.querySelector('[data-word-order-feedback="' + id + '"]');
+    const buttons = container.querySelectorAll('button[data-word]');
+
+    const refreshFeedback = () => {
+      if (!feedback) return;
+      const got = (answer.value || '').trim();
+      if (!got) { feedback.textContent = ''; return; }
+      if (got.toLowerCase() === target.trim().toLowerCase()) {
+        feedback.textContent = '{% t_either "Correct!" "إجابة صحيحة!" %}';
+        feedback.style.color = '#16a34a';
+      } else {
+        feedback.textContent = '';
+      }
+    };
+
+    buttons.forEach((b) => {
+      b.addEventListener('click', () => {
+        if (b.classList.contains('opacity-30')) return;
+        b.classList.add('opacity-30');
+        answer.value = (answer.value + ' ' + b.getAttribute('data-word')).trim();
+        refreshFeedback();
+      });
+    });
+    if (reset) {
+      reset.addEventListener('click', () => {
+        answer.value = '';
+        buttons.forEach((b) => b.classList.remove('opacity-30'));
+        if (feedback) feedback.textContent = '';
+      });
+    }
+  });
+
+  // ----- Writing interaction -----
+  document.querySelectorAll('[data-writing-input]').forEach((input) => {
+    const id = input.getAttribute('data-writing-input');
+    const target = (input.getAttribute('data-writing-target') || '').trim();
+    const feedback = document.querySelector('[data-writing-feedback="' + id + '"]');
+    input.addEventListener('input', () => {
+      const got = input.value.trim();
+      if (!got) { if (feedback) feedback.textContent = ''; return; }
+      const correct = got.toLowerCase() === target.toLowerCase();
+      if (feedback) {
+        feedback.textContent = correct
+          ? '{% t_either "Correct!" "إجابة صحيحة!" %}'
+          : '';
+        feedback.style.color = correct ? '#16a34a' : '';
+      }
+    });
+  });
+
+  // Initialise stepper at step 0.
+  if (steps.length) showStep(0);
+})();
+</script>
+{% endblock %}

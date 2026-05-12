@@ -32,17 +32,54 @@ def _system_prompt(ctx: dict, voice: bool = False) -> str:
     # students. Bands match the platform's CEFR thresholds.
     level = (ctx or {}).get("cefr_level", "B1") or "B1"
     band = (level or "")[:2].upper()
-    if band in ("A0", "A1"):
+    # Correction style is per-band. A0/A1 cannot read jargon labels like
+    # "Quick fix:" — for them, correction is just a gentle echo of the
+    # right version. B1+ benefits from an explicit labelled line.
+    if band == "A0":
         level_rule = (
-            "1c. The student is at A0/A1. Use very short, slow, simple English "
-            "sentences (max 6-8 words). Avoid idioms and rare vocabulary. "
-            "If they seem stuck, give a one-word Arabic translation in brackets "
-            "to unblock them, then return to English.\n"
+            "1c. The student is at A0 — an absolute beginner. Speak as if to "
+            "someone meeting English for the first time:\n"
+            "  - Use English sentences of 3 to 5 words MAX. Never longer.\n"
+            "  - No grammar theory, ever. No words like 'verb', 'tense', or "
+            "'pronoun'. Teach by example, not by rule.\n"
+            "  - Ask exactly ONE simple personal question per turn "
+            "(name, country, age, job, what you like).\n"
+            "  - Always praise first ('Great!', 'Well done!') before asking "
+            "anything else.\n"
+            "  - When the student seems lost, give a one-word Arabic gloss in "
+            "brackets and repeat the English target. Speak slowly — write "
+            "naturally short, not crammed.\n"
+            "  - NEVER speak technical tokens: no 'Quick fix:', no 'Error:', "
+            "no JSON, no curly braces, no words like 'CEFR', 'level', "
+            "'theta', 'metadata'. If you wouldn't say it to a child meeting "
+            "English the first time, do not say it.\n"
+        )
+        correction_rule = (
+            "2. GENTLE CORRECTION (A0 style): if they say something wrong, "
+            "do NOT label it. No 'Quick fix:'. Just smile and repeat the "
+            "right version naturally, as if echoing them. Example: they "
+            "say \"I from Sudan\" → you reply \"Good! I am from Sudan.\" "
+            "Then ask the next simple question.\n"
+        )
+    elif band == "A1":
+        level_rule = (
+            "1c. The student is at A1. Use very short simple English sentences "
+            "(max 6-8 words). Avoid idioms and rare vocabulary. If they seem "
+            "stuck, give a one-word Arabic translation in brackets to unblock "
+            "them, then return to English.\n"
+        )
+        correction_rule = (
+            "2. GENTLE CORRECTION (A1 style): repeat the correct sentence "
+            "warmly without using a 'Quick fix:' label. Praise first.\n"
         )
     elif band == "A2":
         level_rule = (
             "1c. The student is at A2. Use simple present/past sentences and "
             "common everyday words. Encourage them with short praise.\n"
+        )
+        correction_rule = (
+            "2. When the student makes a language error, gently correct it "
+            "on a dedicated 'Quick fix:' line, then continue. Praise first.\n"
         )
     elif band in ("B1", "B2"):
         level_rule = (
@@ -51,11 +88,20 @@ def _system_prompt(ctx: dict, voice: bool = False) -> str:
             "Correct grammar precisely on a Quick fix line; explain WHY in "
             "one short clause.\n"
         )
+        correction_rule = (
+            "2. When the student makes a language error, gently correct it "
+            "on a dedicated 'Quick fix:' line and explain WHY in one short "
+            "clause. Praise what they got right before correcting.\n"
+        )
     else:  # C1, C2, anything richer
         level_rule = (
             "1c. The student is at C1/C2. Aim for fluent, professional "
             "vocabulary, varied syntax, and nuanced phrasing. Push register "
             "and idiomatic precision; only correct if the slip changes meaning.\n"
+        )
+        correction_rule = (
+            "2. Correct only meaning-changing slips. When you do, mark it "
+            "on a 'Quick fix:' line with a one-clause rationale.\n"
         )
 
     base = (
@@ -65,10 +111,8 @@ def _system_prompt(ctx: dict, voice: bool = False) -> str:
         "Long replies bore students; brevity is the rule.\n"
         "1b. Match the student's CEFR level — short sentences at A1/A2, "
         "slightly richer at B2/C1, but NEVER long.\n"
-        + level_rule +
-        "2. When the student makes a language error, gently correct it on a "
-        "dedicated 'Quick fix:' line, then continue. Be encouraging — praise "
-        "what they got right before correcting.\n"
+        + level_rule
+        + correction_rule +
         "3. Prioritize the student's listed weaknesses when choosing examples.\n"
         "4. Always end with one short follow-up question. Ask only ONE "
         "question per reply — never two.\n"
@@ -100,7 +144,53 @@ def _system_prompt(ctx: dict, voice: bool = False) -> str:
             "before the follow-up question. Use plain spoken words; no bullet "
             "points, no code, no markdown.\n"
         )
+
+    # If the calling context names a curriculum-anchored tutor prompt,
+    # append it so the model starts the conversation aligned with the
+    # lesson the learner just opened. The prompts come from
+    # `tutor.AITutorPrompt`, seeded by `import_a0_curriculum`.
+    curriculum_seed = _curriculum_prompt_block(ctx)
+    if curriculum_seed:
+        base += curriculum_seed
+
     return base + "\nStudent profile context:\n" + render_context_block(ctx)
+
+
+def _curriculum_prompt_block(ctx: dict) -> str:
+    """Return a 'curriculum guidance' suffix when a lesson is in scope.
+
+    Returns the empty string when there is no curriculum context — so
+    free-form tutor chats (no lesson) keep their current behaviour.
+    """
+    if not ctx:
+        return ""
+    lesson_slug = ctx.get("lesson_slug")
+    lesson_id = ctx.get("lesson_id")
+    if not (lesson_slug or lesson_id):
+        return ""
+    try:
+        from tutor.models import AITutorPrompt
+    except Exception:
+        return ""
+    qs = AITutorPrompt.objects.filter(is_active=True).order_by("order")
+    if lesson_id:
+        qs = qs.filter(lesson_id=lesson_id)
+    elif lesson_slug:
+        qs = qs.filter(lesson_slug=lesson_slug)
+    prompts = list(qs[:3])
+    if not prompts:
+        return ""
+    lines = [
+        "\nCurriculum guidance for this lesson — drive the first turns "
+        "from these prompts:\n",
+    ]
+    for p in prompts:
+        lines.append(
+            f"  - Ask: {p.prompt_en!r}. Expected answer: "
+            f"{p.expected_student_answer!r}. "
+            f"Correction style: {p.correction_strategy}.\n"
+        )
+    return "".join(lines)
 
 
 def _post_chat_hooks(user, user_message: str) -> None:
@@ -196,18 +286,19 @@ def _build_payload(conversation, user_message: str, voice: bool, stream: bool) -
 
 
 def _stub_reply(user_message: str) -> str:
+    # Plain, friendly fallback — no "Quick fix:" label or other
+    # technical token, since this reply can land in an A0 chat.
     return (
-        f"(stub: AI not configured) You said: {user_message}\n\n"
-        "Quick fix: Try to write in full sentences.\n\n"
-        "Question: What would you like to practise next?"
+        f"Thanks! You said: {user_message}\n\n"
+        "What would you like to practise next?"
     )
 
 
 def _over_limit_reply() -> str:
     return (
         "You've reached your AI tutor daily limit. "
-        "Quick fix: take a break and review your recent mistakes.\n\n"
-        "Question: Want to try again tomorrow?"
+        "Take a short break and review your recent practice.\n\n"
+        "Want to try again tomorrow?"
     )
 
 
@@ -264,7 +355,23 @@ def chat(conversation, user_message: str, *, voice: bool = False) -> str:
         except Exception:
             pass
         fire_post_chat_hooks(user, user_message)
-        return content.strip() or "Could you say a bit more? What do you mean?"
+        # Sanitise the AI's reply BEFORE returning. Even with the system
+        # prompt's "no technical tokens" rule, models occasionally emit
+        # field names like `cefr_level` or `user_answer`. This pass
+        # converts them to the friendly equivalents. `display` mode
+        # preserves punctuation; the TTS path runs `humanize_for_speech`
+        # separately on the speech_text field at the API layer.
+        try:
+            from core.services.text_humanizer import humanize_text
+            user_lang = (
+                "ar" if getattr(getattr(user, "profile", None),
+                                "preferred_language", "en") == "ar"
+                else "en"
+            )
+            cleaned = humanize_text(content.strip(), language=user_lang, mode="display")
+        except Exception:
+            cleaned = content.strip()
+        return cleaned or "Could you say a bit more? What do you mean?"
     except Exception as e:
         logger.exception("Tutor chat call failed: %s", e)
         try:
@@ -274,9 +381,8 @@ def chat(conversation, user_message: str, *, voice: bool = False) -> str:
             pass
         fire_post_chat_hooks(user, user_message)
         return (
-            "(stub: AI temporarily unavailable) Thanks! "
-            "Quick fix: Check your verb tense.\n\n"
-            "Question: Can you rephrase that in a different way?"
+            "Thanks! I had a little trouble just now — could you "
+            "say that again, maybe in another way?"
         )
 
 

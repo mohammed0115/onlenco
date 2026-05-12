@@ -366,6 +366,9 @@ def humanize_text(
     out = _strip_unresolved_placeholders(out)
     # 2. Drop literal "blank/null/undefined" runs.
     out = _LITERAL_BLANK_RE.sub(" ", out)
+    # 2b. Strip hard-banned identifiers ("UA_user_answer", "DB_*", …)
+    #     BEFORE the snake_case humaniser would otherwise read them.
+    out = _strip_hard_banned(out)
 
     # 3. Replace known field tokens (cefr_level → English level, …). Pull
     #    the merged glossary so settings-level extensions are honoured.
@@ -407,3 +410,81 @@ def humanize_text(
 def humanize_for_speech(text: Optional[str], language: str = "en") -> str:
     """Convenience wrapper: `humanize_text(..., mode='speech')`."""
     return humanize_text(text, language=language, mode="speech")
+
+
+# ---------------------------------------------------------------------------
+# Mixed Arabic / English text
+# ---------------------------------------------------------------------------
+
+# Latin word (letters + optional inner digit/dot/dash/underscore).
+_LATIN_WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9._-]{0,40}")
+# A run of Arabic words (Arabic letters + whitespace).
+_ARABIC_RUN_RE = re.compile(
+    r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]+"
+    r"(?:\s+[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]+)*"
+)
+
+
+def sanitize_mixed_language_text(
+    text: Optional[str],
+    primary_language: str = "ar",
+    *,
+    mode: str = "display",
+) -> str:
+    """Wrap minority-language runs in HTML so RTL/LTR rendering is correct.
+
+    Use this for any user-facing string that may contain both Arabic and
+    English (e.g. "مستواك A1 improved by 12%"). In `display` mode the
+    function wraps each minority run in ``<bdi dir="ltr">…</bdi>`` (or
+    ``rtl`` when the primary is English), so the browser stops
+    bidirectional reordering at the boundary. In `speech` mode the
+    function falls through to ``humanize_for_speech`` because `<bdi>`
+    wrappers are unspeakable HTML.
+
+    Always returns a string. Never raises.
+    """
+    if text is None:
+        return ""
+    if not isinstance(text, str):
+        try:
+            text = str(text)
+        except Exception:
+            return ""
+    if mode == "speech":
+        return humanize_for_speech(text, language=primary_language)
+
+    primary = (primary_language or "ar").lower()
+    if primary == "ar":
+        return _LATIN_WORD_RE.sub(
+            lambda m: f'<bdi dir="ltr">{m.group(0)}</bdi>',
+            text,
+        )
+    # primary == "en" — wrap any Arabic run in <bdi dir="rtl">.
+    return _ARABIC_RUN_RE.sub(
+        lambda m: f'<bdi dir="rtl">{m.group(0)}</bdi>',
+        text,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hard safety guards for raw technical identifiers
+# ---------------------------------------------------------------------------
+
+# Common technical prefixes that must NEVER reach the user, regardless
+# of casing. Examples: "UA_user_answer", "DB_user_profile_id".
+_HARD_BANNED_PREFIXES = (
+    "UA_", "DB_", "ID_", "PK_", "FK_", "ENUM_", "CTX_", "SQL_",
+)
+_HARD_BANNED_RES = tuple(
+    re.compile(rf"\b{re.escape(prefix)}[A-Za-z0-9_]+\b", re.IGNORECASE)
+    for prefix in _HARD_BANNED_PREFIXES
+)
+
+
+def _strip_hard_banned(text: str) -> str:
+    """Remove tokens beginning with one of `_HARD_BANNED_PREFIXES`."""
+    if not text:
+        return text
+    for pattern in _HARD_BANNED_RES:
+        text = pattern.sub(" ", text)
+    return text

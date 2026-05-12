@@ -46,16 +46,45 @@ def _safe_sum(qs, field: str) -> int:
 
 
 def _collect_lesson_metrics(user, start, end) -> dict:
+    """Count completed lessons across three independent activity sources
+    on the day: the legacy `lessons.Lesson`, the new courses-app
+    `courses.Lesson`, and `daily_learning.DailyLearningPlan`. They are
+    distinct content streams — a student who completes one of each on
+    the same day counts three times.
+
+    Without the third source, a daily-learning learner who never opens
+    a regular lesson would never see their streak tick — that bug
+    surfaced in the A0 student-journey simulation."""
+    total = 0
     try:
         from lessons.models import LessonProgress
+        total += _safe_count(LessonProgress.objects.filter(
+            user=user,
+            completed_at__gte=start,
+            completed_at__lt=end,
+        ))
     except Exception:
-        return {"lessons_completed": 0}
-    qs = LessonProgress.objects.filter(
-        user=user,
-        completed_at__gte=start,
-        completed_at__lt=end,
-    )
-    return {"lessons_completed": _safe_count(qs)}
+        pass
+    try:
+        from courses.models import CourseLessonProgress
+        total += _safe_count(CourseLessonProgress.objects.filter(
+            user=user,
+            completed_at__gte=start,
+            completed_at__lt=end,
+        ))
+    except Exception:
+        pass
+    try:
+        from daily_learning.models import DailyLearningPlan
+        total += _safe_count(DailyLearningPlan.objects.filter(
+            user=user,
+            status="completed",
+            completed_at__gte=start,
+            completed_at__lt=end,
+        ))
+    except Exception:
+        pass
+    return {"lessons_completed": total}
 
 
 def _collect_tutor_metrics(user, start, end) -> dict:

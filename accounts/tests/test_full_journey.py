@@ -118,6 +118,57 @@ class BeginnerJourneyTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, "data-testid=\"beginner-first-lesson-hero\"")
 
+    def test_beginner_completes_first_lesson_and_earns_xp(self):
+        """Regression test for the audit's Critical Gap #2:
+        register → onboarding → courses-app lesson complete → XP credited.
+
+        Verifies the free-tier window lets a non-subscribed beginner
+        through, the courses-app lesson has a completion endpoint, and
+        the motivation engine fires inline so XP appears immediately.
+        """
+        from courses.models import CourseLessonProgress
+        from motivation.models import LearnerActivitySnapshot, UserXP
+
+        user = _make_verified_user(email="xp_beginner@x.com")
+        self.client.force_login(user)
+        # Step through onboarding (sets onboarding_completed_at → grants
+        # the 7-day free trial via Profile.is_in_free_tier).
+        resp = self.client.post(reverse("onboarding_beginner"))
+        self.assertRedirects(resp, reverse("dashboard"),
+                             fetch_redirect_response=False)
+        user.profile.refresh_from_db()
+        self.assertFalse(user.profile.is_subscribed)
+        self.assertTrue(user.profile.is_in_free_tier,
+                        "Free trial must be active right after onboarding")
+
+        # Hit the completion endpoint on the courses-app lesson.
+        resp = self.client.post(
+            reverse("courses:mark_lesson_complete",
+                    args=[self.course.pk, self.course_lesson.pk]),
+        )
+        # Free-tier should let the un-subscribed user through (302 to
+        # lesson_detail, NOT 403).
+        self.assertEqual(resp.status_code, 302)
+        progress = CourseLessonProgress.objects.get(
+            user=user, lesson=self.course_lesson,
+        )
+        self.assertTrue(progress.video_completed)
+        # No quiz on this seed lesson → completed_at set immediately.
+        self.assertIsNotNone(progress.completed_at)
+
+        # Motivation engine ran inline: today's snapshot counts the lesson,
+        # and XP was credited.
+        from django.utils import timezone
+        snap = LearnerActivitySnapshot.objects.filter(
+            user=user, date=timezone.localdate(),
+        ).first()
+        self.assertIsNotNone(snap, "LearnerActivitySnapshot must exist for today")
+        self.assertGreaterEqual(snap.lessons_completed, 1)
+        xp = UserXP.objects.filter(user=user).first()
+        self.assertIsNotNone(xp, "UserXP row must exist")
+        self.assertGreater(xp.total_xp, 0,
+                           "XP must be awarded for completing the first lesson")
+
 
 @override_settings(AXES_ENABLED=False)
 class PlacementJourneyTests(TestCase):

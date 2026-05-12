@@ -19,6 +19,11 @@ PAYMENT_APPROVED = "payment_approved"
 PAYMENT_REJECTED = "payment_rejected"
 INACTIVE_STUDENT_REMINDER = "inactive_student_reminder"
 
+# Daily learning engine events (delivered to students)
+DAILY_PLAN_READY = "daily_plan_ready"
+DAILY_PLAN_COMEBACK = "daily_plan_comeback"
+DAILY_PLAN_STREAK_REMINDER = "daily_plan_streak_reminder"
+
 # Admin-facing events
 NEW_STUDENT_REGISTERED = "new_student_registered"
 NEW_PAYMENT_PENDING = "new_payment_pending"
@@ -53,6 +58,9 @@ ALL_STUDENT_EVENTS = [
     PAYMENT_APPROVED,
     PAYMENT_REJECTED,
     INACTIVE_STUDENT_REMINDER,
+    DAILY_PLAN_READY,
+    DAILY_PLAN_COMEBACK,
+    DAILY_PLAN_STREAK_REMINDER,
 ]
 
 ALL_ADMIN_EVENTS = [
@@ -141,6 +149,9 @@ LEARNING_EVENTS = {
     XP_AWARDED,
     STREAK_MILESTONE,
     COMEBACK_REMINDER,
+    DAILY_PLAN_READY,
+    DAILY_PLAN_COMEBACK,
+    DAILY_PLAN_STREAK_REMINDER,
 }
 
 # Events controlled by `payment_updates`
@@ -191,6 +202,9 @@ DEFAULT_SUBJECTS = {
     PAYMENT_APPROVED: "Your Onlenco subscription is active",
     PAYMENT_REJECTED: "Your payment needs attention",
     INACTIVE_STUDENT_REMINDER: "We miss you on Onlenco",
+    DAILY_PLAN_READY: "Your Onlenco daily plan is ready",
+    DAILY_PLAN_COMEBACK: "We missed you — your short comeback plan is ready",
+    DAILY_PLAN_STREAK_REMINDER: "Don't break your Onlenco streak",
     NEW_STUDENT_REGISTERED: "[Onlenco admin] New student registered",
     NEW_PAYMENT_PENDING: "[Onlenco admin] New payment pending review",
     AI_USAGE_HIGH: "[Onlenco admin] AI usage threshold crossed",
@@ -224,6 +238,9 @@ SUBJECTS_AR = {
     PAYMENT_APPROVED: "تم قبول الدفع وتفعيل اشتراكك",
     PAYMENT_REJECTED: "تم رفض طلب الدفع",
     INACTIVE_STUDENT_REMINDER: "نفتقدك في Onlenco",
+    DAILY_PLAN_READY: "خطة اليوم جاهزة في Onlenco",
+    DAILY_PLAN_COMEBACK: "اشتقنا لك — خطة عودة قصيرة بانتظارك",
+    DAILY_PLAN_STREAK_REMINDER: "لا تكسر سلسلتك في Onlenco",
     MOTIVATION_MESSAGE_GENERATED: "Onlenco — استمر، أنت تتقدم!",
     ACHIEVEMENT_UNLOCKED: "إنجاز جديد!",
     BADGE_EARNED: "حصلت على شارة جديدة",

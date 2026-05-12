@@ -85,6 +85,40 @@
         </div>
         {% endif %}
 
+        {% comment %}
+        Daily learning plan — sits above the course hero so it's the
+        first thing students see. Renders a card when a plan exists
+        for today, otherwise a "Start today's plan" CTA that the
+        /daily/ view turns into a real plan on click.
+        {% endcomment %}
+        {% if today_plan %}
+            {% include "daily_learning/_today_partial.html" %}
+        {% else %}
+            <a href="{% url 'daily_learning:daily_plan' %}"
+               class="card p-7 block transition-smooth hover:shadow-elegant hover:-translate-y-1"
+               style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; border: 0;"
+               data-testid="daily-plan-cta">
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    <div class="min-w-0">
+                        <span class="badge badge-popular mb-2">
+                            {% t_either "Today's plan" "خطة اليوم" %}
+                        </span>
+                        <div class="font-display text-2xl md:text-3xl font-bold mb-1">
+                            {% t_either "Start today's plan" "ابدأ خطة اليوم" %}
+                        </div>
+                        <div class="text-sm" style="opacity:0.92">
+                            {% t_either "A short daily lesson made for you. About 10 minutes."
+                                        "درس يومي قصير مُعدّ لك. حوالي 10 دقائق." %}
+                        </div>
+                    </div>
+                    <div class="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+                         style="background: rgba(255,255,255,0.2);">
+                        <i data-lucide="play" class="h-6 w-6"></i>
+                    </div>
+                </div>
+            </a>
+        {% endif %}
+
         {% if learning_plan.recommended_course %}
         <a href="{{ learning_plan.continue_url }}"
            class="card p-7 block transition-smooth hover:shadow-elegant hover:-translate-y-1"
@@ -281,14 +315,25 @@
                     {% if motivation.cefr_progress.next %}→ {{ motivation.cefr_progress.next }}{% endif %}
                 </div>
             </div>
-            <div class="h-2 rounded-full bg-muted overflow-hidden">
+            <div class="h-2 rounded-full bg-muted overflow-hidden"
+                 role="progressbar"
+                 aria-valuenow="{{ motivation.cefr_progress.percent }}"
+                 aria-valuemin="0" aria-valuemax="100">
                 <div class="h-full bg-primary transition-all"
                      style="width: {{ motivation.cefr_progress.percent }}%;"></div>
             </div>
             <div class="text-xs text-muted-foreground mt-2">
                 {{ motivation.cefr_progress.percent }}%
-                · {% t_either "engagement" "التفاعل" %}: {{ motivation.engagement_score }}/100
+                {% if motivation.cefr_progress.next %}
+                    {% t_either "to" "حتى" %} {{ motivation.cefr_progress.next }}
+                {% endif %}
             </div>
+            {% if motivation.engagement_score is not None %}
+            <div class="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+                <span>{% t_either "Engagement score" "درجة التفاعل" %}</span>
+                <span class="font-medium text-foreground">{{ motivation.engagement_score }}/100</span>
+            </div>
+            {% endif %}
         </section>
         {% endif %}
 

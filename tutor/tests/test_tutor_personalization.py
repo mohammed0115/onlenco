@@ -60,21 +60,33 @@ class TutorChatTests(TestCase):
         self.conv = TutorConversation.objects.create(user=self.user, topic="general")
 
     @override_settings(AI_API_KEY="")
-    def test_no_api_key_returns_stub_and_logs_error(self):
+    def test_no_api_key_returns_friendly_fallback_and_logs_error(self):
+        """When the API key is missing, the chat returns a friendly,
+        jargon-free fallback (no 'stub:' or 'Quick fix:' tokens)."""
         reply = chat(self.conv, "I goes home")
-        self.assertIn("stub", reply)
+        self.assertTrue(reply, "fallback must produce some text")
+        self.assertNotIn("Quick fix:", reply,
+                         "fallback must not leak the 'Quick fix:' label")
+        # The user's original message is echoed back so the student
+        # knows they were heard.
+        self.assertIn("I goes home", reply)
         # Error analyzer ran (heuristic) → UserError exists
         self.assertGreaterEqual(
             UserError.objects.filter(user=self.user, source_type="tutor").count(), 1
         )
 
     @override_settings(AI_API_KEY="k", AI_API_BASE="https://x", AI_MODEL="m")
-    def test_ai_failure_returns_fallback_message(self):
+    def test_ai_failure_returns_friendly_fallback(self):
+        """On upstream error, the user sees a gentle nudge — no jargon."""
         from tutor.services import _chat
 
         with patch.object(_chat.requests, "post", side_effect=RuntimeError("boom")):
             reply = chat(self.conv, "Tell me about past tense")
-        self.assertIn("temporarily unavailable", reply.lower())
+        self.assertTrue(reply)
+        self.assertNotIn("Quick fix:", reply)
+        # Gentle rephrase prompt — the new fallback asks the student
+        # to say it another way.
+        self.assertIn("again", reply.lower())
 
     @override_settings(AI_API_KEY="k", AI_API_BASE="https://x", AI_MODEL="m")
     def test_ai_success_returns_content(self):

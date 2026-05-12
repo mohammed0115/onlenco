@@ -27,9 +27,18 @@ class BookAdmin(admin.ModelAdmin):
 
 @admin.register(Chapter)
 class ChapterAdmin(admin.ModelAdmin):
-    list_display = ("book", "sort_order", "title")
+    list_display = ("book", "sort_order", "title", "has_audio_indicator",
+                    "duration_seconds")
     list_filter = ("book__level", "book__category")
     search_fields = ("book__title", "title", "body")
+    fields = (
+        "book", "sort_order", "title", "body",
+        "audio_file", "audio_url", "duration_seconds",
+    )
+
+    @admin.display(boolean=True, description="Audio")
+    def has_audio_indicator(self, obj):
+        return obj.has_audio
 
 
 @admin.register(VocabularyExtract)

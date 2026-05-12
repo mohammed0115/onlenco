@@ -573,3 +573,56 @@ class AdminActionLog(models.Model):
 
     def __str__(self):
         return f"{self.action_type} @ {self.created_at:%Y-%m-%d}"
+
+
+# ---------------------------------------------------------------------------
+# 11. CourseLessonProgress
+# ---------------------------------------------------------------------------
+
+class CourseLessonProgress(models.Model):
+    """Per-(user, lesson) progress for the courses-app Lesson.
+
+    Separate from `lessons.LessonProgress` (which tracks the legacy
+    `lessons.Lesson`). The activity collector reads from both.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="course_lesson_progress",
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE,
+        related_name="student_progress",
+    )
+    video_completed = models.BooleanField(default=False)
+    quiz_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    quiz_passed = models.BooleanField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "lesson"],
+                name="courselessonprogress_unique_user_lesson",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "-completed_at"]),
+            models.Index(fields=["lesson"]),
+        ]
+        verbose_name = _("Course lesson progress")
+        verbose_name_plural = _("Course lesson progress")
+
+    def __str__(self):
+        return f"CLP<{self.user_id}> lesson={self.lesson_id} done={bool(self.completed_at)}"
+
+    @property
+    def is_complete(self) -> bool:
+        if not self.video_completed:
+            return False
+        if not getattr(self.lesson, "quiz", None):
+            return True
+        return bool(self.quiz_passed)

@@ -30,6 +30,69 @@ class IntegrationTests(TestCase):
         self.assertEqual(events.count(), 2)
         self.assertGreaterEqual(len(mail.outbox), 2)
 
+    def test_payment_approval_arabic_email_body_for_ar_user(self):
+        """An Arabic-preferred student must receive the Arabic body, not
+        just the Arabic subject + English body."""
+        from io import BytesIO
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from payments.models import PaymentMethodAccount, PaymentSubmission
+
+        student = User.objects.create_user(
+            username="arstud", email="arstud@x", password="pw",
+        )
+        # Force AR preference at the profile level (the source of truth).
+        student.profile.preferred_language = "ar"
+        student.profile.save(update_fields=["preferred_language"])
+        admin = User.objects.create_user(
+            username="adm_ar", email="adm_ar@x", password="pw", is_staff=True,
+        )
+        PaymentMethodAccount.objects.filter(method="bankak").update(is_active=True)
+        png_file = SimpleUploadedFile(
+            "x.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0eIDAT"
+            b"\x08\xd7c\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa3'\x99\x9d\x00\x00\x00\x00IEND\xaeB`\x82",
+            content_type="image/png",
+        )
+        sub = PaymentSubmission.objects.create(
+            user=student, plan="monthly", method="bankak",
+            transaction_reference="ar-r1", amount_sdg=30000, screenshot=png_file,
+        )
+        mail.outbox = []
+        sub.approve(reviewer=admin)
+
+        sent = EmailNotification.objects.filter(
+            event__event_type=C.PAYMENT_APPROVED,
+            recipient_email="arstud@x",
+            status=C.STATUS_SENT,
+        )
+        self.assertEqual(sent.count(), 1)
+        record = sent.first()
+        self.assertEqual(
+            record.language, "ar",
+            f"EmailNotification.language should be 'ar', got {record.language!r}",
+        )
+        # The subject must contain Arabic glyphs (Arabic Unicode block).
+        import re
+        self.assertRegex(
+            record.subject, r"[؀-ۿ]",
+            "Subject must contain Arabic characters",
+        )
+        # The rendered HTML body must also contain Arabic — not just the subject.
+        ar_messages = [m for m in mail.outbox if m.to == ["arstud@x"]]
+        self.assertEqual(len(ar_messages), 1)
+        rendered = ""
+        for content, mime in (ar_messages[0].alternatives or []):
+            if "html" in mime:
+                rendered = content
+                break
+        if not rendered:
+            rendered = ar_messages[0].body or ""
+        self.assertRegex(
+            rendered, r"[؀-ۿ]",
+            "Email HTML body must contain Arabic for an Arabic-preferred user",
+        )
+
     def test_payment_approval_emails_student(self):
         from io import BytesIO
         from django.core.files.uploadedfile import SimpleUploadedFile

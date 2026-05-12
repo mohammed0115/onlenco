@@ -128,12 +128,18 @@ def _seed_beginner_learning_profile(user) -> None:
     except Exception:
         return
     try:
+        # theta_score must be inside the A0 band so cefr_for_theta()
+        # agrees with the Profile. The mapping in
+        # learning_core.services.adaptive_difficulty puts A0 at
+        # `theta < -2.5`; we seed at -2.7 so the learner sits firmly
+        # inside A0 with room to climb. (Previously this was -1.5,
+        # which is the A2 floor — dashboards showed "A2 → B1" for
+        # brand-new A0 students.)
         StudentLearningProfile.objects.get_or_create(
             user=user,
             defaults={
                 "current_cefr_level": DEFAULT_BEGINNER_LEVEL,
-                # theta_score 0.0 is the model default; explicit for clarity.
-                "theta_score": 0.0,
+                "theta_score": -2.7,
             },
         )
     except Exception as e:

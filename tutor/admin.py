@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import TutorConversation, TutorMessage
+from .models import AITutorPrompt, TutorConversation, TutorMessage
 
 
 class TutorMessageInline(admin.TabularInline):
@@ -22,4 +22,14 @@ class TutorMessageAdmin(admin.ModelAdmin):
     list_display = ("conversation", "role", "created_at")
     list_filter = ("role",)
     search_fields = ("conversation__title", "content", "conversation__user__email")
+
+
+@admin.register(AITutorPrompt)
+class AITutorPromptAdmin(admin.ModelAdmin):
+    list_display = ("id", "cefr_level", "lesson_slug", "correction_strategy",
+                    "order", "is_active")
+    list_filter = ("cefr_level", "correction_strategy", "is_active")
+    search_fields = ("lesson_slug", "prompt_en", "prompt_ar")
+    list_editable = ("order", "is_active")
+    ordering = ("cefr_level", "lesson_slug", "order")
 

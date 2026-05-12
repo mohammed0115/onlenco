@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class DailyLearningConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "daily_learning"
+    verbose_name = "Daily Learning"

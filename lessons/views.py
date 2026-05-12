@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST, require_http_methods
 
+from accounts.decorators import subscription_required
+
 from .models import Lesson, LessonProgress, Quiz
 
 
@@ -136,6 +138,38 @@ def dashboard(request):
         import logging
         logging.getLogger(__name__).exception("Dashboard course lookup failed")
 
+    # Surface today's DailyLearningPlan. Always go through the generator
+    # — it's idempotent on (user, date) AND will auto-regenerate when
+    # the existing plan's CEFR level no longer matches the user's
+    # profile (e.g. an A0 learner who briefly had an A2 plan from
+    # before the resolver was fixed). The early-return-on-existing
+    # short-circuit was the bug that kept stale plans visible.
+    today_plan = None
+    try:
+        from daily_learning.models import DailyLearningPlan
+        from daily_learning.services.daily_plan_generator import generate_for_user
+        on_date = timezone.localdate()
+        try:
+            plan = generate_for_user(request.user, on_date=on_date)
+            today_plan = (
+                DailyLearningPlan.objects
+                .filter(id=plan.id)
+                .prefetch_related("items")
+                .first()
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Daily plan generation on dashboard failed; "
+                "falling back to whatever already exists"
+            )
+            today_plan = DailyLearningPlan.objects.filter(
+                user=request.user, date=on_date,
+            ).prefetch_related("items").first()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Today's daily plan lookup failed")
+
     return render(request, "lessons/dashboard.html", {
         "profile": profile,
         "lessons": lessons,
@@ -147,6 +181,7 @@ def dashboard(request):
         "last_rejected": last_rejected,
         "learning_summary": learning_summary,
         "motivation": motivation_widget,
+        "today_plan": today_plan,
     })
 
 
@@ -238,7 +273,16 @@ def _build_motivation_widget(user) -> dict:
             widget["churn_risk"] = churn_risk(user)
             prof = StudentLearningProfile.objects.filter(user=user).first()
             if prof:
-                widget["cefr_progress"] = cefr_progress(prof.theta_score or 0.0)
+                # Pin the displayed band to the user's own Profile so a
+                # learner whose theta has drifted out of band still sees
+                # their official level (A0 → A1, not A2 → B1). The
+                # adaptive engine still updates theta freely behind the
+                # scenes; the dashboard just stops misreporting.
+                profile_level = getattr(getattr(user, "profile", None), "cefr_level", "") or ""
+                widget["cefr_progress"] = cefr_progress(
+                    prof.theta_score or 0.0,
+                    current_level=profile_level or None,
+                )
         except Exception:
             pass
     except Exception:
@@ -269,10 +313,8 @@ def lesson_detail(request, pk):
 
 @login_required
 @require_POST
+@subscription_required(allow_free_tier=True)
 def mark_video_complete(request, pk):
-    if not request.user.profile.is_subscribed:
-        return HttpResponseForbidden("Subscription required")
-
     lesson = get_object_or_404(Lesson, pk=pk)
     progress, _ = LessonProgress.objects.get_or_create(user=request.user, lesson=lesson)
 
@@ -283,15 +325,23 @@ def mark_video_complete(request, pk):
         progress.save()
         messages.success(request, "Marked as watched.")
 
+    # Fire motivation engine inline so the first video watch awards XP /
+    # ticks the streak even when the lesson has no quiz.
+    try:
+        from motivation.services.motivation_engine import run_for_user
+        run_for_user(request.user)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("motivation engine post-video failed",
+                                            exc_info=True)
+
     return redirect("lesson_detail", pk=lesson.pk)
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
+@subscription_required(allow_free_tier=True)
 def quiz_attempt(request, pk):
-    if not request.user.profile.is_subscribed:
-        return HttpResponseForbidden("Subscription required")
-
     lesson = get_object_or_404(Lesson, pk=pk)
     progress, _ = LessonProgress.objects.get_or_create(user=request.user, lesson=lesson)
 
@@ -346,10 +396,21 @@ def quiz_attempt(request, pk):
 
     # Best-effort adaptive learning side-effects. Never blocks the user flow.
     weekly_assessment_id = None
+    personalised_exercises: list = []
     try:
         from .services.adaptive_quiz_adapter import process_quiz_submission
         summary = process_quiz_submission(request.user, lesson, results)
         weekly_assessment_id = summary.get("weekly_assessment_triggered")
+        ex_ids = summary.get("personalised_exercise_ids") or []
+        if ex_ids:
+            try:
+                from learning_core.models import AdaptiveExercise
+                personalised_exercises = list(
+                    AdaptiveExercise.objects.filter(id__in=ex_ids)
+                    .only("id", "question", "cefr_level", "options", "question_type")
+                )
+            except Exception:
+                personalised_exercises = []
     except Exception:
         import logging
         logging.getLogger(__name__).exception("Adaptive quiz adapter failed")
@@ -362,6 +423,7 @@ def quiz_attempt(request, pk):
         "passed": progress.quiz_passed,
         "results": results,
         "weekly_assessment_id": weekly_assessment_id,
+        "personalised_exercises": personalised_exercises,
     })
 
 
