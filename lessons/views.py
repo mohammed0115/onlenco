@@ -430,10 +430,29 @@ def quiz_attempt(request, pk):
 @login_required
 @require_http_methods(["GET"])
 def daily_exam(request):
-    """Start (or resume) today's daily check-in and redirect to the player."""
+    """Start (or resume) today's daily check-in and redirect to the player.
+
+    Wrapped: any failure inside `start_daily_assessment` (DB hiccup, AI
+    generator error not caught by the inner handler, etc.) used to bubble
+    up as a generic 500. Catch + log + send the student back to the
+    dashboard with a friendly flash so a transient backend issue doesn't
+    burn a streak.
+    """
     from learning_core.services.weekly_assessment import start_daily_assessment
 
-    assessment = start_daily_assessment(request.user)
+    try:
+        assessment = start_daily_assessment(request.user)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "daily_exam: start_daily_assessment failed for user_id=%s",
+            request.user.id,
+        )
+        messages.error(
+            request,
+            "تعذّر بدء التقييم اليومي الآن، حاول مرة أخرى بعد قليل.",
+        )
+        return redirect("dashboard")
     return redirect("exam_play", assessment_id=assessment.id)
 
 
