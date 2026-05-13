@@ -224,27 +224,41 @@ else
 fi
 
 # === [5/9] Build image ==================================================
+# We ALWAYS build by default. Docker layer caching makes this cheap when
+# nothing changed (only the COPY layer revalidates). The previous
+# "skip when HEAD unchanged" optimisation was a footgun: if an operator
+# ran `git pull` outside the script, HEAD didn't move during this run
+# but the running container was still on the OLD image, so
+# `makemigrations --check` later in [7/9] would run against stale code
+# and falsely complain about missing migrations. Opt out with SKIP_BUILD=1
+# only when you've already built manually with the right context.
 log "[5/9] Build image"
-NEEDS_BUILD=0
-if [ "$MODE" = "first-deploy" ]; then NEEDS_BUILD=1; fi
-if [ "$LOCAL_HEAD_BEFORE" != "$LOCAL_HEAD" ]; then NEEDS_BUILD=1; fi
-if [ "$FORCE_BUILD" = "1" ]; then NEEDS_BUILD=1; fi
-
-if [ "$NEEDS_BUILD" = "1" ]; then
+if [ "${SKIP_BUILD:-0}" = "1" ] && [ "$MODE" != "first-deploy" ]; then
+    warn "SKIP_BUILD=1 — using existing image (you'd better know it matches the code on disk)"
+else
     if ! dc "build web cron"; then
         die 4 "image build failed."
     fi
-    ok "image rebuilt"
-else
-    ok "code unchanged — using cached image"
+    ok "image built ($(date +%H:%M:%S))"
 fi
 
 # === [6/9] Start containers + wait for DB ===============================
+# Two-phase start:
+#   1. `up -d` brings up everything that's not running (db/redis/caddy).
+#      If the freshly built web image differs from the running container,
+#      compose will recreate web on its own here.
+#   2. Force-recreate web + cron with --no-deps so that even when image
+#      hashes happen to match (rare, but possible with a code-only edit
+#      and BuildKit cache reuse), the app containers always restart from
+#      the just-built image. db/redis/caddy stay untouched (no bounce).
 log "[6/9] Start containers"
 if ! dc "up -d"; then
     die 4 "docker compose up failed."
 fi
-ok "containers up"
+if ! dc "up -d --force-recreate --no-deps web cron"; then
+    die 4 "docker compose recreate of web/cron failed."
+fi
+ok "containers up — web/cron recreated from fresh image"
 
 note "waiting for postgres readiness (up to 60s)…"
 DB_READY=0
