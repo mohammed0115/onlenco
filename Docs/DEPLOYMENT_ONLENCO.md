@@ -1,4 +1,4 @@
-# Onlenco — Deployment to sudaschool.academy (187.124.9.244)
+# Onlenco — Deployment to onlenco.academy (187.127.86.111)
 
 End-to-end deploy guide. The default path uses Docker + Caddy (auto TLS).
 A bare-metal Nginx alternative is in the appendix.
@@ -9,24 +9,24 @@ Before you SSH in, set two A records at your DNS registrar:
 
 | Host | Type | Value | TTL |
 |---|---|---|---|
-| `sudaschool.academy` | A | `187.124.9.244` | 300 |
-| `www.sudaschool.academy` | A | `187.124.9.244` | 300 |
+| `onlenco.academy` | A | `187.127.86.111` | 300 |
+| `www.onlenco.academy` | A | `187.127.86.111` | 300 |
 
 Verify (from your laptop):
 
 ```
-dig +short sudaschool.academy
-dig +short www.sudaschool.academy
+dig +short onlenco.academy
+dig +short www.onlenco.academy
 ```
 
-Both must resolve to `187.124.9.244` before Caddy can fetch a Let's Encrypt cert.
+Both must resolve to `187.127.86.111` before Caddy can fetch a Let's Encrypt cert.
 
 Open ports `22`, `80`, `443` on the server (the deploy script does this with ufw).
 
 ## 1. SSH in and run the bootstrap script
 
 ```
-ssh root@187.124.9.244
+ssh root@187.127.86.111
 # or your normal sudo-able user
 
 REPO_URL=git@github.com:YOUR_ORG/onlenco.git \
@@ -62,11 +62,11 @@ sudo -u onlenco $EDITOR /opt/onlenco/.env
 ```
 DJANGO_SECRET_KEY=<run: python -c "import secrets; print(secrets.token_urlsafe(64))">
 POSTGRES_PASSWORD=<random 24+ chars>
-DEFAULT_FROM_EMAIL=Onlenco <no-reply@sudaschool.academy>
+DEFAULT_FROM_EMAIL=Onlenco <no-reply@onlenco.academy>
 EMAIL_HOST=<your SMTP host>
 EMAIL_HOST_USER=<your SMTP user>
 EMAIL_HOST_PASSWORD=<your SMTP password>
-ACME_EMAIL=admin@sudaschool.academy   # for Let's Encrypt notices
+ACME_EMAIL=admin@onlenco.academy   # for Let's Encrypt notices
 ```
 
 **Optional but recommended:**
@@ -96,7 +96,7 @@ cd /opt/onlenco
 sudo -u onlenco docker compose exec -it web python manage.py createsuperuser
 ```
 
-Visit `https://sudaschool.academy/admin/` and sign in.
+Visit `https://onlenco.academy/admin/` and sign in.
 
 If `ENABLE_2FA_ADMIN=1`, enrol a TOTP device:
 
@@ -108,10 +108,10 @@ If `ENABLE_2FA_ADMIN=1`, enrol a TOTP device:
 
 ```
 # Health endpoint
-curl -fsS https://sudaschool.academy/healthz/      # → {"status":"ok"}
+curl -fsS https://onlenco.academy/healthz/      # → {"status":"ok"}
 
 # OpenAPI
-curl -fsS https://sudaschool.academy/api/v1/schema/
+curl -fsS https://onlenco.academy/api/v1/schema/
 
 # Container logs
 sudo -u onlenco docker compose logs --tail=100 web
@@ -207,11 +207,11 @@ If you'd rather use Nginx + certbot directly on the host:
 
 ```
 sudo apt install nginx certbot python3-certbot-nginx
-sudo cp /opt/onlenco/deploy/nginx.conf /etc/nginx/sites-available/sudaschool.academy
-sudo ln -s /etc/nginx/sites-available/sudaschool.academy /etc/nginx/sites-enabled/
+sudo cp /opt/onlenco/deploy/nginx.conf /etc/nginx/sites-available/onlenco.academy
+sudo ln -s /etc/nginx/sites-available/onlenco.academy /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
-sudo certbot --nginx -d sudaschool.academy -d www.sudaschool.academy
+sudo certbot --nginx -d onlenco.academy -d www.onlenco.academy
 ```
 
 Then bind gunicorn to `127.0.0.1:8000`. Edit `docker-compose.yml`:
@@ -230,7 +230,7 @@ Don't include `docker-compose.deploy.yml` (it adds Caddy you don't need).
 ```
 DJANGO_SETTINGS_MODULE=config.settings.production \
 DJANGO_SECRET_KEY=$(python3 -c "import secrets;print(secrets.token_urlsafe(64))") \
-DJANGO_ALLOWED_HOSTS=sudaschool.academy,www.sudaschool.academy \
+DJANGO_ALLOWED_HOSTS=onlenco.academy,www.onlenco.academy \
 python manage.py check --deploy
 ```
 

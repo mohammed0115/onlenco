@@ -371,4 +371,4 @@ if [ "${#SEED_SKIPPED[@]}" -gt 0 ]; then
     echo "    Skipped seeds: ${SEED_SKIPPED[*]}"
 fi
 echo "    Logs:     cd $APP_DIR && docker compose $COMPOSE_FILES logs -f web"
-echo "    Health:   curl -fsS https://sudaschool.academy/healthz/"
+echo "    Health:   curl -fsS https://onlenco.academy/healthz/"

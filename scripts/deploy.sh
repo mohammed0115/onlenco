@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# First-time deploy of Onlenco to sudaschool.academy.
+# First-time deploy of Onlenco to onlenco.academy.
 #
 # Run as a non-root user with sudo on a fresh Ubuntu/Debian server.
-# Domain DNS must already point sudaschool.academy and www.sudaschool.academy
-# at this server (187.124.9.244).
+# Domain DNS must already point onlenco.academy and www.onlenco.academy
+# at this server (187.127.86.111).
 
 set -euo pipefail
 
@@ -83,7 +83,7 @@ for cmd in \
 done
 
 echo
-echo "Deploy complete. Visit https://sudaschool.academy/"
+echo "Deploy complete. Visit https://onlenco.academy/"
 echo "Create the first admin:"
 echo "    docker compose exec -it web python manage.py createsuperuser"
 echo "Optional: enrol an admin TOTP device after first admin login at"

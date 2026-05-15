@@ -1,4 +1,4 @@
-# Deploy overlay for sudaschool.academy.
+# Deploy overlay for onlenco.academy.
 #
 # Adds Caddy in front of gunicorn for automatic Let's Encrypt TLS.
 # Use:
@@ -28,7 +28,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      ACME_EMAIL: ${ACME_EMAIL:-admin@sudaschool.academy}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@onlenco.academy}
     depends_on:
       - web
 
