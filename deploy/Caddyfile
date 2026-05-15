@@ -30,14 +30,13 @@ onlenco.academy, www.onlenco.academy {
         header_up X-Forwarded-For   {remote}
         header_up Host              {host}
 
-        # Health check — matches the Dockerfile HEALTHCHECK
+        # Health check — matches the Dockerfile HEALTHCHECK.
+        # /healthz/ is in SECURE_REDIRECT_EXEMPT in config/settings/production.py
+        # so plain-HTTP probes from the docker network get a 200 instead of
+        # the 301 they'd otherwise hit from SECURE_SSL_REDIRECT.
         health_uri      /healthz/
         health_interval 30s
         health_timeout  5s
-        # Forge the same proxy hints on the probe itself; otherwise Django
-        # sees plain HTTP and 301s to https://web:8000/, which the probe
-        # marks as "not 2xx" and pulls the upstream out of rotation.
-        health_request_header X-Forwarded-Proto https
     }
 }
 # NOTE: do not add a separate `:80 {}` block — Caddy auto-generates an

@@ -36,6 +36,11 @@ else:
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", True)
+# Probes (Caddy active healthcheck, Docker HEALTHCHECK) hit /healthz/
+# directly over HTTP on the docker network, without X-Forwarded-Proto.
+# Without this exempt, SECURE_SSL_REDIRECT bounces them to https://web:8000
+# and the upstream gets marked unhealthy → 503 for real users.
+SECURE_REDIRECT_EXEMPT = [r"^healthz/?$"]
 SECURE_HSTS_SECONDS = int(env_get("DJANGO_SECURE_HSTS_SECONDS", "31536000"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", True)
 SECURE_HSTS_PRELOAD = env_bool("DJANGO_SECURE_HSTS_PRELOAD", True)

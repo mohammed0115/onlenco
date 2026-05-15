@@ -349,13 +349,11 @@ if ! dc "up -d --no-deps web cron"; then
 fi
 ok "web restarted"
 
-# Healthcheck: prefer the container's own /healthz/, fall back to host curl.
-# Send X-Forwarded-Proto: https so SECURE_SSL_REDIRECT doesn't bounce us
-# to a 301 (which we'd misread as healthy).
+# Healthcheck: /healthz/ is in SECURE_REDIRECT_EXEMPT, so plain HTTP is fine.
 note "running healthcheck…"
 HEALTH_PASS=0
 for i in $(seq 1 15); do
-    if dc_quiet "exec -T web curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:8000/healthz/" >/dev/null; then
+    if dc_quiet "exec -T web curl -fsS http://localhost:8000/healthz/" >/dev/null; then
         HEALTH_PASS=1
         ok "/healthz/ OK after ${i}×2s"
         break
