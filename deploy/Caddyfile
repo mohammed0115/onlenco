@@ -34,6 +34,13 @@ onlenco.academy, www.onlenco.academy {
         health_uri      /healthz/
         health_interval 30s
         health_timeout  5s
+        # Forge the same proxy hints on the probe itself; otherwise Django
+        # sees plain HTTP and 301s to https://web:8000/, which the probe
+        # marks as "not 2xx" and pulls the upstream out of rotation.
+        health_headers {
+            X-Forwarded-Proto https
+            Host              onlenco.academy
+        }
     }
 }
 # NOTE: do not add a separate `:80 {}` block — Caddy auto-generates an

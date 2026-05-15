@@ -148,6 +148,19 @@ git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 if ! dc "config -q" >/dev/null 2>&1; then
     die 2 "docker compose config rejected the file. Run: docker compose $COMPOSE_FILES config"
 fi
+
+# Make sure the in-cluster hostnames Caddy & Docker healthchecks use to
+# reach gunicorn are in ALLOWED_HOSTS, otherwise Django returns 400 and
+# Caddy pulls the upstream out of rotation. We grep the raw .env rather
+# than the container env because the container may not yet be running.
+ALLOWED_LINE="$(grep -E '^DJANGO_ALLOWED_HOSTS=' "$APP_DIR/.env" || true)"
+for required in web localhost 127.0.0.1; do
+    case ",${ALLOWED_LINE#*=}," in
+        *",${required},"*) : ;;
+        *) warn ".env DJANGO_ALLOWED_HOSTS is missing '$required' — Caddy/Docker healthchecks will 400. Add it and re-run." ;;
+    esac
+done
+
 ok "environment looks healthy"
 
 # === [2/9] Detect deploy mode ===========================================
@@ -337,10 +350,12 @@ fi
 ok "web restarted"
 
 # Healthcheck: prefer the container's own /healthz/, fall back to host curl.
+# Send X-Forwarded-Proto: https so SECURE_SSL_REDIRECT doesn't bounce us
+# to a 301 (which we'd misread as healthy).
 note "running healthcheck…"
 HEALTH_PASS=0
 for i in $(seq 1 15); do
-    if dc_quiet "exec -T web curl -fsS http://localhost:8000/healthz/" >/dev/null; then
+    if dc_quiet "exec -T web curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:8000/healthz/" >/dev/null; then
         HEALTH_PASS=1
         ok "/healthz/ OK after ${i}×2s"
         break
@@ -349,6 +364,25 @@ for i in $(seq 1 15); do
 done
 if [ "$HEALTH_PASS" = "0" ]; then
     die 9 "healthcheck never passed — gunicorn may be crashing on startup."
+fi
+
+# Reload Caddy so any edits to deploy/Caddyfile pulled in this run take
+# effect. `docker compose up` does NOT recreate Caddy just because a
+# bind-mounted file changed, so without an explicit reload the new
+# config would only kick in on the next container restart. Reload is
+# zero-downtime and keeps the cert cache in caddy_data intact.
+if dc_quiet "ps -q caddy" | grep -q .; then
+    note "reloading Caddy with current deploy/Caddyfile…"
+    if dc "exec -T caddy caddy validate --config /etc/caddy/Caddyfile" >/dev/null 2>&1; then
+        if dc "exec -T caddy caddy reload --config /etc/caddy/Caddyfile" >/dev/null 2>&1; then
+            ok "Caddy reloaded"
+        else
+            warn "Caddy reload failed — falling back to container recreate"
+            dc "up -d --no-deps caddy" >/dev/null 2>&1 || warn "Caddy recreate also failed; check logs caddy"
+        fi
+    else
+        warn "deploy/Caddyfile failed validate — Caddy NOT reloaded; old config still serving"
+    fi
 fi
 
 # Optional external healthcheck (e.g. through Caddy/Cloudflare).
