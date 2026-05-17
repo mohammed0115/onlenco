@@ -1,0 +1,31 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}إدارة المعلمين{% else %}Teacher Management{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}المعلم يرى كورساته ودروسه فقط.{% else %}Teachers are scoped to their own courses and lessons.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-panel">
+  <table class="control-table">
+    <thead>
+      <tr><th>Name</th><th>Email</th><th>Courses</th><th>Published</th><th>Pending review</th><th>Students</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for teacher in page_obj.object_list %}
+        <tr>
+          <td>{{ teacher.profile.full_name|default:teacher.get_full_name|default:teacher.username }}</td>
+          <td>{{ teacher.email|default:"-" }}</td>
+          <td>{{ teacher.taught_courses.count }}</td>
+          <td>{{ teacher.taught_courses.all|length }}</td>
+          <td>{{ teacher.created_courses.all|length }}</td>
+          <td>-</td>
+          <td><span class="badge {% if teacher.is_active %}badge-green{% else %}badge-red{% endif %}">{{ teacher.is_active|yesno:"active,inactive" }}</span></td>
+          <td><a class="btn-control" href="{% url 'platform_admin:teacher_detail' teacher.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> View</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="muted">No teachers found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include "platform_admin/pagination.html" %}
+</div>
+{% endblock %}

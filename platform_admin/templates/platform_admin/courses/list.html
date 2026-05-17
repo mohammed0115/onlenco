@@ -1,0 +1,61 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}إدارة الكورسات والدروس{% else %}Course & Lesson Management{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}فيديوهات، worksheets، مراجعة محتوى، ونطاق المعلمين.{% else %}Videos, worksheets, content review, and teacher scoping.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <form method="get" class="filters">
+    <input name="q" value="{{ filters.q }}" placeholder="course / teacher">
+    <select name="level">
+      <option value="">Level</option>
+      <option value="A0" {% if filters.level == "A0" %}selected{% endif %}>A0</option>
+      <option value="A1" {% if filters.level == "A1" %}selected{% endif %}>A1</option>
+      <option value="A2" {% if filters.level == "A2" %}selected{% endif %}>A2</option>
+      <option value="B1" {% if filters.level == "B1" %}selected{% endif %}>B1</option>
+      <option value="B2" {% if filters.level == "B2" %}selected{% endif %}>B2</option>
+      <option value="C1" {% if filters.level == "C1" %}selected{% endif %}>C1</option>
+      <option value="C2" {% if filters.level == "C2" %}selected{% endif %}>C2</option>
+    </select>
+    <select name="status">
+      <option value="">Status</option>
+      <option value="draft" {% if filters.status == "draft" %}selected{% endif %}>Draft</option>
+      <option value="pending_review" {% if filters.status == "pending_review" %}selected{% endif %}>Pending review</option>
+      <option value="published" {% if filters.status == "published" %}selected{% endif %}>Published</option>
+      <option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>Rejected</option>
+      <option value="archived" {% if filters.status == "archived" %}selected{% endif %}>Archived</option>
+    </select>
+    <select name="language">
+      <option value="">Language</option>
+      <option value="ar" {% if filters.language == "ar" %}selected{% endif %}>Arabic</option>
+      <option value="en" {% if filters.language == "en" %}selected{% endif %}>English</option>
+      <option value="bilingual" {% if filters.language == "bilingual" %}selected{% endif %}>Bilingual</option>
+    </select>
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="filter" class="h-4 w-4"></i> Filter</button>
+  </form>
+  <a class="btn-control" href="{% url 'platform_admin:courses_review' %}"><i data-lucide="file-search" class="h-4 w-4"></i> Review queue</a>
+</div>
+
+<div class="control-panel">
+  <table class="control-table">
+    <thead><tr><th>Title</th><th>Level</th><th>Teacher</th><th>Status</th><th>Lessons</th><th>Students</th><th>Updated</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for course in page_obj.object_list %}
+        <tr>
+          <td>{{ course.title }}</td>
+          <td>{{ course.level.code }}</td>
+          <td>{{ course.teacher.email|default:course.teacher.username|default:"-" }}</td>
+          <td><span class="badge {% if course.status == 'published' %}badge-green{% elif course.status == 'pending_review' %}badge-yellow{% elif course.status == 'rejected' %}badge-red{% endif %}">{{ course.status }}</span></td>
+          <td>{{ course.lessons_count }}</td>
+          <td>{{ course.students_count }}</td>
+          <td>{{ course.updated_at|date:"Y-m-d" }}</td>
+          <td><a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> View</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="muted">No courses found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include "platform_admin/pagination.html" %}
+</div>
+{% endblock %}

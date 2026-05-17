@@ -1,0 +1,19 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}إشعارات المعلم{% else %}Teacher Notifications{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<section class="teacher-panel">
+  <table class="teacher-table">
+    <thead><tr><th>Event</th><th>Status</th><th>Payload</th><th>Created</th></tr></thead>
+    <tbody>
+      {% for event in events %}
+        <tr><td>{{ event.event_type }}</td><td>{{ event.status }}</td><td><code>{{ event.payload }}</code></td><td>{{ event.created_at|date:"Y-m-d H:i" }}</td></tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">No notifications.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

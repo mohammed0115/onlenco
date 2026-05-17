@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher.css' %}">
+{% endblock %}
+
+{% block body %}
+<div class="teacher-shell">
+  <aside class="teacher-sidebar">
+    <a class="teacher-brand" href="{% url 'teacher_portal:dashboard' %}">
+      <span class="teacher-logo">O</span>
+      <span>
+        <strong>{% if lang == "ar" %}بوابة أستاذ Onlenco{% else %}Onlenco Teacher Portal{% endif %}</strong>
+        <small>{% if lang == "ar" %}الكورسات والطلاب{% else %}Courses and students{% endif %}</small>
+      </span>
+    </a>
+    <nav class="teacher-nav">
+      {% for key, icon, label_en, label_ar, url_name in teacher_nav %}
+        <a href="{% url url_name %}" class="{% if section == key %}active{% endif %}">
+          <i data-lucide="{{ icon }}" class="h-4 w-4"></i>
+          <span>{% if lang == "ar" %}{{ label_ar }}{% else %}{{ label_en }}{% endif %}</span>
+        </a>
+      {% endfor %}
+    </nav>
+  </aside>
+
+  <div class="teacher-main">
+    <header class="teacher-topbar">
+      <div>
+        <h1>{% block teacher_title %}{% if lang == "ar" %}لوحة المعلم{% else %}Teacher Dashboard{% endif %}{% endblock %}</h1>
+        <p>{% block teacher_subtitle %}{% if lang == "ar" %}إدارة المحتوى والطلاب دون استخدام Django Admin.{% else %}Manage teaching work without Django Admin.{% endif %}{% endblock %}</p>
+      </div>
+      <div class="teacher-actions">
+        {% if available_modes|length > 1 %}
+          <a class="teacher-btn" href="{% url 'teacher_portal:switch_role' 'student' %}">
+            <i data-lucide="graduation-cap" class="h-4 w-4"></i>
+            {% if lang == "ar" %}وضع الطالب{% else %}Student Mode{% endif %}
+          </a>
+        {% endif %}
+        <a class="teacher-btn teacher-btn-primary" href="{% url 'teacher_portal:course_create' %}">
+          <i data-lucide="plus" class="h-4 w-4"></i>
+          {% if lang == "ar" %}إنشاء كورس{% else %}Create Course{% endif %}
+        </a>
+      </div>
+    </header>
+    <main class="teacher-content">
+      {% block teacher_content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="{% static 'teacher_portal/js/teacher.js' %}"></script>
+{% endblock %}
+

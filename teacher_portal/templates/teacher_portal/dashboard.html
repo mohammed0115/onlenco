@@ -1,0 +1,63 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}لوحة المعلم{% else %}Teacher Dashboard{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}نظرة سريعة على كورساتك، طلابك، والمهام المعلقة.{% else %}A focused view of your courses, students, and pending work.{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<section class="teacher-metrics">
+  <div><strong>{{ metrics.courses }}</strong><span>{% if lang == "ar" %}كورساتي{% else %}My Courses{% endif %}</span></div>
+  <div><strong>{{ metrics.published }}</strong><span>{% if lang == "ar" %}منشور{% else %}Published{% endif %}</span></div>
+  <div><strong>{{ metrics.draft }}</strong><span>{% if lang == "ar" %}مسودة{% else %}Draft{% endif %}</span></div>
+  <div><strong>{{ metrics.pending_review }}</strong><span>{% if lang == "ar" %}قيد المراجعة{% else %}Pending Review{% endif %}</span></div>
+  <div><strong>{{ metrics.students }}</strong><span>{% if lang == "ar" %}طلابي{% else %}My Students{% endif %}</span></div>
+  <div><strong>{{ metrics.quiz_average }}%</strong><span>{% if lang == "ar" %}متوسط الاختبارات{% else %}Quiz Average{% endif %}</span></div>
+  <div><strong>{{ metrics.completion_rate }}%</strong><span>{% if lang == "ar" %}إكمال الدروس{% else %}Completion Rate{% endif %}</span></div>
+  <div><strong>{{ metrics.assignments_submitted }}</strong><span>{% if lang == "ar" %}واجبات مرسلة{% else %}Submissions{% endif %}</span></div>
+</section>
+
+<div class="teacher-grid two">
+  <section class="teacher-panel">
+    <div class="panel-heading">
+      <h2>{% if lang == "ar" %}المهام المعلقة{% else %}Pending Tasks{% endif %}</h2>
+    </div>
+    <div class="task-list">
+      <div><span>{% if lang == "ar" %}كورسات تحتاج إكمال{% else %}Courses need completion{% endif %}</span><strong>{{ pending_tasks.courses_need_completion }}</strong></div>
+      <div><span>{% if lang == "ar" %}دروس تحتاج مراجعة{% else %}Lessons need review{% endif %}</span><strong>{{ pending_tasks.lessons_need_review }}</strong></div>
+      <div><span>{% if lang == "ar" %}اختبارات تحتاج أسئلة{% else %}Quizzes need questions{% endif %}</span><strong>{{ pending_tasks.quizzes_need_questions }}</strong></div>
+    </div>
+  </section>
+  <section class="teacher-panel">
+    <div class="panel-heading">
+      <h2>{% if lang == "ar" %}إجراءات سريعة{% else %}Quick Actions{% endif %}</h2>
+    </div>
+    <div class="quick-actions">
+      <a href="{% url 'teacher_portal:course_create' %}"><i data-lucide="book-plus"></i>{% if lang == "ar" %}إنشاء كورس{% else %}Create Course{% endif %}</a>
+      <a href="{% url 'teacher_portal:courses' %}"><i data-lucide="play-square"></i>{% if lang == "ar" %}إضافة درس{% else %}Add Lesson{% endif %}</a>
+      <a href="{% url 'teacher_portal:assignments' %}"><i data-lucide="clipboard-list"></i>{% if lang == "ar" %}الواجبات{% else %}Assignments{% endif %}</a>
+      <a href="{% url 'teacher_portal:students' %}"><i data-lucide="users"></i>{% if lang == "ar" %}نتائج الطلاب{% else %}Student Results{% endif %}</a>
+    </div>
+  </section>
+</div>
+
+<section class="teacher-panel">
+  <div class="panel-heading">
+    <h2>{% if lang == "ar" %}آخر الكورسات{% else %}Recent Courses{% endif %}</h2>
+  </div>
+  <table class="teacher-table">
+    <thead><tr><th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th><th>Level</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for course in recent_courses %}
+        <tr>
+          <td>{{ course.title_ar|default:course.title }}</td>
+          <td>{{ course.level.code }}</td>
+          <td><span class="status-pill status-{{ course.status }}">{{ course.status }}</span></td>
+          <td><a class="teacher-link" href="{% url 'teacher_portal:course_detail' course.pk %}">{% if lang == "ar" %}فتح{% else %}Open{% endif %}</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">{% if lang == "ar" %}لا توجد كورسات بعد.{% else %}No courses yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

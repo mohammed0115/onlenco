@@ -1,0 +1,33 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Notifications{% endblock %}
+{% block control_subtitle %}Email notifications, failed emails, templates, subjects, and languages.{% endblock %}
+
+{% block control_content %}
+<div class="control-grid two-grid">
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">Recent emails</h2>
+    <table class="control-table">
+      <tbody>
+        {% for email in emails %}
+          <tr><td>{{ email.recipient_email }}</td><td>{{ email.status }}</td><td>{{ email.language }}</td></tr>
+        {% empty %}
+          <tr><td class="muted">No emails.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">Templates</h2>
+    <table class="control-table">
+      <tbody>
+        {% for template in templates %}
+          <tr><td>{{ template.event_type }}</td><td>{{ template.language }}</td><td>{{ template.subject }}</td></tr>
+        {% empty %}
+          <tr><td class="muted">No custom templates.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

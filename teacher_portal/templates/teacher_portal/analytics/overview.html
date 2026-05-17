@@ -1,0 +1,26 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}تحليلات المعلم{% else %}Teacher Analytics{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<section class="teacher-metrics">
+  <div><strong>{{ completion_rate }}%</strong><span>Course completion</span></div>
+  <div><strong>{{ quiz_average }}%</strong><span>Average quiz score</span></div>
+  <div><strong>{{ inactive_students }}</strong><span>Inactive students</span></div>
+  <div><strong>{{ assignment_submissions }}</strong><span>Assignment submissions</span></div>
+</section>
+<section class="teacher-panel">
+  <div class="panel-heading"><h2>Most difficult lessons</h2></div>
+  <table class="teacher-table">
+    <thead><tr><th>Lesson</th><th>Course</th><th>Average score</th></tr></thead>
+    <tbody>
+      {% for lesson in difficult_lessons %}
+        <tr><td>{{ lesson.title }}</td><td>{{ lesson.course.title }}</td><td>{{ lesson.avg_score|floatformat:1|default:"-" }}</td></tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">No quiz data yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'platform_admin/css/control.css' %}">
+{% endblock %}
+
+{% block body %}
+<div class="control-shell">
+  <div class="control-layout">
+    <aside class="control-sidebar">
+      <div class="control-brand">
+        <div class="control-logo">O</div>
+        <div>
+          <div>{% if lang == "ar" %}لوحة إدارة Onlenco{% else %}Onlenco Control Center{% endif %}</div>
+          <div class="control-subtitle">Platform Management</div>
+        </div>
+      </div>
+      <nav class="control-nav">
+        {% for item in nav_items %}
+          <a href="{% url item.url_name %}" class="{% if section in item.url_name %}active{% endif %}">
+            <i data-lucide="{{ item.icon }}" class="h-4 w-4"></i>
+            <span>{% if lang == "ar" %}{{ item.label_ar }}{% else %}{{ item.label_en }}{% endif %}</span>
+          </a>
+        {% endfor %}
+      </nav>
+    </aside>
+
+    <div class="control-main">
+      <header class="control-topbar">
+        <div>
+          <div class="control-title">{% block control_title %}Onlenco Control Center{% endblock %}</div>
+          <div class="control-subtitle">{% block control_subtitle %}Secure platform operations{% endblock %}</div>
+        </div>
+        <form class="control-search" method="get">
+          <input type="search" name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث{% else %}Search{% endif %}">
+        </form>
+      </header>
+      <main class="control-content">
+        {% if is_read_only_admin %}
+          <div class="control-card" style="margin-bottom:16px">
+            <span class="badge badge-blue">Read-only</span>
+            <span class="muted">{% if lang == "ar" %}هذا الحساب للعرض فقط.{% else %}This account is view-only.{% endif %}</span>
+          </div>
+        {% endif %}
+        {% block control_content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="{% static 'platform_admin/js/control.js' %}"></script>
+{% endblock %}

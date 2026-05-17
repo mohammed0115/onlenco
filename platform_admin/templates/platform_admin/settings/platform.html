@@ -1,0 +1,11 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Platform Settings{% endblock %}
+{% block control_subtitle %}Operational platform settings. Sensitive technical settings stay out of this UI.{% endblock %}
+
+{% block control_content %}
+<div class="control-card">
+  <span class="badge badge-blue">Safe surface</span>
+  <span class="muted">API keys and raw secrets are intentionally not displayed.</span>
+</div>
+{% endblock %}

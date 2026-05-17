@@ -1,0 +1,33 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Audit Logs{% endblock %}
+{% block control_subtitle %}Sensitive actions performed inside Onlenco Control Center.{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <form method="get" class="filters">
+    <input name="action" value="{{ filters.action }}" placeholder="action type">
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="search" class="h-4 w-4"></i> Search</button>
+  </form>
+</div>
+<div class="control-panel">
+  <table class="control-table">
+    <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Object</th><th>Description</th></tr></thead>
+    <tbody>
+      {% for log in page_obj.object_list %}
+        <tr>
+          <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
+          <td>{% if log.actor %}{{ log.actor.email|default:log.actor.username }}{% else %}system{% endif %}</td>
+          <td><span class="badge badge-blue">{{ log.action_type }}</span></td>
+          <td>{% if log.target_user %}{{ log.target_user.email|default:log.target_user.username }}{% else %}-{% endif %}</td>
+          <td>{{ log.object_type }} #{{ log.object_id }}</td>
+          <td>{{ log.description }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">No audit logs.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include "platform_admin/pagination.html" %}
+</div>
+{% endblock %}

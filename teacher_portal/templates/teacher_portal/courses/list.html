@@ -1,0 +1,52 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}كورساتي{% else %}My Courses{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}مسودات، مراجعات، وكورسات منشورة في مكان واحد.{% else %}Drafts, reviews, and published courses in one place.{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<form class="teacher-filters" method="get">
+  <input name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث{% else %}Search{% endif %}">
+  <select name="status">
+    <option value="">Status</option>
+    <option value="draft">draft</option>
+    <option value="pending_review">pending_review</option>
+    <option value="published">published</option>
+    <option value="rejected">rejected</option>
+  </select>
+  <select name="language">
+    <option value="">Language</option>
+    <option value="ar">Arabic</option>
+    <option value="en">English</option>
+    <option value="bilingual">Bilingual</option>
+  </select>
+  <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="search"></i>{% if lang == "ar" %}تصفية{% else %}Filter{% endif %}</button>
+</form>
+
+<section class="teacher-panel">
+  <table class="teacher-table">
+    <thead><tr><th>Title</th><th>Level</th><th>Status</th><th>Lessons</th><th>Students</th><th>Updated</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for course in page_obj.object_list %}
+        <tr>
+          <td>{{ course.title_ar|default:course.title }}</td>
+          <td>{{ course.level.code }}</td>
+          <td><span class="status-pill status-{{ course.status }}">{{ course.status }}</span></td>
+          <td>{{ course.lessons.count }}</td>
+          <td>{{ course.enrollments.count }}</td>
+          <td>{{ course.updated_at|date:"Y-m-d" }}</td>
+          <td class="row-actions">
+            <a href="{% url 'teacher_portal:course_detail' course.pk %}">View</a>
+            <a href="{% url 'teacher_portal:lessons' course.pk %}">Lessons</a>
+            {% if course.status == "draft" or course.status == "rejected" %}
+              <a href="{% url 'teacher_portal:course_edit' course.pk %}">Edit</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">No courses.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

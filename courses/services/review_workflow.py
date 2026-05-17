@@ -63,8 +63,12 @@ def approve(*, content_object, reviewed_by, notes: str = "") -> ContentReviewLog
 
 
 def reject(*, content_object, reviewed_by, notes: str = "") -> ContentReviewLog:
-    """Flip status back to `draft` and store the rejection notes."""
-    content_object.status = "draft"
+    """Reject content and store notes.
+
+    Courses and the new teacher-portal lessons both have a first-class
+    `rejected` state so instructors can revise from explicit feedback.
+    """
+    content_object.status = "rejected"
     content_object.reviewed_by = reviewed_by
     content_object.reviewed_at = timezone.now()
     if hasattr(content_object, "review_notes"):

@@ -1,0 +1,15 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}Quiz · {{ lesson.title }}{% endblock %}
+
+{% block teacher_content %}
+<form class="teacher-form" method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <div class="form-actions">
+    <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="save"></i>Save quiz</button>
+    {% if quiz %}<a class="teacher-btn" href="{% url 'teacher_portal:quiz_questions' quiz.pk %}">Questions</a>{% endif %}
+  </div>
+</form>
+{% endblock %}
+

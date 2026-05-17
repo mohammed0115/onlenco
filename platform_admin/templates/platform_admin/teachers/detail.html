@@ -1,0 +1,66 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{{ teacher.profile.full_name|default:teacher.email|default:teacher.username }}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}كورسات، دروس، طلاب، ونشاط المعلم.{% else %}Teacher courses, lessons, students, and content activity.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="detail-grid">
+  <div class="stack">
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Summary</h2>
+      <div class="control-grid metrics-grid">
+        <div><div class="metric-value">{{ stats.courses }}</div><div class="muted">Courses</div></div>
+        <div><div class="metric-value">{{ stats.published }}</div><div class="muted">Published</div></div>
+        <div><div class="metric-value">{{ stats.pending }}</div><div class="muted">Pending review</div></div>
+        <div><div class="metric-value">{{ stats.students }}</div><div class="muted">Students</div></div>
+      </div>
+    </section>
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Courses</h2>
+      <table class="control-table">
+        <thead><tr><th>Title</th><th>Level</th><th>Status</th><th>Lessons</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for course in courses %}
+            <tr><td>{{ course.title }}</td><td>{{ course.level.code }}</td><td><span class="badge">{{ course.status }}</span></td><td>{{ course.lessons.count }}</td><td><a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}">View</a></td></tr>
+          {% empty %}
+            <tr><td colspan="5" class="muted">No courses.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Lessons</h2>
+      <table class="control-table">
+        <thead><tr><th>Lesson</th><th>Course</th><th>Status</th><th>Video</th><th>Worksheet</th></tr></thead>
+        <tbody>
+          {% for lesson in lessons %}
+            <tr><td>{{ lesson.title }}</td><td>{{ lesson.course.title }}</td><td>{{ lesson.status }}</td><td>{{ lesson.video_file|yesno:"yes,no" }}</td><td>{{ lesson.resources.count }}</td></tr>
+          {% empty %}
+            <tr><td colspan="5" class="muted">No lessons.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+  <aside class="stack">
+    <form class="action-box" method="post" action="{% url 'platform_admin:teacher_action' teacher.pk 'assign-role' %}">
+      {% csrf_token %}
+      <button class="btn-control btn-primary" type="submit"><i data-lucide="user-check" class="h-4 w-4"></i> Assign teacher role</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:teacher_action' teacher.pk 'remove-role' %}">
+      {% csrf_token %}
+      <button class="btn-control" type="submit"><i data-lucide="user-minus" class="h-4 w-4"></i> Remove teacher role</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:teacher_action' teacher.pk 'assign-course' %}">
+      {% csrf_token %}
+      <strong>Assign course</strong>
+      {{ assign_form.course }}
+      <button class="btn-control btn-primary" type="submit"><i data-lucide="book-plus" class="h-4 w-4"></i> Assign</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:teacher_action' teacher.pk 'deactivate' %}">
+      {% csrf_token %}
+      <button class="btn-control btn-danger" type="submit"><i data-lucide="user-x" class="h-4 w-4"></i> Deactivate teacher</button>
+    </form>
+  </aside>
+</div>
+{% endblock %}

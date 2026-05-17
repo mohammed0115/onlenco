@@ -1,0 +1,36 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Dataset Review{% endblock %}
+{% block control_subtitle %}Private fields are masked: review provenance, quality, and approval state only.{% endblock %}
+
+{% block control_content %}
+<div class="control-card" style="margin-bottom:16px">
+  <span class="badge badge-blue">Masked</span>
+  <span class="muted">Raw input/output JSON is intentionally not shown on this page.</span>
+</div>
+
+<div class="control-panel">
+  <table class="control-table">
+    <thead><tr><th>ID</th><th>Task</th><th>Level</th><th>Skill</th><th>Quality</th><th>Approved</th><th>Source</th><th>Action</th></tr></thead>
+    <tbody>
+      {% for example in examples %}
+        <tr>
+          <td>{{ example.pk }}</td>
+          <td>{{ example.task_type }}</td>
+          <td>{{ example.cefr_level|default:"-" }}</td>
+          <td>{{ example.skill|default:"-" }}</td>
+          <td>{{ example.quality_score }}</td>
+          <td><span class="badge {% if example.is_approved %}badge-green{% else %}badge-red{% endif %}">{{ example.is_approved }}</span></td>
+          <td>{{ example.source_type|default:"-" }} #{{ example.source_id|default:"-" }}</td>
+          <td>
+            <form method="post" action="{% url 'platform_admin:ai_dataset_action' 'approve' %}" style="display:inline">{% csrf_token %}<input type="hidden" name="example_id" value="{{ example.pk }}"><button class="btn-control btn-success" type="submit">Approve</button></form>
+            <form method="post" action="{% url 'platform_admin:ai_dataset_action' 'reject' %}" style="display:inline">{% csrf_token %}<input type="hidden" name="example_id" value="{{ example.pk }}"><button class="btn-control btn-danger" type="submit">Reject</button></form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="muted">No training examples.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

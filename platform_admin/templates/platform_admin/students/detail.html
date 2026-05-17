@@ -1,0 +1,171 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{{ profile.full_name|default:student.email|default:student.username }}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}ملف الطالب التشغيلي الكامل{% else %}Complete operational student profile{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="tabs">
+  <span class="tab-pill">Overview</span>
+  <span class="tab-pill">Onboarding & Placement</span>
+  <span class="tab-pill">Learning Progress</span>
+  <span class="tab-pill">Weaknesses & Mistakes</span>
+  <span class="tab-pill">AI Tutor Activity</span>
+  <span class="tab-pill">Payments</span>
+  <span class="tab-pill">Motivation & Game</span>
+  <span class="tab-pill">Notes</span>
+</div>
+
+<div class="detail-grid">
+  <div class="stack">
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Overview</h2>
+      <table class="control-table">
+        <tbody>
+          <tr><td>Email</td><td>{{ student.email|default:"-" }}</td></tr>
+          <tr><td>Language</td><td>{{ profile.preferred_language }}</td></tr>
+          <tr><td>Joined</td><td>{{ student.date_joined|date:"Y-m-d" }}</td></tr>
+          <tr><td>Last login</td><td>{{ student.last_login|date:"Y-m-d H:i"|default:"-" }}</td></tr>
+          <tr><td>Subscription</td><td><span class="badge">{{ profile.subscription_status }}</span></td></tr>
+          <tr><td>Current level</td><td>{{ profile.cefr_level|default:"-" }}</td></tr>
+          <tr><td>XP / Streak</td><td>{{ motivation.xp_total }} XP · {{ motivation.streak }}</td></tr>
+          <tr><td>Risk</td><td><span class="badge">{{ flag.risk_status }}</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Onboarding & Placement</h2>
+      <table class="control-table">
+        <tbody>
+          <tr><td>Path</td><td>{{ profile.onboarding_path|default:"-" }}</td></tr>
+          <tr><td>Initial level</td><td>{{ profile.initial_cefr_level|default:"-" }}</td></tr>
+          <tr><td>Placement completed</td><td>{{ profile.placement_completed }}</td></tr>
+          {% for result in placement_results %}
+            <tr><td>Result {{ result.created_at|date:"Y-m-d" }}</td><td>{{ result.level }} · written {{ result.written_score|default:"-" }} · speaking {{ result.speaking_score|default:"-" }}</td></tr>
+          {% empty %}
+            <tr><td colspan="2" class="muted">No placement result.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Learning Progress</h2>
+      <table class="control-table">
+        <thead><tr><th>Course</th><th>Status</th><th>Progress</th></tr></thead>
+        <tbody>
+          {% for enrollment in enrollments %}
+            <tr><td>{{ enrollment.course.title }}</td><td>{{ enrollment.status }}</td><td>{{ enrollment.progress_percentage|floatformat:1 }}%</td></tr>
+          {% empty %}
+            <tr><td colspan="3" class="muted">No courses assigned.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Weaknesses & Mistakes</h2>
+      <div class="stack">
+        {% for weakness in weaknesses %}
+          <div><span class="badge badge-yellow">{{ weakness.skill.name|default:weakness.grammar_topic.name|default:"general" }}</span> <span class="muted">priority {{ weakness.priority_score|floatformat:1 }}</span></div>
+        {% empty %}
+          <div class="muted">No weaknesses tracked.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">AI Tutor Activity</h2>
+      <table class="control-table">
+        <tbody>
+          <tr><td>Conversations</td><td>{{ tutor_conversations|length }}</td></tr>
+          {% for message in tutor_messages %}
+            <tr><td>{{ message.role }}</td><td>{{ message.content|truncatechars:120 }}</td></tr>
+          {% empty %}
+            <tr><td colspan="2" class="muted">No recent tutor messages.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Payments</h2>
+      <table class="control-table">
+        <thead><tr><th>Plan</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for payment in payments %}
+            <tr><td>{{ payment.plan }}</td><td>{{ payment.amount_sdg }}</td><td>{{ payment.status }}</td><td>{{ payment.created_at|date:"Y-m-d" }}</td></tr>
+          {% empty %}
+            <tr><td colspan="4" class="muted">No payments.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Motivation & Game</h2>
+      <div class="stack">
+        <div><span class="badge badge-blue">{{ motivation.xp_total }} XP</span> <span class="badge badge-green">Streak {{ motivation.streak }}</span></div>
+        <div class="muted">Badges: {{ motivation.badges|length }} · Achievements: {{ motivation.achievements|length }}</div>
+      </div>
+    </section>
+
+    <section class="control-card">
+      <h2 class="font-semibold mb-3">Notes</h2>
+      <div class="stack">
+        {% for note in notes %}
+          <div class="action-box">
+            <div>{{ note.note }}</div>
+            <div class="muted">{{ note.author.email|default:note.author.username }} · {{ note.created_at|date:"Y-m-d H:i" }}</div>
+          </div>
+        {% empty %}
+          <div class="muted">No notes yet.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <aside class="stack">
+    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'send-notification' %}">
+      {% csrf_token %}
+      <strong>Send notification</strong>
+      {{ notification_form.title }}
+      {{ notification_form.message }}
+      <button class="btn-control btn-primary" type="submit"><i data-lucide="send" class="h-4 w-4"></i> Send</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'add-note' %}">
+      {% csrf_token %}
+      <strong>Add note</strong>
+      {{ note_form.note }}
+      <label>{{ note_form.is_private }} Private</label>
+      <button class="btn-control" type="submit"><i data-lucide="sticky-note" class="h-4 w-4"></i> Add note</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'mark-risk' %}">
+      {% csrf_token %}
+      <strong>Risk status</strong>
+      {{ risk_form.risk_status }}
+      <button class="btn-control btn-warning" type="submit"><i data-lucide="alert-triangle" class="h-4 w-4"></i> Update</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'assign-course' %}">
+      {% csrf_token %}
+      <strong>Assign course</strong>
+      {{ assign_course_form.course }}
+      <button class="btn-control" type="submit"><i data-lucide="book-plus" class="h-4 w-4"></i> Assign</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'extend-subscription' %}">
+      {% csrf_token %}
+      <strong>Extend subscription</strong>
+      {{ extend_form.days }}
+      <button class="btn-control btn-success" type="submit"><i data-lucide="calendar-plus" class="h-4 w-4"></i> Extend</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'reset-placement' %}">
+      {% csrf_token %}
+      <button class="btn-control btn-warning" type="submit"><i data-lucide="rotate-ccw" class="h-4 w-4"></i> Reset placement</button>
+    </form>
+    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'deactivate' %}">
+      {% csrf_token %}
+      <button class="btn-control btn-danger" type="submit"><i data-lucide="user-x" class="h-4 w-4"></i> Deactivate account</button>
+    </form>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if course %}{% if lang == "ar" %}تعديل كورس{% else %}Edit Course{% endif %}{% else %}{% if lang == "ar" %}إنشاء كورس{% else %}Create Course{% endif %}{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<form class="teacher-form" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <div class="form-actions">
+    <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="save"></i>{% if lang == "ar" %}حفظ{% else %}Save{% endif %}</button>
+    <a class="teacher-btn" href="{% url 'teacher_portal:courses' %}">{% if lang == "ar" %}رجوع{% else %}Back{% endif %}</a>
+  </div>
+</form>
+{% endblock %}
+

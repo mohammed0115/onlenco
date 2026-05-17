@@ -1,0 +1,76 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{{ student.profile.full_name|default:student.email|default:student.username }}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}تقدم الطالب داخل كورساتك فقط، دون بيانات الدفع أو ملاحظات الإدارة الخاصة.{% else %}Progress inside your courses only, without payments or private admin notes.{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<div class="teacher-grid two">
+  <section class="teacher-panel">
+    <div class="panel-heading"><h2>Overview</h2></div>
+    <div class="detail-list">
+      <div><span>Email</span><strong>{{ student.email|default:"-" }}</strong></div>
+      <div><span>Language</span><strong>{{ student.profile.preferred_language }}</strong></div>
+      <div><span>Level</span><strong>{{ student.profile.cefr_level|default:"-" }}</strong></div>
+      <div><span>Last login</span><strong>{{ student.last_login|date:"Y-m-d"|default:"-" }}</strong></div>
+    </div>
+  </section>
+  <section class="teacher-panel">
+    <div class="panel-heading"><h2>Add Note</h2></div>
+    <form class="teacher-form compact-form" method="post" action="{% url 'teacher_portal:student_note_create' student.pk %}">
+      {% csrf_token %}
+      {{ note_form.as_p }}
+      <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="message-square"></i>Add note</button>
+    </form>
+  </section>
+</div>
+
+<section class="teacher-panel">
+  <div class="panel-heading"><h2>Course Progress</h2></div>
+  <table class="teacher-table">
+    <thead><tr><th>Course</th><th>Status</th><th>Progress</th></tr></thead>
+    <tbody>
+      {% for enrollment in enrollments %}
+        <tr><td>{{ enrollment.course.title }}</td><td>{{ enrollment.status }}</td><td>{{ enrollment.progress_percentage }}%</td></tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">No scoped enrollments.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="teacher-panel">
+  <div class="panel-heading"><h2>Lessons & Quiz Results</h2></div>
+  <table class="teacher-table">
+    <thead><tr><th>Lesson</th><th>Course</th><th>Video</th><th>Score</th><th>Completed</th></tr></thead>
+    <tbody>
+      {% for item in progress %}
+        <tr>
+          <td>{{ item.lesson.title }}</td>
+          <td>{{ item.lesson.course.title }}</td>
+          <td>{{ item.video_completed|yesno:"yes,no" }}</td>
+          <td>{{ item.quiz_score|default:"-" }}</td>
+          <td>{{ item.completed_at|date:"Y-m-d"|default:"-" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">No progress yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="teacher-panel">
+  <div class="panel-heading"><h2>Teacher Notes</h2></div>
+  <div class="note-list">
+    {% for note in notes %}
+      <article>
+        <strong>{{ note.course.title }}</strong>
+        <span>{{ note.visibility }}</span>
+        <p>{{ note.note }}</p>
+      </article>
+    {% empty %}
+      <p class="muted">No notes yet.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+

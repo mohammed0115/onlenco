@@ -1,0 +1,38 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lesson %}Edit lesson{% else %}New video lesson{% endif %}{% endblock %}
+{% block control_subtitle %}{{ course.title }} · video lesson with optional worksheet upload{% endblock %}
+
+{% block control_content %}
+<form class="control-card stack" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {% if form.errors %}
+    <div class="badge badge-red">Please fix the highlighted fields.</div>
+  {% endif %}
+  <div class="form-grid">
+    <div>{{ form.title.label_tag }}{{ form.title }}{{ form.title.errors }}</div>
+    <div>{{ form.unit.label_tag }}{{ form.unit }}{{ form.unit.errors }}</div>
+    <div>{{ form.order.label_tag }}{{ form.order }}{{ form.order.errors }}</div>
+    <div>{{ form.lesson_type.label_tag }}{{ form.lesson_type }}{{ form.lesson_type.errors }}</div>
+    <div>{{ form.cefr_level.label_tag }}{{ form.cefr_level }}{{ form.cefr_level.errors }}</div>
+    <div>{{ form.skill.label_tag }}{{ form.skill }}{{ form.skill.errors }}</div>
+    <div>{{ form.grammar_topic.label_tag }}{{ form.grammar_topic }}{{ form.grammar_topic.errors }}</div>
+    <div>{{ form.vocabulary_topic.label_tag }}{{ form.vocabulary_topic }}{{ form.vocabulary_topic.errors }}</div>
+    <div>{{ form.video_file.label_tag }}{{ form.video_file }}{{ form.video_file.errors }}</div>
+    <div>{{ form.video_url.label_tag }}{{ form.video_url }}{{ form.video_url.errors }}</div>
+    <div>{{ form.audio_file.label_tag }}{{ form.audio_file }}{{ form.audio_file.errors }}</div>
+    <div>{{ form.pdf_file.label_tag }}{{ form.pdf_file }}{{ form.pdf_file.errors }}</div>
+    <div>{{ form.worksheet_file.label_tag }}{{ form.worksheet_file }}{{ form.worksheet_file.errors }}</div>
+    <div>{{ form.worksheet_title.label_tag }}{{ form.worksheet_title }}{{ form.worksheet_title.errors }}</div>
+    <div>{{ form.duration_minutes.label_tag }}{{ form.duration_minutes }}{{ form.duration_minutes.errors }}</div>
+    <div>{{ form.status.label_tag }}{{ form.status }}{{ form.status.errors }}</div>
+    <div class="span-2">{{ form.content_html.label_tag }}{{ form.content_html }}{{ form.content_html.errors }}</div>
+    <div class="span-2">{{ form.transcript.label_tag }}{{ form.transcript }}{{ form.transcript.errors }}</div>
+    <label>{{ form.is_active }} Active</label>
+  </div>
+  <div class="filters">
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="save" class="h-4 w-4"></i> Save lesson</button>
+    <a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

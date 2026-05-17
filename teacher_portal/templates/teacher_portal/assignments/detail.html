@@ -1,0 +1,27 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{{ assignment.title_ar|default:assignment.title_en }}{% endblock %}
+{% block teacher_subtitle %}{{ assignment.course.title }} · {{ assignment.assignment_type }}{% endblock %}
+
+{% block teacher_content %}
+<section class="teacher-panel">
+  <div class="panel-heading"><h2>Submissions</h2></div>
+  <table class="teacher-table">
+    <thead><tr><th>Student</th><th>Status</th><th>Score</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>
+      {% for submission in submissions %}
+        <tr>
+          <td>{{ submission.student.profile.full_name|default:submission.student.email }}</td>
+          <td>{{ submission.status }}</td>
+          <td>{{ submission.score|default:"-" }}</td>
+          <td>{{ submission.submitted_at|date:"Y-m-d H:i" }}</td>
+          <td><a href="{% url 'teacher_portal:submission_review' submission.pk %}">Review</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">No submissions yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

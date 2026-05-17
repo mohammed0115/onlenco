@@ -1,0 +1,35 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Model Metrics{% endblock %}
+{% block control_subtitle %}Local score, OpenAI baseline attribution, pass rate, and readiness indicators.{% endblock %}
+
+{% block control_content %}
+<div class="control-grid two-grid">
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">Evaluation runs</h2>
+    <table class="control-table">
+      <thead><tr><th>Model</th><th>Task</th><th>Provider</th><th>Accuracy</th><th>Pass</th></tr></thead>
+      <tbody>
+        {% for run in evaluations %}
+          <tr><td>{{ run.model_version|default:run.name }}</td><td>{{ run.task_type }}</td><td>{{ run.provider }}</td><td>{{ run.accuracy|floatformat:2 }}</td><td>{{ run.status }}</td></tr>
+        {% empty %}
+          <tr><td colspan="5" class="muted">No evaluation runs.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">Recent predictions</h2>
+    <table class="control-table">
+      <thead><tr><th>Task</th><th>Provider</th><th>Latency</th><th>Success</th></tr></thead>
+      <tbody>
+        {% for prediction in predictions %}
+          <tr><td>{{ prediction.task_type }}</td><td>{{ prediction.provider }}</td><td>{{ prediction.latency_ms }}ms</td><td>{{ prediction.success }}</td></tr>
+        {% empty %}
+          <tr><td colspan="4" class="muted">No prediction logs.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

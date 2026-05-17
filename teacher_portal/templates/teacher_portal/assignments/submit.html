@@ -1,0 +1,13 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{{ assignment.title_ar|default:assignment.title_en }}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}إرسال واجب الطالب{% else %}Student assignment submission{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<form class="teacher-form" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="send"></i>Submit</button>
+</form>
+{% endblock %}
+

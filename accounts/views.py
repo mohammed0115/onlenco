@@ -9,6 +9,19 @@ from .forms import SignUpForm, EmailLoginForm
 from . import onboarding as onboarding_lib
 
 
+def _post_login_destination(user):
+    nxt = onboarding_lib.next_url_for(user)
+    if nxt:
+        return nxt
+    try:
+        from teacher_portal.services.role_service import ROLE_STUDENT, ROLE_TEACHER, RoleService
+        if RoleService.user_has_role(user, ROLE_TEACHER) and not RoleService.user_has_role(user, ROLE_STUDENT):
+            return "teacher_portal:dashboard"
+    except Exception:
+        pass
+    return "dashboard"
+
+
 def _request_language(request) -> str:
     """Best-effort read of the active locale: ``ar`` or ``en``."""
     candidates = [
@@ -32,8 +45,7 @@ def auth_view(request):
     the `mode` querystring (?mode=signup) or the form's hidden `mode` field."""
 
     if request.user.is_authenticated:
-        nxt = onboarding_lib.next_url_for(request.user)
-        return redirect(nxt or "dashboard")
+        return redirect(_post_login_destination(request.user))
 
     mode = request.POST.get("mode") or request.GET.get("mode") or "signin"
     if mode not in ("signin", "signup"):
@@ -105,8 +117,7 @@ def auth_view(request):
             signin_form = EmailLoginForm(request, data=request.POST)
             if signin_form.is_valid():
                 login(request, signin_form.get_user())
-                nxt = onboarding_lib.next_url_for(signin_form.get_user())
-                return redirect(nxt or "dashboard")
+                return redirect(_post_login_destination(signin_form.get_user()))
             else:
                 messages.error(request, "Invalid email or password.")
 

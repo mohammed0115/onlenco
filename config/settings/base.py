@@ -79,6 +79,8 @@ INSTALLED_APPS = [
     "courses",
     "speech",
     "daily_learning",
+    "platform_admin",
+    "teacher_portal",
 ]
 
 # --- Daily Learning Engine ----------------------------------------------

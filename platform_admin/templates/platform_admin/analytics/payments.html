@@ -1,0 +1,13 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Financial Analytics{% endblock %}
+{% block control_subtitle %}Revenue, pending payments, approved payments, and expired subscriptions.{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid">
+  <div class="control-card"><div class="metric-value">{{ financial.revenue }}</div><div class="muted">Revenue</div></div>
+  <div class="control-card"><div class="metric-value">{{ financial.pending }}</div><div class="muted">Pending</div></div>
+  <div class="control-card"><div class="metric-value">{{ financial.approved }}</div><div class="muted">Approved</div></div>
+  <div class="control-card"><div class="metric-value">{{ financial.expired_subscriptions }}</div><div class="muted">Expired subscriptions</div></div>
+</div>
+{% endblock %}

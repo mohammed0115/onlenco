@@ -1,0 +1,72 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}إدارة الطلاب{% else %}Student Management{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}بحث، فلاتر، تقدم، اشتراك، وخطر التوقف.{% else %}Search, filters, progress, subscription, and risk status.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <form method="get" class="filters">
+    <input name="q" value="{{ filters.q }}" placeholder="name / email / phone">
+    <select name="level">
+      <option value="">Level</option>
+      <option value="A0" {% if filters.level == "A0" %}selected{% endif %}>A0</option>
+      <option value="A1" {% if filters.level == "A1" %}selected{% endif %}>A1</option>
+      <option value="A2" {% if filters.level == "A2" %}selected{% endif %}>A2</option>
+      <option value="B1" {% if filters.level == "B1" %}selected{% endif %}>B1</option>
+      <option value="B2" {% if filters.level == "B2" %}selected{% endif %}>B2</option>
+      <option value="C1" {% if filters.level == "C1" %}selected{% endif %}>C1</option>
+      <option value="C2" {% if filters.level == "C2" %}selected{% endif %}>C2</option>
+    </select>
+    <select name="subscription">
+      <option value="">Subscription</option>
+      <option value="inactive" {% if filters.subscription == "inactive" %}selected{% endif %}>Inactive</option>
+      <option value="pending" {% if filters.subscription == "pending" %}selected{% endif %}>Pending</option>
+      <option value="active" {% if filters.subscription == "active" %}selected{% endif %}>Active</option>
+      <option value="expired" {% if filters.subscription == "expired" %}selected{% endif %}>Expired</option>
+    </select>
+    <select name="language">
+      <option value="">Language</option>
+      <option value="ar" {% if filters.language == "ar" %}selected{% endif %}>Arabic</option>
+      <option value="en" {% if filters.language == "en" %}selected{% endif %}>English</option>
+    </select>
+    <select name="risk">
+      <option value="">Risk</option>
+      <option value="normal" {% if filters.risk == "normal" %}selected{% endif %}>Normal</option>
+      <option value="watch" {% if filters.risk == "watch" %}selected{% endif %}>Watch</option>
+      <option value="at_risk" {% if filters.risk == "at_risk" %}selected{% endif %}>At risk</option>
+      <option value="critical" {% if filters.risk == "critical" %}selected{% endif %}>Critical</option>
+    </select>
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="filter" class="h-4 w-4"></i> Filter</button>
+  </form>
+</div>
+
+<div class="control-panel">
+  <table class="control-table">
+    <thead>
+      <tr>
+        <th>Name</th><th>Email</th><th>Language</th><th>Level</th><th>Onboarding</th><th>Subscription</th><th>Last login</th><th>XP</th><th>Streak</th><th>Risk</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td>{{ row.email|default:"-" }}</td>
+          <td>{{ row.language }}</td>
+          <td>{{ row.level }}</td>
+          <td>{{ row.onboarding_path }}</td>
+          <td><span class="badge {% if row.subscription == 'active' %}badge-green{% elif row.subscription == 'pending' %}badge-yellow{% endif %}">{{ row.subscription }}</span></td>
+          <td>{{ row.last_login|date:"Y-m-d H:i"|default:"-" }}</td>
+          <td>{{ row.xp }}</td>
+          <td>{{ row.streak }}</td>
+          <td><span class="badge {% if row.risk_status == 'normal' %}badge-green{% else %}badge-red{% endif %}">{{ row.risk_status }}</span></td>
+          <td><a class="btn-control" href="{% url 'platform_admin:student_detail' row.user.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> View</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="11" class="muted">No students found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include "platform_admin/pagination.html" %}
+</div>
+{% endblock %}

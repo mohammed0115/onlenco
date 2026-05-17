@@ -33,6 +33,13 @@ AT_RISK_STUDENT = "at_risk_student"
 DAILY_ADMIN_SUMMARY = "daily_admin_summary"
 WEEKLY_ADMIN_SUMMARY = "weekly_admin_summary"
 
+# Teacher-facing portal events
+TEACHER_COURSE_APPROVED = "teacher_course_approved"
+TEACHER_COURSE_REJECTED = "teacher_course_rejected"
+TEACHER_ASSIGNMENT_SUBMITTED = "teacher_assignment_submitted"
+TEACHER_STUDENT_LOW_PERFORMANCE = "teacher_student_low_performance"
+TEACHER_CONTENT_NEEDS_REVISION = "teacher_content_needs_revision"
+
 # Motivation engine events (delivered to students)
 MOTIVATION_MESSAGE_GENERATED = "motivation_message_generated"
 ACHIEVEMENT_UNLOCKED         = "achievement_unlocked"
@@ -73,6 +80,14 @@ ALL_ADMIN_EVENTS = [
     WEEKLY_ADMIN_SUMMARY,
 ]
 
+ALL_TEACHER_EVENTS = [
+    TEACHER_COURSE_APPROVED,
+    TEACHER_COURSE_REJECTED,
+    TEACHER_ASSIGNMENT_SUBMITTED,
+    TEACHER_STUDENT_LOW_PERFORMANCE,
+    TEACHER_CONTENT_NEEDS_REVISION,
+]
+
 ALL_MOTIVATION_EVENTS = [
     MOTIVATION_MESSAGE_GENERATED,
     ACHIEVEMENT_UNLOCKED,
@@ -83,7 +98,7 @@ ALL_MOTIVATION_EVENTS = [
     WEEKLY_MOTIVATION_SUMMARY,
 ]
 
-ALL_EVENT_TYPES = ALL_STUDENT_EVENTS + ALL_ADMIN_EVENTS + ALL_MOTIVATION_EVENTS
+ALL_EVENT_TYPES = ALL_STUDENT_EVENTS + ALL_ADMIN_EVENTS + ALL_TEACHER_EVENTS + ALL_MOTIVATION_EVENTS
 
 EVENT_TYPE_CHOICES = [(e, e) for e in ALL_EVENT_TYPES]
 
@@ -212,6 +227,11 @@ DEFAULT_SUBJECTS = {
     AT_RISK_STUDENT: "[Onlenco admin] At-risk student",
     DAILY_ADMIN_SUMMARY: "[Onlenco admin] Daily summary",
     WEEKLY_ADMIN_SUMMARY: "[Onlenco admin] Weekly summary",
+    TEACHER_COURSE_APPROVED: "Your Onlenco course was approved",
+    TEACHER_COURSE_REJECTED: "Your Onlenco course needs revision",
+    TEACHER_ASSIGNMENT_SUBMITTED: "A student submitted an assignment",
+    TEACHER_STUDENT_LOW_PERFORMANCE: "A student needs support",
+    TEACHER_CONTENT_NEEDS_REVISION: "Content needs revision",
     MOTIVATION_MESSAGE_GENERATED: "Onlenco — keep going",
     ACHIEVEMENT_UNLOCKED: "Achievement unlocked!",
     BADGE_EARNED: "You earned a new badge",
@@ -248,6 +268,11 @@ SUBJECTS_AR = {
     STREAK_MILESTONE: "سلسلتك مشتعلة!",
     COMEBACK_REMINDER: "نفتقدك — أكمل من حيث توقفت",
     WEEKLY_MOTIVATION_SUMMARY: "ملخص تقدمك الأسبوعي",
+    TEACHER_COURSE_APPROVED: "تم قبول كورسك ونشره بنجاح",
+    TEACHER_COURSE_REJECTED: "تم رفض الكورس، يرجى مراجعة الملاحظات",
+    TEACHER_ASSIGNMENT_SUBMITTED: "قام طالب جديد بإرسال واجب",
+    TEACHER_STUDENT_LOW_PERFORMANCE: "يوجد طالب يحتاج إلى متابعة في كورسك",
+    TEACHER_CONTENT_NEEDS_REVISION: "يوجد محتوى يحتاج إلى تعديل",
 }
 
 # Map event_type → template filename (relative to templates/notifications/emails/)

@@ -1,8 +1,8 @@
 """Status workflow + audit-log tests.
 
 Cover the full draft → pending_review → published path through the
-service layer (admin actions delegate to these), plus rejection back
-to draft and audit logging via AdminActionLog.
+service layer (admin actions delegate to these), plus the rejected
+state and audit logging via AdminActionLog.
 """
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ class CourseWorkflowTests(_WorkflowSetup):
         self.assertIsNotNone(self.course.reviewed_at)
         self.assertEqual(self.course.review_notes, "LGTM")
 
-    def test_reject_returns_to_draft_with_notes(self):
+    def test_reject_marks_course_rejected_with_notes(self):
         review_workflow.submit_for_review(
             content_object=self.course, submitted_by=self.teacher,
         )
@@ -73,7 +73,7 @@ class CourseWorkflowTests(_WorkflowSetup):
             notes="Needs more examples.",
         )
         self.course.refresh_from_db()
-        self.assertEqual(self.course.status, "draft")
+        self.assertEqual(self.course.status, "rejected")
         self.assertEqual(self.course.review_notes, "Needs more examples.")
 
     def test_workflow_writes_admin_action_log(self):

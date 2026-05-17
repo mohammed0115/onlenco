@@ -1,0 +1,11 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Student Engagement{% endblock %}
+{% block control_subtitle %}Daily plan completion and retention indicators.{% endblock %}
+
+{% block control_content %}
+<div class="control-card">
+  <div class="metric-value">{{ engagement.daily_plans.completed }} / {{ engagement.daily_plans.total }}</div>
+  <div class="muted">Daily plans completed</div>
+</div>
+{% endblock %}

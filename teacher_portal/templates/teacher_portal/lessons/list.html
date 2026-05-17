@@ -1,0 +1,37 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}دروس{% else %}Lessons{% endif %}: {{ course.title }}{% endblock %}
+
+{% block teacher_content %}
+<div class="toolbar-line">
+  <a class="teacher-btn teacher-btn-primary" href="{% url 'teacher_portal:lesson_create' course.pk %}"><i data-lucide="plus"></i>{% if lang == "ar" %}إضافة درس{% else %}Add Lesson{% endif %}</a>
+</div>
+<section class="teacher-panel">
+  <table class="teacher-table">
+    <thead><tr><th>Order</th><th>Title</th><th>Skill</th><th>Status</th><th>Worksheet</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for lesson in lessons %}
+        <tr>
+          <td>{{ lesson.order }}</td>
+          <td>{{ lesson.title_ar|default:lesson.title }}</td>
+          <td>{{ lesson.skill|default:lesson.lesson_type }}</td>
+          <td><span class="status-pill status-{{ lesson.status }}">{{ lesson.status }}</span></td>
+          <td>{{ lesson.resources.count }}</td>
+          <td class="row-actions">
+            {% if lesson.status == "draft" or lesson.status == "rejected" %}<a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}">Edit</a>{% endif %}
+            <a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}">Quiz</a>
+            {% if lesson.status == "draft" or lesson.status == "rejected" %}
+              <form method="post" action="{% url 'teacher_portal:lesson_submit_review' lesson.pk %}">
+                {% csrf_token %}<button type="submit">Submit</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">No lessons yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

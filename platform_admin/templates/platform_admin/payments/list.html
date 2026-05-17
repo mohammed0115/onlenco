@@ -1,0 +1,54 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}إدارة الدفع والاشتراكات{% else %}Payments & Subscriptions{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}مراجعة الإثباتات، قبول/رفض الدفع، وتمديد الاشتراكات.{% else %}Review protected proofs, approve/reject payments, and manage subscriptions.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid" style="margin-bottom:16px">
+  <div class="control-card"><div class="metric-value">{{ metrics.pending }}</div><div class="muted">Pending</div></div>
+  <div class="control-card"><div class="metric-value">{{ metrics.approved }}</div><div class="muted">Approved</div></div>
+  <div class="control-card"><div class="metric-value">{{ metrics.rejected }}</div><div class="muted">Rejected</div></div>
+  <div class="control-card"><div class="metric-value">{{ metrics.revenue_month }}</div><div class="muted">Revenue this month SDG</div></div>
+</div>
+
+<div class="toolbar">
+  <form method="get" class="filters">
+    <input name="q" value="{{ filters.q }}" placeholder="student / reference">
+    <select name="status">
+      <option value="">Status</option>
+      <option value="pending" {% if filters.status == "pending" %}selected{% endif %}>Pending</option>
+      <option value="needs_review" {% if filters.status == "needs_review" %}selected{% endif %}>Needs review</option>
+      <option value="approved" {% if filters.status == "approved" %}selected{% endif %}>Approved</option>
+      <option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>Rejected</option>
+    </select>
+    <select name="plan">
+      <option value="">Plan</option>
+      <option value="monthly" {% if filters.plan == "monthly" %}selected{% endif %}>Monthly</option>
+      <option value="quarterly" {% if filters.plan == "quarterly" %}selected{% endif %}>3 Months</option>
+    </select>
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="filter" class="h-4 w-4"></i> Filter</button>
+  </form>
+</div>
+
+<div class="control-panel">
+  <table class="control-table">
+    <thead><tr><th>Student</th><th>Plan</th><th>Amount</th><th>Status</th><th>Uploaded</th><th>Proof</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for payment in page_obj.object_list %}
+        <tr>
+          <td>{{ payment.user.profile.full_name|default:payment.user.email|default:payment.user.username }}</td>
+          <td>{{ payment.plan }}</td>
+          <td>{{ payment.amount_sdg }} SDG</td>
+          <td><span class="badge {% if payment.status == 'approved' %}badge-green{% elif payment.status == 'rejected' %}badge-red{% else %}badge-yellow{% endif %}">{{ payment.status }}</span></td>
+          <td>{{ payment.created_at|date:"Y-m-d H:i" }}</td>
+          <td><a class="btn-control" href="{% url 'platform_admin:payment_proof' payment.pk %}"><i data-lucide="lock" class="h-4 w-4"></i> Protected</a></td>
+          <td><a class="btn-control" href="{% url 'platform_admin:payment_detail' payment.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> Review</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">No payments found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include "platform_admin/pagination.html" %}
+</div>
+{% endblock %}

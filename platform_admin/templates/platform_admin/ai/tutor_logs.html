@@ -1,0 +1,24 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Tutor Logs{% endblock %}
+{% block control_subtitle %}Recent AI tutor messages and sanitized operational context.{% endblock %}
+
+{% block control_content %}
+<div class="control-panel">
+  <table class="control-table">
+    <thead><tr><th>User</th><th>Role</th><th>Message</th><th>Created</th></tr></thead>
+    <tbody>
+      {% for log in logs %}
+        <tr>
+          <td>{{ log.conversation.user.email|default:log.conversation.user.username }}</td>
+          <td><span class="badge">{{ log.role }}</span></td>
+          <td>{{ log.content|truncatechars:180 }}</td>
+          <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">No tutor logs.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

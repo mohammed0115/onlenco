@@ -18,5 +18,6 @@ urlpatterns = [
     path("exams/", include("exams.api.urls")),
     path("tutor/", include("tutor.api.urls")),
     path("daily-learning/", include("daily_learning.api.urls")),
+    path("control/", include("platform_admin.api_urls")),
     path("", include("learning_core.api.urls")),
 ]

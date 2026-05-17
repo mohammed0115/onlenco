@@ -1,0 +1,19 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Analytics Overview{% endblock %}
+{% block control_subtitle %}Learning, engagement, finance, content, and AI analytics.{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid">
+  <div class="control-card"><div class="metric-value">{{ analytics.learning.course_completion_average }}%</div><div class="muted">Avg course completion</div></div>
+  <div class="control-card"><div class="metric-value">{{ analytics.financial.revenue }}</div><div class="muted">Revenue SDG</div></div>
+  <div class="control-card"><div class="metric-value">{{ analytics.content.published_courses }}</div><div class="muted">Published courses</div></div>
+  <div class="control-card"><div class="metric-value">{{ analytics.ai.total }}</div><div class="muted">AI calls</div></div>
+</div>
+<div class="control-grid two-grid" style="margin-top:16px">
+  <a class="control-card" href="{% url 'platform_admin:analytics_learning' %}">Learning Analytics</a>
+  <a class="control-card" href="{% url 'platform_admin:analytics_payments' %}">Financial Analytics</a>
+  <a class="control-card" href="{% url 'platform_admin:analytics_retention' %}">Student Engagement</a>
+  <a class="control-card" href="{% url 'platform_admin:ai_overview' %}">AI Analytics</a>
+</div>
+{% endblock %}

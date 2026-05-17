@@ -1,0 +1,33 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Gamification{% endblock %}
+{% block control_subtitle %}XP rules, badges, daily quests, streaks, rewards, and leaderboards.{% endblock %}
+
+{% block control_content %}
+<div class="control-grid two-grid">
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">Achievements</h2>
+    <table class="control-table">
+      <tbody>
+        {% for achievement in achievements %}
+          <tr><td>{{ achievement.name }}</td><td>{{ achievement.category }}</td><td>{{ achievement.xp_reward }} XP</td></tr>
+        {% empty %}
+          <tr><td class="muted">No achievements.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">Daily quests / challenges</h2>
+    <table class="control-table">
+      <tbody>
+        {% for challenge in challenges %}
+          <tr><td>{{ challenge.title }}</td><td>{{ challenge.kind }}</td><td>{{ challenge.target_value }}</td></tr>
+        {% empty %}
+          <tr><td class="muted">No challenges.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

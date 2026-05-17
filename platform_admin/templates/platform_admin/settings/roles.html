@@ -1,0 +1,26 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}Roles & Permissions{% endblock %}
+{% block control_subtitle %}Django Groups mapped to Onlenco Control Center capabilities.{% endblock %}
+
+{% block control_content %}
+<div class="control-panel">
+  <table class="control-table">
+    <thead><tr><th>Role</th><th>Capabilities</th></tr></thead>
+    <tbody>
+      {% for role, caps in roles.items %}
+        <tr>
+          <td><strong>{{ role }}</strong></td>
+          <td>
+            {% for cap in caps %}
+              <span class="badge">{{ cap }}</span>
+            {% empty %}
+              <span class="muted">No explicit capabilities.</span>
+            {% endfor %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

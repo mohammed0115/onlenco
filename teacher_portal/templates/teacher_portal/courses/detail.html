@@ -1,0 +1,53 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{{ course.title_ar|default:course.title }}{% endblock %}
+{% block teacher_subtitle %}{{ course.level.code }} · {{ course.status }} · {{ course.language }}{% endblock %}
+
+{% block teacher_content %}
+<div class="teacher-grid two">
+  <section class="teacher-panel">
+    <div class="panel-heading"><h2>Overview</h2></div>
+    <p>{{ course.description_ar|default:course.description|linebreaksbr }}</p>
+    <div class="status-strip">
+      <span class="status-pill status-{{ course.status }}">{{ course.status }}</span>
+      <span>{{ course.lessons.count }} lessons</span>
+      <span>{{ course.enrollments.count }} students</span>
+    </div>
+  </section>
+  <section class="teacher-panel">
+    <div class="panel-heading"><h2>Actions</h2></div>
+    <div class="quick-actions compact">
+      <a href="{% url 'teacher_portal:lessons' course.pk %}"><i data-lucide="play-square"></i>Lessons</a>
+      {% if can_edit %}<a href="{% url 'teacher_portal:course_edit' course.pk %}"><i data-lucide="pencil"></i>Edit</a>{% endif %}
+      {% if course.status == "draft" or course.status == "rejected" %}
+        <form method="post" action="{% url 'teacher_portal:course_submit_review' course.pk %}">
+          {% csrf_token %}
+          <button type="submit"><i data-lucide="send"></i>{% if lang == "ar" %}إرسال للمراجعة{% else %}Submit Review{% endif %}</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<section class="teacher-panel">
+  <div class="panel-heading"><h2>{% if lang == "ar" %}الدروس{% else %}Lessons{% endif %}</h2><a class="teacher-link" href="{% url 'teacher_portal:lesson_create' course.pk %}">Add lesson</a></div>
+  <table class="teacher-table">
+    <thead><tr><th>Order</th><th>Title</th><th>Type</th><th>Status</th><th>Media</th><th></th></tr></thead>
+    <tbody>
+      {% for lesson in lessons %}
+        <tr>
+          <td>{{ lesson.order }}</td>
+          <td>{{ lesson.title_ar|default:lesson.title }}</td>
+          <td>{{ lesson.lesson_type }}</td>
+          <td><span class="status-pill status-{{ lesson.status }}">{{ lesson.status }}</span></td>
+          <td>{{ lesson.video_file|yesno:"video," }} {{ lesson.audio_file|yesno:"audio," }} {{ lesson.pdf_file|yesno:"pdf," }}</td>
+          <td><a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}">Quiz</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">No lessons yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

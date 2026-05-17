@@ -112,6 +112,36 @@ class Profile(models.Model):
         return self.role == "admin" or self.user.is_staff
 
     @property
+    def is_student(self):
+        return self.role == "student"
+
+    @property
+    def is_teacher(self):
+        return self.user.groups.filter(name="Teacher").exists() or self.user.is_superuser
+
+    @property
+    def active_role(self):
+        return "teacher" if self.is_teacher and not self.is_student else self.role
+
+    @property
+    def roles(self):
+        roles = ["student"] if self.is_student else []
+        group_map = {
+            "Teacher": "teacher",
+            "Academic Admin": "academic_admin",
+            "Finance Admin": "finance_admin",
+            "Support Admin": "support_admin",
+            "AI Admin": "ai_admin",
+            "Platform Admin": "platform_admin",
+            "Super Admin": "super_admin",
+        }
+        group_names = set(self.user.groups.filter(name__in=group_map).values_list("name", flat=True))
+        if self.user.is_superuser:
+            group_names.add("Super Admin")
+        roles.extend(group_map[name] for name in group_map if name in group_names)
+        return roles
+
+    @property
     def is_subscribed(self):
         """True if the subscription is currently active and not expired."""
         if self.subscription_status != "active":

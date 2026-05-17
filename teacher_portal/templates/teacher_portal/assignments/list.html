@@ -1,0 +1,30 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}الواجبات{% else %}Assignments{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<div class="toolbar-line">
+  <a class="teacher-btn teacher-btn-primary" href="{% url 'teacher_portal:assignment_create' %}"><i data-lucide="plus"></i>{% if lang == "ar" %}إنشاء واجب{% else %}Create Assignment{% endif %}</a>
+</div>
+<section class="teacher-panel">
+  <table class="teacher-table">
+    <thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Due</th><th>XP</th><th>Submissions</th><th></th></tr></thead>
+    <tbody>
+      {% for assignment in assignments %}
+        <tr>
+          <td>{{ assignment.title_ar|default:assignment.title_en }}</td>
+          <td>{{ assignment.course.title }}</td>
+          <td>{{ assignment.assignment_type }}</td>
+          <td>{{ assignment.due_date|date:"Y-m-d H:i"|default:"-" }}</td>
+          <td>{{ assignment.xp_reward }}</td>
+          <td>{{ assignment.submissions.count }}</td>
+          <td><a href="{% url 'teacher_portal:assignment_detail' assignment.pk %}">Open</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">No assignments.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

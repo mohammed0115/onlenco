@@ -47,6 +47,8 @@ if getattr(settings, "ENABLE_2FA_ADMIN", False):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("control/", include("platform_admin.urls")),
+    path("teacher/", include("teacher_portal.urls")),
     path("set-language/", set_language, name="set_language"),
 
     path("", include("core.urls")),

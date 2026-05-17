@@ -39,12 +39,14 @@ COURSE_STATUS_CHOICES = [
     ("draft",          _("Draft")),
     ("pending_review", _("Pending review")),
     ("published",      _("Published")),
+    ("rejected",       _("Rejected")),
     ("archived",       _("Archived")),
 ]
 LESSON_STATUS_CHOICES = [
     ("draft",          _("Draft")),
     ("pending_review", _("Pending review")),
     ("published",      _("Published")),
+    ("rejected",       _("Rejected")),
 ]
 COURSE_LANGUAGE_CHOICES = [
     ("ar",        _("Arabic")),
@@ -125,8 +127,16 @@ class CourseLevel(models.Model):
 
 class Course(models.Model):
     title = models.CharField(max_length=200, verbose_name=_("Title"))
+    title_ar = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Arabic title"),
+    )
+    title_en = models.CharField(
+        max_length=200, blank=True, verbose_name=_("English title"),
+    )
     slug = models.SlugField(max_length=220, unique=True, verbose_name=_("Slug"))
     description = models.TextField(blank=True, verbose_name=_("Description"))
+    description_ar = models.TextField(blank=True, verbose_name=_("Arabic description"))
+    description_en = models.TextField(blank=True, verbose_name=_("English description"))
     level = models.ForeignKey(
         CourseLevel, on_delete=models.PROTECT, related_name="courses",
         verbose_name=_("Level"),
@@ -158,6 +168,8 @@ class Course(models.Model):
     learning_objectives = models.TextField(
         blank=True, verbose_name=_("Learning objectives"),
     )
+    objectives_ar = models.TextField(blank=True, verbose_name=_("Arabic objectives"))
+    objectives_en = models.TextField(blank=True, verbose_name=_("English objectives"))
     prerequisites = models.TextField(blank=True, verbose_name=_("Prerequisites"))
     is_free = models.BooleanField(default=False, verbose_name=_("Free"))
     is_active = models.BooleanField(default=True, verbose_name=_("Active"))
@@ -230,6 +242,12 @@ class Lesson(models.Model):
         related_name="lessons", verbose_name=_("Unit"),
     )
     title = models.CharField(max_length=200, verbose_name=_("Title"))
+    title_ar = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Arabic title"),
+    )
+    title_en = models.CharField(
+        max_length=200, blank=True, verbose_name=_("English title"),
+    )
     order = models.PositiveSmallIntegerField(default=0, verbose_name=_("Order"))
     lesson_type = models.CharField(
         max_length=16, choices=LESSON_TYPE_CHOICES, default="mixed",
@@ -267,6 +285,8 @@ class Lesson(models.Model):
         validators=[validate_document], verbose_name=_("PDF file"),
     )
     content_html = models.TextField(blank=True, verbose_name=_("Content"))
+    content_ar = models.TextField(blank=True, verbose_name=_("Arabic content"))
+    content_en = models.TextField(blank=True, verbose_name=_("English content"))
     transcript = models.TextField(blank=True, verbose_name=_("Transcript"))
     duration_minutes = models.PositiveSmallIntegerField(
         default=0, verbose_name=_("Duration (minutes)"),
@@ -380,6 +400,12 @@ class LessonQuiz(models.Model):
         verbose_name=_("Lesson"),
     )
     title = models.CharField(max_length=200, verbose_name=_("Title"))
+    title_ar = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Arabic title"),
+    )
+    title_en = models.CharField(
+        max_length=200, blank=True, verbose_name=_("English title"),
+    )
     passing_score = models.PositiveSmallIntegerField(
         default=70, verbose_name=_("Passing score (%)"),
     )
@@ -411,6 +437,8 @@ class LessonQuestion(models.Model):
         verbose_name=_("Question type"),
     )
     question_text = models.TextField(verbose_name=_("Question text"))
+    question_text_ar = models.TextField(blank=True, verbose_name=_("Arabic question text"))
+    question_text_en = models.TextField(blank=True, verbose_name=_("English question text"))
     options = models.JSONField(
         default=list, blank=True, verbose_name=_("Options"),
     )
@@ -418,6 +446,8 @@ class LessonQuestion(models.Model):
         blank=True, verbose_name=_("Correct answer"),
     )
     explanation = models.TextField(blank=True, verbose_name=_("Explanation"))
+    explanation_ar = models.TextField(blank=True, verbose_name=_("Arabic explanation"))
+    explanation_en = models.TextField(blank=True, verbose_name=_("English explanation"))
     difficulty_score = models.FloatField(
         default=0.5, verbose_name=_("Difficulty (0..1)"),
     )
@@ -437,13 +467,17 @@ class LessonQuestion(models.Model):
     def clean(self):
         from django.core.exceptions import ValidationError
         super().clean()
+        if not (self.question_text or self.question_text_ar or self.question_text_en):
+            raise ValidationError(_("Question text is required."))
+        if not self.correct_answer:
+            raise ValidationError(_("Correct answer is required."))
         if self.question_type == "multiple_choice":
             opts = list(self.options or [])
             if len(opts) < 2:
                 raise ValidationError(
                     _("Multiple-choice questions need at least 2 options.")
                 )
-            if self.correct_answer and self.correct_answer not in opts:
+            if self.correct_answer not in opts:
                 raise ValidationError(
                     _("The correct answer must appear in the options list.")
                 )
