@@ -1,0 +1,110 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}الأصوات والصور الرمزية{% else %}Voices &amp; Avatars{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}كتالوج الأصوات والشخصيات التي يختار منها الطلاب.{% else %}Catalog of voices and avatars students can pick from.{% endif %}{% endblock %}
+
+{% block control_content %}
+{% if messages %}
+  {% for m in messages %}
+    <div class="control-card" style="margin-bottom:10px;padding:10px 14px;background:#dcfce7;border:1px solid #86efac">{{ m }}</div>
+  {% endfor %}
+{% endif %}
+
+<section class="control-card" style="margin-bottom:18px">
+  <div class="panel-heading"><h2>{% if lang == "ar" %}الأصوات{% else %}Voices{% endif %}</h2></div>
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الكود{% else %}Code{% endif %}</th>
+      <th>{% if lang == "ar" %}الاسم{% else %}Name{% endif %}</th>
+      <th>{% if lang == "ar" %}معرّف المزود{% else %}Provider ID{% endif %}</th>
+      <th>{% if lang == "ar" %}النوع{% else %}Type{% endif %}</th>
+      <th>{% if lang == "ar" %}الأسلوب{% else %}Style{% endif %}</th>
+      <th>{% if lang == "ar" %}اللهجة{% else %}Accent{% endif %}</th>
+      <th>{% if lang == "ar" %}النبرة{% else %}Tone{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for v in voices %}
+        <tr>
+          <td><code>{{ v.code }}</code></td>
+          <td>{% if lang == "ar" %}{{ v.name_ar }}{% else %}{{ v.name_en }}{% endif %}</td>
+          <td><code>{{ v.provider_voice_id }}</code></td>
+          <td>{{ v.get_voice_type_display }}</td>
+          <td>{{ v.get_style_display }}</td>
+          <td>{{ v.get_accent_display }}</td>
+          <td>{{ v.get_tone_display }}</td>
+          <td>
+            {% if v.is_active %}
+              <span class="badge badge-green">{% if lang == "ar" %}مفعّل{% else %}active{% endif %}</span>
+            {% else %}
+              <span class="badge">{% if lang == "ar" %}موقوف{% else %}inactive{% endif %}</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{% url 'platform_admin:voice_toggle' v.pk %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="control-link" style="background:none;border:none;cursor:pointer">
+                {% if v.is_active %}{% if lang == "ar" %}إيقاف{% else %}Disable{% endif %}{% else %}{% if lang == "ar" %}تفعيل{% else %}Enable{% endif %}{% endif %}
+              </button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9" class="muted">{% if lang == "ar" %}لا توجد أصوات بعد.{% else %}No voices yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="control-card">
+  <div class="panel-heading"><h2>{% if lang == "ar" %}الصور الرمزية{% else %}Avatars{% endif %}</h2></div>
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الكود{% else %}Code{% endif %}</th>
+      <th>{% if lang == "ar" %}الاسم{% else %}Name{% endif %}</th>
+      <th>{% if lang == "ar" %}الجنس{% else %}Gender{% endif %}</th>
+      <th>{% if lang == "ar" %}الأسلوب{% else %}Style{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for a in avatars %}
+        <tr>
+          <td>
+            {% if a.effective_image_url %}
+              <img src="{{ a.effective_image_url }}" alt="{{ a.name_en }}"
+                   style="width:36px;height:36px;border-radius:999px;object-fit:cover;vertical-align:middle;margin-inline-end:6px">
+            {% endif %}
+            <code>{{ a.code }}</code>
+          </td>
+          <td>{% if lang == "ar" %}{{ a.name_ar }}{% else %}{{ a.name_en }}{% endif %}</td>
+          <td>{{ a.get_gender_display }}</td>
+          <td>{{ a.get_style_display }}</td>
+          <td>
+            {% if a.is_active %}
+              <span class="badge badge-green">{% if lang == "ar" %}مفعّل{% else %}active{% endif %}</span>
+            {% else %}
+              <span class="badge">{% if lang == "ar" %}موقوف{% else %}inactive{% endif %}</span>
+            {% endif %}
+          </td>
+          <td style="display:flex;gap:10px">
+            <a class="control-link" href="{% url 'platform_admin:avatar_image_upload' a.pk %}">
+              <i data-lucide="image-plus" class="h-3 w-3" style="display:inline"></i>
+              {% if lang == "ar" %}رفع صورة{% else %}Image{% endif %}
+            </a>
+            <form method="post" action="{% url 'platform_admin:avatar_toggle' a.pk %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="control-link" style="background:none;border:none;cursor:pointer">
+                {% if a.is_active %}{% if lang == "ar" %}إيقاف{% else %}Disable{% endif %}{% else %}{% if lang == "ar" %}تفعيل{% else %}Enable{% endif %}{% endif %}
+              </button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">{% if lang == "ar" %}لا توجد صور بعد.{% else %}No avatars yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

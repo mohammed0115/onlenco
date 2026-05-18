@@ -216,9 +216,80 @@
         <div class="value">{{ profile.subscription_expires_at|date:"Y-m-d" }}</div>
       </div>
       {% endif %}
-      <div class="mt-3">
+      {% if active_plan %}
+      <div class="row">
+        <div class="label">{% t_either "Plan" "الخطة" %}</div>
+        <div class="value">
+          <strong>{% if lang == "ar" %}{{ active_plan.name_ar }}{% else %}{{ active_plan.name_en }}{% endif %}</strong>
+          · {{ active_plan.ai_tutor_daily_minutes }} {% t_either "min/day" "دقيقة/يوم" %}
+        </div>
+      </div>
+      {% endif %}
+      <div class="mt-3" style="display:flex;gap:14px;flex-wrap:wrap">
+        <a href="{% url 'subscriptions:upgrade' %}" class="text-sm font-semibold text-indigo-600 hover:underline">
+          {% t_either "View plans →" "عرض الخطط ←" %}
+        </a>
         <a href="{% url 'subscribe' %}" class="text-sm font-semibold text-indigo-600 hover:underline">
-          {% t_either "Manage subscription →" "إدارة الاشتراك ←" %}
+          {% t_either "Submit payment →" "إرسال إثبات دفع ←" %}
+        </a>
+      </div>
+    </section>
+    {% endif %}
+
+    {# --- AI Tutor quota snapshot (Sprint 2) --- #}
+    {% if quota_snapshot %}
+    <section class="profile-card">
+      <h2 class="font-display text-lg font-semibold mb-3">
+        {% t_either "AI Tutor minutes today" "دقائق AI Tutor اليوم" %}
+      </h2>
+      <div class="row">
+        <div class="label">{% t_either "Daily limit" "الحد اليومي" %}</div>
+        <div class="value">{{ quota_snapshot.ai_tutor.limit_seconds }} {% t_either "seconds" "ثانية" %}</div>
+      </div>
+      <div class="row">
+        <div class="label">{% t_either "Used today" "المستخدم اليوم" %}</div>
+        <div class="value">{{ quota_snapshot.ai_tutor.used_seconds }} {% t_either "seconds" "ثانية" %}</div>
+      </div>
+      <div class="row">
+        <div class="label">{% t_either "Remaining now" "المتبقي الآن" %}</div>
+        <div class="value">
+          <strong>{{ quota_snapshot.ai_tutor.remaining_seconds }}</strong> {% t_either "seconds" "ثانية" %}
+        </div>
+      </div>
+      {% if quota_snapshot.free_trial.remaining_seconds %}
+      <div class="row">
+        <div class="label">{% t_either "Free trial bucket" "رصيد التجربة المجانية" %}</div>
+        <div class="value">
+          {{ quota_snapshot.free_trial.remaining_seconds }} {% t_either "seconds left" "ثانية متبقية" %}
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {# --- AI voice preference (Sprint 3) --- #}
+    {% if voice_preview and voice_preview.voice.code %}
+    <section class="profile-card">
+      <h2 class="font-display text-lg font-semibold mb-3">
+        {% t_either "AI voice & avatar" "الصوت والشخصية" %}
+      </h2>
+      <div class="row">
+        <div class="label">{% t_either "Voice" "الصوت" %}</div>
+        <div class="value">
+          {% if lang == "ar" %}{{ voice_preview.voice.name_ar }}{% else %}{{ voice_preview.voice.name_en }}{% endif %}
+        </div>
+      </div>
+      {% if voice_preview.avatar.name_en %}
+      <div class="row">
+        <div class="label">{% t_either "Avatar" "الشخصية" %}</div>
+        <div class="value">
+          {% if lang == "ar" %}{{ voice_preview.avatar.name_ar }}{% else %}{{ voice_preview.avatar.name_en }}{% endif %}
+        </div>
+      </div>
+      {% endif %}
+      <div class="mt-3">
+        <a href="{% url 'subscriptions:preferences' %}" class="text-sm font-semibold text-indigo-600 hover:underline">
+          {% t_either "Change voice / avatar →" "تغيير الصوت والشخصية ←" %}
         </a>
       </div>
     </section>

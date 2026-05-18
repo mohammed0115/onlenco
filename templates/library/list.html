@@ -83,7 +83,7 @@
                                         {% t "library.read" %} <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
                                     </a>
                                 {% else %}
-                                    <a href="{% url 'subscribe' %}" class="btn btn-hero w-full">
+                                    <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-hero w-full">
                                         <i data-lucide="lock" class="h-4 w-4"></i> {% t "library.locked" %}
                                     </a>
                                 {% endif %}

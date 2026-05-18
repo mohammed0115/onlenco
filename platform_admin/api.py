@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,6 +18,7 @@ class IsControlUser(BasePermission):
         return perms.is_control_user(request.user)
 
 
+@extend_schema(exclude=True)
 class ControlDashboardAPIView(APIView):
     permission_classes = [IsControlUser]
 
@@ -30,6 +32,7 @@ class ControlDashboardAPIView(APIView):
         })
 
 
+@extend_schema(exclude=True)
 class ControlStudentsAPIView(APIView):
     permission_classes = [IsControlUser]
 
@@ -49,6 +52,7 @@ class ControlStudentsAPIView(APIView):
         ])
 
 
+@extend_schema(exclude=True)
 class ControlStudentDetailAPIView(APIView):
     permission_classes = [IsControlUser]
 
@@ -69,6 +73,7 @@ class ControlStudentDetailAPIView(APIView):
         })
 
 
+@extend_schema(exclude=True)
 class ControlStudentActionAPIView(APIView):
     permission_classes = [IsControlUser]
 
@@ -95,6 +100,7 @@ class ControlStudentActionAPIView(APIView):
         return Response({"ok": True})
 
 
+@extend_schema(exclude=True)
 class ControlPaymentActionAPIView(APIView):
     permission_classes = [IsControlUser]
 
@@ -114,6 +120,7 @@ class ControlPaymentActionAPIView(APIView):
         return Response({"ok": True})
 
 
+@extend_schema(exclude=True)
 class ControlCourseActionAPIView(APIView):
     permission_classes = [IsControlUser]
 

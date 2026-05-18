@@ -34,7 +34,7 @@
                             <div class="text-sm text-muted-foreground">{% t_either "You can preview upcoming sessions, but RSVP and Meet links require a subscription." "يمكنك معاينة الجلسات، لكن التسجيل وروابط الجلسة تتطلب اشتراكاً." %}</div>
                         </div>
                     </div>
-                    <a href="{% url 'subscribe' %}" class="btn btn-hero">{% t "dash.subscribe" %}</a>
+                    <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-hero">{% t "dash.subscribe" %}</a>
                 </div>
             </div>
         {% endif %}

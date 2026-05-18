@@ -246,3 +246,127 @@
 
 [dir="rtl"] .onlenco-call-title,
 [dir="rtl"] .onlenco-call-sub{font-family:'Cairo', system-ui, sans-serif;}
+
+/* ---------------------------------------------------------------- */
+/* Human-like avatar (Sprint 3 visual) — replaces the bare phone orb */
+/* ---------------------------------------------------------------- */
+.tutor-avatar-inner{
+  background:transparent !important;
+  padding:0 !important;
+  overflow:hidden;
+  border-radius:50%;
+}
+.tutor-avatar-img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:50%;
+  display:block;
+}
+.tutor-avatar-name{
+  text-align:center;
+  margin-top:.85rem;
+  font-weight:600;
+  font-size:1rem;
+  color:hsl(220 15% 25%);
+}
+.tutor-avatar-change{
+  display:inline-flex;
+  gap:.35rem;
+  align-items:center;
+  margin-top:.2rem;
+  font-size:.75rem;
+  color:hsl(220 12% 55%);
+  text-decoration:none;
+}
+.tutor-avatar-change:hover{ color:hsl(178 65% 28%); text-decoration:underline; }
+
+/* "Speaking" state animations: subtle scale pulse + mouth opens/closes. */
+.tutor-avatar-orb[data-state="speaking"] .tutor-avatar-img,
+.onlenco-call-card[data-state="speaking"] .tutor-avatar-img{
+  animation: tutor-avatar-pulse 0.9s ease-in-out infinite;
+}
+@keyframes tutor-avatar-pulse{
+  0%,100%{ transform:scale(1); filter:brightness(1); }
+  50%   { transform:scale(1.04); filter:brightness(1.06); }
+}
+
+/* Mouth animation on the inline-SVG fallback face. */
+.onlenco-call-card[data-state="speaking"] .tutor-mouth{
+  animation: tutor-mouth-talk 0.4s ease-in-out infinite alternate;
+  transform-origin:60px 56px;
+}
+@keyframes tutor-mouth-talk{
+  from{ transform:scaleY(1); }
+  to  { transform:scaleY(2.1); }
+}
+
+/* Eye-blink every few seconds when on a call (idle/listening/speaking). */
+.onlenco-call-card[data-state="listening"] .tutor-eye,
+.onlenco-call-card[data-state="thinking"] .tutor-eye,
+.onlenco-call-card[data-state="speaking"] .tutor-eye{
+  animation: tutor-blink 4s infinite;
+  transform-origin:center;
+}
+@keyframes tutor-blink{
+  0%,93%,100%{ transform:scaleY(1); }
+  96%        { transform:scaleY(0.08); }
+}
+
+/* "Listening" — soft glow around the orb so the student knows the mic is hot. */
+.onlenco-call-card[data-state="listening"] .onlenco-call-orb-ring{
+  border-color:hsl(178 65% 50% / 0.55);
+  animation-duration:1.4s;
+}
+
+/* ---------------------------------------------------------------- */
+/* Audio-reactive mouth — driven by --orb-level (Web Audio analyser) */
+/* The JS writes 0.0–1.0 onto the orb element every animation frame  */
+/* while AI speaks. We use CSS calc() to scale the mouth and add a   */
+/* subtle "breathing" tint to the photo. No GPU required.            */
+/* ---------------------------------------------------------------- */
+
+.tutor-avatar-orb{ --orb-level: 0; }
+
+/* Photo breathing: very subtle, tied to the audio amplitude. */
+.tutor-avatar-img{
+  transition: filter 80ms ease-out;
+  filter: brightness(calc(1 + var(--orb-level) * 0.10))
+          saturate(calc(1 + var(--orb-level) * 0.20));
+}
+
+/* SVG mouth audio-driven scaleY (overrides the timed talk animation). */
+.onlenco-call-card[data-state="speaking"] .tutor-mouth{
+  animation: none;  /* let --orb-level drive directly */
+  transform: scaleY(calc(1 + var(--orb-level) * 1.8));
+  transform-origin: 60px 56px;
+  transition: transform 50ms ease-out;
+}
+
+/* "Mouth-region" overlay for real photo avatars — a translucent dark
+   slit positioned over the lips. The size is in em so it scales with
+   font-size and stays roughly aligned across photos. Photos vary in
+   crop, so admins can override with --mouth-y / --mouth-x via the
+   data-mouth-y attribute on the orb (Sprint 5+: per-avatar tuning). */
+.tutor-avatar-img + .tutor-avatar-mouth-overlay,
+.tutor-avatar-mouth-overlay{
+  position: absolute;
+  left: 50%;
+  bottom: 28%;
+  transform: translate(-50%, 0) scaleY(calc(0.35 + var(--orb-level) * 1.4));
+  width: 22%;
+  height: 4%;
+  background: rgba(40, 20, 20, 0.42);
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  transform-origin: center top;
+}
+.onlenco-call-card[data-state="speaking"] .tutor-avatar-mouth-overlay,
+.onlenco-call-card[data-state="thinking"] .tutor-avatar-mouth-overlay{
+  opacity: 0.9;
+}
+
+/* Tutor-avatar wrapper needs position:relative so the overlay anchors. */
+.tutor-avatar-inner{ position: relative; }

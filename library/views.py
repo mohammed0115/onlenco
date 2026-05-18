@@ -197,3 +197,156 @@ def submit_comprehension(request, chapter_id):
         "total": len(questions),
         "feedback": feedback,
     })
+
+
+# ---------------------------------------------------------------------------
+# Natural Reader (Sprint 4) — TTS-on-demand for chapter text.
+#
+# Pipeline: prepare → start session → synthesize chunk(s) → finish session.
+# Quota deduction happens at finish-time so a chapter the user only skims
+# isn't billed at the chapter level.
+# ---------------------------------------------------------------------------
+
+@login_required
+def chapter_listen(request, chapter_id):
+    """Read-only landing page: shows the prepared text + Listen controls.
+
+    The actual audio is fetched via the JSON endpoints below so the user
+    sees a single page with a streaming-style player.
+    """
+    chapter = get_object_or_404(Chapter.objects.select_related("book"), pk=chapter_id)
+    from subscriptions.services import library_audio_service, preference_service, quota_service
+    prepared = library_audio_service.prepare(
+        chapter.body,
+        language="en",
+        source="library_chapter",
+        source_id=chapter.pk,
+        persist_log=False,  # don't spam logs on page render — only on actual listen
+    )
+    voice = preference_service.resolve_voice_for(request.user)
+    remaining = quota_service.get_remaining_library_seconds(request.user)
+    return render(request, "library/chapter_listen.html", {
+        "chapter": chapter,
+        "book": chapter.book,
+        "prepared": prepared,
+        "voice": voice,
+        "remaining_seconds": remaining,
+    })
+
+
+@login_required
+@require_POST
+def chapter_audio_start(request, chapter_id):
+    """Open a library audio session for this chapter."""
+    chapter = get_object_or_404(Chapter.objects.select_related("book"), pk=chapter_id)
+    from subscriptions.services import library_audio_service, preference_service
+    from subscriptions.services.library_audio_service import (
+        LibraryConcurrentSessionExists, LibraryQuotaExhausted,
+    )
+    voice_profile = preference_service.resolve_voice_for(request.user)
+    try:
+        session = library_audio_service.start_session(
+            request.user,
+            chapter_id=chapter.pk,
+            chapter_title=chapter.title,
+            voice_profile=voice_profile,
+        )
+    except LibraryQuotaExhausted:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "limit_reached",
+                "message": "Your library audio minutes are exhausted today.",
+                "upgrade_url": "/subscriptions/upgrade/",
+            },
+            status=402,
+        )
+    except LibraryConcurrentSessionExists:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "concurrent_session",
+                "message": "Another listening session is already active.",
+            },
+            status=409,
+        )
+    # Prepare + persist the normalization log on first listen.
+    prepared = library_audio_service.prepare(
+        chapter.body,
+        language="en",
+        source="library_chapter",
+        source_id=chapter.pk,
+        persist_log=True,
+    )
+    return JsonResponse({
+        "success": True,
+        "audio_session_id": session.pk,
+        "chunks": prepared["chunks"],
+        "voice": voice_profile.provider_voice_id if voice_profile else "alloy",
+        "estimated_seconds": prepared["estimated_seconds"],
+    })
+
+
+@login_required
+@require_POST
+def chapter_audio_chunk(request, chapter_id):
+    """Synthesize a single chunk and return base64 audio.
+
+    Requires an open session belonging to the user — the chunk text is
+    sent in the request body, but only the user's open session id
+    authorises the spend.
+    """
+    import json
+    from subscriptions.services import library_audio_service
+    from subscriptions.models import LibraryAudioSession
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    session_id = payload.get("audio_session_id")
+    chunk_text = (payload.get("chunk") or "").strip()
+    if not session_id or not chunk_text:
+        return JsonResponse({"success": False, "error": "bad_request"}, status=400)
+    session = LibraryAudioSession.objects.filter(
+        pk=session_id, user=request.user, status="in_progress",
+    ).first()
+    if session is None:
+        return JsonResponse({"success": False, "error": "no_open_session"}, status=409)
+    voice = session.voice_profile.provider_voice_id if session.voice_profile else "alloy"
+    audio = library_audio_service.synthesize_chunk(chunk_text, voice=voice, language="en")
+    return JsonResponse({
+        "success": True,
+        "audio_b64": audio.get("audio_b64", ""),
+        "format": audio.get("format", ""),
+    })
+
+
+@login_required
+@require_POST
+def chapter_audio_finish(request, chapter_id):
+    """Close the session and deduct seconds."""
+    import json
+    from subscriptions.services import library_audio_service
+    from subscriptions.models import LibraryAudioSession
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    session_id = payload.get("audio_session_id")
+    seconds = max(0, int(payload.get("seconds") or 0))
+    killed = bool(payload.get("killed_by_quota"))
+    if not session_id:
+        return JsonResponse({"success": False, "error": "bad_request"}, status=400)
+    session = LibraryAudioSession.objects.filter(pk=session_id).first()
+    if session is None:
+        return JsonResponse({"success": False, "error": "not_found"}, status=404)
+    if session.user_id != request.user.id:
+        return JsonResponse({"success": False, "error": "forbidden"}, status=403)
+    closed = library_audio_service.end_session(
+        session.pk, actual_seconds=seconds, killed_by_quota=killed,
+    )
+    return JsonResponse({
+        "success": True,
+        "seconds_consumed": closed.consumed_seconds,
+        "remaining_seconds": closed.remaining_after_seconds,
+    })

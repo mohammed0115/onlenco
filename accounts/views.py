@@ -1,6 +1,7 @@
 from django.contrib import messages
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout, authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import redirect, render
 from django.utils import translation
 from django.views.decorators.http import require_http_methods, require_POST
@@ -14,12 +15,10 @@ def _post_login_destination(user):
     if nxt:
         return nxt
     try:
-        from teacher_portal.services.role_service import ROLE_STUDENT, ROLE_TEACHER, RoleService
-        if RoleService.user_has_role(user, ROLE_TEACHER) and not RoleService.user_has_role(user, ROLE_STUDENT):
-            return "teacher_portal:dashboard"
+        from teacher_portal.services.role_service import RoleService
+        return RoleService.get_default_landing_page(user)
     except Exception:
-        pass
-    return "dashboard"
+        return "dashboard"
 
 
 def _request_language(request) -> str:
@@ -302,7 +301,51 @@ def profile_view(request):
             messages.error(request, "Unsupported language.")
         return redirect("profile")
 
+    # Pull the new subscription-system snapshots so the profile page can
+    # show plan + AI Tutor quota + voice preference at a glance.
+    plan = None
+    quota_snapshot = None
+    voice_preview = None
+    try:
+        from subscriptions.services import preference_service, quota_service, subscription_service
+        plan = subscription_service.active_plan_for(request.user)
+        quota_snapshot = quota_service.quota_snapshot(request.user)
+        voice_preview = preference_service.preference_snapshot(request.user)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("profile_view: subscriptions snapshot failed")
+
     return render(request, "accounts/profile.html", {
         "profile": profile,
         "user": request.user,
+        "active_plan": plan,
+        "quota_snapshot": quota_snapshot,
+        "voice_preview": voice_preview,
     })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def change_password(request):
+    """Self-service password change. Required for accounts flagged with
+    ``must_change_password`` (admin-issued temporary password)."""
+    profile = getattr(request.user, "profile", None)
+    forced = bool(getattr(profile, "must_change_password", False))
+
+    if request.method == "POST":
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            form.save()
+            update_session_auth_hash(request, form.user)
+            if profile is not None and profile.must_change_password:
+                profile.must_change_password = False
+                profile.save(update_fields=["must_change_password"])
+            messages.success(request, "Password updated successfully.")
+            try:
+                from teacher_portal.services.role_service import RoleService
+                return redirect(RoleService.get_default_landing_page(request.user))
+            except Exception:
+                return redirect("profile")
+    else:
+        form = PasswordChangeForm(request.user)
+    return render(request, "accounts/change_password.html", {"form": form, "forced": forced})

@@ -8,23 +8,37 @@
 </div>
 <section class="teacher-panel">
   <table class="teacher-table">
-    <thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Due</th><th>XP</th><th>Submissions</th><th></th></tr></thead>
+    <thead><tr>
+      <th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th>
+      <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
+      <th>{% if lang == "ar" %}النوع{% else %}Type{% endif %}</th>
+      <th>{% if lang == "ar" %}الموعد{% else %}Due{% endif %}</th>
+      <th>{% if lang == "ar" %}النقاط{% else %}XP{% endif %}</th>
+      <th>{% if lang == "ar" %}التسليمات{% else %}Submissions{% endif %}</th>
+      <th></th>
+    </tr></thead>
     <tbody>
-      {% for assignment in assignments %}
+      {% for assignment in page_obj.object_list %}
         <tr>
           <td>{{ assignment.title_ar|default:assignment.title_en }}</td>
-          <td>{{ assignment.course.title }}</td>
+          <td>{{ assignment.course.title_ar|default:assignment.course.title }}</td>
           <td>{{ assignment.assignment_type }}</td>
           <td>{{ assignment.due_date|date:"Y-m-d H:i"|default:"-" }}</td>
           <td>{{ assignment.xp_reward }}</td>
           <td>{{ assignment.submissions.count }}</td>
-          <td><a href="{% url 'teacher_portal:assignment_detail' assignment.pk %}">Open</a></td>
+          <td class="row-actions">
+            <a href="{% url 'teacher_portal:assignment_detail' assignment.pk %}">{% if lang == "ar" %}فتح{% else %}Open{% endif %}</a>
+            <form method="post" action="{% url 'teacher_portal:assignment_delete' assignment.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الواجب؟{% else %}Delete this assignment?{% endif %}');" style="display:inline">
+              {% csrf_token %}<button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+            </form>
+          </td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" class="muted">No assignments.</td></tr>
+        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد واجبات.{% else %}No assignments.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  {% include "teacher_portal/_pagination.html" %}
 </section>
 {% endblock %}
 

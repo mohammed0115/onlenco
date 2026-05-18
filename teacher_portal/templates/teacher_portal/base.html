@@ -32,7 +32,13 @@
         <p>{% block teacher_subtitle %}{% if lang == "ar" %}إدارة المحتوى والطلاب دون استخدام Django Admin.{% else %}Manage teaching work without Django Admin.{% endif %}{% endblock %}</p>
       </div>
       <div class="teacher-actions">
-        {% if available_modes|length > 1 %}
+        {% if can_access_control_center %}
+          <a class="teacher-btn" href="{% url 'teacher_portal:switch_staff_mode' 'control' %}">
+            <i data-lucide="shield" class="h-4 w-4"></i>
+            {% if lang == "ar" %}لوحة الإدارة{% else %}Control Center{% endif %}
+          </a>
+        {% endif %}
+        {% if show_student_mode %}
           <a class="teacher-btn" href="{% url 'teacher_portal:switch_role' 'student' %}">
             <i data-lucide="graduation-cap" class="h-4 w-4"></i>
             {% if lang == "ar" %}وضع الطالب{% else %}Student Mode{% endif %}

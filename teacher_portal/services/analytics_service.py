@@ -7,6 +7,25 @@ from teacher_portal.models import StudentAssignmentSubmission, TeacherAssignment
 from teacher_portal.permissions import teacher_course_queryset
 
 
+WEAKNESS_QUIZ_THRESHOLD = 60.0
+
+
+def _common_weaknesses(courses, limit: int = 5):
+    rows = (
+        CourseLessonProgress.objects
+        .filter(
+            lesson__course__in=courses,
+            quiz_score__isnull=False,
+            quiz_score__lt=WEAKNESS_QUIZ_THRESHOLD,
+        )
+        .exclude(lesson__skill="")
+        .values("lesson__skill")
+        .annotate(count=Count("id"))
+        .order_by("-count")[:limit]
+    )
+    return [r["lesson__skill"] for r in rows if r["lesson__skill"]]
+
+
 def analytics_context(user):
     courses = teacher_course_queryset(user)
     progress = CourseLessonProgress.objects.filter(lesson__course__in=courses)
@@ -22,5 +41,5 @@ def analytics_context(user):
         ),
         "inactive_students": courses.filter(enrollments__user__last_login__isnull=True).values("enrollments__user").distinct().count(),
         "assignment_submissions": StudentAssignmentSubmission.objects.filter(assignment__in=assignments).count(),
-        "common_weaknesses": ["pronunciation", "grammar", "listening"],
+        "common_weaknesses": _common_weaknesses(courses),
     }

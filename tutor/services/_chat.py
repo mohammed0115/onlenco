@@ -117,17 +117,33 @@ def _system_prompt(ctx: dict, voice: bool = False) -> str:
         "4. Always end with one short follow-up question. Ask only ONE "
         "question per reply — never two.\n"
     )
-    # Rule 5 branches on language preference. Arabic-pref students get
-    # primary Arabic explanation with English target practice baked in;
-    # English-pref students get English with brief Arabic fallback only
-    # when truly stuck. The change rolled out because beginners (A0/A1
-    # who set their UI to AR) were getting all-English replies they
-    # couldn't follow.
-    if (ctx or {}).get("language_preference") == "ar":
+    # Rule 5 branches on language preference AND CEFR level. Arabic UI +
+    # absolute-beginner level → Arabic-primary explanations. Anyone at A2
+    # or higher gets English-primary even if their UI is Arabic — the
+    # Arabic toggle is for the *interface*, not for the tutor's voice. A
+    # B1 student who took the time to register for English coaching
+    # shouldn't have their AI Tutor switch fully to Arabic just because
+    # the dashboard is in Arabic. (Earlier all-Arabic behaviour was
+    # disorienting at B1+ even when the user wrote a single English word
+    # like "you" — the AI would reply 100% in Arabic, which broke the
+    # immersion users explicitly come here for.)
+    arabic_pref = (ctx or {}).get("language_preference") == "ar"
+    arabic_primary = arabic_pref and band in ("A0", "A1")
+    if arabic_primary:
         base += (
-            "5. The student prefers Arabic. Reply primarily in Arabic, but "
-            "always include the English target sentence/phrase the student "
-            "should practise. Encourage them to repeat the English aloud.\n"
+            "5. The student is a beginner with Arabic UI. Reply primarily in "
+            "Arabic, but ALWAYS include the English target sentence/phrase the "
+            "student should practise. Encourage them to repeat the English "
+            "aloud.\n"
+        )
+    elif arabic_pref:
+        base += (
+            "5. The student's UI is Arabic but their level is "
+            f"{band or 'B1'} — they can handle English. Reply PRIMARILY in "
+            "English. Use Arabic only as a short bracketed gloss when a word "
+            "would otherwise block comprehension. Even a one-word English "
+            "input from the student deserves an English reply; ask for "
+            "clarification in English, not Arabic.\n"
         )
     else:
         base += (

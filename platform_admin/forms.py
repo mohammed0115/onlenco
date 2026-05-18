@@ -2,10 +2,39 @@ from __future__ import annotations
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.utils.translation import gettext_lazy as _
 
 from courses.models import Course, Lesson, LessonResource
 from payments.models import PaymentSubmission
 from platform_admin.models import RISK_STATUS_CHOICES
+from subscriptions.models import SubscriptionPlan
+
+
+class RegisterTeacherForm(forms.Form):
+    """Admin-side teacher registration. Password is generated server-side
+    and emailed to the teacher; this form does not collect a password."""
+
+    first_name = forms.CharField(max_length=80, label=_("First name"))
+    last_name = forms.CharField(max_length=80, label=_("Last name"))
+    email = forms.EmailField(max_length=254, label=_("Email"))
+    email_confirm = forms.EmailField(max_length=254, label=_("Confirm email"))
+
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip().lower()
+        User = get_user_model()
+        if User.objects.filter(username=email).exists() or User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(_("An account with this email already exists."))
+        return email
+
+    def clean_email_confirm(self):
+        return (self.cleaned_data.get("email_confirm") or "").strip().lower()
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("email") and cleaned.get("email_confirm"):
+            if cleaned["email"] != cleaned["email_confirm"]:
+                self.add_error("email_confirm", _("Email addresses do not match."))
+        return cleaned
 
 
 class StudentNoteForm(forms.Form):
@@ -109,3 +138,21 @@ class PaymentFilterForm(forms.Form):
 
 class AIExampleActionForm(forms.Form):
     example_id = forms.IntegerField(min_value=1)
+
+
+class SubscriptionPlanForm(forms.ModelForm):
+    """Create / edit a SubscriptionPlan from the Control Center."""
+
+    class Meta:
+        model = SubscriptionPlan
+        fields = [
+            "code", "name_en", "name_ar",
+            "description_en", "description_ar",
+            "price_sdg", "currency", "billing_cycle",
+            "ai_tutor_daily_minutes", "library_audio_daily_minutes",
+            "is_active", "is_free_trial", "sort_order",
+        ]
+        widgets = {
+            "description_en": forms.Textarea(attrs={"rows": 2}),
+            "description_ar": forms.Textarea(attrs={"rows": 2}),
+        }

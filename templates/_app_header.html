@@ -8,16 +8,25 @@
         </a>
         <div class="flex items-center gap-2">
             {% if request.user.is_authenticated %}
-              {% if request.user.profile.is_teacher %}
-                <a href="{% url 'teacher_portal:switch_role' 'teacher' %}" class="btn btn-ghost"
+              {% if can_access_control_center %}
+                <a href="{% url 'platform_admin:dashboard' %}" class="btn btn-ghost"
                    style="height:2.25rem;font-size:0.8125rem"
-                   title="{% t_either 'Teacher Mode' 'وضع الأستاذ' %}"
-                   data-testid="teacher-mode-link">
-                  <i data-lucide="briefcase-business" class="h-4 w-4"></i>
-                  <span class="hidden sm:inline">{% t_either "Teacher Mode" "وضع الأستاذ" %}</span>
+                   title="{% t_either 'Control Center' 'لوحة الإدارة' %}"
+                   data-testid="control-center-link">
+                  <i data-lucide="shield" class="h-4 w-4"></i>
+                  <span class="hidden sm:inline">{% t_either "Control Center" "لوحة الإدارة" %}</span>
                 </a>
               {% endif %}
-              {% if request.user.profile.is_student and request.user.profile.is_teacher %}
+              {% if can_access_teacher_portal %}
+                <a href="{% url 'teacher_portal:dashboard' %}" class="btn btn-ghost"
+                   style="height:2.25rem;font-size:0.8125rem"
+                   title="{% t_either 'Teacher Portal' 'لوحة الأستاذ' %}"
+                   data-testid="teacher-mode-link">
+                  <i data-lucide="briefcase-business" class="h-4 w-4"></i>
+                  <span class="hidden sm:inline">{% t_either "Teacher Portal" "لوحة الأستاذ" %}</span>
+                </a>
+              {% endif %}
+              {% if show_student_mode and can_access_teacher_portal %}
                 <a href="{% url 'teacher_portal:switch_role' 'student' %}" class="btn btn-ghost"
                    style="height:2.25rem;font-size:0.8125rem"
                    title="{% t_either 'Student Mode' 'وضع الطالب' %}"
@@ -31,11 +40,11 @@
                  title="{% t_either 'Profile & settings' 'الحساب والإعدادات' %}"
                  data-testid="header-profile-link">
                 <i data-lucide="user" class="h-4 w-4"></i>
-                <span class="hidden sm:inline">{% t_either "Profile" "حسابي" %}</span>
+                <span class="hidden sm:inline">{% if primary_role_label %}{{ primary_role_label }}{% else %}{% t_either "Profile" "حسابي" %}{% endif %}</span>
               </a>
             {% endif %}
-            {% if request.user.is_authenticated and request.user.profile.is_admin %}
-              <a href="{% url 'analytics' %}" class="btn btn-ghost" style="height:2.25rem;font-size:0.8125rem">
+            {% if can_access_control_center %}
+              <a href="{% url 'analytics' %}" class="btn btn-hero" style="height:2.25rem;font-size:0.8125rem">
                 <i data-lucide="bar-chart-3" class="h-4 w-4"></i>
                 {% trans "Analytics" %}
               </a>

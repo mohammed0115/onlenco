@@ -294,7 +294,7 @@
                         {% t_either "View" "عرض" %} <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
                     </a>
                 {% else %}
-                    <a href="{% url 'subscribe' %}" class="btn btn-hero">
+                    <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-hero">
                         <i data-lucide="lock" class="h-4 w-4"></i> {% t "club.locked" %}
                     </a>
                 {% endif %}

@@ -3,6 +3,7 @@ from django import forms
 from django.contrib import admin
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.urls import include, path
+from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from core.views import set_language
@@ -46,8 +47,8 @@ if getattr(settings, "ENABLE_2FA_ADMIN", False):
     admin.site.__class__ = OTPAdminSite
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("control/", include("platform_admin.urls")),
+    # path("admin/", admin.site.urls),
+    path("admin/", include("platform_admin.urls")),
     path("teacher/", include("teacher_portal.urls")),
     path("set-language/", set_language, name="set_language"),
 
@@ -66,6 +67,8 @@ urlpatterns = [
     path("admin-analytics/", include("analytics.urls")),
     path("api/v1/", include("api.v1.urls")),
     path("notifications/", include("notifications.urls")),
+    path("subscriptions/", include("subscriptions.urls")),
+    path("settings/", RedirectView.as_view(pattern_name="profile", permanent=False), name="user_settings"),
 ]
 
 if settings.DEBUG:

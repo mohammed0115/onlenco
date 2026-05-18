@@ -1,0 +1,48 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}رفع صورة Avatar{% else %}Upload Avatar Image{% endif %} — {{ avatar.code }}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}الصورة تظهر للطالب في شاشة المكالمة الصوتية.{% else %}This photo appears on the voice-call screen.{% endif %}{% endblock %}
+
+{% block control_content %}
+<section class="control-card" style="max-width:560px">
+  <div class="panel-heading">
+    <h2>{% if lang == "ar" %}{{ avatar.name_ar }}{% else %}{{ avatar.name_en }}{% endif %}</h2>
+    <code>{{ avatar.code }}</code>
+  </div>
+
+  {% if avatar.effective_image_url %}
+    <div style="margin:12px 0">
+      <img src="{{ avatar.effective_image_url }}" alt="{{ avatar.name_en }}"
+           style="width:140px;height:140px;border-radius:999px;object-fit:cover;border:2px solid hsl(var(--border))">
+      <div class="text-xs text-muted-foreground" style="margin-top:6px">
+        {% if lang == "ar" %}الصورة الحالية{% else %}Current image{% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:14px">
+    {% csrf_token %}
+    <div>
+      <label>{% if lang == "ar" %}رفع ملف صورة (مربّعة مفضّلة){% else %}Upload image (square preferred){% endif %}</label>
+      <input type="file" name="image_file" accept="image/png,image/jpeg,image/webp">
+      <small class="muted">{% if lang == "ar" %}JPG / PNG / WebP. الحد 5 MB.{% else %}JPG / PNG / WebP. Max 5 MB.{% endif %}</small>
+    </div>
+    <div style="text-align:center;color:hsl(var(--muted-foreground));font-size:13px">
+      {% if lang == "ar" %}أو{% else %}or{% endif %}
+    </div>
+    <div>
+      <label>{% if lang == "ar" %}رابط صورة عام{% else %}Image URL{% endif %}</label>
+      <input type="url" name="image_url" value="{{ avatar.image_url }}" placeholder="https://...">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button type="submit" class="control-btn control-btn-primary">
+        <i data-lucide="upload" class="h-4 w-4"></i>
+        {% if lang == "ar" %}حفظ{% else %}Save{% endif %}
+      </button>
+      <a class="control-btn" href="{% url 'platform_admin:voices' %}">
+        {% if lang == "ar" %}عودة{% else %}Back{% endif %}
+      </a>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}لوحة الدعم{% else %}Support Admin Dashboard{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}متابعة حالة الطلاب وإرسال الإشعارات.{% else %}Track student status and outreach.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid">
+  {% for card in cards %}
+    <div class="control-card metric-card">
+      <div class="metric-icon"><i data-lucide="{{ card.icon }}" class="h-5 w-5"></i></div>
+      <div>
+        <div class="metric-value">{{ card.value }}</div>
+        <div class="metric-label">{% if lang == "ar" %}{{ card.label_ar }}{% else %}{{ card.label_en }}{% endif %}</div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="control-grid two-grid" style="margin-top:16px">
+  <section class="control-card">
+    <div class="panel-heading">
+      <h2>{% if lang == "ar" %}طلاب في خطر{% else %}Students at risk{% endif %}</h2>
+      <a class="control-link" href="{% url 'platform_admin:students' %}?risk=at_risk">{% if lang == "ar" %}الكل{% else %}View all{% endif %}</a>
+    </div>
+    <table class="control-table">
+      <thead><tr>
+        <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
+        <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for flag in at_risk_students %}
+          <tr>
+            <td>{{ flag.user.email|default:flag.user.username }}</td>
+            <td><span class="badge badge-yellow">{{ flag.risk_status }}</span></td>
+            <td><a class="control-link" href="{% url 'platform_admin:student_detail' flag.user.pk %}">{% if lang == "ar" %}فتح{% else %}Open{% endif %}</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا يوجد طلاب في خطر.{% else %}No at-risk students.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="control-card">
+    <div class="panel-heading"><h2>{% if lang == "ar" %}آخر الملاحظات{% else %}Recent notes{% endif %}</h2></div>
+    <table class="control-table">
+      <thead><tr>
+        <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
+        <th>{% if lang == "ar" %}الكاتب{% else %}Author{% endif %}</th>
+        <th>{% if lang == "ar" %}بتاريخ{% else %}When{% endif %}</th>
+      </tr></thead>
+      <tbody>
+        {% for note in recent_notes %}
+          <tr>
+            <td>{{ note.student.email|default:note.student.username }}</td>
+            <td>{{ note.author.email|default:note.author.username }}</td>
+            <td>{{ note.created_at|date:"Y-m-d" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد ملاحظات.{% else %}No notes.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<section class="control-card" style="margin-top:16px">
+  <div class="panel-heading"><h2>{% if lang == "ar" %}طلاب غير نشطين (7 أيام){% else %}Inactive students (7d){% endif %}</h2></div>
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}البريد{% else %}Email{% endif %}</th>
+      <th>{% if lang == "ar" %}آخر دخول{% else %}Last login{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for u in inactive_sample %}
+        <tr>
+          <td>{{ u.email|default:u.username }}</td>
+          <td>{{ u.last_login|date:"Y-m-d"|default:"-" }}</td>
+          <td><a class="control-link" href="{% url 'platform_admin:student_detail' u.pk %}">{% if lang == "ar" %}فتح{% else %}Open{% endif %}</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">{% if lang == "ar" %}جميع الطلاب نشطون.{% else %}All students active.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

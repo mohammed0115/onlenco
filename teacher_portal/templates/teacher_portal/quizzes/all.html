@@ -1,0 +1,44 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}اختباراتي{% else %}Quizzes{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}كل الاختبارات المرتبطة بدروسك.{% else %}All quizzes attached to your lessons.{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<form class="teacher-filters" method="get">
+  <input name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث في الاختبارات أو الدروس{% else %}Search quizzes or lessons{% endif %}">
+  <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="search"></i>{% if lang == "ar" %}تصفية{% else %}Filter{% endif %}</button>
+</form>
+
+<section class="teacher-panel">
+  <table class="teacher-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
+      <th>{% if lang == "ar" %}الدرس{% else %}Lesson{% endif %}</th>
+      <th>{% if lang == "ar" %}عنوان الاختبار{% else %}Quiz Title{% endif %}</th>
+      <th>{% if lang == "ar" %}الأسئلة{% else %}Questions{% endif %}</th>
+      <th>{% if lang == "ar" %}درجة النجاح{% else %}Passing{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th>{% if lang == "ar" %}الإجراءات{% else %}Actions{% endif %}</th>
+    </tr></thead>
+    <tbody>
+      {% for quiz in page_obj.object_list %}
+        <tr>
+          <td>{{ quiz.lesson.course.title_ar|default:quiz.lesson.course.title }}</td>
+          <td>{{ quiz.lesson.title_ar|default:quiz.lesson.title }}</td>
+          <td>{{ quiz.title_ar|default:quiz.title }}</td>
+          <td>{{ quiz.question_count }}</td>
+          <td>{{ quiz.passing_score }}%</td>
+          <td>{% if quiz.is_active %}<span class="status-pill status-published">{% if lang == "ar" %}مفعّل{% else %}active{% endif %}</span>{% else %}<span class="status-pill status-draft">{% if lang == "ar" %}موقوف{% else %}inactive{% endif %}</span>{% endif %}</td>
+          <td class="row-actions">
+            <a href="{% url 'teacher_portal:quiz_questions' quiz.pk %}">{% if lang == "ar" %}الأسئلة{% else %}Questions{% endif %}</a>
+            <a href="{% url 'teacher_portal:lesson_quiz' quiz.lesson_id %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد اختبارات بعد.{% else %}No quizzes yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include "teacher_portal/_pagination.html" %}
+</section>
+{% endblock %}

@@ -13,10 +13,15 @@ from .utils import TeacherPortalTestMixin
 
 
 class MultiRoleTests(TeacherPortalTestMixin):
-    def test_user_can_have_student_and_teacher_roles(self):
+    def test_teacher_with_default_student_profile_is_not_student(self):
+        # Per the Admin+Teacher spec: belonging to the Teacher group flips
+        # an account out of the student bucket, even when the legacy
+        # ``profile.role`` field still reads "student".
         roles = RoleService.get_user_roles(self.teacher)
-        self.assertIn(ROLE_STUDENT, roles)
+        self.assertNotIn(ROLE_STUDENT, roles)
         self.assertIn(ROLE_TEACHER, roles)
+        # Profile.is_student is the raw flag; RoleService is the authority
+        # for routing. Keep the property check as documentation.
         self.assertTrue(self.teacher.profile.is_student)
         self.assertTrue(self.teacher.profile.is_teacher)
 
@@ -24,14 +29,36 @@ class MultiRoleTests(TeacherPortalTestMixin):
         request = RequestFactory().get("/")
         request.user = self.teacher
         with translation.override("en"):
-            html = render_to_string("_app_header.html", {"request": request, "lang": "en"})
-        self.assertIn("Teacher Mode", html)
-        self.assertIn("Student Mode", html)
+            html = render_to_string(
+                "_app_header.html",
+                {
+                    "request": request,
+                    "lang": "en",
+                    "can_access_teacher_portal": True,
+                    "can_access_control_center": False,
+                    "show_student_mode": False,
+                    "primary_role_label": "Teacher",
+                },
+            )
+        # New header uses "Teacher Portal" instead of legacy "Teacher Mode";
+        # admin+teacher accounts no longer expose Student Mode.
+        self.assertIn("Teacher Portal", html)
+        self.assertNotIn("Student Mode", html)
 
         request.user = self.student
         with translation.override("en"):
-            html = render_to_string("_app_header.html", {"request": request, "lang": "en"})
-        self.assertNotIn("Teacher Mode", html)
+            html = render_to_string(
+                "_app_header.html",
+                {
+                    "request": request,
+                    "lang": "en",
+                    "can_access_teacher_portal": False,
+                    "can_access_control_center": False,
+                    "show_student_mode": False,
+                    "primary_role_label": "",
+                },
+            )
+        self.assertNotIn("Teacher Portal", html)
 
     def test_student_only_user_cannot_access_teacher_dashboard(self):
         self.client.force_login(self.student)
@@ -121,7 +148,7 @@ class TeacherCourseWorkflowTests(TeacherPortalTestMixin):
 
     def test_teacher_cannot_publish_course_directly(self):
         self.client.force_login(self.teacher)
-        response = self.client.post(f"/control/courses/{self.course.pk}/publish/")
+        response = self.client.post(f"/admin/courses/{self.course.pk}/publish/")
         self.assertIn(response.status_code, [302, 403])
         self.course.refresh_from_db()
         self.assertNotEqual(self.course.status, "published")
@@ -139,7 +166,7 @@ class TeacherCourseWorkflowTests(TeacherPortalTestMixin):
         self.course.status = "pending_review"
         self.course.save(update_fields=["status"])
         self.client.force_login(self.academic_admin)
-        response = self.client.post(f"/control/courses/{self.course.pk}/approve/")
+        response = self.client.post(f"/admin/courses/{self.course.pk}/approve/")
         self.assertEqual(response.status_code, 302)
         self.course.refresh_from_db()
         self.assertEqual(self.course.status, "published")
@@ -217,7 +244,7 @@ class TeacherStudentAssignmentTests(TeacherPortalTestMixin):
 
     def test_teacher_cannot_see_payment_proof(self):
         self.client.force_login(self.teacher)
-        response = self.client.get(f"/control/payments/{self.payment.pk}/proof/")
+        response = self.client.get(f"/admin/payments/{self.payment.pk}/proof/")
         self.assertIn(response.status_code, [302, 403])
 
     def test_teacher_can_add_note_to_student(self):

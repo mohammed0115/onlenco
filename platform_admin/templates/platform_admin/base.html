@@ -32,9 +32,21 @@
           <div class="control-title">{% block control_title %}Onlenco Control Center{% endblock %}</div>
           <div class="control-subtitle">{% block control_subtitle %}Secure platform operations{% endblock %}</div>
         </div>
-        <form class="control-search" method="get">
-          <input type="search" name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث{% else %}Search{% endif %}">
-        </form>
+        <div class="control-topbar-actions">
+          <a class="control-btn control-btn-primary" href="{% url 'analytics' %}">
+            <i data-lucide="bar-chart-3" class="h-4 w-4"></i>
+            <span>{% if lang == "ar" %}التحليلات{% else %}Analytics{% endif %}</span>
+          </a>
+          {% if can_access_teacher_portal %}
+            <a class="control-btn" href="{% url 'teacher_portal:switch_staff_mode' 'teacher' %}">
+              <i data-lucide="graduation-cap" class="h-4 w-4"></i>
+              <span>{% if lang == "ar" %}لوحة الأستاذ{% else %}Teacher Portal{% endif %}</span>
+            </a>
+          {% endif %}
+          <form class="control-search" method="get">
+            <input type="search" name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث{% else %}Search{% endif %}">
+          </form>
+        </div>
       </header>
       <main class="control-content">
         {% if is_read_only_admin %}

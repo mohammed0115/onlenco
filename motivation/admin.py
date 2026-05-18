@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     Achievement,
+    GameEventSound,
     LearnerActivitySnapshot,
     MotivationMessage,
     MotivationPreference,
@@ -9,6 +10,13 @@ from .models import (
     UserBadge,
     UserXP,
 )
+
+
+@admin.register(GameEventSound)
+class GameEventSoundAdmin(admin.ModelAdmin):
+    list_display = ("code", "is_active", "animation", "audio_url", "updated_at")
+    list_filter = ("is_active", "animation")
+    search_fields = ("code", "message_en", "message_ar")
 
 
 @admin.register(LearnerActivitySnapshot)

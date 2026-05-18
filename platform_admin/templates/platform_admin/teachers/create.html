@@ -1,0 +1,55 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}إضافة أستاذ جديد{% else %}Register New Teacher{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}سيُنشأ حساب الأستاذ وستُرسل كلمة مرور مؤقتة إلى بريده.{% else %}A teacher account is created and a temporary password is emailed to them.{% endif %}{% endblock %}
+
+{% block control_content %}
+<section class="control-card" style="max-width:640px">
+  <form method="post" class="control-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="control-card" style="background:#fee2e2;border-color:#fecaca;margin-bottom:14px">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.first_name.id_for_label }}">{% if lang == "ar" %}الاسم الأول{% else %}First name{% endif %}</label>
+        {{ form.first_name }}
+        {% if form.first_name.errors %}<small class="muted">{{ form.first_name.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div>
+        <label for="{{ form.last_name.id_for_label }}">{% if lang == "ar" %}الاسم الأخير{% else %}Last name{% endif %}</label>
+        {{ form.last_name }}
+        {% if form.last_name.errors %}<small class="muted">{{ form.last_name.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+    <div>
+      <label for="{{ form.email.id_for_label }}">{% if lang == "ar" %}البريد الإلكتروني{% else %}Email{% endif %}</label>
+      {{ form.email }}
+      {% if form.email.errors %}<small class="muted">{{ form.email.errors|join:" " }}</small>{% endif %}
+    </div>
+    <div>
+      <label for="{{ form.email_confirm.id_for_label }}">{% if lang == "ar" %}تأكيد البريد{% else %}Confirm email{% endif %}</label>
+      {{ form.email_confirm }}
+      {% if form.email_confirm.errors %}<small class="muted">{{ form.email_confirm.errors|join:" " }}</small>{% endif %}
+    </div>
+    <p class="muted" style="margin:14px 0">
+      {% if lang == "ar" %}
+        سيتم توليد كلمة مرور مؤقتة تلقائيًا وإرسالها إلى بريد الأستاذ. سيُطلب منه تغييرها عند أول تسجيل دخول.
+      {% else %}
+        A temporary password will be generated and sent to the teacher. They will be required to change it on first sign-in.
+      {% endif %}
+    </p>
+    <div style="display:flex;gap:10px">
+      <button type="submit" class="control-btn control-btn-primary">
+        <i data-lucide="user-plus" class="h-4 w-4"></i>
+        {% if lang == "ar" %}إنشاء وإرسال البريد{% else %}Create &amp; send email{% endif %}
+      </button>
+      <a class="control-btn" href="{% url 'platform_admin:teachers' %}">
+        {% if lang == "ar" %}إلغاء{% else %}Cancel{% endif %}
+      </a>
+    </div>
+  </form>
+</section>
+{% endblock %}

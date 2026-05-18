@@ -16,6 +16,7 @@ from motivation.models import (
 from motivation.services import (
     challenge_service,
     leaderboard_service,
+    sound_service,
     streak_service,
 )
 from motivation.services.motivation_engine import run_for_user
@@ -124,3 +125,30 @@ class MotivationRunView(APIView):
             return Response({"ok": True, **res})
         except Exception as e:
             return Response({"ok": False, "error": str(e)}, status=500)
+
+
+@extend_schema(exclude=True)
+class RecentRewardsView(APIView):
+    """Sprint 5 — rewards earned in the last 60 s for the toast UI.
+
+    Polled by the gamification toast partial on each page load and on
+    window focus. Returns ``{rewards: [...]}``; respects the user's
+    sound-effects mute toggle by stripping ``audio_src`` when off.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        window = max(1, min(int(request.query_params.get("window", "60") or 60), 600))
+        rewards = sound_service.recent_rewards_for(request.user, window_seconds=window)
+        return Response({"rewards": rewards})
+
+
+@extend_schema(exclude=True)
+class EventSoundsView(APIView):
+    """All active event-sound catalogue entries, scrubbed for the requesting user."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({"sounds": sound_service.event_sounds_for_user(request.user)})

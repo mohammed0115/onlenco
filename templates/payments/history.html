@@ -10,7 +10,7 @@
     <main class="container py-10" style="max-width:48rem">
         <div class="flex items-center justify-between mb-6">
             <h1 class="font-display text-3xl font-bold">{% t "pay.history" %}</h1>
-            <a href="{% url 'subscribe' %}" class="btn btn-outline">
+            <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-outline">
                 <i data-lucide="plus" class="h-4 w-4"></i>
                 {% t_either "New payment" "دفعة جديدة" %}
             </a>

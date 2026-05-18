@@ -68,11 +68,16 @@ class VoiceCallSessionTests(TestCase):
         r = self.client.post(self.url, {}, content_type="application/json")
         self.assertIn(r.status_code, (401, 403))
 
-    def test_unsubscribed_returns_402(self):
+    def test_unsubscribed_with_consumed_trial_returns_402(self):
+        # Sprint 2 spec: unsubscribed users get the one-shot 5-minute
+        # trial first; only once that is drained do they get 402.
+        from subscriptions.services.quota_service import consume_free_trial_seconds
         self.user.profile.subscription_status = "inactive"
         self.user.profile.save()
+        consume_free_trial_seconds(self.user, 5 * 60)  # drain trial
         r = self.client.post(self.url, {}, content_type="application/json")
         self.assertEqual(r.status_code, 402)
+        self.assertEqual(r.json()["error"], "limit_reached")
 
     def test_returns_ephemeral_token_on_success(self):
         fake_session = {
@@ -100,11 +105,17 @@ class VoiceCallSessionTests(TestCase):
         self.assertIn("Layla", kwargs["system_prompt"])
 
     def test_daily_cap_blocks_further_sessions(self):
-        # Hit the cap directly via the cache key the service uses.
-        from tutor.services.realtime_session import _cap_cache_key
-        cache.set(_cap_cache_key(self.user.id), 31 * 60, timeout=60)  # 31 min ≥ default 30
+        # Sprint 2: cap is DB-backed (subscription daily quota OR trial).
+        # Drain BOTH buckets and verify the endpoint refuses with 402.
+        from subscriptions.services.quota_service import (
+            consume_ai_tutor_seconds, consume_free_trial_seconds,
+            daily_ai_tutor_limit_seconds,
+        )
+        # Drain subscription (if any) and trial.
+        consume_ai_tutor_seconds(self.user, max(daily_ai_tutor_limit_seconds(self.user), 0))
+        consume_free_trial_seconds(self.user, 5 * 60)
         r = self.client.post(self.url, {}, content_type="application/json")
-        self.assertEqual(r.status_code, 429)
+        self.assertEqual(r.status_code, 402)
         self.assertEqual(r.json()["error"], "limit_reached")
 
 
@@ -138,10 +149,14 @@ class VoiceCallLogTests(TestCase):
         self.assertEqual(msgs[1].role, "assistant")
 
     def test_advances_daily_counter(self):
-        from tutor.services.realtime_session import _cap_cache_key
+        # Sprint 2: counter lives on FreeTrialUsage (no subscription set up here)
+        # or UserDailyQuota (if subscribed). With the legacy ``_activate_subscription``
+        # helper we only flip the profile flag — no UserSubscription row exists,
+        # so the deduction lands on the free trial bucket.
+        from subscriptions.models import FreeTrialUsage
         self.client.post(self.url, {"seconds": 60}, content_type="application/json")
-        used = cache.get(_cap_cache_key(self.user.id), 0) or 0
-        self.assertEqual(used, 60)
+        trial = FreeTrialUsage.objects.get(user=self.user)
+        self.assertEqual(trial.free_seconds_used, 60)
 
     def test_blocks_other_users_conversation(self):
         other = User.objects.create_user(username="other-vcl@x.com", password="pw")

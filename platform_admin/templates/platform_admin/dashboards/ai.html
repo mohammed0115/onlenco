@@ -1,0 +1,80 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}لوحة إدارة AI{% else %}AI Admin Dashboard{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}مراقبة النماذج، مراجعة الأمثلة التدريبية، وقياس الجودة.{% else %}Monitor models, review training data, and measure quality.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid">
+  {% for card in cards %}
+    <div class="control-card metric-card">
+      <div class="metric-icon"><i data-lucide="{{ card.icon }}" class="h-5 w-5"></i></div>
+      <div>
+        <div class="metric-value">{{ card.value }}</div>
+        <div class="metric-label">{% if lang == "ar" %}{{ card.label_ar }}{% else %}{{ card.label_en }}{% endif %}</div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="control-grid two-grid" style="margin-top:16px">
+  <section class="control-card">
+    <div class="panel-heading"><h2>{% if lang == "ar" %}الصحة العامة{% else %}Health overview{% endif %}</h2></div>
+    <table class="control-table">
+      <tbody>
+        <tr><td>{% if lang == "ar" %}طلبات فاشلة اليوم{% else %}Failed requests today{% endif %}</td><td>{{ failed_requests }}</td></tr>
+        <tr><td>{% if lang == "ar" %}تكلفة OpenAI التقديرية اليوم{% else %}Est. OpenAI cost today{% endif %}</td><td>${{ cost_estimate_usd|default:0 }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="control-card">
+    <div class="panel-heading">
+      <h2>{% if lang == "ar" %}أمثلة تدريب تنتظر{% else %}Pending training examples{% endif %}</h2>
+      <a class="control-link" href="{% url 'platform_admin:ai_datasets' %}">{% if lang == "ar" %}الكل{% else %}View all{% endif %}</a>
+    </div>
+    <table class="control-table">
+      <thead><tr>
+        <th>ID</th>
+        <th>{% if lang == "ar" %}المهمة{% else %}Task{% endif %}</th>
+        <th>{% if lang == "ar" %}تاريخ الإنشاء{% else %}Created{% endif %}</th>
+      </tr></thead>
+      <tbody>
+        {% for ex in pending_examples_sample %}
+          <tr>
+            <td>{{ ex.pk }}</td>
+            <td>{{ ex.task_type|default:"-" }}</td>
+            <td>{{ ex.created_at|date:"Y-m-d" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد أمثلة تنتظر.{% else %}No pending examples.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<section class="control-card" style="margin-top:16px">
+  <div class="panel-heading">
+    <h2>{% if lang == "ar" %}أحدث نتائج التقييم{% else %}Recent evaluation runs{% endif %}</h2>
+    <a class="control-link" href="{% url 'platform_admin:ai_model_metrics' %}">{% if lang == "ar" %}كل النتائج{% else %}All metrics{% endif %}</a>
+  </div>
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}النموذج{% else %}Model{% endif %}</th>
+      <th>{% if lang == "ar" %}الدقة{% else %}Accuracy{% endif %}</th>
+      <th>{% if lang == "ar" %}بتاريخ{% else %}When{% endif %}</th>
+    </tr></thead>
+    <tbody>
+      {% for run in recent_evals %}
+        <tr>
+          <td>{{ run.model_name|default:run.id }}</td>
+          <td>{{ run.accuracy|default:"-" }}</td>
+          <td>{{ run.created_at|date:"Y-m-d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد تقييمات بعد.{% else %}No evaluation runs yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

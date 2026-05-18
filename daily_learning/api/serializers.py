@@ -40,7 +40,7 @@ class DailyLearningPlanSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_motivation_message(self, obj):
+    def get_motivation_message(self, obj) -> str:
         return (obj.metadata or {}).get("motivation_message", "")
 
 

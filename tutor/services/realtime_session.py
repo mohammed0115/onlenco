@@ -16,12 +16,9 @@ Public:
 from __future__ import annotations
 
 import logging
-from datetime import date
 
 import requests
 from django.conf import settings
-from django.core.cache import cache
-from django.utils import timezone
 
 from .context_builder import build_tutor_context, render_context_block
 
@@ -133,38 +130,74 @@ Start with something warm and specific:
 
 # --- ephemeral session ---------------------------------------------------
 
+# Voices supported by the OpenAI GA Realtime API as of the GA migration.
+# The old Beta voices (``nova``, ``onyx``, ``fable``) still work for
+# ``/v1/audio/speech`` (TTS-1) but were retired on the realtime endpoint
+# and now return 400 ``invalid_value``. We map retired IDs to a sensible
+# GA-era equivalent so users with old preferences don't get errors.
+REALTIME_GA_VOICES = {
+    "alloy", "ash", "ballad", "coral", "echo",
+    "sage", "shimmer", "verse", "marin", "cedar",
+}
+RETIRED_VOICE_FALLBACKS = {
+    "nova":  "shimmer",   # warm female → closest GA female
+    "onyx":  "ash",       # deep male   → closest GA deep male
+    "fable": "ballad",    # soft narrator → closest GA storyteller
+}
+
+
+def coerce_supported_voice(voice: str) -> str:
+    """Normalise a stored voice ID to one the GA Realtime API accepts.
+
+    Unknown / empty inputs degrade to ``alloy`` (the universal safe default).
+    """
+    v = (voice or "").strip().lower()
+    if v in REALTIME_GA_VOICES:
+        return v
+    if v in RETIRED_VOICE_FALLBACKS:
+        return RETIRED_VOICE_FALLBACKS[v]
+    return "alloy"
+
+
 def request_ephemeral_session(*, system_prompt: str, voice: str = "alloy") -> dict | None:
     """Ask OpenAI for a short-lived client_secret for this user's session.
 
-    Returns the raw OpenAI response (which contains `client_secret.value`,
-    `id`, `expires_at`, etc.) or None if the AI provider is unconfigured.
-    Raises requests.HTTPError on upstream failure so the API view can
-    map it to a friendly error code for the browser.
+    Uses the **GA Realtime API** at ``POST /v1/realtime/client_secrets``
+    (the old Beta endpoint ``/v1/realtime/sessions`` returns 400 with
+    ``beta_api_shape_disabled`` since the GA migration). Returns the
+    upstream JSON, normalised so callers can keep reading
+    ``session["client_secret"]["value"]`` / ``session["id"]`` regardless
+    of which shape OpenAI returns.
     """
     if not settings.AI_API_KEY:
         return None
 
-    url = f"{settings.AI_API_BASE.rstrip('/')}/realtime/sessions"
+    voice = coerce_supported_voice(voice)
+    url = f"{settings.AI_API_BASE.rstrip('/')}/realtime/client_secrets"
     payload = {
-        "model": getattr(settings, "AI_REALTIME_MODEL", "gpt-4o-realtime-preview-2024-12-17"),
-        "voice": voice,
-        "instructions": system_prompt,
-        "modalities": ["audio", "text"],
-        # Whisper handles the user's audio → text on the upstream side so
-        # the browser can render the live transcript without doing STT.
-        "input_audio_transcription": {"model": "whisper-1"},
-        # Server-side VAD: lets OpenAI detect end-of-utterance for us so
-        # the model auto-responds when the student stops talking. Tuned
-        # for natural pauses (700 ms) without cutting off mid-sentence.
-        "turn_detection": {
-            "type": "server_vad",
-            "threshold": 0.5,
-            "prefix_padding_ms": 300,
-            "silence_duration_ms": 700,
-        },
-        # Keep replies short — voice mode shouldn't monologue.
-        "max_response_output_tokens": 200,
-        "temperature": 0.8,
+        "session": {
+            "type": "realtime",
+            "model": getattr(settings, "AI_REALTIME_MODEL", "gpt-4o-realtime-preview-2024-12-17"),
+            "instructions": system_prompt,
+            "max_output_tokens": 200,
+            "audio": {
+                "output": {"voice": voice},
+                "input": {
+                    # Whisper handles the user's audio → text upstream so the
+                    # browser can render the live transcript without local STT.
+                    "transcription": {"model": "whisper-1"},
+                    # Server-side VAD: OpenAI detects end-of-utterance for us
+                    # so the model auto-responds when the student stops talking.
+                    # Tuned for natural pauses (700 ms) without cutting mid-sentence.
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": 0.5,
+                        "prefix_padding_ms": 300,
+                        "silence_duration_ms": 700,
+                    },
+                },
+            },
+        }
     }
     resp = requests.post(
         url,
@@ -175,44 +208,76 @@ def request_ephemeral_session(*, system_prompt: str, voice: str = "alloy") -> di
         json=payload,
         timeout=10,
     )
+    if not resp.ok:
+        # Surface OpenAI's actual error body so production failures don't
+        # collapse into an opaque 503 in our logs. (We were seeing 400s
+        # whose root cause was invisible without this.)
+        logger.error(
+            "OpenAI realtime/client_secrets %s — voice=%s body=%s",
+            resp.status_code, voice, resp.text[:800],
+        )
     resp.raise_for_status()
-    return resp.json()
+    body = resp.json()
+    # Normalise to the legacy shape callers expect:
+    #   {"client_secret": {"value": "..."}, "id": "...", "expires_at": ...}
+    session = body.get("session") or {}
+    return {
+        "client_secret": {"value": body.get("value") or ""},
+        "id": session.get("id") or body.get("id") or "",
+        "expires_at": body.get("expires_at") or session.get("expires_at"),
+        "model": session.get("model") or "",
+    }
 
 
-# --- soft cap accounting -------------------------------------------------
-
-def _cap_cache_key(user_id: int, today: date | None = None) -> str:
-    if today is None:
-        today = timezone.now().date()
-    return f"voice_call:user:{user_id}:{today.isoformat()}"
-
+# --- quota accounting (DB-backed via subscriptions.quota_service) --------
+#
+# Sprint 1 introduced SubscriptionPlan + UserDailyQuota; Sprint 2 adds
+# FreeTrialUsage + AITutorSession. This module keeps its public surface
+# unchanged so existing call-sites in tutor.api.views keep working, but
+# the storage is now DB-backed and unified across subscription + trial.
 
 def daily_minute_cap_remaining(user) -> int:
-    """How many minutes the user can still spend in voice-calls today."""
-    cap = int(getattr(settings, "AI_REALTIME_DAILY_MINUTE_CAP", 30) or 30)
-    used_seconds = cache.get(_cap_cache_key(user.id), 0) or 0
-    used_minutes = used_seconds // 60
-    return max(0, cap - used_minutes)
+    """How many MINUTES the user can still spend in AI-Tutor today.
+
+    Reads from subscription quota first, falls back to the one-shot
+    trial. Returns 0 when both are exhausted (the caller blocks the
+    session and shows the upgrade page).
+    """
+    try:
+        from subscriptions.services.quota_service import effective_ai_tutor_remaining
+    except Exception:
+        return 0
+    seconds, _source = effective_ai_tutor_remaining(user)
+    return seconds // 60
+
+
+def daily_seconds_remaining(user) -> int:
+    """Same as ``daily_minute_cap_remaining`` but in seconds (more precise)."""
+    try:
+        from subscriptions.services.quota_service import effective_ai_tutor_remaining
+    except Exception:
+        return 0
+    seconds, _source = effective_ai_tutor_remaining(user)
+    return seconds
 
 
 def record_session_seconds(user, seconds: int) -> int:
-    """Add a session's duration to the user's daily counter.
+    """Charge ``seconds`` to the user's bucket. Returns NEW used-total today.
 
-    Returns the new total used (in seconds) today. Uses Django cache so
-    no migration is required; the counter expires at end of day and the
-    next session starts at zero. For long-term analytics use the
-    LearnerActivitySnapshot.speaking_minutes field, which tutors.api
-    already increments on text-mode sends.
+    Legacy shim: existing tutor.api.views call this on voice-call hang-up.
+    New code should use ``subscriptions.services.session_service.end_session``
+    which closes the AITutorSession record AND deducts in one shot.
     """
     seconds = max(0, int(seconds or 0))
     if seconds == 0:
-        return cache.get(_cap_cache_key(user.id), 0) or 0
-    key = _cap_cache_key(user.id)
-    # 24h TTL — covers the natural day even with timezone slop.
+        try:
+            from subscriptions.services.quota_service import get_or_create_today_quota
+            return get_or_create_today_quota(user).ai_tutor_seconds_used
+        except Exception:
+            return 0
     try:
-        new_total = cache.incr(key, seconds)
-    except ValueError:
-        # Key didn't exist; set it.
-        cache.set(key, seconds, timeout=24 * 60 * 60)
-        new_total = seconds
-    return new_total
+        from subscriptions.services.quota_service import deduct_session_seconds, get_or_create_today_quota
+    except Exception:
+        return seconds
+    deduct_session_seconds(user, seconds)
+    return get_or_create_today_quota(user).ai_tutor_seconds_used

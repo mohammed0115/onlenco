@@ -17,7 +17,7 @@
           <tr><td>Amount</td><td>{{ payment.amount_sdg }} SDG</td></tr>
           <tr><td>Status</td><td><span class="badge">{{ payment.status }}</span></td></tr>
           <tr><td>Student notes</td><td>{{ payment.admin_note|default:"-" }}</td></tr>
-          <tr><td>Reviewed by</td><td>{{ payment.reviewed_by.email|default:payment.reviewed_by.username|default:"-" }}</td></tr>
+          <tr><td>Reviewed by</td><td>{% if payment.reviewed_by %}{{ payment.reviewed_by.email|default:payment.reviewed_by.username }}{% else %}-{% endif %}</td></tr>
           <tr><td>Proof</td><td><a class="btn-control" href="{% url 'platform_admin:payment_proof' payment.pk %}"><i data-lucide="download" class="h-4 w-4"></i> Download safely</a></td></tr>
         </tbody>
       </table>

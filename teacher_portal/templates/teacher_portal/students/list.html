@@ -10,25 +10,36 @@
 </form>
 <section class="teacher-panel">
   <table class="teacher-table">
-    <thead><tr><th>Name</th><th>Email</th><th>Course</th><th>Progress</th><th>Last activity</th><th>Quiz avg</th><th>Weakness</th><th>Status</th><th></th></tr></thead>
+    <thead><tr>
+      <th>{% if lang == "ar" %}الاسم{% else %}Name{% endif %}</th>
+      <th>{% if lang == "ar" %}البريد{% else %}Email{% endif %}</th>
+      <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
+      <th>{% if lang == "ar" %}التقدم{% else %}Progress{% endif %}</th>
+      <th>{% if lang == "ar" %}آخر نشاط{% else %}Last activity{% endif %}</th>
+      <th>{% if lang == "ar" %}متوسط الاختبارات{% else %}Quiz avg{% endif %}</th>
+      <th>{% if lang == "ar" %}نقاط الضعف{% else %}Weakness{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th></th>
+    </tr></thead>
     <tbody>
-      {% for row in rows %}
+      {% for row in page_obj.object_list %}
         <tr>
           <td>{{ row.student.profile.full_name|default:row.student.username }}</td>
           <td>{{ row.student.email }}</td>
-          <td>{{ row.course.title }}</td>
+          <td>{{ row.course.title_ar|default:row.course.title }}</td>
           <td>{{ row.progress }}%</td>
           <td>{{ row.last_activity|date:"Y-m-d"|default:"-" }}</td>
           <td>{{ row.quiz_average|floatformat:1|default:"-" }}</td>
           <td>{{ row.weaknesses }}</td>
           <td>{{ row.status }}</td>
-          <td><a href="{% url 'teacher_portal:student_detail' row.student.pk %}">Open</a></td>
+          <td><a href="{% url 'teacher_portal:student_detail' row.student.pk %}">{% if lang == "ar" %}فتح{% else %}Open{% endif %}</a></td>
         </tr>
       {% empty %}
-        <tr><td colspan="9" class="muted">No enrolled students yet.</td></tr>
+        <tr><td colspan="9" class="muted">{% if lang == "ar" %}لا يوجد طلاب مسجلون بعد.{% else %}No enrolled students yet.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  {% include "teacher_portal/_pagination.html" %}
 </section>
 {% endblock %}
 

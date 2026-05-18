@@ -4,6 +4,12 @@
 {% block control_subtitle %}{% if lang == "ar" %}المعلم يرى كورساته ودروسه فقط.{% else %}Teachers are scoped to their own courses and lessons.{% endif %}{% endblock %}
 
 {% block control_content %}
+<div style="margin-bottom:14px">
+  <a class="control-btn control-btn-primary" href="{% url 'platform_admin:teacher_create' %}">
+    <i data-lucide="user-plus" class="h-4 w-4"></i>
+    {% if lang == "ar" %}إضافة أستاذ{% else %}Register Teacher{% endif %}
+  </a>
+</div>
 <div class="control-panel">
   <table class="control-table">
     <thead>

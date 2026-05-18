@@ -26,4 +26,24 @@ urlpatterns = [
         views.chapter_summary,
         name="library_chapter_summary",
     ),
+    path(
+        "chapters/<int:chapter_id>/listen/",
+        views.chapter_listen,
+        name="library_chapter_listen",
+    ),
+    path(
+        "chapters/<int:chapter_id>/audio/start/",
+        views.chapter_audio_start,
+        name="library_audio_start",
+    ),
+    path(
+        "chapters/<int:chapter_id>/audio/chunk/",
+        views.chapter_audio_chunk,
+        name="library_audio_chunk",
+    ),
+    path(
+        "chapters/<int:chapter_id>/audio/finish/",
+        views.chapter_audio_finish,
+        name="library_audio_finish",
+    ),
 ]

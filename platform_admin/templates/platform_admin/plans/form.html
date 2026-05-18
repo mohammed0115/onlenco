@@ -1,0 +1,109 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}
+  {% if plan %}{% if lang == "ar" %}تعديل خطة: {{ plan.code }}{% else %}Edit Plan: {{ plan.code }}{% endif %}{% else %}{% if lang == "ar" %}إضافة خطة جديدة{% else %}Add New Plan{% endif %}{% endif %}
+{% endblock %}
+
+{% block control_subtitle %}
+  {% if lang == "ar" %}كل الحقول قابلة للتعديل من هنا — لا حاجة لتعديل الكود.{% else %}All fields are editable from here — no code changes required.{% endif %}
+{% endblock %}
+
+{% block control_content %}
+<section class="control-card" style="max-width:760px">
+  <form method="post" class="control-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="control-card" style="background:#fee2e2;border:1px solid #fecaca;margin-bottom:14px;padding:10px 14px">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.code.id_for_label }}">{% if lang == "ar" %}الكود{% else %}Code{% endif %}</label>
+        {{ form.code }}
+        {% if form.code.errors %}<small class="muted">{{ form.code.errors|join:" " }}</small>{% endif %}
+        <small class="muted">{% if lang == "ar" %}معرّف ثابت يستخدم في الكود، لا يظهر للمستخدم.{% else %}Stable identifier used in code; never shown to users.{% endif %}</small>
+      </div>
+      <div>
+        <label for="{{ form.sort_order.id_for_label }}">{% if lang == "ar" %}ترتيب العرض{% else %}Sort order{% endif %}</label>
+        {{ form.sort_order }}
+      </div>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.name_en.id_for_label }}">{% if lang == "ar" %}الاسم (إنجليزي){% else %}Name (English){% endif %}</label>
+        {{ form.name_en }}
+        {% if form.name_en.errors %}<small class="muted">{{ form.name_en.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div>
+        <label for="{{ form.name_ar.id_for_label }}">{% if lang == "ar" %}الاسم (عربي){% else %}Name (Arabic){% endif %}</label>
+        {{ form.name_ar }}
+        {% if form.name_ar.errors %}<small class="muted">{{ form.name_ar.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.description_en.id_for_label }}">{% if lang == "ar" %}الوصف (إنجليزي){% else %}Description (English){% endif %}</label>
+        {{ form.description_en }}
+      </div>
+      <div>
+        <label for="{{ form.description_ar.id_for_label }}">{% if lang == "ar" %}الوصف (عربي){% else %}Description (Arabic){% endif %}</label>
+        {{ form.description_ar }}
+      </div>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.price_sdg.id_for_label }}">{% if lang == "ar" %}السعر (SDG){% else %}Price (SDG){% endif %}</label>
+        {{ form.price_sdg }}
+        {% if form.price_sdg.errors %}<small class="muted">{{ form.price_sdg.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div>
+        <label for="{{ form.currency.id_for_label }}">{% if lang == "ar" %}العملة{% else %}Currency{% endif %}</label>
+        {{ form.currency }}
+      </div>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.billing_cycle.id_for_label }}">{% if lang == "ar" %}دورة الفوترة{% else %}Billing cycle{% endif %}</label>
+        {{ form.billing_cycle }}
+      </div>
+      <div></div>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.ai_tutor_daily_minutes.id_for_label }}">{% if lang == "ar" %}دقائق AI Tutor يومياً{% else %}AI Tutor minutes / day{% endif %}</label>
+        {{ form.ai_tutor_daily_minutes }}
+        {% if form.ai_tutor_daily_minutes.errors %}<small class="muted">{{ form.ai_tutor_daily_minutes.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div>
+        <label for="{{ form.library_audio_daily_minutes.id_for_label }}">{% if lang == "ar" %}دقائق المكتبة الصوتية يومياً{% else %}Library audio minutes / day{% endif %}</label>
+        {{ form.library_audio_daily_minutes }}
+        {% if form.library_audio_daily_minutes.errors %}<small class="muted">{{ form.library_audio_daily_minutes.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label>{{ form.is_active }} {% if lang == "ar" %}مفعّلة{% else %}Active{% endif %}</label>
+      </div>
+      <div>
+        <label>{{ form.is_free_trial }} {% if lang == "ar" %}تجربة مجانية لمرة واحدة{% else %}One-shot free trial{% endif %}</label>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button type="submit" class="control-btn control-btn-primary">
+        <i data-lucide="save" class="h-4 w-4"></i>
+        {% if lang == "ar" %}حفظ{% else %}Save{% endif %}
+      </button>
+      <a class="control-btn" href="{% url 'platform_admin:plans' %}">{% if lang == "ar" %}إلغاء{% else %}Cancel{% endif %}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

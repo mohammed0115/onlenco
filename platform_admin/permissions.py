@@ -41,6 +41,8 @@ CAP_NOTIFICATIONS_MANAGE = "notifications.manage"
 CAP_GAMIFICATION_MANAGE = "gamification.manage"
 CAP_SETTINGS_VIEW = "settings.view"
 CAP_SETTINGS_MANAGE = "settings.manage"
+CAP_PLANS_VIEW = "plans.view"
+CAP_PLANS_MANAGE = "plans.manage"
 CAP_AUDIT_VIEW = "audit.view"
 CAP_EXPORT = "data.export"
 
@@ -53,6 +55,7 @@ VIEW_CAPS = {
     CAP_AI_VIEW,
     CAP_ANALYTICS_VIEW,
     CAP_SETTINGS_VIEW,
+    CAP_PLANS_VIEW,
     CAP_AUDIT_VIEW,
 }
 
@@ -84,6 +87,8 @@ ROLE_CAPABILITIES = {
         CAP_STUDENTS_VIEW,
         CAP_PAYMENTS_VIEW,
         CAP_PAYMENTS_MANAGE,
+        CAP_PLANS_VIEW,
+        CAP_PLANS_MANAGE,
         CAP_ANALYTICS_VIEW,
         CAP_AUDIT_VIEW,
         CAP_EXPORT,
@@ -247,8 +252,11 @@ def nav_items_for(user) -> list[dict]:
         (CAP_TEACHERS_VIEW, "Teachers", "المعلمون", "graduation-cap", "platform_admin:teachers"),
         (CAP_COURSES_VIEW, "Courses", "الكورسات", "book-open", "platform_admin:courses"),
         (CAP_PAYMENTS_VIEW, "Payments", "المدفوعات", "wallet", "platform_admin:payments"),
+        (CAP_PLANS_VIEW, "Plans", "الخطط", "package", "platform_admin:plans"),
+        (CAP_SETTINGS_VIEW, "Voices & Avatars", "الأصوات والصور", "mic", "platform_admin:voices"),
         (CAP_AI_VIEW, "AI Monitor", "مراقبة AI", "bot", "platform_admin:ai_overview"),
         (CAP_ANALYTICS_VIEW, "Analytics", "التحليلات", "bar-chart-3", "platform_admin:analytics"),
+        (CAP_GAMIFICATION_MANAGE, "Game Sounds", "أصوات اللعبة", "music", "platform_admin:gamification_sounds"),
         (CAP_SETTINGS_VIEW, "Settings", "الإعدادات", "settings", "platform_admin:settings_roles"),
         (CAP_AUDIT_VIEW, "Audit Logs", "سجل العمليات", "shield-check", "platform_admin:audit_logs"),
     ]

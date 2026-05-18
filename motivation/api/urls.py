@@ -12,4 +12,6 @@ urlpatterns = [
     path("challenges/", views.ChallengesView.as_view(), name="challenges"),
     path("leaderboard/", views.LeaderboardView.as_view(), name="leaderboard"),
     path("run/", views.MotivationRunView.as_view(), name="run"),
+    path("recent-rewards/", views.RecentRewardsView.as_view(), name="recent_rewards"),
+    path("event-sounds/", views.EventSoundsView.as_view(), name="event_sounds"),
 ]

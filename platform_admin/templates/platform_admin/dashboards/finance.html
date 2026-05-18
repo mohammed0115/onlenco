@@ -1,0 +1,91 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}لوحة الإدارة المالية{% else %}Finance Admin Dashboard{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}الدفعات، الاشتراكات، والإيرادات.{% else %}Payments, subscriptions, and revenue.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid">
+  {% for card in cards %}
+    <div class="control-card metric-card">
+      <div class="metric-icon"><i data-lucide="{{ card.icon }}" class="h-5 w-5"></i></div>
+      <div>
+        <div class="metric-value">{{ card.value }}</div>
+        <div class="metric-label">{% if lang == "ar" %}{{ card.label_ar }}{% else %}{{ card.label_en }}{% endif %}</div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="control-grid two-grid" style="margin-top:16px">
+  <section class="control-card">
+    <div class="panel-heading">
+      <h2>{% if lang == "ar" %}دفعات قيد المراجعة{% else %}Pending payments{% endif %}</h2>
+      <a class="control-link" href="{% url 'platform_admin:payments' %}?status=pending">{% if lang == "ar" %}الكل{% else %}View all{% endif %}</a>
+    </div>
+    <table class="control-table">
+      <thead><tr>
+        <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
+        <th>{% if lang == "ar" %}الخطة{% else %}Plan{% endif %}</th>
+        <th>{% if lang == "ar" %}المبلغ{% else %}Amount{% endif %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for p in recent_pending %}
+          <tr>
+            <td>{{ p.user.email|default:p.user.username }}</td>
+            <td>{{ p.plan }}</td>
+            <td>{{ p.amount_sdg }} SDG</td>
+            <td><a class="control-link" href="{% url 'platform_admin:payment_detail' p.pk %}">{% if lang == "ar" %}مراجعة{% else %}Review{% endif %}</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="muted">{% if lang == "ar" %}لا توجد دفعات قيد المراجعة.{% else %}No pending payments.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="control-card">
+    <div class="panel-heading"><h2>{% if lang == "ar" %}أحدث الدفعات المعتمدة{% else %}Recent approved payments{% endif %}</h2></div>
+    <table class="control-table">
+      <thead><tr>
+        <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
+        <th>{% if lang == "ar" %}المبلغ{% else %}Amount{% endif %}</th>
+        <th>{% if lang == "ar" %}بتاريخ{% else %}When{% endif %}</th>
+      </tr></thead>
+      <tbody>
+        {% for p in recent_approved %}
+          <tr>
+            <td>{{ p.user.email|default:p.user.username }}</td>
+            <td>{{ p.amount_sdg }} SDG</td>
+            <td>{{ p.reviewed_at|date:"Y-m-d" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد بيانات.{% else %}No data.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<section class="control-card" style="margin-top:16px">
+  <div class="panel-heading"><h2>{% if lang == "ar" %}أداء الخطط{% else %}Plan performance{% endif %}</h2></div>
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الخطة{% else %}Plan{% endif %}</th>
+      <th>{% if lang == "ar" %}دفعات معتمدة{% else %}Approved payments{% endif %}</th>
+      <th>{% if lang == "ar" %}الإيرادات{% else %}Revenue{% endif %}</th>
+    </tr></thead>
+    <tbody>
+      {% for row in plan_rows %}
+        <tr>
+          <td>{{ row.plan }}</td>
+          <td>{{ row.count }}</td>
+          <td>{{ row.revenue|default:0 }} SDG</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد دفعات معتمدة بعد.{% else %}No approved payments yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

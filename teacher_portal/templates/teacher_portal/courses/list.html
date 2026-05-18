@@ -35,10 +35,13 @@
           <td>{{ course.enrollments.count }}</td>
           <td>{{ course.updated_at|date:"Y-m-d" }}</td>
           <td class="row-actions">
-            <a href="{% url 'teacher_portal:course_detail' course.pk %}">View</a>
-            <a href="{% url 'teacher_portal:lessons' course.pk %}">Lessons</a>
+            <a href="{% url 'teacher_portal:course_detail' course.pk %}">{% if lang == "ar" %}عرض{% else %}View{% endif %}</a>
+            <a href="{% url 'teacher_portal:lessons' course.pk %}">{% if lang == "ar" %}الدروس{% else %}Lessons{% endif %}</a>
             {% if course.status == "draft" or course.status == "rejected" %}
-              <a href="{% url 'teacher_portal:course_edit' course.pk %}">Edit</a>
+              <a href="{% url 'teacher_portal:course_edit' course.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
+              <form method="post" action="{% url 'teacher_portal:course_delete' course.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الكورس؟{% else %}Delete this course?{% endif %}');" style="display:inline">
+                {% csrf_token %}<button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+              </form>
             {% endif %}
           </td>
         </tr>

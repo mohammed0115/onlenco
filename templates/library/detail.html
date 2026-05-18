@@ -82,7 +82,15 @@
                                     ~{{ chapter.duration_seconds }} {% t_either "seconds" "ثانية" %}
                                 </div>
                                 {% endif %}
+                                <div class="mt-2">
+                                    <a href="{% url 'library_chapter_listen' chapter.pk %}" class="btn btn-ghost btn-sm">
+                                        🤖 {% t_either "Or read with AI voice" "أو استمع بصوت AI طبيعي" %}
+                                    </a>
+                                </div>
                             {% else %}
+                                <a href="{% url 'library_chapter_listen' chapter.pk %}" class="btn btn-hero w-full mb-2 text-center">
+                                    🤖 {% t_either "Listen with AI voice" "استمع بصوت AI طبيعي" %}
+                                </a>
                                 <button type="button"
                                         id="chapter-tts-play"
                                         data-tts-text="{{ chapter.body|escapejs }}"

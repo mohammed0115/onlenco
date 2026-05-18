@@ -12,6 +12,6 @@ class PlatformAuditLogTests(PlatformAdminTestMixin, TestCase):
             description="Test log",
         )
         self.client.force_login(self.platform_admin)
-        response = self.client.get("/control/audit-logs/")
+        response = self.client.get("/admin/audit-logs/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "test.action")

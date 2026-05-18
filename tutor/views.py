@@ -152,9 +152,22 @@ def voice_call_page(request, pk):
         return locked
     conv = get_object_or_404(TutorConversation, pk=pk, user=request.user)
     from tutor.services.realtime_session import daily_minute_cap_remaining
+    # Pull the user's avatar + voice preference (Sprint 3) so the page
+    # can render the human-like presenter the spec asked for, instead of
+    # just a phone orb.
+    avatar = None
+    voice = None
+    try:
+        from subscriptions.services import preference_service
+        avatar = preference_service.resolve_avatar_for(request.user)
+        voice = preference_service.resolve_voice_for(request.user)
+    except Exception:
+        pass
     return render(request, "tutor/voice_call.html", {
         "conversation": conv,
         "minutes_remaining": daily_minute_cap_remaining(request.user),
+        "avatar": avatar,
+        "voice": voice,
     })
 
 

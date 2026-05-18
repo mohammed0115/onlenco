@@ -30,13 +30,52 @@ ROLE_LABELS = {
 }
 
 
+_ADMIN_ROLES = {
+    ROLE_TEACHER,
+    ROLE_ACADEMIC_ADMIN,
+    ROLE_FINANCE_ADMIN,
+    ROLE_SUPPORT_ADMIN,
+    ROLE_AI_ADMIN,
+    ROLE_PLATFORM_ADMIN,
+    ROLE_SUPER_ADMIN,
+}
+_ADMIN_ONLY_ROLES = _ADMIN_ROLES - {ROLE_TEACHER}
+
+
 class RoleService:
     """Multi-role facade for Onlenco users.
 
-    The existing `Profile.role` remains the student/admin legacy flag.
-    Staff/admin/teacher capabilities live in Django Groups. Combining the
-    two lets one account be both a learner and an instructor.
+    Roles are stored in two places:
+      * ``Profile.role`` carries the legacy ``student`` / ``admin`` flag.
+      * Django Groups carry teacher + admin capabilities (the 7 groups in
+        ``ROLE_TO_GROUP``).
+
+    Rules:
+      * A user is a *student* only when ``profile.role == "student"`` AND
+        they hold no admin-side Group. This prevents Admin+Teacher accounts
+        from being treated as students (which would inflict onboarding,
+        placement, and the student dashboard on them).
+      * Admin+Teacher is the supported dual-role: same person manages the
+        platform and authors courses.
+      * Student+Teacher is *not* automatic — it only happens for accounts
+        explicitly marked ``profile.role == "student"`` AND added to the
+        Teacher group.
     """
+
+    @staticmethod
+    def _has_admin_group(user) -> bool:
+        if getattr(user, "is_superuser", False):
+            return True
+        admin_group_names = [ROLE_TO_GROUP[r] for r in _ADMIN_ONLY_ROLES if r in ROLE_TO_GROUP]
+        return user.groups.filter(name__in=admin_group_names).exists()
+
+    @staticmethod
+    def _has_staff_group(user) -> bool:
+        """True for users in any admin role OR the teacher role."""
+        if RoleService._has_admin_group(user):
+            return True
+        teacher_group = ROLE_TO_GROUP.get(ROLE_TEACHER)
+        return bool(teacher_group) and user.groups.filter(name=teacher_group).exists()
 
     @staticmethod
     def user_has_role(user, role: str) -> bool:
@@ -44,7 +83,13 @@ class RoleService:
             return False
         if role == ROLE_STUDENT:
             profile = getattr(user, "profile", None)
-            return profile is None or getattr(profile, "role", "student") == "student"
+            profile_is_student = profile is None or getattr(profile, "role", "student") == "student"
+            if not profile_is_student:
+                return False
+            # Staff accounts (admin or teacher) are not auto-students.
+            if RoleService._has_staff_group(user):
+                return False
+            return True
         if role == ROLE_SUPER_ADMIN and getattr(user, "is_superuser", False):
             return True
         group_name = ROLE_TO_GROUP.get(role)
@@ -122,3 +167,70 @@ class RoleService:
             RoleService.user_has_role(user, ROLE_STUDENT)
             and RoleService.user_has_role(user, ROLE_TEACHER)
         )
+
+    # ------------------------------------------------------------------
+    # Helpers for Admin+Teacher routing
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def is_admin_user(user) -> bool:
+        """True when the user holds any admin-side role (not just teacher)."""
+        if user is None or not getattr(user, "is_authenticated", False):
+            return False
+        return RoleService._has_admin_group(user)
+
+    @staticmethod
+    def is_teacher_user(user) -> bool:
+        return RoleService.user_has_role(user, ROLE_TEACHER)
+
+    @staticmethod
+    def can_access_control_center(user) -> bool:
+        return RoleService.is_admin_user(user)
+
+    @staticmethod
+    def can_access_teacher_portal(user) -> bool:
+        return RoleService.is_teacher_user(user) or RoleService.is_admin_user(user)
+
+    @staticmethod
+    def get_default_landing_page(user) -> str:
+        """URL name to send the user to right after login.
+
+        Priority:
+          1. Admin (any admin role)  → platform_admin dashboard router
+          2. Teacher only            → teacher portal dashboard
+          3. Student                 → student dashboard
+          4. Fallback                → student dashboard
+        """
+        if RoleService.is_admin_user(user):
+            try:
+                from platform_admin.services.role_dashboards import dashboard_url_for
+                return dashboard_url_for(user)
+            except Exception:
+                return "platform_admin:dashboard"
+        if RoleService.is_teacher_user(user):
+            return "teacher_portal:dashboard"
+        return "dashboard"
+
+    @staticmethod
+    def available_staff_modes(user) -> list[dict]:
+        """Modes shown in the staff switcher (Control Center / Teacher Portal).
+
+        Student Mode is intentionally NOT included here — it lives in
+        ``available_modes`` and is gated on the student role.
+        """
+        modes = []
+        if RoleService.can_access_control_center(user):
+            modes.append({
+                "mode": "control",
+                "en": "Control Center",
+                "ar": "لوحة الإدارة",
+                "url_name": "platform_admin:dashboard",
+            })
+        if RoleService.is_teacher_user(user):
+            modes.append({
+                "mode": "teacher",
+                "en": "Teacher Portal",
+                "ar": "لوحة الأستاذ",
+                "url_name": "teacher_portal:dashboard",
+            })
+        return modes

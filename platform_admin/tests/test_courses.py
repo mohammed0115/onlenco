@@ -9,14 +9,14 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 class PlatformCourseTests(PlatformAdminTestMixin, TestCase):
     def test_course_filters_work(self):
         self.client.force_login(self.academic_admin)
-        response = self.client.get("/control/courses/", {"status": "pending_review"})
+        response = self.client.get("/admin/courses/", {"status": "pending_review"})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.course.title)
         self.assertNotContains(response, self.other_course.title)
 
     def test_course_approval_creates_audit_log(self):
         self.client.force_login(self.academic_admin)
-        response = self.client.post(f"/control/courses/{self.course.pk}/approve/")
+        response = self.client.post(f"/admin/courses/{self.course.pk}/approve/")
         self.assertEqual(response.status_code, 302)
         self.course.refresh_from_db()
         self.assertEqual(self.course.status, "published")
@@ -25,7 +25,7 @@ class PlatformCourseTests(PlatformAdminTestMixin, TestCase):
     def test_lesson_editor_supports_video_and_worksheet(self):
         self.client.force_login(self.teacher)
         response = self.client.post(
-            f"/control/courses/{self.course.pk}/lessons/new/",
+            f"/admin/courses/{self.course.pk}/lessons/new/",
             {
                 "title": "Video lesson 1",
                 "order": 1,

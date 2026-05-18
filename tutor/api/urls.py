@@ -11,6 +11,8 @@ urlpatterns = [
     path("voice/respond/stream/", views.voice_respond_stream, name="api_tutor_voice_respond_stream"),
     path("voice/tts/",        views.voice_tts,        name="api_tutor_voice_tts"),
     path("voice/history/",    views.voice_history,    name="api_tutor_voice_history"),
-    path("voice-call/session/", views.voice_call_session, name="api_tutor_voice_call_session"),
-    path("voice-call/log/",     views.voice_call_log,     name="api_tutor_voice_call_log"),
+    path("voice-call/session/",       views.voice_call_session,       name="api_tutor_voice_call_session"),
+    path("voice-call/log/",           views.voice_call_log,           name="api_tutor_voice_call_log"),
+    path("voice-call/cancel-stale/",  views.voice_call_cancel_stale,  name="api_tutor_voice_call_cancel_stale"),
+    path("voice-call/sdp/",           views.voice_call_sdp_relay,     name="api_tutor_voice_call_sdp"),
 ]

@@ -13,13 +13,17 @@
 (function (global) {
   'use strict';
 
-  // OpenAI's Realtime SDP endpoint. The model name is appended as a query
-  // param — same value the server returns in the session response.
-  const REALTIME_BASE = 'https://api.openai.com/v1/realtime';
+  // GA Realtime SDP endpoint. Old Beta URL ``/v1/realtime`` (with or
+  // without ``?model=...``) returns ``beta_api_shape_disabled`` since
+  // the GA migration. The new endpoint is ``/v1/realtime/calls`` and
+  // the model is implicit in the ek_ session — no query param needed.
+  const REALTIME_BASE = 'https://api.openai.com/v1/realtime/calls';
 
   const Config = {
     sessionUrl:     null,
     logUrl:         null,
+    cancelStaleUrl: null,
+    sdpRelayUrl:    null,  // optional — when set, route SDP via Django
     conversationId: null,
     backUrl:        null,
     language:       'en',
@@ -31,14 +35,23 @@
       idle_sub:          "She'll greet you and start a real English conversation.",
       connecting_title:  'Connecting…',
       connecting_sub:    'Setting up your call. Hang on a moment.',
+      listening_title:   'Listening…',
+      listening_sub:     'Go ahead — Layla can hear you.',
+      thinking_title:    'Thinking…',
+      thinking_sub:      'Layla is preparing her reply.',
+      speaking_title:    'Layla is speaking',
+      speaking_sub:      'Listen — your turn next.',
       live_title:        'On a call with Layla',
       live_sub:          'Speak naturally. She listens and replies as you talk.',
       ended_title:       'Call ended',
       ended_sub:         'Tap to call again.',
+      error_title:       'Something went wrong',
+      error_sub:         'See the message below and try again.',
       mic_blocked:       'Microphone permission was blocked. Allow it in the browser to start the call.',
       no_mic:            'No microphone was detected. Plug one in and try again.',
       ai_unavailable:    'The voice tutor is temporarily unavailable. Please try the chat instead.',
       limit_reached:     "You've reached today's voice-call limit. Switch back to the chat tutor.",
+      concurrent_session: 'Another voice call is still open. We tried to clean it up — please tap Start again.',
       network:           'Network problem. Check your connection and try again.',
       mute_on:           'Mute',
       mute_off:          'Unmute',
@@ -48,14 +61,23 @@
       idle_sub:          'ستحييك وتبدأ محادثة إنجليزية حقيقية.',
       connecting_title:  'جارٍ الاتصال…',
       connecting_sub:    'جارٍ تجهيز المكالمة، لحظة من فضلك.',
+      listening_title:   'جارٍ الاستماع…',
+      listening_sub:     'تفضل — ليلى تسمعك.',
+      thinking_title:    'تفكّر…',
+      thinking_sub:      'ليلى تجهّز إجابتها.',
+      speaking_title:    'ليلى تتحدّث',
+      speaking_sub:      'استمع — دورك بعدها.',
       live_title:        'مكالمة مع ليلى',
       live_sub:          'تحدّث بطبيعية. ستستمع وتردّ أثناء كلامك.',
       ended_title:       'انتهت المكالمة',
       ended_sub:         'اضغط للاتصال مرة أخرى.',
+      error_title:       'حدث خطأ',
+      error_sub:         'راجع الرسالة أدناه وحاول مرة أخرى.',
       mic_blocked:       'تم رفض إذن الميكروفون. اسمح به من المتصفح ثم حاول مرة أخرى.',
       no_mic:            'لم يتم العثور على ميكروفون. وصّل واحدًا وحاول مجدداً.',
       ai_unavailable:    'المعلم الصوتي غير متاح مؤقتًا. جرّب المحادثة النصية.',
       limit_reached:     'لقد استهلكت دقائق المكالمة اليومية. استخدم المحادثة النصية.',
+      concurrent_session: 'مكالمة سابقة لم تُغلق. تم إغلاقها — اضغط ابدأ مرة أخرى.',
       network:           'مشكلة في الشبكة. تحقق من الاتصال وحاول مرة أخرى.',
       mute_on:           'كتم',
       mute_off:          'إلغاء الكتم',
@@ -84,6 +106,7 @@
   let maxSessionSeconds = 900;         // server overrides
   let maxSessionTimer = null;
   let isMuted = false;
+  let activeSessionInfo = null;        // populated by startCall, read by endCall
   // Live transcript collected from data-channel events. Sent to the
   // server on hang-up so the conversation list reflects what was said.
   const transcriptTurns = [];
@@ -158,15 +181,40 @@
     let sessionInfo;
     try {
       sessionInfo = await postJSON(Config.sessionUrl, { conversation_id: Config.conversationId });
+      activeSessionInfo = sessionInfo;
     } catch (e) {
       console.error('[onlenco-call] session request failed:', e);
       const code = e && e.code;
       if (code === 'limit_reached')        showError(t('limit_reached'));
       else if (code === 'subscription_required') showError(t('ai_unavailable'));
       else if (code === 'ai_unavailable')  showError(t('ai_unavailable'));
+      else if (code === 'concurrent_session') {
+        // A previous session was left "in_progress" (browser closed mid-call,
+        // network glitch, etc.). The backend will auto-cancel it after 10
+        // minutes; for an immediate retry we ping the cancel endpoint and
+        // re-attempt once.
+        if (Config.cancelStaleUrl) {
+          try {
+            await postJSON(Config.cancelStaleUrl, {});
+            // single retry after cleanup
+            sessionInfo = await postJSON(Config.sessionUrl, { conversation_id: Config.conversationId });
+            activeSessionInfo = sessionInfo;
+          } catch (retryErr) {
+            showError(t('concurrent_session') || t('ai_unavailable'));
+            setState('error');
+            return;
+          }
+        } else {
+          showError(t('concurrent_session') || t('ai_unavailable'));
+          setState('error');
+          return;
+        }
+      }
       else                                 showError(t('network'));
-      setState('error');
-      return;
+      if (!activeSessionInfo) {
+        setState('error');
+        return;
+      }
     }
 
     if (typeof sessionInfo.max_session_seconds === 'number') {
@@ -225,20 +273,45 @@
     dataChannel.onmessage = handleRealtimeEvent;
     dataChannel.onerror = (e) => console.warn('[onlenco-call] data channel error:', e);
 
-    // Standard SDP offer/answer dance with OpenAI's Realtime endpoint.
+    // Standard SDP offer/answer dance. We route the SDP through Django's
+    // /voice-call/sdp/ relay rather than fetching api.openai.com directly:
+    //   * keeps the ek_ token off the wire after the session POST
+    //   * sidesteps the GA-era CORS tightening that turned previously
+    //     working browser→OpenAI POSTs into opaque failures
+    //   * surfaces upstream errors in our server logs instead of a
+    //     generic "ai_unavailable" toast
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
 
     let sdpResp;
+    const sdpUrl = Config.sdpRelayUrl || REALTIME_BASE;
+    const useRelay = !!Config.sdpRelayUrl;
     try {
-      sdpResp = await fetch(`${REALTIME_BASE}?model=${encodeURIComponent(sessionInfo.model || '')}`, {
-        method: 'POST',
-        body: offer.sdp,
-        headers: {
-          'Authorization': `Bearer ${sessionInfo.client_secret}`,
-          'Content-Type':  'application/sdp',
-        },
-      });
+      if (useRelay) {
+        sdpResp = await fetch(sdpUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken(),
+            'Accept': 'application/sdp, text/plain, */*',
+          },
+          body: JSON.stringify({
+            client_secret: sessionInfo.client_secret,
+            model:         sessionInfo.model || '',
+            sdp:           offer.sdp,
+          }),
+        });
+      } else {
+        sdpResp = await fetch(sdpUrl, {
+          method: 'POST',
+          body: offer.sdp,
+          headers: {
+            'Authorization': `Bearer ${sessionInfo.client_secret}`,
+            'Content-Type':  'application/sdp',
+          },
+        });
+      }
     } catch (e) {
       console.error('[onlenco-call] SDP fetch failed:', e);
       showError(t('network'));
@@ -422,17 +495,23 @@
     teardownPeer();
     setState('ended');
 
-    // Fire-and-forget log so the soft cap counter advances and the
-    // conversation gets the spoken turns persisted.
+    // Fire-and-forget log so the AITutorSession is closed and the
+    // conversation gets the spoken turns persisted. Forward the
+    // ``tutor_session_id`` returned by the session endpoint so the
+    // server closes the exact row instead of falling back to a
+    // "find the user's open session" lookup.
+    const sessionId = activeSessionInfo && activeSessionInfo.tutor_session_id;
     if (Config.logUrl) {
       postJSON(Config.logUrl, {
         conversation_id: Config.conversationId,
+        tutor_session_id: sessionId,
         seconds: seconds,
         transcript: turns,
       }).catch((e) => {
         console.warn('[onlenco-call] log post failed:', e);
       });
     }
+    activeSessionInfo = null;
   }
 
   // ----- Wire-up --------------------------------------------------------

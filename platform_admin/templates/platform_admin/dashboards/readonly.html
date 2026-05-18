@@ -1,0 +1,47 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}عرض القراءة فقط{% else %}Read-only Dashboard{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}يمكنك مشاهدة الأرقام دون إجراء أي تعديل.{% else %}View metrics — no actions available.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-card" style="background:#FEF9C3;border-color:#FCD34D;margin-bottom:16px">
+  <strong>{% if lang == "ar" %}وضع القراءة فقط{% else %}Read-only mode{% endif %}</strong> —
+  {% if lang == "ar" %}ليس لديك صلاحية التعديل في أي قسم.{% else %}You cannot mutate any resource.{% endif %}
+</div>
+
+<div class="control-grid metrics-grid">
+  {% for card in metrics.cards %}
+    <div class="control-card metric-card">
+      <div class="metric-icon"><i data-lucide="{{ card.icon }}" class="h-5 w-5"></i></div>
+      <div>
+        <div class="metric-value">{{ card.value }}</div>
+        <div class="metric-label">{% if lang == "ar" %}{{ card.label_ar }}{% else %}{{ card.label }}{% endif %}</div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="control-grid two-grid" style="margin-top:16px">
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">{% if lang == "ar" %}ملخص التعلم{% else %}Learning Summary{% endif %}</h2>
+    <table class="control-table">
+      <tbody>
+        <tr><td>{% if lang == "ar" %}جدد هذا الأسبوع{% else %}New this week{% endif %}</td><td>{{ metrics.student_summary.new_week }}</td></tr>
+        <tr><td>{% if lang == "ar" %}طلاب مدفوعون{% else %}Paid students{% endif %}</td><td>{{ metrics.student_summary.paid }}</td></tr>
+        <tr><td>{% if lang == "ar" %}اشتراكات منتهية{% else %}Expired subscriptions{% endif %}</td><td>{{ metrics.student_summary.expired }}</td></tr>
+        <tr><td>{% if lang == "ar" %}المستوى الأكثر شيوعًا{% else %}Most common level{% endif %}</td><td>{{ metrics.student_summary.average_level }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">{% if lang == "ar" %}نقاط الضعف الأكثر{% else %}Top Weaknesses{% endif %}</h2>
+    <div class="stack">
+      {% for w in metrics.top_weaknesses %}
+        <div class="badge badge-yellow">{{ w.skill__name|default:w.grammar_topic__name|default:"general" }} · {{ w.count }}</div>
+      {% empty %}
+        <div class="muted">{% if lang == "ar" %}لا توجد بيانات بعد.{% else %}No data yet.{% endif %}</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -28,19 +28,50 @@
             </div>
 
             <div class="onlenco-call-orb-wrap">
-                <div class="onlenco-call-orb" id="callOrb">
-                    <div class="onlenco-call-orb-inner">
-                        <i data-lucide="phone" class="h-10 w-10" id="callOrbIcon"></i>
+                <div class="onlenco-call-orb tutor-avatar-orb" id="callOrb" data-avatar-code="{{ avatar.code|default:'' }}">
+                    <div class="onlenco-call-orb-inner tutor-avatar-inner">
+                        {% if avatar.effective_image_url %}
+                          <img src="{{ avatar.effective_image_url }}"
+                               alt="{% if lang == 'ar' %}{{ avatar.name_ar }}{% else %}{{ avatar.name_en }}{% endif %}"
+                               class="tutor-avatar-img"
+                               id="callOrbAvatar">
+                          <span class="tutor-avatar-mouth-overlay" aria-hidden="true"></span>
+                        {% else %}
+                          {# Inline SVG fallback so the orb shows a recognisable face even before admins upload images. #}
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" class="tutor-avatar-img" id="callOrbAvatar" aria-hidden="true">
+                            <defs>
+                              <linearGradient id="onlencoAvatarBg" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#FED7AA"/>
+                                <stop offset="100%" stop-color="#FB923C"/>
+                              </linearGradient>
+                            </defs>
+                            <circle cx="60" cy="60" r="60" fill="url(#onlencoAvatarBg)"/>
+                            <circle cx="60" cy="48" r="22" fill="#FFFFFF"/>
+                            <path d="M22 110 C30 86, 90 86, 98 110 Z" fill="#FFFFFF"/>
+                            <circle cx="51" cy="46" r="3" fill="#1F2937" class="tutor-eye tutor-eye-left"/>
+                            <circle cx="69" cy="46" r="3" fill="#1F2937" class="tutor-eye tutor-eye-right"/>
+                            <path d="M52 56 Q60 62 68 56" stroke="#1F2937" stroke-width="2.5" fill="none" stroke-linecap="round" class="tutor-mouth"/>
+                          </svg>
+                        {% endif %}
                     </div>
                     <span class="onlenco-call-orb-ring"></span>
                     <span class="onlenco-call-orb-ring"></span>
                     <span class="onlenco-call-orb-ring"></span>
                 </div>
+                {% if avatar %}
+                  <div class="tutor-avatar-name">
+                    {% if lang == "ar" %}{{ avatar.name_ar }}{% else %}{{ avatar.name_en }}{% endif %}
+                  </div>
+                  <a href="{% url 'subscriptions:preferences' %}" class="tutor-avatar-change">
+                    <i data-lucide="settings-2" class="h-3 w-3"></i>
+                    {% if lang == "ar" %}تغيير الصوت/الشخصية{% else %}Change voice / avatar{% endif %}
+                  </a>
+                {% endif %}
             </div>
 
             <div class="onlenco-call-status">
                 <h1 class="onlenco-call-title" id="callTitle">
-                    {% t_either "Tap to call Layla" "اضغط لبدء المكالمة مع ليلى" %}
+                    {% if lang == "ar" %}اضغط لبدء المكالمة مع {{ avatar.name_ar|default:"ليلى" }}{% else %}Tap to call {{ avatar.name_en|default:"Layla" }}{% endif %}
                 </h1>
                 <p class="onlenco-call-sub" id="callSub">
                     {% t_either "She'll greet you and start a real English conversation." "ستحييك وتبدأ محادثة إنجليزية حقيقية." %}
@@ -80,6 +111,8 @@
     window.onlencoCall.init({
       sessionUrl:    "{% url 'api_tutor_voice_call_session' %}",
       logUrl:        "{% url 'api_tutor_voice_call_log' %}",
+      cancelStaleUrl: "{% url 'api_tutor_voice_call_cancel_stale' %}",
+      sdpRelayUrl:   "{% url 'api_tutor_voice_call_sdp' %}",
       conversationId: {{ conversation.pk }},
       backUrl:       "{% url 'tutor_detail' conversation.pk %}",
       language:      "{{ request.LANGUAGE_CODE|default:'en' }}",

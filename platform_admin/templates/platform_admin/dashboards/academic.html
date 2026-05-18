@@ -1,0 +1,91 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}لوحة الإدارة الأكاديمية{% else %}Academic Admin Dashboard{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}مراجعة المحتوى، نشاط المعلمين، وصحة منهج الطلاب.{% else %}Content review, teacher activity, and learner curriculum health.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid">
+  {% for card in cards %}
+    <div class="control-card metric-card">
+      <div class="metric-icon"><i data-lucide="{{ card.icon }}" class="h-5 w-5"></i></div>
+      <div>
+        <div class="metric-value">{{ card.value }}</div>
+        <div class="metric-label">{% if lang == "ar" %}{{ card.label_ar }}{% else %}{{ card.label_en }}{% endif %}</div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="control-grid two-grid" style="margin-top:16px">
+  <section class="control-card">
+    <div class="panel-heading">
+      <h2>{% if lang == "ar" %}كورسات تنتظر مراجعة{% else %}Courses awaiting review{% endif %}</h2>
+      <a class="control-link" href="{% url 'platform_admin:courses_review' %}">{% if lang == "ar" %}الكل{% else %}View all{% endif %}</a>
+    </div>
+    <table class="control-table">
+      <thead><tr>
+        <th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th>
+        <th>{% if lang == "ar" %}المعلم{% else %}Teacher{% endif %}</th>
+        <th>{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for course in pending_courses %}
+          <tr>
+            <td>{{ course.title_ar|default:course.title }}</td>
+            <td>{{ course.teacher.email|default:"-" }}</td>
+            <td>{{ course.level.code|default:"-" }}</td>
+            <td><a class="control-link" href="{% url 'platform_admin:course_detail' course.pk %}">{% if lang == "ar" %}مراجعة{% else %}Review{% endif %}</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="muted">{% if lang == "ar" %}لا توجد كورسات بانتظار المراجعة.{% else %}No courses pending review.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="control-card">
+    <div class="panel-heading"><h2>{% if lang == "ar" %}دروس تنتظر مراجعة{% else %}Lessons awaiting review{% endif %}</h2></div>
+    <table class="control-table">
+      <thead><tr>
+        <th>{% if lang == "ar" %}الدرس{% else %}Lesson{% endif %}</th>
+        <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
+      </tr></thead>
+      <tbody>
+        {% for lesson in pending_lessons %}
+          <tr>
+            <td>{{ lesson.title_ar|default:lesson.title }}</td>
+            <td>{{ lesson.course.title_ar|default:lesson.course.title }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="2" class="muted">{% if lang == "ar" %}لا توجد دروس بانتظار المراجعة.{% else %}No lessons pending review.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<div class="control-grid two-grid" style="margin-top:16px">
+  <section class="control-card">
+    <div class="panel-heading"><h2>{% if lang == "ar" %}توزيع مستويات الطلاب (CEFR){% else %}Student CEFR distribution{% endif %}</h2></div>
+    <div class="stack">
+      {% for row in cefr_rows %}
+        <div class="badge">{{ row.cefr_level }} · {{ row.count }}</div>
+      {% empty %}
+        <div class="muted">{% if lang == "ar" %}لا توجد بيانات بعد.{% else %}No data yet.{% endif %}</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="control-card">
+    <div class="panel-heading"><h2>{% if lang == "ar" %}أكثر نقاط الضعف{% else %}Top weaknesses{% endif %}</h2></div>
+    <div class="stack">
+      {% for w in top_weaknesses %}
+        <div class="badge badge-yellow">{{ w.skill__name|default:w.grammar_topic__name|default:"general" }} · {{ w.count }}</div>
+      {% empty %}
+        <div class="muted">{% if lang == "ar" %}لا توجد بيانات بعد.{% else %}No data yet.{% endif %}</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

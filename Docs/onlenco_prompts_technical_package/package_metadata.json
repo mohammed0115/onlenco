@@ -1,0 +1,8 @@
+{
+  "project": "Onlenco",
+  "package": "Execution prompts and technical architecture",
+  "created_at": "2026-05-17T21:33:16.088117Z",
+  "language": "Arabic",
+  "format": "Markdown files inside ZIP",
+  "core_structure": "CEFR Level -> Unit -> 3 Lessons -> Activities -> Quiz -> Progress Update"
+}

@@ -392,3 +392,27 @@ code {
   }
 }
 
+
+.link-danger {
+  background: transparent;
+  border: none;
+  color: #d92d20;
+  cursor: pointer;
+  font: inherit;
+  padding: 0 4px;
+}
+.link-danger:hover { text-decoration: underline; }
+
+.teacher-pagination {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0 4px;
+  font-size: 14px;
+}
+.teacher-pagination a {
+  color: var(--teacher-accent, #2563eb);
+  text-decoration: none;
+}
+.teacher-pagination a:hover { text-decoration: underline; }

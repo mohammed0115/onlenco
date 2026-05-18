@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -30,7 +31,9 @@ class TodayPlanView(APIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = DailyLearningPlanSerializer
 
+    @extend_schema(responses=DailyLearningPlanSerializer)
     def get(self, request):
         on_date = timezone.localdate()
         plan = DailyLearningPlan.objects.filter(
@@ -46,7 +49,9 @@ class CompleteItemView(APIView):
     """POST /api/v1/daily-learning/items/{id}/complete/"""
 
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = DailyLearningItemSerializer
 
+    @extend_schema(request=None, responses=DailyLearningItemSerializer)
     def post(self, request, item_id: int):
         item = get_object_or_404(
             DailyLearningItem.objects.select_related("daily_plan"),
@@ -62,7 +67,9 @@ class CompletePlanView(APIView):
     """POST /api/v1/daily-learning/complete/ → finalize the plan."""
 
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = DailyLearningResultSerializer
 
+    @extend_schema(request=None, responses=DailyLearningResultSerializer)
     def post(self, request):
         on_date = timezone.localdate()
         plan = DailyLearningPlan.objects.filter(
@@ -83,6 +90,7 @@ class DailyPlanHistoryViewSet(ReadOnlyModelViewSet):
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DailyLearningPlanSerializer
+    queryset = DailyLearningPlan.objects.none()
 
     def get_queryset(self):
         return (

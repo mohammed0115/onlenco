@@ -1,0 +1,58 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}دروسي{% else %}My Lessons{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}كل دروسك عبر كل كورساتك في مكان واحد.{% else %}All your lessons across every course in one place.{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<form class="teacher-filters" method="get">
+  <input name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث في عناوين الدروس{% else %}Search lesson titles{% endif %}">
+  <select name="status">
+    <option value="">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</option>
+    <option value="draft" {% if filters.status == "draft" %}selected{% endif %}>draft</option>
+    <option value="pending_review" {% if filters.status == "pending_review" %}selected{% endif %}>pending_review</option>
+    <option value="published" {% if filters.status == "published" %}selected{% endif %}>published</option>
+    <option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>rejected</option>
+  </select>
+  <select name="course">
+    <option value="">{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</option>
+    {% for c in courses %}
+      <option value="{{ c.pk }}" {% if filters.course == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.title_ar|default:c.title }}</option>
+    {% endfor %}
+  </select>
+  <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="search"></i>{% if lang == "ar" %}تصفية{% else %}Filter{% endif %}</button>
+</form>
+
+<section class="teacher-panel">
+  <table class="teacher-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
+      <th>{% if lang == "ar" %}الترتيب{% else %}Order{% endif %}</th>
+      <th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th>
+      <th>{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th>{% if lang == "ar" %}الإجراءات{% else %}Actions{% endif %}</th>
+    </tr></thead>
+    <tbody>
+      {% for lesson in page_obj.object_list %}
+        <tr>
+          <td>{{ lesson.course.title_ar|default:lesson.course.title }}</td>
+          <td>{{ lesson.order }}</td>
+          <td>{{ lesson.title_ar|default:lesson.title }}</td>
+          <td>{{ lesson.skill|default:lesson.lesson_type }}</td>
+          <td><span class="status-pill status-{{ lesson.status }}">{{ lesson.status }}</span></td>
+          <td class="row-actions">
+            {% if lesson.status == "draft" or lesson.status == "rejected" %}
+              <a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
+            {% endif %}
+            <a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}">{% if lang == "ar" %}الاختبار{% else %}Quiz{% endif %}</a>
+            <a href="{% url 'teacher_portal:lessons' lesson.course_id %}">{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">{% if lang == "ar" %}لا توجد دروس بعد.{% else %}No lessons yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include "teacher_portal/_pagination.html" %}
+</section>
+{% endblock %}

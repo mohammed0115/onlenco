@@ -4,12 +4,13 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from courses.models import Course, CourseEnrollment, Lesson, LessonQuestion, LessonQuiz
+from notifications import constants as notification_constants
 from notifications.models import NotificationEvent
 
 from . import permissions as teacher_perms
@@ -24,7 +25,7 @@ from .forms import (
     TeacherQuizForm,
     TeacherStudentNoteForm,
 )
-from .models import StudentAssignmentSubmission, TeacherAssignment, TeacherProfile
+from .models import StudentAssignmentSubmission, TeacherAssignment, TeacherProfile, TeacherStudentNote
 from .permissions import teacher_required
 from .services import (
     analytics_service,
@@ -42,8 +43,8 @@ def _teacher_nav():
     return [
         ("dashboard", "layout-dashboard", "Teacher Dashboard", "لوحة المعلم", "teacher_portal:dashboard"),
         ("courses", "book-open", "My Courses", "كورساتي", "teacher_portal:courses"),
-        ("lessons", "play-square", "My Lessons", "دروسي", "teacher_portal:courses"),
-        ("quizzes", "list-checks", "Quizzes", "اختباراتي", "teacher_portal:courses"),
+        ("lessons", "play-square", "My Lessons", "دروسي", "teacher_portal:all_lessons"),
+        ("quizzes", "list-checks", "Quizzes", "اختباراتي", "teacher_portal:all_quizzes"),
         ("students", "users", "My Students", "طلابي", "teacher_portal:students"),
         ("assignments", "clipboard-list", "Assignments", "الواجبات", "teacher_portal:assignments"),
         ("analytics", "bar-chart-3", "Analytics", "التحليلات", "teacher_portal:analytics"),
@@ -58,6 +59,9 @@ def _ctx(request, section: str, extra=None):
         "teacher_nav": _teacher_nav(),
         "active_role": RoleService.get_active_role(request),
         "available_modes": RoleService.available_modes(request.user),
+        "can_access_control_center": RoleService.can_access_control_center(request.user),
+        "show_student_mode": RoleService.user_has_role(request.user, ROLE_STUDENT),
+        "available_staff_modes": RoleService.available_staff_modes(request.user),
     }
     if extra:
         context.update(extra)
@@ -81,6 +85,22 @@ def switch_role(request, role):
     if role == ROLE_TEACHER:
         return redirect("teacher_portal:dashboard")
     return redirect("dashboard")
+
+
+@login_required
+def switch_staff_mode(request, mode):
+    """Switch between Control Center and Teacher Portal for admin+teacher users."""
+    if mode not in {"control", "teacher"}:
+        raise Http404("Unknown staff mode")
+    if mode == "control":
+        if not RoleService.can_access_control_center(request.user):
+            return HttpResponseForbidden("Control Center access required")
+        request.session["active_staff_mode"] = "control"
+        return redirect("platform_admin:dashboard")
+    if not RoleService.is_teacher_user(request.user):
+        return HttpResponseForbidden("Teacher role required")
+    request.session["active_staff_mode"] = "teacher"
+    return redirect("teacher_portal:dashboard")
 
 
 @teacher_required
@@ -176,6 +196,52 @@ def lessons_list(request, course_id):
     course = get_object_or_404(teacher_perms.teacher_course_queryset(request.user), pk=course_id)
     lessons = course.lessons.order_by("order", "id")
     return _render(request, "teacher_portal/lessons/list.html", "lessons", {"course": course, "lessons": lessons})
+
+
+@teacher_required
+def all_lessons(request):
+    qs = teacher_perms.teacher_lesson_queryset(request.user).select_related("course", "course__level")
+    q = (request.GET.get("q") or "").strip()
+    status = (request.GET.get("status") or "").strip()
+    course_id = (request.GET.get("course") or "").strip()
+    if q:
+        qs = qs.filter(Q(title__icontains=q) | Q(title_ar__icontains=q) | Q(title_en__icontains=q))
+    if status:
+        qs = qs.filter(status=status)
+    if course_id.isdigit():
+        qs = qs.filter(course_id=int(course_id))
+    return _render(
+        request,
+        "teacher_portal/lessons/all.html",
+        "lessons",
+        {
+            "page_obj": _paginate(request, qs.order_by("course__title", "order", "id")),
+            "filters": request.GET,
+            "courses": teacher_perms.teacher_course_queryset(request.user).only("id", "title", "title_ar"),
+        },
+    )
+
+
+@teacher_required
+def all_quizzes(request):
+    quiz_qs = LessonQuiz.objects.filter(
+        lesson__in=teacher_perms.teacher_lesson_queryset(request.user),
+    ).select_related("lesson", "lesson__course").annotate(question_count=Count("questions"))
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        quiz_qs = quiz_qs.filter(
+            Q(title__icontains=q) | Q(title_ar__icontains=q) | Q(title_en__icontains=q)
+            | Q(lesson__title__icontains=q)
+        )
+    return _render(
+        request,
+        "teacher_portal/quizzes/all.html",
+        "quizzes",
+        {
+            "page_obj": _paginate(request, quiz_qs.order_by("lesson__course__title", "lesson__order")),
+            "filters": request.GET,
+        },
+    )
 
 
 @teacher_required
@@ -275,16 +341,14 @@ def question_edit(request, question_id):
 
 @teacher_required
 def students_list(request):
-    rows = student_service.teacher_student_rows(request.user)
-    q = (request.GET.get("q") or "").strip().lower()
-    if q:
-        rows = [
-            row for row in rows
-            if q in (row["student"].email or "").lower()
-            or q in (row["student"].username or "").lower()
-            or q in (getattr(row["student"].profile, "full_name", "") or "").lower()
-        ]
-    return _render(request, "teacher_portal/students/list.html", "students", {"rows": rows, "filters": request.GET})
+    q = (request.GET.get("q") or "").strip()
+    rows = student_service.teacher_student_rows(request.user, search=q)
+    return _render(
+        request,
+        "teacher_portal/students/list.html",
+        "students",
+        {"page_obj": _paginate(request, rows), "filters": request.GET},
+    )
 
 
 @teacher_required
@@ -320,7 +384,12 @@ def student_note_create(request, student_id):
 @teacher_required
 def assignments_list(request):
     assignments = TeacherAssignment.objects.filter(teacher=request.user).select_related("course", "lesson")
-    return _render(request, "teacher_portal/assignments/list.html", "assignments", {"assignments": assignments})
+    return _render(
+        request,
+        "teacher_portal/assignments/list.html",
+        "assignments",
+        {"page_obj": _paginate(request, assignments), "filters": request.GET},
+    )
 
 
 @teacher_required
@@ -387,9 +456,22 @@ def analytics(request):
     return _render(request, "teacher_portal/analytics/overview.html", "analytics", analytics_service.analytics_context(request.user))
 
 
+TEACHER_NOTIFICATION_EVENT_TYPES = [
+    notification_constants.TEACHER_COURSE_APPROVED,
+    notification_constants.TEACHER_COURSE_REJECTED,
+    notification_constants.TEACHER_ASSIGNMENT_SUBMITTED,
+    notification_constants.TEACHER_STUDENT_LOW_PERFORMANCE,
+    notification_constants.TEACHER_CONTENT_NEEDS_REVISION,
+]
+
+
 @teacher_required
 def notifications(request):
-    events = NotificationEvent.objects.filter(user=request.user).order_by("-created_at")[:50]
+    events = (
+        NotificationEvent.objects
+        .filter(user=request.user, event_type__in=TEACHER_NOTIFICATION_EVENT_TYPES)
+        .order_by("-created_at")[:50]
+    )
     return _render(request, "teacher_portal/notifications/list.html", "notifications", {"events": events})
 
 
@@ -405,3 +487,69 @@ def settings(request):
     else:
         form = TeacherProfileForm(instance=profile)
     return _render(request, "teacher_portal/settings/profile.html", "settings", {"form": form, "teacher_profile": profile})
+
+
+@require_POST
+@teacher_required
+def course_delete(request, pk):
+    course = get_object_or_404(teacher_perms.teacher_course_queryset(request.user), pk=pk)
+    if not teacher_perms.teacher_can_edit_course(request.user, course):
+        return HttpResponseForbidden("Only draft or rejected courses can be deleted")
+    course.delete()
+    messages.success(request, "Course deleted.")
+    return redirect("teacher_portal:courses")
+
+
+@require_POST
+@teacher_required
+def lesson_delete(request, lesson_id):
+    lesson = get_object_or_404(teacher_perms.teacher_lesson_queryset(request.user), pk=lesson_id)
+    if not teacher_perms.teacher_can_edit_lesson(request.user, lesson):
+        return HttpResponseForbidden("Only draft or rejected lessons can be deleted")
+    course_id = lesson.course_id
+    lesson.delete()
+    messages.success(request, "Lesson deleted.")
+    return redirect("teacher_portal:lessons", course_id=course_id)
+
+
+@require_POST
+@teacher_required
+def quiz_delete(request, quiz_id):
+    quiz = get_object_or_404(LessonQuiz.objects.select_related("lesson"), pk=quiz_id)
+    if not teacher_perms.teacher_lesson_queryset(request.user).filter(pk=quiz.lesson_id).exists():
+        return HttpResponseForbidden("Forbidden")
+    lesson_id = quiz.lesson_id
+    quiz.delete()
+    messages.success(request, "Quiz deleted.")
+    return redirect("teacher_portal:lesson_quiz", lesson_id=lesson_id)
+
+
+@require_POST
+@teacher_required
+def question_delete(request, question_id):
+    question = get_object_or_404(LessonQuestion.objects.select_related("quiz"), pk=question_id)
+    if not teacher_perms.teacher_lesson_queryset(request.user).filter(pk=question.quiz.lesson_id).exists():
+        return HttpResponseForbidden("Forbidden")
+    quiz_id = question.quiz_id
+    question.delete()
+    messages.success(request, "Question deleted.")
+    return redirect("teacher_portal:quiz_questions", quiz_id=quiz_id)
+
+
+@require_POST
+@teacher_required
+def assignment_delete(request, assignment_id):
+    assignment = get_object_or_404(TeacherAssignment, pk=assignment_id, teacher=request.user)
+    assignment.delete()
+    messages.success(request, "Assignment deleted.")
+    return redirect("teacher_portal:assignments")
+
+
+@require_POST
+@teacher_required
+def student_note_delete(request, note_id):
+    note = get_object_or_404(TeacherStudentNote, pk=note_id, teacher=request.user)
+    student_id = note.student_id
+    note.delete()
+    messages.success(request, "Note deleted.")
+    return redirect("teacher_portal:student_detail", student_id=student_id)

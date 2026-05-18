@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "AI Tutor preferences" "تفضيلات المدرس الذكي" %} — Onlenco{% endblock %}
+
+{% block body %}
+{% include "_app_header.html" %}
+
+<main class="container py-10" style="max-width:880px">
+  <header style="margin-bottom:24px">
+    <h1 class="text-3xl font-bold mb-2">
+      {% if lang == "ar" %}تفضيلات المدرس الذكي{% else %}AI Tutor preferences{% endif %}
+    </h1>
+    <p class="text-muted-foreground">
+      {% if lang == "ar" %}اختر الصوت والشخصية وسرعة التحدث التي تفضلها.{% else %}Pick the voice, avatar, and speaking style you prefer.{% endif %}
+    </p>
+  </header>
+
+  {% if messages %}
+    {% for m in messages %}
+      <div style="padding:10px 14px;border-radius:10px;background:#dcfce7;border:1px solid #86efac;margin-bottom:12px">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" style="display:flex;flex-direction:column;gap:24px">
+    {% csrf_token %}
+
+    <section style="border:1px solid hsl(var(--border));border-radius:14px;padding:20px;background:hsl(var(--card))">
+      <h2 class="text-xl font-semibold mb-3">
+        {% if lang == "ar" %}الصوت{% else %}Voice{% endif %}
+      </h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+        {% for v in voices %}
+          <label style="border:1px solid hsl(var(--border));border-radius:10px;padding:14px;cursor:pointer;{% if snapshot.voice.code == v.code %}border-color:hsl(178 65% 18%);box-shadow:0 0 0 2px hsl(178 65% 18% / 0.15){% endif %}">
+            <input type="radio" name="voice_code" value="{{ v.code }}" {% if snapshot.voice.code == v.code %}checked{% endif %} style="margin-right:6px">
+            <strong>{% if lang == "ar" %}{{ v.name_ar }}{% else %}{{ v.name_en }}{% endif %}</strong>
+            <div class="text-xs text-muted-foreground" style="margin-top:4px">
+              {{ v.get_voice_type_display }} · {{ v.get_style_display }} · {{ v.get_tone_display }}
+            </div>
+          </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section style="border:1px solid hsl(var(--border));border-radius:14px;padding:20px;background:hsl(var(--card))">
+      <h2 class="text-xl font-semibold mb-3">
+        {% if lang == "ar" %}الشخصية / Avatar{% else %}Avatar{% endif %}
+      </h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+        {% for a in avatars %}
+          <label style="border:1px solid hsl(var(--border));border-radius:10px;padding:14px;cursor:pointer;text-align:center;{% if snapshot.avatar.code == a.code %}border-color:hsl(178 65% 18%);box-shadow:0 0 0 2px hsl(178 65% 18% / 0.15){% endif %}">
+            <input type="radio" name="avatar_code" value="{{ a.code }}" {% if snapshot.avatar.code == a.code %}checked{% endif %} style="margin-bottom:6px">
+            {% if a.image_url %}
+              <img src="{{ a.image_url }}" alt="{{ a.name_en }}" style="width:72px;height:72px;border-radius:999px;object-fit:cover;margin:6px auto;display:block">
+            {% else %}
+              <div style="width:72px;height:72px;border-radius:999px;background:#e2e8f0;margin:6px auto;display:flex;align-items:center;justify-content:center;font-weight:600;color:#64748b">
+                {{ a.name_en|first }}
+              </div>
+            {% endif %}
+            <strong>{% if lang == "ar" %}{{ a.name_ar }}{% else %}{{ a.name_en }}{% endif %}</strong>
+            <div class="text-xs text-muted-foreground">{{ a.get_gender_display }}</div>
+          </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section style="border:1px solid hsl(var(--border));border-radius:14px;padding:20px;background:hsl(var(--card))">
+      <h2 class="text-xl font-semibold mb-3">
+        {% if lang == "ar" %}سرعة الكلام والنبرة{% else %}Speed &amp; pitch{% endif %}
+      </h2>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+        <div>
+          <label class="block mb-1">{% if lang == "ar" %}السرعة{% else %}Speed{% endif %}</label>
+          <select name="speed" style="width:100%;padding:8px;border:1px solid hsl(var(--border));border-radius:8px">
+            <option value="slow" {% if snapshot.speed == "slow" %}selected{% endif %}>{% if lang == "ar" %}بطيء{% else %}Slow{% endif %}</option>
+            <option value="normal" {% if snapshot.speed == "normal" %}selected{% endif %}>{% if lang == "ar" %}عادي{% else %}Normal{% endif %}</option>
+            <option value="fast" {% if snapshot.speed == "fast" %}selected{% endif %}>{% if lang == "ar" %}سريع{% else %}Fast{% endif %}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block mb-1">{% if lang == "ar" %}النبرة{% else %}Pitch{% endif %}</label>
+          <select name="pitch" style="width:100%;padding:8px;border:1px solid hsl(var(--border));border-radius:8px">
+            <option value="low" {% if snapshot.pitch == "low" %}selected{% endif %}>{% if lang == "ar" %}منخفضة{% else %}Low{% endif %}</option>
+            <option value="normal" {% if snapshot.pitch == "normal" %}selected{% endif %}>{% if lang == "ar" %}عادية{% else %}Normal{% endif %}</option>
+            <option value="high" {% if snapshot.pitch == "high" %}selected{% endif %}>{% if lang == "ar" %}مرتفعة{% else %}High{% endif %}</option>
+          </select>
+        </div>
+      </div>
+      <label style="display:block;margin-top:14px">
+        <input type="checkbox" name="sound_effects_enabled" {% if snapshot.sound_effects_enabled %}checked{% endif %}>
+        {% if lang == "ar" %}تفعيل المؤثرات الصوتية للتحفيز{% else %}Enable gamification sound effects{% endif %}
+      </label>
+    </section>
+
+    <div>
+      <button type="submit" class="btn btn-hero">
+        {% if lang == "ar" %}حفظ التفضيلات{% else %}Save preferences{% endif %}
+      </button>
+    </div>
+  </form>
+</main>
+{% endblock %}

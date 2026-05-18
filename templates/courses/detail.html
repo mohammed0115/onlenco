@@ -59,7 +59,7 @@
                     <div class="rounded-md bg-muted p-4 text-sm text-muted-foreground">
                         {% t_either "Subscribe to open this course and its lessons." "اشترك لفتح هذا الكورس ودروسه." %}
                     </div>
-                    <a href="{% url 'subscribe' %}" class="btn btn-hero w-full">
+                    <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-hero w-full">
                         <i data-lucide="lock" class="h-4 w-4"></i>
                         {% t "dash.subscribe" %}
                     </a>

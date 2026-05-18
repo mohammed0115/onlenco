@@ -54,6 +54,13 @@ class ClubRSVP(models.Model):
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="going")
     attended = models.BooleanField(default=False)
+    attendance_marked_at = models.DateTimeField(null=True, blank=True)
+    attendance_marked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="club_attendance_marks",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -65,4 +72,47 @@ class ClubRSVP(models.Model):
 
     def __str__(self):
         return f"{self.user} — {self.event} ({self.status})"
+
+
+class ClubFeedback(models.Model):
+    """Teacher's note about a specific student after a club session.
+
+    Distinct from ``ClubRSVP.attended`` — that's a boolean, this is the
+    qualitative feedback (pronunciation, confidence, follow-ups).
+    """
+
+    event = models.ForeignKey(ClubEvent, on_delete=models.CASCADE, related_name="feedback_entries")
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="club_feedback_received",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="club_feedback_written",
+    )
+    rating = models.PositiveSmallIntegerField(
+        default=3,
+        help_text=_("1-5 quick rating of student's participation."),
+    )
+    feedback_en = models.TextField(blank=True)
+    feedback_ar = models.TextField(blank=True)
+    xp_awarded = models.PositiveIntegerField(default=0)
+    is_visible_to_student = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Club feedback")
+        verbose_name_plural = _("Club feedback entries")
+        unique_together = [("event", "student")]
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["student", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"feedback<{self.event_id}/{self.student_id}> r={self.rating}"
 

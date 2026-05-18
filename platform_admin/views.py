@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
@@ -10,6 +12,8 @@ from django.views.decorators.http import require_POST
 from courses.models import Course, Lesson
 from payments.models import PaymentSubmission
 
+logger = logging.getLogger(__name__)
+
 from . import permissions as perms
 from .decorators import control_login_required, control_permission_required
 from .forms import (
@@ -19,11 +23,14 @@ from .forms import (
     ExtendSubscriptionForm,
     LessonEditorForm,
     PaymentRejectForm,
+    RegisterTeacherForm,
     StudentNoteForm,
     StudentNotificationForm,
     StudentRiskForm,
+    SubscriptionPlanForm,
     TeacherAssignCourseForm,
 )
+from subscriptions.models import AvatarProfile, SubscriptionPlan, VoiceProfile
 from .models import PlatformAuditLog
 from .services import (
     ai_monitoring_service,
@@ -31,16 +38,23 @@ from .services import (
     course_review_service,
     dashboard_service,
     payment_review_service,
+    role_dashboards,
     student_management_service,
     teacher_management_service,
 )
 
 
 def _control_context(request, extra=None):
+    try:
+        from teacher_portal.services.role_service import RoleService
+        can_access_teacher_portal = RoleService.is_teacher_user(request.user)
+    except Exception:
+        can_access_teacher_portal = False
     ctx = {
         "nav_items": perms.nav_items_for(request.user),
         "role_names": sorted(perms.user_role_names(request.user)),
         "is_read_only_admin": perms.is_read_only(request.user),
+        "can_access_teacher_portal": can_access_teacher_portal,
     }
     if extra:
         ctx.update(extra)
@@ -58,10 +72,71 @@ def _paginate(request, qs, per_page=25):
 
 @control_permission_required(perms.CAP_DASHBOARD)
 def dashboard(request):
+    target = role_dashboards.dashboard_url_for(request.user)
+    if target != "platform_admin:dashboard":
+        return redirect(target)
     return _render(
         request,
         "platform_admin/dashboard.html",
         {"metrics": dashboard_service.dashboard_metrics_for(request.user), "section": "dashboard"},
+    )
+
+
+@control_permission_required(perms.CAP_DASHBOARD)
+def dashboard_academic(request):
+    if not perms.has_role(
+        request.user,
+        perms.GROUP_ACADEMIC_ADMIN,
+        perms.GROUP_PLATFORM_ADMIN,
+        perms.GROUP_SUPER_ADMIN,
+    ):
+        return HttpResponseForbidden("Academic admin access required")
+    return _render(
+        request,
+        "platform_admin/dashboards/academic.html",
+        {"section": "dashboard", **role_dashboards.academic_dashboard_context()},
+    )
+
+
+@control_permission_required(perms.CAP_DASHBOARD)
+def dashboard_finance(request):
+    if not perms.has_capability(request.user, perms.CAP_PAYMENTS_VIEW):
+        return HttpResponseForbidden("Finance access required")
+    return _render(
+        request,
+        "platform_admin/dashboards/finance.html",
+        {"section": "dashboard", **role_dashboards.finance_dashboard_context()},
+    )
+
+
+@control_permission_required(perms.CAP_DASHBOARD)
+def dashboard_support(request):
+    if not perms.has_capability(request.user, perms.CAP_STUDENTS_VIEW):
+        return HttpResponseForbidden("Support access required")
+    return _render(
+        request,
+        "platform_admin/dashboards/support.html",
+        {"section": "dashboard", **role_dashboards.support_dashboard_context()},
+    )
+
+
+@control_permission_required(perms.CAP_DASHBOARD)
+def dashboard_ai(request):
+    if not perms.has_capability(request.user, perms.CAP_AI_VIEW):
+        return HttpResponseForbidden("AI admin access required")
+    return _render(
+        request,
+        "platform_admin/dashboards/ai.html",
+        {"section": "dashboard", **role_dashboards.ai_dashboard_context()},
+    )
+
+
+@control_permission_required(perms.CAP_DASHBOARD)
+def dashboard_readonly(request):
+    return _render(
+        request,
+        "platform_admin/dashboards/readonly.html",
+        {"section": "dashboard", "metrics": role_dashboards.readonly_dashboard_context(request.user)},
     )
 
 
@@ -177,6 +252,52 @@ def student_action(request, pk, action):
             messages.success(request, "Subscription extended.")
         else:
             messages.error(request, "Invalid subscription duration.")
+    elif action == "verify-email":
+        # Support workaround for users who never receive the verification
+        # email (Gmail spam-filter, throw-away inbox, etc.).
+        if not (
+            perms.can_mutate(request.user, perms.CAP_STUDENTS_MANAGE)
+            or perms.has_capability(request.user, perms.CAP_NOTIFICATIONS_MANAGE)
+        ):
+            return HttpResponseForbidden("Forbidden")
+        profile = getattr(student, "profile", None)
+        if profile is None or profile.email_verified:
+            messages.info(request, "Email is already verified.")
+        else:
+            profile.email_verified = True
+            profile.save(update_fields=["email_verified"])
+            from .services.audit_log_service import log_action
+            log_action(
+                request,
+                action_type="student.email_verify_manual",
+                target_user=student,
+                description=f"Manually marked email verified for {student.email or student.username}",
+            )
+            messages.success(request, "Email marked as verified.")
+    elif action == "resend-verification":
+        if not (
+            perms.can_mutate(request.user, perms.CAP_STUDENTS_MANAGE)
+            or perms.has_capability(request.user, perms.CAP_NOTIFICATIONS_MANAGE)
+        ):
+            return HttpResponseForbidden("Forbidden")
+        if not student.email:
+            messages.error(request, "Student has no email on file.")
+        else:
+            try:
+                from notifications.services import issue_verification_token
+                token = issue_verification_token(student)
+                from .services.audit_log_service import log_action
+                log_action(
+                    request,
+                    action_type="student.verification_resend",
+                    target_user=student,
+                    description=f"Resent verification email to {student.email}",
+                    metadata={"code_id": getattr(token, "pk", None)},
+                )
+                messages.success(request, f"Verification email resent to {student.email}.")
+            except Exception:
+                logger.exception("resend verification failed for %s", student.pk)
+                messages.error(request, "Failed to resend verification email — check server logs.")
     else:
         raise Http404("Unknown action")
     return redirect("platform_admin:student_detail", pk=student.pk)
@@ -200,6 +321,41 @@ def teacher_detail(request, pk):
     context = teacher_management_service.teacher_detail_context(teacher)
     context.update({"assign_form": TeacherAssignCourseForm(), "section": "teachers"})
     return _render(request, "platform_admin/teachers/detail.html", context)
+
+
+@control_permission_required(perms.CAP_TEACHERS_MANAGE)
+def teacher_create(request):
+    if not perms.can_mutate(request.user, perms.CAP_TEACHERS_MANAGE):
+        return HttpResponseForbidden("Teacher management required")
+    if request.method == "POST":
+        form = RegisterTeacherForm(request.POST)
+        if form.is_valid():
+            user, temp_password = teacher_management_service.register_teacher(
+                request,
+                first_name=form.cleaned_data["first_name"],
+                last_name=form.cleaned_data["last_name"],
+                email=form.cleaned_data["email"],
+            )
+            email_sent = teacher_management_service.send_teacher_welcome_email(user, temp_password)
+            if email_sent:
+                messages.success(
+                    request,
+                    f"Teacher {user.email} created. A temporary password was emailed.",
+                )
+            else:
+                messages.warning(
+                    request,
+                    f"Teacher {user.email} created, but the welcome email failed. "
+                    f"Temporary password: {temp_password}",
+                )
+            return redirect("platform_admin:teacher_detail", pk=user.pk)
+    else:
+        form = RegisterTeacherForm()
+    return _render(
+        request,
+        "platform_admin/teachers/create.html",
+        {"form": form, "section": "teachers"},
+    )
 
 
 @require_POST
@@ -540,4 +696,252 @@ def audit_logs(request):
         request,
         "platform_admin/audit_logs.html",
         {"page_obj": page, "filters": request.GET, "section": "audit"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Subscription plans (Sprint 1)
+# ---------------------------------------------------------------------------
+
+@control_permission_required(perms.CAP_PLANS_VIEW)
+def plans_list(request):
+    plans = SubscriptionPlan.objects.all().order_by("sort_order", "ai_tutor_daily_minutes")
+    return _render(
+        request,
+        "platform_admin/plans/list.html",
+        {"plans": plans, "section": "plans"},
+    )
+
+
+@control_permission_required(perms.CAP_PLANS_MANAGE)
+def plan_create(request):
+    if not perms.can_mutate(request.user, perms.CAP_PLANS_MANAGE):
+        return HttpResponseForbidden("Plan management required")
+    if request.method == "POST":
+        form = SubscriptionPlanForm(request.POST)
+        if form.is_valid():
+            plan = form.save()
+            from .services.audit_log_service import log_action
+            log_action(
+                request,
+                action_type="plan.create",
+                object_type="SubscriptionPlan",
+                object_id=plan.pk,
+                description=f"Created subscription plan '{plan.code}'",
+                metadata={
+                    "price_sdg": plan.price_sdg,
+                    "ai_tutor_daily_minutes": plan.ai_tutor_daily_minutes,
+                },
+            )
+            messages.success(request, f"Plan '{plan.code}' created.")
+            return redirect("platform_admin:plans")
+    else:
+        form = SubscriptionPlanForm()
+    return _render(
+        request,
+        "platform_admin/plans/form.html",
+        {"form": form, "plan": None, "section": "plans"},
+    )
+
+
+@control_permission_required(perms.CAP_PLANS_MANAGE)
+def plan_edit(request, pk):
+    if not perms.can_mutate(request.user, perms.CAP_PLANS_MANAGE):
+        return HttpResponseForbidden("Plan management required")
+    plan = get_object_or_404(SubscriptionPlan, pk=pk)
+    if request.method == "POST":
+        form = SubscriptionPlanForm(request.POST, instance=plan)
+        if form.is_valid():
+            plan = form.save()
+            from .services.audit_log_service import log_action
+            log_action(
+                request,
+                action_type="plan.update",
+                object_type="SubscriptionPlan",
+                object_id=plan.pk,
+                description=f"Updated subscription plan '{plan.code}'",
+                metadata={
+                    "price_sdg": plan.price_sdg,
+                    "ai_tutor_daily_minutes": plan.ai_tutor_daily_minutes,
+                },
+            )
+            messages.success(request, f"Plan '{plan.code}' updated.")
+            return redirect("platform_admin:plans")
+    else:
+        form = SubscriptionPlanForm(instance=plan)
+    return _render(
+        request,
+        "platform_admin/plans/form.html",
+        {"form": form, "plan": plan, "section": "plans"},
+    )
+
+
+@require_POST
+@control_permission_required(perms.CAP_PLANS_MANAGE)
+def plan_delete(request, pk):
+    if not perms.can_mutate(request.user, perms.CAP_PLANS_MANAGE):
+        return HttpResponseForbidden("Plan management required")
+    plan = get_object_or_404(SubscriptionPlan, pk=pk)
+    if plan.subscriptions.exists():
+        messages.error(
+            request,
+            f"Cannot delete '{plan.code}' — it has existing subscriptions. "
+            f"Deactivate it instead.",
+        )
+        return redirect("platform_admin:plans")
+    code = plan.code
+    plan.delete()
+    from .services.audit_log_service import log_action
+    log_action(
+        request,
+        action_type="plan.delete",
+        object_type="SubscriptionPlan",
+        object_id=pk,
+        description=f"Deleted subscription plan '{code}'",
+    )
+    messages.success(request, f"Plan '{code}' deleted.")
+    return redirect("platform_admin:plans")
+
+
+# ---------------------------------------------------------------------------
+# Voices & Avatars catalogue (Sprint 3)
+# ---------------------------------------------------------------------------
+
+@control_permission_required(perms.CAP_SETTINGS_VIEW)
+def voices_list(request):
+    voices = VoiceProfile.objects.all().order_by("sort_order", "name_en")
+    avatars = AvatarProfile.objects.all().order_by("sort_order", "name_en")
+    return _render(
+        request,
+        "platform_admin/voices/list.html",
+        {"voices": voices, "avatars": avatars, "section": "voices"},
+    )
+
+
+@require_POST
+@control_permission_required(perms.CAP_SETTINGS_MANAGE)
+def voice_toggle_active(request, pk):
+    if not perms.can_mutate(request.user, perms.CAP_SETTINGS_MANAGE):
+        return HttpResponseForbidden("Settings management required")
+    voice = get_object_or_404(VoiceProfile, pk=pk)
+    voice.is_active = not voice.is_active
+    voice.save(update_fields=["is_active", "updated_at"])
+    from .services.audit_log_service import log_action
+    log_action(
+        request,
+        action_type="voice.toggle_active",
+        object_type="VoiceProfile",
+        object_id=voice.pk,
+        description=f"Voice '{voice.code}' is_active → {voice.is_active}",
+    )
+    messages.success(request, f"Voice '{voice.code}' updated.")
+    return redirect("platform_admin:voices")
+
+
+@require_POST
+@control_permission_required(perms.CAP_SETTINGS_MANAGE)
+def avatar_toggle_active(request, pk):
+    if not perms.can_mutate(request.user, perms.CAP_SETTINGS_MANAGE):
+        return HttpResponseForbidden("Settings management required")
+    avatar = get_object_or_404(AvatarProfile, pk=pk)
+    avatar.is_active = not avatar.is_active
+    avatar.save(update_fields=["is_active", "updated_at"])
+    from .services.audit_log_service import log_action
+    log_action(
+        request,
+        action_type="avatar.toggle_active",
+        object_type="AvatarProfile",
+        object_id=avatar.pk,
+        description=f"Avatar '{avatar.code}' is_active → {avatar.is_active}",
+    )
+    messages.success(request, f"Avatar '{avatar.code}' updated.")
+    return redirect("platform_admin:voices")
+
+
+# ---------------------------------------------------------------------------
+# Gamification sounds (Sprint 5)
+# ---------------------------------------------------------------------------
+
+@control_permission_required(perms.CAP_GAMIFICATION_MANAGE)
+def gamification_sounds(request):
+    """List + inline-edit the GameEventSound catalogue."""
+    from motivation.models import GameEventSound
+    from django import forms
+
+    class SoundForm(forms.ModelForm):
+        class Meta:
+            model = GameEventSound
+            fields = [
+                "code", "audio_url", "fallback_audio_path",
+                "message_en", "message_ar",
+                "animation", "xp_callout_template_en", "xp_callout_template_ar",
+                "is_active",
+            ]
+
+    if request.method == "POST":
+        if not perms.can_mutate(request.user, perms.CAP_GAMIFICATION_MANAGE):
+            return HttpResponseForbidden("Gamification management required")
+        sound_id = request.POST.get("sound_id")
+        if sound_id:
+            sound = get_object_or_404(GameEventSound, pk=sound_id)
+            form = SoundForm(request.POST, instance=sound)
+            if form.is_valid():
+                form.save()
+                from .services.audit_log_service import log_action
+                log_action(
+                    request,
+                    action_type="game_event_sound.update",
+                    object_type="GameEventSound",
+                    object_id=sound.pk,
+                    description=f"Updated sound '{sound.code}'",
+                )
+                messages.success(request, f"Sound '{sound.code}' updated.")
+        return redirect("platform_admin:gamification_sounds")
+
+    sounds = GameEventSound.objects.all().order_by("code")
+    forms_for_sounds = [(s, SoundForm(instance=s)) for s in sounds]
+    return _render(
+        request,
+        "platform_admin/gamification/sounds.html",
+        {"sound_forms": forms_for_sounds, "section": "settings"},
+    )
+
+
+@control_permission_required(perms.CAP_SETTINGS_MANAGE)
+def avatar_upload_image(request, pk):
+    """Upload a real photo for an AvatarProfile.
+
+    The Sprint 3 seed shipped placeholder avatars without images. Admins
+    use this form to attach a real face — used by the voice-call screen
+    as the talking head.
+    """
+    if not perms.can_mutate(request.user, perms.CAP_SETTINGS_MANAGE):
+        return HttpResponseForbidden("Settings management required")
+    avatar = get_object_or_404(AvatarProfile, pk=pk)
+    if request.method == "POST":
+        uploaded = request.FILES.get("image_file")
+        image_url = (request.POST.get("image_url") or "").strip()
+        if uploaded:
+            avatar.image_file = uploaded
+            avatar.save(update_fields=["image_file", "updated_at"])
+            from .services.audit_log_service import log_action
+            log_action(
+                request,
+                action_type="avatar.image_upload",
+                object_type="AvatarProfile",
+                object_id=avatar.pk,
+                description=f"Uploaded image for avatar '{avatar.code}'",
+            )
+            messages.success(request, f"Image uploaded for '{avatar.code}'.")
+        elif image_url:
+            avatar.image_url = image_url
+            avatar.save(update_fields=["image_url", "updated_at"])
+            messages.success(request, f"Image URL saved for '{avatar.code}'.")
+        else:
+            messages.error(request, "Provide either a file or a URL.")
+        return redirect("platform_admin:voices")
+    return _render(
+        request,
+        "platform_admin/voices/avatar_image_upload.html",
+        {"avatar": avatar, "section": "voices"},
     )

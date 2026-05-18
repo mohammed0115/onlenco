@@ -46,8 +46,12 @@ def next_url_for(user) -> str | None:
 
     Order of precedence:
       1. Email not verified → verify_email_otp
-      2. Onboarding not done → onboarding_choice
+      2. Student-side onboarding not done → onboarding_choice
       3. None (continue to dashboard / requested page)
+
+    Admin and teacher accounts skip onboarding entirely — onboarding is
+    a student-flow gate (CEFR placement, "start as beginner") that does
+    not apply to staff.
     """
     if not getattr(user, "is_authenticated", False):
         return None
@@ -60,12 +64,23 @@ def next_url_for(user) -> str | None:
             return reverse("verify_email_otp")
         except Exception:
             return None
+    if _is_staff_account(user):
+        return None
     if needs_onboarding(profile):
         try:
             return reverse("onboarding_choice")
         except Exception:
             return None
     return None
+
+
+def _is_staff_account(user) -> bool:
+    """True for accounts holding any admin or teacher role."""
+    try:
+        from teacher_portal.services.role_service import RoleService
+        return RoleService.is_admin_user(user) or RoleService.is_teacher_user(user)
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------

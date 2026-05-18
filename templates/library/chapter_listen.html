@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Listen" "استمع" %} · {{ chapter.title }}{% endblock %}
+
+{% block body %}
+{% include "_app_header.html" %}
+
+<main class="container py-10" style="max-width:880px">
+  <nav style="margin-bottom:12px">
+    <a href="{% url 'library_book' chapter.book.pk %}" class="text-muted-foreground text-sm">
+      &larr; {{ chapter.book.title }}
+    </a>
+  </nav>
+
+  <h1 class="text-3xl font-bold mb-2">{{ chapter.title }}</h1>
+  <p class="text-muted-foreground" style="margin-bottom:18px">
+    {% if lang == "ar" %}قراءة طبيعية بصوت{% else %}Natural reading by{% endif %}
+    <strong>{% if lang == "ar" %}{{ voice.name_ar }}{% else %}{{ voice.name_en }}{% endif %}</strong>
+    · {% if lang == "ar" %}الوقت المتبقي اليوم{% else %}Remaining today{% endif %}:
+    <strong id="remainingSeconds">{{ remaining_seconds }}</strong> {% if lang == "ar" %}ثانية{% else %}seconds{% endif %}
+  </p>
+
+  <div style="display:flex;gap:10px;margin-bottom:24px">
+    <button id="playBtn" class="btn btn-hero" {% if remaining_seconds == 0 %}disabled{% endif %}>
+      <i data-lucide="play" class="h-4 w-4"></i>
+      {% if lang == "ar" %}استمع{% else %}Listen{% endif %}
+    </button>
+    <button id="stopBtn" class="btn btn-ghost" disabled>
+      <i data-lucide="square" class="h-4 w-4"></i>
+      {% if lang == "ar" %}إيقاف{% else %}Stop{% endif %}
+    </button>
+    {% if remaining_seconds == 0 %}
+      <a class="btn btn-hero" href="{% url 'subscriptions:upgrade' %}">
+        {% if lang == "ar" %}ترقية{% else %}Upgrade{% endif %}
+      </a>
+    {% endif %}
+  </div>
+
+  <article style="line-height:1.9;font-size:17px;background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;padding:24px;white-space:pre-wrap">
+{{ prepared.tts_ready_text }}
+  </article>
+
+  <details style="margin-top:18px;color:hsl(var(--muted-foreground));font-size:13px">
+    <summary>{% if lang == "ar" %}قواعد التنظيف المطبّقة على النص{% else %}Normalization rules applied{% endif %} ({{ prepared.applied_rules|length }})</summary>
+    <ul style="margin-top:8px;padding-inline-start:20px">
+      {% for rule in prepared.applied_rules %}<li><code>{{ rule }}</code></li>{% endfor %}
+    </ul>
+  </details>
+
+  <audio id="player" style="display:none"></audio>
+</main>
+
+<script>
+(function () {
+  const chapterId = {{ chapter.pk }};
+  const playBtn = document.getElementById("playBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const player = document.getElementById("player");
+  const remainingEl = document.getElementById("remainingSeconds");
+  const csrf = document.cookie.split("; ").find(r => r.startsWith("csrftoken="))?.split("=")[1] || "";
+  let sessionId = null;
+  let chunkQueue = [];
+  let chunkIndex = 0;
+  let elapsedSeconds = 0;
+  let startTime = null;
+  let killedByQuota = false;
+
+  async function post(url, payload) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
+      credentials: "same-origin",
+      body: JSON.stringify(payload || {}),
+    });
+    return {status: r.status, body: await r.json().catch(() => ({}))};
+  }
+
+  async function startSession() {
+    const r = await post(`/library/chapters/${chapterId}/audio/start/`, {});
+    if (!r.body.success) {
+      if (r.status === 402) {
+        window.location.href = r.body.upgrade_url || "/subscriptions/upgrade/";
+        return false;
+      }
+      alert(r.body.message || "Unable to start.");
+      return false;
+    }
+    sessionId = r.body.audio_session_id;
+    chunkQueue = r.body.chunks || [];
+    chunkIndex = 0;
+    elapsedSeconds = 0;
+    startTime = Date.now();
+    return true;
+  }
+
+  async function playNextChunk() {
+    if (!sessionId) return;
+    if (chunkIndex >= chunkQueue.length) {
+      finish(false);
+      return;
+    }
+    const chunk = chunkQueue[chunkIndex++];
+    const r = await post(`/library/chapters/${chapterId}/audio/chunk/`, {
+      audio_session_id: sessionId, chunk: chunk,
+    });
+    if (!r.body.success || !r.body.audio_b64) {
+      finish(false);
+      return;
+    }
+    player.src = `data:audio/${r.body.format || "mp3"};base64,${r.body.audio_b64}`;
+    player.play().catch(() => {});
+  }
+
+  player.addEventListener("ended", playNextChunk);
+
+  async function finish(killed) {
+    const seconds = Math.max(0, Math.floor((Date.now() - (startTime || Date.now())) / 1000));
+    const sid = sessionId;
+    sessionId = null;
+    playBtn.disabled = false;
+    stopBtn.disabled = true;
+    if (sid) {
+      const r = await post(`/library/chapters/${chapterId}/audio/finish/`, {
+        audio_session_id: sid, seconds: seconds, killed_by_quota: !!killed,
+      });
+      if (r.body.success && remainingEl) {
+        remainingEl.textContent = r.body.remaining_seconds;
+      }
+    }
+  }
+
+  playBtn.addEventListener("click", async () => {
+    playBtn.disabled = true;
+    stopBtn.disabled = false;
+    if (!(await startSession())) {
+      playBtn.disabled = false;
+      stopBtn.disabled = true;
+      return;
+    }
+    playNextChunk();
+  });
+
+  stopBtn.addEventListener("click", () => {
+    player.pause();
+    finish(false);
+  });
+
+  window.addEventListener("beforeunload", () => {
+    if (sessionId) {
+      navigator.sendBeacon(`/library/chapters/${chapterId}/audio/finish/`,
+        new Blob([JSON.stringify({
+          audio_session_id: sessionId,
+          seconds: Math.max(0, Math.floor((Date.now() - (startTime || Date.now())) / 1000)),
+        })], {type: "application/json"})
+      );
+    }
+  });
+})();
+</script>
+{% endblock %}

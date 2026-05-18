@@ -1,0 +1,73 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}مؤثرات اللعبة الصوتية{% else %}Gamification Sound Effects{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}روابط الأصوات والرسائل التحفيزية التي يسمعها المستخدم عند الإنجاز.{% else %}Audio cues and celebratory messages users hear when they earn rewards.{% endif %}{% endblock %}
+
+{% block control_content %}
+{% if messages %}
+  {% for m in messages %}
+    <div class="control-card" style="margin-bottom:10px;padding:10px 14px;background:#dcfce7;border:1px solid #86efac">{{ m }}</div>
+  {% endfor %}
+{% endif %}
+
+<div style="display:flex;flex-direction:column;gap:16px">
+  {% for sound, form in sound_forms %}
+    <section class="control-card">
+      <div class="panel-heading">
+        <h2>{{ sound.get_code_display }}
+          {% if sound.is_active %}<span class="badge badge-green">{% if lang == "ar" %}مفعّل{% else %}active{% endif %}</span>{% else %}<span class="badge">{% if lang == "ar" %}موقوف{% else %}inactive{% endif %}</span>{% endif %}
+        </h2>
+        <code style="color:hsl(var(--muted-foreground))">{{ sound.code }}</code>
+      </div>
+      <form method="post" class="control-form" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        {% csrf_token %}
+        <input type="hidden" name="sound_id" value="{{ sound.pk }}">
+        <input type="hidden" name="code" value="{{ sound.code }}">
+        <div>
+          <label>{% if lang == "ar" %}رابط الصوت{% else %}Audio URL{% endif %}</label>
+          {{ form.audio_url }}
+        </div>
+        <div>
+          <label>{% if lang == "ar" %}المسار البديل (Static){% else %}Static fallback path{% endif %}</label>
+          {{ form.fallback_audio_path }}
+        </div>
+        <div>
+          <label>{% if lang == "ar" %}الرسالة (إنجليزي){% else %}Message (English){% endif %}</label>
+          {{ form.message_en }}
+        </div>
+        <div>
+          <label>{% if lang == "ar" %}الرسالة (عربي){% else %}Message (Arabic){% endif %}</label>
+          {{ form.message_ar }}
+        </div>
+        <div>
+          <label>{% if lang == "ar" %}الـ Animation{% else %}Animation{% endif %}</label>
+          {{ form.animation }}
+        </div>
+        <div>
+          <label>
+            {{ form.is_active }}
+            {% if lang == "ar" %}مفعّل{% else %}Active{% endif %}
+          </label>
+        </div>
+        <div>
+          <label>{% if lang == "ar" %}قالب XP (إنجليزي){% else %}XP callout (English){% endif %}</label>
+          {{ form.xp_callout_template_en }}
+        </div>
+        <div>
+          <label>{% if lang == "ar" %}قالب XP (عربي){% else %}XP callout (Arabic){% endif %}</label>
+          {{ form.xp_callout_template_ar }}
+        </div>
+        <div style="grid-column:1 / -1;display:flex;gap:10px">
+          <button type="submit" class="control-btn control-btn-primary">
+            <i data-lucide="save" class="h-4 w-4"></i>
+            {% if lang == "ar" %}حفظ{% else %}Save{% endif %}
+          </button>
+          {% if sound.effective_audio_src %}
+            <audio controls preload="none" src="{{ sound.effective_audio_src }}" style="height:36px"></audio>
+          {% endif %}
+        </div>
+      </form>
+    </section>
+  {% endfor %}
+</div>
+{% endblock %}

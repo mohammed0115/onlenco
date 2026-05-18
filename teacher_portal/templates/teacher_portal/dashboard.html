@@ -32,7 +32,7 @@
     </div>
     <div class="quick-actions">
       <a href="{% url 'teacher_portal:course_create' %}"><i data-lucide="book-plus"></i>{% if lang == "ar" %}إنشاء كورس{% else %}Create Course{% endif %}</a>
-      <a href="{% url 'teacher_portal:courses' %}"><i data-lucide="play-square"></i>{% if lang == "ar" %}إضافة درس{% else %}Add Lesson{% endif %}</a>
+      <a href="{% url 'teacher_portal:all_lessons' %}"><i data-lucide="play-square"></i>{% if lang == "ar" %}دروسي{% else %}My Lessons{% endif %}</a>
       <a href="{% url 'teacher_portal:assignments' %}"><i data-lucide="clipboard-list"></i>{% if lang == "ar" %}الواجبات{% else %}Assignments{% endif %}</a>
       <a href="{% url 'teacher_portal:students' %}"><i data-lucide="users"></i>{% if lang == "ar" %}نتائج الطلاب{% else %}Student Results{% endif %}</a>
     </div>

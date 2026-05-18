@@ -1,10 +1,51 @@
 import logging
 
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import translation
 from django.utils import timezone
 
 
 logger = logging.getLogger(__name__)
+
+
+# Paths that authenticated users with a forced password change can still hit
+# (logout, the change page itself, language toggle, static assets, etc.)
+_PASSWORD_CHANGE_ALLOWED_PREFIXES = (
+    "/auth/logout/",
+    "/auth/change-password/",
+    "/auth/password-reset/",
+    "/set-language/",
+    "/static/",
+    "/media/",
+    "/healthz",
+)
+
+
+class ForcePasswordChangeMiddleware:
+    """Redirect users with ``must_change_password=True`` to the change page.
+
+    Triggered for accounts created by an admin via the teacher-registration
+    flow (one-shot temporary password) — they cannot reach any other page
+    until they pick a real password.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if (
+            user is not None
+            and getattr(user, "is_authenticated", False)
+            and getattr(getattr(user, "profile", None), "must_change_password", False)
+            and not any(request.path.startswith(p) for p in _PASSWORD_CHANGE_ALLOWED_PREFIXES)
+        ):
+            try:
+                return redirect(reverse("change_password"))
+            except Exception:
+                pass
+        return self.get_response(request)
 
 
 class LanguagePreferenceMiddleware:

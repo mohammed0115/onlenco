@@ -18,11 +18,14 @@
           <td><span class="status-pill status-{{ lesson.status }}">{{ lesson.status }}</span></td>
           <td>{{ lesson.resources.count }}</td>
           <td class="row-actions">
-            {% if lesson.status == "draft" or lesson.status == "rejected" %}<a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}">Edit</a>{% endif %}
-            <a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}">Quiz</a>
+            {% if lesson.status == "draft" or lesson.status == "rejected" %}<a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>{% endif %}
+            <a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}">{% if lang == "ar" %}الاختبار{% else %}Quiz{% endif %}</a>
             {% if lesson.status == "draft" or lesson.status == "rejected" %}
-              <form method="post" action="{% url 'teacher_portal:lesson_submit_review' lesson.pk %}">
-                {% csrf_token %}<button type="submit">Submit</button>
+              <form method="post" action="{% url 'teacher_portal:lesson_submit_review' lesson.pk %}" style="display:inline">
+                {% csrf_token %}<button type="submit">{% if lang == "ar" %}إرسال للمراجعة{% else %}Submit{% endif %}</button>
+              </form>
+              <form method="post" action="{% url 'teacher_portal:lesson_delete' lesson.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الدرس؟{% else %}Delete this lesson?{% endif %}');" style="display:inline">
+                {% csrf_token %}<button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
               </form>
             {% endif %}
           </td>

@@ -87,6 +87,8 @@ DICT = {
     "dash.placementdesc": {"en": "Find your CEFR level so we can personalize your lessons.",
                            "ar": "حدد مستواك في CEFR لنخصص دروسك."},
     "dash.lessons":     {"en": "Your lessons",          "ar": "دروسك"},
+    "dash.control":     {"en": "Control Center",        "ar": "لوحة العمليات"},
+    "dash.teacher":     {"en": "Teacher Portal",        "ar": "لوحة الأستاذ"},
     "dash.locked":      {"en": "Subscribe to unlock",   "ar": "اشترك لفتح المحتوى"},
     "dash.level":       {"en": "Level",                  "ar": "المستوى"},
     "dash.signout":     {"en": "Sign out",              "ar": "تسجيل الخروج"},

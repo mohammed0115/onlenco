@@ -211,13 +211,29 @@ class Course(models.Model):
 # ---------------------------------------------------------------------------
 
 class CourseUnit(models.Model):
+    """Bundle of lessons inside a course.
+
+    Spec rule: a Unit carries **up to 3 Lessons**, and can only be
+    *published* when all 3 are active. The cap is enforced at the
+    application layer via ``Lesson.clean()`` — easy to override for
+    legacy data, and easy to relax later if pedagogy changes.
+    """
+
+    MAX_LESSONS_PER_UNIT = 3
+
     course = models.ForeignKey(
         Course, on_delete=models.CASCADE, related_name="units",
         verbose_name=_("Course"),
     )
     title = models.CharField(max_length=200, verbose_name=_("Title"))
-    order = models.PositiveSmallIntegerField(default=0, verbose_name=_("Order"))
+    title_ar = models.CharField(max_length=200, blank=True, verbose_name=_("Arabic title"))
+    title_en = models.CharField(max_length=200, blank=True, verbose_name=_("English title"))
     description = models.TextField(blank=True, verbose_name=_("Description"))
+    description_ar = models.TextField(blank=True, verbose_name=_("Arabic description"))
+    description_en = models.TextField(blank=True, verbose_name=_("English description"))
+    order = models.PositiveSmallIntegerField(default=0, verbose_name=_("Order"))
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name=_("Active"))
+    is_published = models.BooleanField(default=False, db_index=True, verbose_name=_("Published"))
 
     class Meta:
         ordering = ["course", "order", "id"]
@@ -226,6 +242,27 @@ class CourseUnit(models.Model):
 
     def __str__(self):
         return f"{self.course.title} — {self.title}"
+
+    @property
+    def lesson_count(self) -> int:
+        return self.lessons.count()
+
+    @property
+    def is_complete(self) -> bool:
+        """True when the unit has its full set of 3 active lessons."""
+        return self.lessons.filter(is_active=True).count() >= self.MAX_LESSONS_PER_UNIT
+
+    def can_be_published(self) -> bool:
+        return self.is_complete
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.is_published and not self.is_complete:
+            raise ValidationError(
+                {"is_published": _(
+                    "A Unit can only be published once it has %(n)s active lessons."
+                ) % {"n": self.MAX_LESSONS_PER_UNIT}},
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +366,24 @@ class Lesson(models.Model):
         super().clean()
         if self.video_url:
             validate_video_url(self.video_url)
+        # Spec: a Unit carries at most 3 Lessons. Enforced on the
+        # lesson side because that's where the constraint can be
+        # checked at save-time (clean() on Unit would only fire when
+        # the Unit itself is saved, not when a lesson is attached).
+        if self.unit_id:
+            from django.core.exceptions import ValidationError
+            sibling_count = (
+                Lesson.objects
+                .filter(unit_id=self.unit_id)
+                .exclude(pk=self.pk)
+                .count()
+            )
+            if sibling_count >= CourseUnit.MAX_LESSONS_PER_UNIT:
+                raise ValidationError(
+                    {"unit": _(
+                        "This unit already has %(n)s lessons — the maximum allowed."
+                    ) % {"n": CourseUnit.MAX_LESSONS_PER_UNIT}},
+                )
 
     def get_video_embed(self) -> dict | None:
         """Resolve which video to play.

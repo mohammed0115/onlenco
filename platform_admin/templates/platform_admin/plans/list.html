@@ -1,0 +1,60 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}الخطط والأسعار{% else %}Plans &amp; Pricing{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}إدارة خطط الاشتراك ودقائق AI Tutor اليومية والأسعار.{% else %}Manage subscription plans, daily AI Tutor minutes, and pricing.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div style="margin-bottom:14px;display:flex;justify-content:flex-end">
+  <a class="control-btn control-btn-primary" href="{% url 'platform_admin:plan_create' %}">
+    <i data-lucide="plus" class="h-4 w-4"></i>
+    {% if lang == "ar" %}إضافة خطة{% else %}Add Plan{% endif %}
+  </a>
+</div>
+
+{% if messages %}
+  {% for m in messages %}
+    <div class="control-card" style="margin-bottom:10px;padding:10px 14px;background:#dcfce7;border:1px solid #86efac">{{ m }}</div>
+  {% endfor %}
+{% endif %}
+
+<section class="control-card">
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الكود{% else %}Code{% endif %}</th>
+      <th>{% if lang == "ar" %}الاسم{% else %}Name{% endif %}</th>
+      <th>{% if lang == "ar" %}دقائق AI Tutor / يوم{% else %}AI Tutor min/day{% endif %}</th>
+      <th>{% if lang == "ar" %}دقائق المكتبة / يوم{% else %}Library min/day{% endif %}</th>
+      <th>{% if lang == "ar" %}السعر{% else %}Price{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for plan in plans %}
+        <tr>
+          <td><code>{{ plan.code }}</code>{% if plan.is_free_trial %} <span class="badge badge-yellow">{% if lang == "ar" %}تجربة{% else %}trial{% endif %}</span>{% endif %}</td>
+          <td>{% if lang == "ar" %}{{ plan.name_ar }}{% else %}{{ plan.name_en }}{% endif %}</td>
+          <td>{{ plan.ai_tutor_daily_minutes }}</td>
+          <td>{{ plan.library_audio_daily_minutes }}</td>
+          <td>{{ plan.price_sdg }} {{ plan.currency }}</td>
+          <td>
+            {% if plan.is_active %}
+              <span class="badge badge-green">{% if lang == "ar" %}مفعّلة{% else %}active{% endif %}</span>
+            {% else %}
+              <span class="badge">{% if lang == "ar" %}موقوفة{% else %}inactive{% endif %}</span>
+            {% endif %}
+          </td>
+          <td style="display:flex;gap:8px">
+            <a class="control-link" href="{% url 'platform_admin:plan_edit' plan.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
+            <form method="post" action="{% url 'platform_admin:plan_delete' plan.pk %}" onsubmit="return confirm('{% if lang == "ar" %}حذف هذه الخطة؟{% else %}Delete this plan?{% endif %}');" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="link-danger" style="background:none;border:none;cursor:pointer;color:#d92d20">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد خطط بعد.{% else %}No plans yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

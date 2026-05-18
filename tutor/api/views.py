@@ -801,33 +801,37 @@ def voice_tts(request):
 # Realtime voice-call (OpenAI Realtime API)
 # ---------------------------------------------------------------------------
 
+@extend_schema(exclude=True)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def voice_call_session(request):
     """Mint an ephemeral OpenAI Realtime client_secret for the browser.
 
-    The browser uses the returned token to open a WebRTC peer connection
-    directly to OpenAI's `/v1/realtime` endpoint — Django is no longer
-    in the audio path after this. We only check subscription + soft cap
-    + return a short-lived secret + the personalised system prompt.
+    Sprint 2 changes:
+      * Quota is read from subscriptions (subscription → trial fallback).
+      * We open a server-side ``AITutorSession`` row BEFORE issuing the
+        ephemeral token, enforcing the partial-unique constraint so a
+        user can't run two parallel calls by refreshing the page.
     """
-    sub_err = _require_subscription(request.user)
-    if sub_err is not None:
-        return sub_err
-
     from django.conf import settings as dj_settings
+    from subscriptions.services import preference_service, quota_service, session_service
+    from subscriptions.services.session_service import (
+        ConcurrentSessionExists, QuotaExhausted,
+    )
     from tutor.services.realtime_session import (
         build_voice_system_prompt,
         request_ephemeral_session,
-        daily_minute_cap_remaining,
     )
 
-    remaining = daily_minute_cap_remaining(request.user)
-    if remaining <= 0:
+    seconds_remaining, source_bucket = quota_service.effective_ai_tutor_remaining(request.user)
+    if seconds_remaining <= 0:
         return Response(
-            {"success": False, "error": "limit_reached",
-             "message": "You've reached your daily voice-call limit. Try the chat tutor."},
-            status=status.HTTP_429_TOO_MANY_REQUESTS,
+            {
+                "success": False, "error": "limit_reached",
+                "message": "Your AI Tutor minutes are exhausted. Upgrade your plan to continue.",
+                "upgrade_url": "/subscriptions/upgrade/",
+            },
+            status=status.HTTP_402_PAYMENT_REQUIRED,
         )
 
     conversation_id = request.data.get("conversation_id")
@@ -837,9 +841,46 @@ def voice_call_session(request):
         if err is not None:
             return err
 
-    voice = request.data.get("voice") or getattr(dj_settings, "AI_REALTIME_VOICE", "alloy")
+    # Resolve the user's preferred voice + avatar (Sprint 3). The client
+    # may override the voice for this single session by passing ``voice``
+    # in the payload — we only honour known provider IDs.
+    voice_profile = preference_service.resolve_voice_for(request.user)
+    avatar_profile = preference_service.resolve_avatar_for(request.user)
+
+    voice = request.data.get("voice")
+    if not voice and voice_profile is not None:
+        voice = voice_profile.provider_voice_id
+    if not voice:
+        voice = getattr(dj_settings, "AI_REALTIME_VOICE", "alloy")
     if not isinstance(voice, str) or len(voice) > 32:
         voice = "alloy"
+
+    try:
+        tutor_session = session_service.start_session(
+            request.user,
+            source="voice_call",
+            voice=voice,
+            conversation_id=conv.pk if conv else None,
+            voice_profile=voice_profile,
+            avatar_profile=avatar_profile,
+        )
+    except QuotaExhausted:
+        return Response(
+            {
+                "success": False, "error": "limit_reached",
+                "message": "Your AI Tutor minutes are exhausted. Upgrade your plan to continue.",
+                "upgrade_url": "/subscriptions/upgrade/",
+            },
+            status=status.HTTP_402_PAYMENT_REQUIRED,
+        )
+    except ConcurrentSessionExists:
+        return Response(
+            {
+                "success": False, "error": "concurrent_session",
+                "message": "Another AI Tutor session is already active in another tab. Please end it first.",
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
 
     prompt = build_voice_system_prompt(request.user, conv)
     try:
@@ -847,6 +888,7 @@ def voice_call_session(request):
             session = request_ephemeral_session(system_prompt=prompt, voice=voice)
     except Exception:
         logger.exception("Tutor realtime session request failed")
+        session_service.cancel_session(tutor_session.pk)
         return Response(
             {"success": False, "error": "ai_unavailable",
              "message": "Voice tutor is temporarily unavailable. Please try the chat instead."},
@@ -854,6 +896,7 @@ def voice_call_session(request):
         )
 
     if session is None:
+        session_service.cancel_session(tutor_session.pk)
         return Response(
             {"success": False, "error": "ai_unavailable",
              "message": "Voice tutor is not configured."},
@@ -863,35 +906,62 @@ def voice_call_session(request):
     client_secret = (session.get("client_secret") or {}).get("value")
     if not client_secret:
         logger.error("Tutor realtime: no client_secret in upstream response")
+        session_service.cancel_session(tutor_session.pk)
         return Response(
             {"success": False, "error": "ai_unavailable"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
+    # The browser must cap its own session at min(provider_expiry, our quota).
+    max_session_seconds = min(
+        int(getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900)),
+        seconds_remaining,
+    )
     return Response({
         "success": True,
         "client_secret": client_secret,
         "session_id": session.get("id"),
+        "tutor_session_id": tutor_session.pk,  # NEW — pass back to /voice/log
+        "quota_source": source_bucket,
         "expires_at": session.get("expires_at"),
         "model": getattr(dj_settings, "AI_REALTIME_MODEL", ""),
         "voice": voice,
-        "max_session_seconds": int(getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900)),
-        "minutes_remaining": remaining,
+        "voice_profile": {
+            "code": voice_profile.code,
+            "name_en": voice_profile.name_en,
+            "name_ar": voice_profile.name_ar,
+            "style": voice_profile.style,
+            "tone": voice_profile.tone,
+        } if voice_profile else None,
+        "avatar": {
+            "code": avatar_profile.code,
+            "name_en": avatar_profile.name_en,
+            "name_ar": avatar_profile.name_ar,
+            "image_url": avatar_profile.image_url,
+            "lipsync_video_url": avatar_profile.lipsync_video_url,
+        } if avatar_profile else None,
+        "max_session_seconds": max_session_seconds,
+        "minutes_remaining": seconds_remaining // 60,
+        "seconds_remaining": seconds_remaining,
         "language": getattr(getattr(request.user, "profile", None), "preferred_language", "en"),
     })
 
 
+@extend_schema(exclude=True)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def voice_call_log(request):
-    """Record a finished voice-call session.
+    """Record a finished voice-call session and close the AITutorSession row.
 
-    Browser POSTs `{seconds, transcript[]}` after the user hangs up. We
-    update the daily soft-cap counter, persist any spoken turns as
-    TutorMessage rows so the conversation list reflects the call, and
-    credit speaking_minutes on today's activity snapshot.
+    Browser POSTs ``{seconds, transcript[], tutor_session_id?, killed_by_quota?}``
+    after the user hangs up. We:
+      * Close the AITutorSession row (deducts seconds from subscription
+        OR free trial in the SAME bucket the session was opened against).
+      * Persist spoken turns as TutorMessage rows.
+      * Credit speaking-minutes on today's activity snapshot.
     """
-    from tutor.services.realtime_session import record_session_seconds
+    from subscriptions.models import AITutorSession
+    from subscriptions.services import quota_service, session_service
 
     try:
         seconds = max(0, min(int(request.data.get("seconds") or 0), 24 * 60 * 60))
@@ -929,10 +999,38 @@ def voice_call_log(request):
                 conv.title = " ".join(first_user.split()[:8])[:200]
                 conv.save(update_fields=["title"])
 
-    used_total = record_session_seconds(request.user, seconds)
+    # Close the open tutor session — prefer the id the browser echoes
+    # back; fall back to the user's currently-open session (handles old
+    # clients that don't yet send tutor_session_id).
+    tutor_session_id = request.data.get("tutor_session_id")
+    open_session = None
+    if tutor_session_id:
+        open_session = AITutorSession.objects.filter(
+            pk=tutor_session_id, user=request.user,
+        ).first()
+    if open_session is None:
+        open_session = session_service.get_open_session(request.user)
 
-    # Credit speaking-minutes for today's activity snapshot (same metric
-    # the text-mode mic flow uses).
+    killed_by_quota = bool(request.data.get("killed_by_quota"))
+    if open_session is not None:
+        closed = session_service.end_session(
+            open_session.pk,
+            actual_seconds=seconds,
+            killed_by_quota=killed_by_quota,
+        )
+        remaining_after = closed.remaining_after_seconds
+        quota_source = closed.quota_source
+    else:
+        # No matching open session (race / old client). Still deduct so we
+        # don't leak free minutes.
+        if seconds > 0:
+            remaining_after, quota_source = quota_service.deduct_session_seconds(
+                request.user, seconds,
+            )
+        else:
+            remaining_after, quota_source = quota_service.effective_ai_tutor_remaining(request.user)
+
+    # Credit speaking-minutes for today's activity snapshot.
     if seconds > 0:
         try:
             from motivation.services import activity_collector
@@ -945,5 +1043,105 @@ def voice_call_log(request):
     return Response({
         "success": True,
         "logged_seconds": seconds,
-        "used_total_seconds": used_total,
+        "seconds_remaining": remaining_after,
+        "quota_source": quota_source,
     })
+
+
+@extend_schema(exclude=True)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def voice_call_cancel_stale(request):
+    """Recover-from-crash endpoint: cancel the caller's open voice session.
+
+    The browser hits this when ``voice_call_session`` returned 409
+    (concurrent_session) — usually because a previous call's tab was
+    closed without the hang-up POST firing.
+    """
+    from subscriptions.services.session_service import cancel_open_session_for
+    closed = cancel_open_session_for(request.user)
+    return Response({"success": True, "cancelled": closed})
+
+
+@extend_schema(exclude=True)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def voice_call_sdp_relay(request):
+    """Server-side SDP exchange with OpenAI Realtime.
+
+    Browsers used to POST SDP directly to ``api.openai.com/v1/realtime``
+    but the GA migration tightened CORS preflights enough that some
+    networks (and CSP-strict pages) now see opaque failures. Routing
+    the SDP through Django:
+      * keeps the ek_ token server-side (security win)
+      * surfaces upstream errors in our logs instead of silent browser
+        ``ai_unavailable`` messages
+      * sidesteps CORS / browser-extension interference
+
+    Body:
+        {
+          "client_secret": "ek_...",         # from /voice-call/session/
+          "model":         "gpt-4o-...",     # echoed from the session
+          "sdp":           "v=0\r\n..."      # the browser's SDP offer
+        }
+
+    Returns the SDP answer as ``text/plain`` (matching OpenAI's response
+    Content-Type) so the browser can hand it straight to
+    ``setRemoteDescription``.
+    """
+    import requests as _requests
+    from django.conf import settings as _settings
+    from django.http import HttpResponse
+
+    payload = request.data or {}
+    ek = (payload.get("client_secret") or "").strip()
+    model = (payload.get("model") or getattr(_settings, "AI_REALTIME_MODEL", "")).strip()
+    sdp = payload.get("sdp") or ""
+    if not ek or not sdp:
+        return Response(
+            {"success": False, "error": "bad_request",
+             "message": "client_secret and sdp are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # GA Realtime SDP endpoint. The old Beta path ``/v1/realtime?model=...``
+    # returns 400 ``beta_api_shape_disabled`` since the GA migration —
+    # the new endpoint is ``/v1/realtime/calls`` (model is implicit in
+    # the ek_ session, so no query param needed).
+    base = _settings.AI_API_BASE.rstrip("/")
+    url = f"{base}/realtime/calls"
+    try:
+        upstream = _requests.post(
+            url,
+            data=sdp,
+            headers={
+                "Authorization": f"Bearer {ek}",
+                "Content-Type": "application/sdp",
+            },
+            timeout=15,
+        )
+    except Exception:
+        logger.exception("voice_call_sdp_relay: upstream request failed")
+        return Response(
+            {"success": False, "error": "ai_unavailable",
+             "message": "Could not reach the voice tutor. Please try again."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    if not upstream.ok:
+        logger.error(
+            "voice_call_sdp_relay: OpenAI SDP %s — body=%s",
+            upstream.status_code, upstream.text[:600],
+        )
+        return Response(
+            {"success": False, "error": "ai_unavailable",
+             "message": f"Voice tutor handshake failed ({upstream.status_code}).",
+             "upstream_status": upstream.status_code,
+             "upstream_body": upstream.text[:600]},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    return HttpResponse(
+        upstream.content,
+        content_type=upstream.headers.get("Content-Type", "application/sdp"),
+    )

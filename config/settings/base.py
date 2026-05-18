@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "daily_learning",
     "platform_admin",
     "teacher_portal",
+    "subscriptions",
 ]
 
 # --- Daily Learning Engine ----------------------------------------------
@@ -149,6 +150,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "accounts.middleware.LanguagePreferenceMiddleware",
     "accounts.middleware.ExpireSubscriptionMiddleware",
+    "accounts.middleware.ForcePasswordChangeMiddleware",
     "axes.middleware.AxesMiddleware",
 ]
 

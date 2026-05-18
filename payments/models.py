@@ -22,6 +22,15 @@ PLAN_DETAILS = {
     "quarterly": {"price_sdg": 50000, "duration_days": 90},
 }
 
+# Legacy plan strings → new SubscriptionPlan codes (Sprint 1+ data layer).
+# When the legacy ``monthly`` payment is approved we ALSO activate the
+# matching new-style subscription so the AI-Tutor / Library quotas kick
+# in. ``quarterly`` defaults to the same plan code but for 90 days.
+LEGACY_PLAN_TO_NEW_CODE = {
+    "monthly":   "basic_10m",
+    "quarterly": "basic_10m",
+}
+
 PAYMENT_STATUSES = [
     ("pending",      "Pending review"),
     ("needs_review", "Needs admin review"),
@@ -114,7 +123,14 @@ class PaymentSubmission(models.Model):
 
     def approve(self, reviewer):
         """Approve and activate. If the user already has time left,
-        extend rather than overwrite so top-ups stack."""
+        extend rather than overwrite so top-ups stack.
+
+        Also creates / extends a ``subscriptions.UserSubscription`` row on
+        the matching SubscriptionPlan so the AI-Tutor + Library quotas
+        unlock. Failure of the new-style activation NEVER blocks the
+        legacy approve — we want admins to still ship the payment even
+        if the plan mapping is mis-configured.
+        """
         now = timezone.now()
         days = PLAN_DETAILS[self.plan]["duration_days"]
 
@@ -128,6 +144,8 @@ class PaymentSubmission(models.Model):
         self.reviewed_by = reviewer
         self.reviewed_at = now
         self.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+
+        self._activate_subscriptions_plan(duration_days=days)
 
         try:
             from notifications import constants as C
@@ -148,6 +166,30 @@ class PaymentSubmission(models.Model):
         except Exception:
             import logging
             logging.getLogger(__name__).exception("notify approve failed")
+
+    def _activate_subscriptions_plan(self, *, duration_days: int) -> None:
+        """Spin up / extend the new-style UserSubscription. Best-effort."""
+        try:
+            from subscriptions.models import SubscriptionPlan
+            from subscriptions.services import subscription_service
+        except Exception:
+            return
+        plan_code = LEGACY_PLAN_TO_NEW_CODE.get(self.plan, self.plan)
+        plan = SubscriptionPlan.objects.filter(code=plan_code, is_active=True).first()
+        if plan is None:
+            return
+        try:
+            subscription_service.activate_subscription(
+                user=self.user,
+                plan=plan,
+                duration_days=duration_days,
+                payment=self,
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "PaymentSubmission.approve: subscription activation failed for %s", self.pk,
+            )
 
     def reject(self, reviewer, note=""):
         self.status = "rejected"

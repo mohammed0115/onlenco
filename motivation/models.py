@@ -49,6 +49,11 @@ class LearnerActivitySnapshot(models.Model):
     theta_score = models.FloatField(default=0.0)
     mastery_delta = models.FloatField(default=0.0)
 
+    # Behavioral analytics scores (0-100). Computed by the risk_engine
+    # nightly and surfaced on the academic-admin "at-risk students" view.
+    engagement_score = models.FloatField(default=0.0, db_index=True)
+    churn_risk_score = models.FloatField(default=0.0, db_index=True)
+
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -379,3 +384,74 @@ class MotivationPreference(models.Model):
 
     def __str__(self):
         return f"MotPref<{self.user_id}> tone={self.preferred_tone}"
+
+
+# ---------------------------------------------------------------------------
+# Gamification audio (Sprint 5)
+# ---------------------------------------------------------------------------
+
+class GameEventSound(models.Model):
+    """A catalog of audio cues + animations shown when the learner achieves
+    something. One row per event code (e.g. ``success``, ``level_up``).
+
+    Admins edit ``audio_url`` / messages / animation from the Control
+    Center; the frontend polls ``/api/v1/motivation/recent-rewards/``
+    on each page load and plays whatever sounds correspond to events
+    earned in the last 60 seconds.
+
+    Honouring per-user mute: the user's
+    ``subscriptions.UserAIPreference.sound_effects_enabled`` flag is
+    consulted by ``sound_service.event_sounds_for_user`` — disabled
+    users still see the toast / XP popup, just without audio.
+    """
+
+    EVENT_CHOICES = [
+        ("success", _("Success — lesson / quiz completed")),
+        ("level_up", _("Level up")),
+        ("bonus", _("XP bonus")),
+        ("streak", _("Streak milestone")),
+        ("achievement_unlocked", _("Achievement unlocked")),
+    ]
+    ANIMATION_CHOICES = [
+        ("confetti", _("Confetti burst")),
+        ("sparkle", _("Sparkle")),
+        ("trophy", _("Trophy pop")),
+        ("flame", _("Flame streak")),
+        ("rocket", _("Rocket")),
+        ("none", _("None")),
+    ]
+
+    code = models.CharField(max_length=32, choices=EVENT_CHOICES, unique=True)
+    audio_url = models.URLField(
+        blank=True,
+        help_text=_("Public URL to a short MP3/OGG (≤ 4 s)."),
+    )
+    fallback_audio_path = models.CharField(
+        max_length=255, blank=True,
+        help_text=_("Static path under STATIC_URL when audio_url is empty."),
+    )
+    message_en = models.CharField(max_length=160)
+    message_ar = models.CharField(max_length=160)
+    animation = models.CharField(
+        max_length=24, choices=ANIMATION_CHOICES, default="sparkle",
+    )
+    xp_callout_template_en = models.CharField(
+        max_length=120, blank=True,
+        help_text=_("Optional callout like '+{xp} XP' shown alongside the toast."),
+    )
+    xp_callout_template_ar = models.CharField(max_length=120, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = _("Game event sound")
+        verbose_name_plural = _("Game event sounds")
+
+    def __str__(self):
+        return f"{self.get_code_display()}"
+
+    @property
+    def effective_audio_src(self) -> str:
+        """Return the URL or the static fallback path."""
+        return self.audio_url or self.fallback_audio_path

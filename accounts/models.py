@@ -88,6 +88,11 @@ class Profile(models.Model):
     email_verified = models.BooleanField(
         default=False, verbose_name=_("Email verified"),
     )
+    must_change_password = models.BooleanField(
+        default=False,
+        verbose_name=_("Must change password on next login"),
+        help_text=_("Set when an admin issues a temporary password."),
+    )
     subscription_status = models.CharField(
         max_length=10, choices=SUBSCRIPTION_CHOICES, default="inactive",
         verbose_name=_("Subscription status"),

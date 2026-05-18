@@ -87,6 +87,12 @@ def run_for_user(user, date: Optional[_date] = None) -> dict:
 
     pref = _user_pref(user)
     snap = activity_collector.collect_daily_activity(user, date)
+    # Refresh engagement + churn-risk scores on today's snapshot.
+    try:
+        from . import risk_engine
+        risk_engine.compute_and_persist_for(snap)
+    except Exception:
+        logger.exception("risk_engine compute failed for %s", user.pk)
     xp_total, xp_breakdown, user_xp = xp_service.award_for_snapshot(snap)
 
     awarded_achievements = achievement_service.evaluate_for_snapshot(snap)
