@@ -5,11 +5,24 @@ from typing import Any
 from platform_admin.models import PlatformAuditLog
 
 
+def _strip_port(addr: str) -> str:
+    # Caddy/proxies sometimes hand us "1.2.3.4:54321" or "[::1]:54321".
+    # Postgres `inet` rejects those, so peel the port before storing.
+    addr = addr.strip()
+    if addr.startswith("[") and "]" in addr:
+        return addr[1:addr.index("]")]
+    if addr.count(":") == 1:
+        return addr.split(":", 1)[0]
+    return addr
+
+
 def get_client_ip(request) -> str | None:
     forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded_for:
-        return forwarded_for.split(",", 1)[0].strip() or None
-    return request.META.get("REMOTE_ADDR") or None
+        first = forwarded_for.split(",", 1)[0].strip()
+        return _strip_port(first) or None if first else None
+    remote = request.META.get("REMOTE_ADDR")
+    return _strip_port(remote) or None if remote else None
 
 
 def log_action(

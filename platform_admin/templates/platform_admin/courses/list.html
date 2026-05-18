@@ -44,7 +44,7 @@
         <tr>
           <td>{{ course.title }}</td>
           <td>{{ course.level.code }}</td>
-          <td>{{ course.teacher.email|default:course.teacher.username|default:"-" }}</td>
+          <td>{% if course.teacher %}{{ course.teacher.email|default:course.teacher.username }}{% else %}-{% endif %}</td>
           <td><span class="badge {% if course.status == 'published' %}badge-green{% elif course.status == 'pending_review' %}badge-yellow{% elif course.status == 'rejected' %}badge-red{% endif %}">{{ course.status }}</span></td>
           <td>{{ course.lessons_count }}</td>
           <td>{{ course.students_count }}</td>
