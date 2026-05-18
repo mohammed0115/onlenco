@@ -177,7 +177,7 @@ def request_ephemeral_session(*, system_prompt: str, voice: str = "alloy") -> di
     payload = {
         "session": {
             "type": "realtime",
-            "model": getattr(settings, "AI_REALTIME_MODEL", "gpt-4o-realtime-preview-2024-12-17"),
+            "model": getattr(settings, "AI_REALTIME_MODEL", "gpt-realtime"),
             "instructions": system_prompt,
             "max_output_tokens": 200,
             "audio": {

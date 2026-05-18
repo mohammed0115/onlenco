@@ -36,6 +36,13 @@
                                class="tutor-avatar-img"
                                id="callOrbAvatar">
                           <span class="tutor-avatar-mouth-overlay" aria-hidden="true"></span>
+                        {% elif avatar.code == "layla_female_teacher" or avatar.code == "omar_male_teacher" or avatar.code == "sara_energetic" %}
+                          {# Bundled portrait shipped with the repo — used when no admin upload exists yet. #}
+                          <img src="{% static 'img/avatars/'|add:avatar.code|add:'.jpg' %}"
+                               alt="{% if lang == 'ar' %}{{ avatar.name_ar }}{% else %}{{ avatar.name_en }}{% endif %}"
+                               class="tutor-avatar-img"
+                               id="callOrbAvatar">
+                          <span class="tutor-avatar-mouth-overlay" aria-hidden="true"></span>
                         {% else %}
                           {# Inline SVG fallback so the orb shows a recognisable face even before admins upload images. #}
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" class="tutor-avatar-img" id="callOrbAvatar" aria-hidden="true">

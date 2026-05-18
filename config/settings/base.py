@@ -254,7 +254,7 @@ AI_MODEL = env_get("AI_MODEL", "gpt-4o-mini")
 # Drives the live phone-call style tutoring page. Browser opens a
 # WebRTC peer to OpenAI Realtime; the server only ever sees the
 # ephemeral token request and the final usage stats.
-AI_REALTIME_MODEL = env_get("AI_REALTIME_MODEL", "gpt-4o-realtime-preview-2024-12-17")
+AI_REALTIME_MODEL = env_get("AI_REALTIME_MODEL", "gpt-realtime")
 AI_REALTIME_VOICE = env_get("AI_REALTIME_VOICE", "alloy")
 # Soft cap: per-user daily voice-call minutes. Past this threshold the
 # session endpoint refuses with `limit_reached` and the user is nudged
