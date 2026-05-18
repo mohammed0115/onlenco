@@ -2,6 +2,11 @@ services:
   web:
     build: .
     image: onlenco-web:latest
+    # Start as root so docker-entrypoint.sh can chown the media volume
+    # (Docker creates fresh named volumes owned by root, which shadows
+    # the build-time chown of /app). The entrypoint drops to onlenco
+    # via gosu before exec'ing gunicorn.
+    user: "0:0"
     env_file:
       - .env
     environment:
@@ -49,6 +54,8 @@ services:
     # `scripts/scheduler.py` (no celery/beat required).
     image: onlenco-web:latest
     build: .
+    # See web service — start as root for entrypoint chown, then drop.
+    user: "0:0"
     env_file:
       - .env
     environment:
