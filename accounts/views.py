@@ -77,6 +77,16 @@ def auth_view(request):
                     import logging
                     logging.getLogger(__name__).exception("set signup language failed")
 
+                # Issue the 6-digit OTP + send the verification email.
+                # Without this, /auth/verify-email/ shows "we sent a code"
+                # but no token exists and no email ever goes out.
+                try:
+                    from notifications.services import issue_verification_token
+                    issue_verification_token(user)
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception("issue verification token on signup failed")
+
                 # Notifications (best-effort, never blocks)
                 try:
                     from notifications import constants as C
