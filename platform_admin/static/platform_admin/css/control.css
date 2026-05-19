@@ -1,12 +1,17 @@
 .control-shell {
-  --cc-primary: #2563eb;
-  --cc-secondary: #10b981;
-  --cc-accent: #fbbf24;
-  --cc-bg: #f8fafc;
-  --cc-surface: #ffffff;
-  --cc-text: #0f172a;
-  --cc-muted: #64748b;
-  --cc-border: #e2e8f0;
+  /* Admin tokens are now aliases of the brand tokens (Phase 7) so
+     the admin surface uses Onlenco teal/amber instead of generic
+     Material-blue. Every selector in this file still reads
+     var(--cc-*); only the right-hand sides changed. The old
+     Material palette can be restored by reverting these 8 lines. */
+  --cc-primary:   hsl(var(--primary));
+  --cc-secondary: hsl(var(--success));
+  --cc-accent:    hsl(var(--warning));
+  --cc-bg:        hsl(var(--background));
+  --cc-surface:   hsl(var(--card));
+  --cc-text:      hsl(var(--foreground));
+  --cc-muted:     hsl(var(--muted-foreground));
+  --cc-border:    hsl(var(--border));
   min-height: 100vh;
   background: var(--cc-bg);
   color: var(--cc-text);

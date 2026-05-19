@@ -1,12 +1,17 @@
-:root {
-  --tp-primary: #2563EB;
-  --tp-secondary: #10B981;
-  --tp-accent: #FBBF24;
-  --tp-bg: #F8FAFC;
-  --tp-surface: #FFFFFF;
-  --tp-text: #0F172A;
-  --tp-muted: #64748B;
-  --tp-border: #E2E8F0;
+/* Teacher portal tokens are now aliases of the brand tokens (Phase 8)
+   so the teacher surface uses Onlenco teal/amber. Scoped to
+   .teacher-shell so the redefinition does not leak into other pages
+   when this stylesheet is loaded globally. Every selector below still
+   reads var(--tp-*); only the right-hand sides changed. */
+.teacher-shell {
+  --tp-primary:   hsl(var(--primary));
+  --tp-secondary: hsl(var(--success));
+  --tp-accent:    hsl(var(--warning));
+  --tp-bg:        hsl(var(--background));
+  --tp-surface:   hsl(var(--card));
+  --tp-text:      hsl(var(--foreground));
+  --tp-muted:     hsl(var(--muted-foreground));
+  --tp-border:    hsl(var(--border));
 }
 
 body {
