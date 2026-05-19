@@ -1,6 +1,12 @@
-{% load i18n_dict %}
-{# Compact "today's plan" card for embedding on the main dashboard. #}
+{% load static i18n_dict %}
+{% comment %}
+Compact "today's plan" card for the main dashboard. Uses
+.dl-progress-xp (defined in daily_journey.css) for the gamified XP-bar
+look. We include the stylesheet inline here so this partial doesn't
+require its parent template to also load daily_journey.css.
+{% endcomment %}
 {% if today_plan %}
+<link rel="stylesheet" href="{% static 'css/daily_journey.css' %}">
 <div class="card p-6 gradient-hero border-0 shadow-elegant">
     <div class="flex items-start justify-between gap-4 flex-wrap">
         <div class="min-w-0">
@@ -10,7 +16,7 @@
             </span>
             <h2 class="font-display text-2xl md:text-3xl font-bold mb-1">{{ today_plan.title }}</h2>
             {% if today_plan.description %}
-                <p class="text-sm" style="opacity:0.92">{{ today_plan.description }}</p>
+                <p class="text-sm opacity-90">{{ today_plan.description }}</p>
             {% endif %}
         </div>
         <a href="{% url 'daily_learning:daily_plan' %}" class="btn btn-hero shrink-0">
@@ -22,10 +28,10 @@
         <span>·</span>
         <span>{{ today_plan.estimated_minutes }} min</span>
         <span class="flex-1"></span>
-        <div class="h-2 w-32 rounded-full bg-white/30 overflow-hidden">
-            <div class="h-full bg-white" style="width: {{ today_plan.progress_percent }}%;"></div>
+        <div class="dl-progress-xp w-32">
+            <div class="dl-progress-xp-fill" style="width: {{ today_plan.progress_percent }}%;"></div>
         </div>
-        <span class="text-xs">{{ today_plan.progress_percent }}%</span>
+        <span class="text-xs font-semibold">{{ today_plan.progress_percent }}%</span>
     </div>
 </div>
 {% endif %}

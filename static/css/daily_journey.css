@@ -1,0 +1,235 @@
+/*
+ * Daily learning — journey visual treatment (Phase 6).
+ *
+ * Replaces the flat horizontal-bar stepper with a "journey path":
+ * circular nodes connected by a track, each node carrying an icon
+ * that hints at the step type (vocab / grammar / listening / etc.).
+ * Reads tokens from onlenco-tokens.css. No layout-breaking changes —
+ * existing JS hooks (data-stepper-dot, data-step, data-completed)
+ * are preserved.
+ *
+ * Components defined here:
+ *   .dl-journey            wrapper around the row of step nodes
+ *   .dl-journey-track      thin track behind nodes (the "path")
+ *   .dl-journey-node       individual circle (one per item)
+ *   .dl-journey-node-icon  step-type icon inside the circle
+ *   .dl-step-card          per-step card (type-aware top stripe)
+ *   .dl-celebrate          confetti / sparkle on step completion
+ *   .dl-progress-xp        gamified progress bar for today_partial
+ */
+
+
+/* ============================================================
+ *  Journey path — replaces flat-bar stepper
+ * ============================================================ */
+
+.dl-journey {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-2);
+}
+
+/* The faint track behind the circles. Width: 0 -> 100% based on
+   --journey-progress set by JS. */
+.dl-journey::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline-start: var(--space-4);
+  inset-inline-end: var(--space-4);
+  height: 4px;
+  background: hsl(var(--muted));
+  border-radius: var(--radius-pill);
+  z-index: 0;
+}
+.dl-journey::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline-start: var(--space-4);
+  height: 4px;
+  width: calc(var(--journey-progress, 0%) - var(--space-8));
+  background: linear-gradient(
+    90deg,
+    hsl(var(--brand-teal-500)),
+    hsl(var(--brand-amber-500))
+  );
+  border-radius: var(--radius-pill);
+  z-index: 0;
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.dl-journey-node {
+  position: relative;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: hsl(var(--card));
+  border: 2px solid hsl(var(--muted));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  transition:
+    background var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-bounce),
+    color var(--duration-base) var(--ease-out);
+}
+
+/* The active step — slightly larger, brand-coloured ring. */
+.dl-journey-node[data-state="current"] {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  transform: scale(1.12);
+  box-shadow: 0 0 0 4px hsl(var(--primary) / .15), var(--shadow-md);
+}
+
+/* Completed steps — amber fill with check icon. */
+.dl-journey-node[data-state="done"] {
+  background: hsl(var(--secondary));
+  border-color: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+.dl-journey-node[data-state="done"]::after {
+  content: "✓";
+  font-size: 18px;
+  line-height: 1;
+}
+.dl-journey-node[data-state="done"] .dl-journey-node-icon { display: none; }
+
+
+/* ============================================================
+ *  Per-step card — type-aware top stripe
+ *  Each item type carries a brand-aligned colour so the student
+ *  picks up visual rhythm: vocab=teal, grammar=purple, listening
+ *  =info-blue, speaking=amber, writing=success-green.
+ * ============================================================ */
+
+.dl-step-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.dl-step-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+  height: 4px;
+  background: hsl(var(--primary));
+  z-index: 1;
+}
+.dl-step-card[data-item-type="vocabulary"]::before  { background: hsl(var(--brand-teal-500)); }
+.dl-step-card[data-item-type="grammar_tip"]::before { background: hsl(263 70% 60%); }
+.dl-step-card[data-item-type="listening"]::before   { background: hsl(var(--status-info-500)); }
+.dl-step-card[data-item-type="speaking"]::before    { background: hsl(var(--secondary)); }
+.dl-step-card[data-item-type="writing"]::before     { background: hsl(var(--status-success-500)); }
+.dl-step-card[data-item-type="word_order"]::before  { background: hsl(263 70% 60%); }
+.dl-step-card[data-item-type="quiz"]::before        { background: hsl(var(--accent)); }
+
+/* Step type chip — replaces the small uppercase text. */
+.dl-step-type {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  margin-bottom: var(--space-3);
+}
+.dl-step-card[data-item-type="vocabulary"]  .dl-step-type { background: hsl(var(--brand-teal-100));        color: hsl(var(--brand-teal-700)); }
+.dl-step-card[data-item-type="grammar_tip"] .dl-step-type { background: hsl(263 70% 95%);                  color: hsl(263 60% 40%); }
+.dl-step-card[data-item-type="listening"]   .dl-step-type { background: hsl(var(--status-info-100));      color: hsl(var(--status-info-500)); }
+.dl-step-card[data-item-type="speaking"]    .dl-step-type { background: hsl(var(--brand-amber-100));      color: hsl(var(--brand-amber-700)); }
+.dl-step-card[data-item-type="writing"]     .dl-step-type { background: hsl(var(--status-success-100));   color: hsl(var(--status-success-500)); }
+.dl-step-card[data-item-type="word_order"]  .dl-step-type { background: hsl(263 70% 95%);                  color: hsl(263 60% 40%); }
+.dl-step-card[data-item-type="quiz"]        .dl-step-type { background: hsl(var(--brand-amber-100));      color: hsl(var(--accent-foreground)); }
+
+
+/* ============================================================
+ *  Celebration — fires when a step completes.
+ *  Triggered by JS adding .dl-celebrating to the current step
+ *  card for ~700ms.
+ * ============================================================ */
+
+.dl-celebrate {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+}
+.dl-celebrating .dl-celebrate { animation: dl-celebrate-fade 700ms var(--ease-out) forwards; }
+
+.dl-celebrate::before,
+.dl-celebrate::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: hsl(var(--secondary));
+  opacity: 0;
+}
+.dl-celebrating .dl-celebrate::before { animation: dl-celebrate-pulse 700ms var(--ease-out) forwards; }
+.dl-celebrating .dl-celebrate::after  { animation: dl-celebrate-pulse 700ms 100ms var(--ease-out) forwards; background: hsl(var(--brand-teal-500)); }
+
+@keyframes dl-celebrate-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes dl-celebrate-pulse {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.85; }
+  100% { transform: translate(-50%, -50%) scale(15); opacity: 0; }
+}
+
+
+/* ============================================================
+ *  Today partial — gamified XP bar
+ *  Renders the existing progress data with more game feel.
+ * ============================================================ */
+
+.dl-progress-xp {
+  position: relative;
+  height: var(--space-2);
+  background: hsl(0 0% 100% / 0.25);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px hsl(var(--foreground) / 0.15);
+}
+.dl-progress-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(0 0% 100%) 0%, hsl(var(--brand-amber-100)) 100%);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-slow) var(--ease-out);
+  box-shadow: 0 0 6px hsl(var(--brand-amber-300) / .6);
+}
+
+
+/* ============================================================
+ *  Reduced motion
+ * ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-journey-node { transition: none; }
+  .dl-celebrating .dl-celebrate { animation: none; }
+  .dl-celebrating .dl-celebrate::before,
+  .dl-celebrating .dl-celebrate::after { animation: none; }
+  .dl-progress-xp-fill { transition: none; }
+}

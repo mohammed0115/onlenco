@@ -1,7 +1,11 @@
 {% extends "base.html" %}
-{% load i18n_dict %}
+{% load static i18n_dict %}
 
 {% block title %}{% t_either "Today's plan" "خطة اليوم" %} — Onlenco{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/daily_journey.css' %}">
+{% endblock %}
 
 {% block body %}
 <div class="min-h-screen bg-muted/20">
@@ -22,14 +26,20 @@
         </div>
 
         {% if plan %}
-        {# Stepper dots — one circle per item, current step is filled. #}
-        <div class="flex items-center gap-2" data-stepper-dots>
+        {% comment %}
+          Journey path — replaces the flat-bar stepper. Each circle
+          is a step; data-stepper-dot is preserved so the existing JS
+          can drive node state (current / done) and trail progress.
+        {% endcomment %}
+        <div class="dl-journey" data-stepper-dots style="--journey-progress: 0%;">
             {% for item in items %}
-            <span class="h-2 w-full rounded-full bg-muted overflow-hidden">
-                <span class="block h-full bg-primary transition-all"
-                      data-stepper-dot="{{ forloop.counter0 }}"
-                      style="width: 0%;"></span>
-            </span>
+            <div class="dl-journey-node"
+                 data-stepper-dot="{{ forloop.counter0 }}"
+                 data-item-type="{{ item.item_type }}"
+                 data-state="{% if forloop.first %}current{% else %}upcoming{% endif %}"
+                 title="{{ item.get_item_type_display }}">
+                <span class="dl-journey-node-icon">{{ forloop.counter }}</span>
+            </div>
             {% endfor %}
         </div>
         <div class="text-xs text-muted-foreground flex items-center justify-between">
@@ -48,12 +58,14 @@
                      data-item-id="{{ item.id }}"
                      data-item-type="{{ item.item_type }}"
                      data-completed="{{ item.is_completed|yesno:'1,0' }}"
-                     class="card p-6 {% if not forloop.first %}hidden{% endif %}">
-                <div class="text-xs uppercase text-muted-foreground tracking-wide mb-1">
-                    {{ forloop.counter }}. {{ item.get_item_type_display }}
-                    {% if item.skill %} · {{ item.get_skill_display }}{% endif %}
+                     class="card p-6 dl-step-card {% if not forloop.first %}hidden{% endif %}">
+                <span class="dl-celebrate" aria-hidden="true"></span>
+                <div class="dl-step-type">
+                    <span>{{ forloop.counter }}</span>
+                    <span>· {{ item.get_item_type_display }}</span>
+                    {% if item.skill %}<span class="opacity-70">· {{ item.get_skill_display }}</span>{% endif %}
                 </div>
-                <h3 class="font-semibold text-lg mb-3">{{ item.title }}</h3>
+                <h3 class="font-display font-semibold text-lg mb-3">{{ item.title }}</h3>
 
                 {% if item.instructions %}
                     <p class="text-sm text-muted-foreground mb-3">{{ item.instructions }}</p>
@@ -232,27 +244,41 @@
   // ----- Stepper navigation -----
   const steps = Array.from(document.querySelectorAll('[data-step]'));
   const dots  = Array.from(document.querySelectorAll('[data-stepper-dot]'));
+  const journey = document.querySelector('.dl-journey');
   const counter = document.querySelector('[data-stepper-counter]');
   let current = 0;
 
   const showStep = (idx) => {
     steps.forEach((el, i) => el.classList.toggle('hidden', i !== idx));
+    // Journey nodes — each gets a data-state for CSS to colour:
+    //   "done"     past steps (amber + check)
+    //   "current"  the active step (brand-teal, scaled up)
+    //   "upcoming" everything after
     dots.forEach((d, i) => {
-      d.style.width = (i < idx) ? '100%' : (i === idx ? '100%' : '0%');
+      const state = i < idx ? 'done' : (i === idx ? 'current' : 'upcoming');
+      d.setAttribute('data-state', state);
     });
+    if (journey && dots.length > 1) {
+      const pct = (idx / (dots.length - 1)) * 100;
+      journey.style.setProperty('--journey-progress', pct + '%');
+    }
     if (counter) counter.textContent = (idx + 1) + ' / ' + steps.length;
     current = idx;
     const step = steps[idx];
     if (!step) return;
-    // Cancel any in-flight TTS from the previous step so the user
-    // doesn't get a startling overlap when moving forward fast.
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    // TTS is strictly user-initiated — auto-play was producing surprise
-    // output (digit runs, unfamiliar voices). The Listen button on each
-    // step is the only path to voice now.
-    // Focus the writing input so the keyboard pops open on mobile.
     const writingInput = step.querySelector('[data-writing-input]');
     if (writingInput) writingInput.focus();
+  };
+
+  // Trigger the burst-of-sparkles animation defined in daily_journey.css.
+  const celebrate = (step) => {
+    if (!step) return;
+    step.classList.remove('dl-celebrating');
+    // Force reflow so the class re-add restarts the keyframe animation.
+    void step.offsetWidth;
+    step.classList.add('dl-celebrating');
+    setTimeout(() => step.classList.remove('dl-celebrating'), 800);
   };
 
   // Wire next/prev/finish on each step
@@ -263,7 +289,12 @@
     if (next) {
       next.addEventListener('click', async () => {
         await markItemComplete(step);
-        if (current < steps.length - 1) showStep(current + 1);
+        celebrate(step);
+        if (current < steps.length - 1) {
+          // Tiny delay so the user sees the celebration before the
+          // card swap. Matches --duration-base from the token layer.
+          setTimeout(() => showStep(current + 1), 220);
+        }
       });
     }
     if (prev) {
