@@ -9,7 +9,7 @@
 
     <main class="container py-10 max-w-3xl mx-auto space-y-6">
         <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-10 text-center">
-            <p class="mb-2" style="opacity:0.9">{% t "quiz.score" %}</p>
+            <p class="mb-2 opacity-90">{% t "quiz.score" %}</p>
             <div class="font-display text-7xl font-bold mb-4">{{ score }}%</div>
             {% if passed %}
                 <span class="badge badge-popular mx-auto" style="background:hsl(150 50% 92%); color:hsl(150 60% 25%); border:1px solid hsl(150 50% 75%)">
@@ -39,7 +39,7 @@
                         {% if r.chosen == r.correct %}
                             <i data-lucide="check-circle-2" class="h-5 w-5" style="color:hsl(150 60% 25%)"></i>
                         {% else %}
-                            <i data-lucide="circle-x" class="h-5 w-5" style="color:hsl(var(--destructive))"></i>
+                            <i data-lucide="circle-x" class="h-5 w-5 text-destructive"></i>
                         {% endif %}
                     </div>
 

@@ -7,7 +7,7 @@
 
     {# HERO #}
     <section class="relative overflow-hidden">
-        <div class="absolute inset-0 gradient-hero" style="opacity:0.04"></div>
+        <div class="absolute inset-0 gradient-hero opacity-5"></div>
         <div class="container relative py-16 md:py-28 grid md:grid-cols-2 gap-12 items-center">
             <div class="space-y-6 animate-fade-up">
                 <span class="badge badge-secondary px-4 py-1.5 text-xs">{% t "hero.badge" %}</span>
@@ -32,7 +32,7 @@
             </div>
 
             <div class="relative animate-fade-up" style="animation-delay:0.2s">
-                <div class="absolute -inset-4 gradient-sunset rounded-3xl blur-3xl" style="opacity:0.2"></div>
+                <div class="absolute -inset-4 gradient-sunset rounded-3xl blur-3xl opacity-20"></div>
                 <img src="{% static 'img/hero.jpg' %}" alt="English learning illustration"
                      width="1536" height="1024"
                      class="relative rounded-3xl shadow-elegant w-full h-auto">
@@ -116,12 +116,12 @@
 
                 <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-8 relative">
                     <span class="badge badge-popular absolute" style="top:-0.75rem;left:50%;transform:translateX(-50%)">{% t "price.popular" %}</span>
-                    <div class="text-sm font-semibold uppercase tracking-wider mb-2" style="opacity:0.8">{% t "price.quarter" %}</div>
+                    <div class="text-sm font-semibold uppercase tracking-wider mb-2 opacity-80">{% t "price.quarter" %}</div>
                     <div class="flex items-baseline gap-1 mb-2">
                         <span class="font-display text-5xl font-bold">50,000</span>
-                        <span style="opacity:0.8">SDG / 3{% t_either "mo" "شهور" %}</span>
+                        <span class="opacity-80">SDG / 3{% t_either "mo" "شهور" %}</span>
                     </div>
-                    <div class="text-xs mb-6" style="opacity:0.8">{% t "price.save" %}</div>
+                    <div class="text-xs mb-6 opacity-80">{% t "price.save" %}</div>
                     <ul class="space-y-3 mb-8 text-sm">
                         <li class="flex gap-2"><i data-lucide="check" class="h-5 w-5 shrink-0"></i> {% t_either "Everything in monthly" "كل ما في الشهري" %}</li>
                         <li class="flex gap-2"><i data-lucide="check" class="h-5 w-5 shrink-0"></i> {% t_either "Priority AI tutor access" "أولوية وصول للمدرس" %}</li>

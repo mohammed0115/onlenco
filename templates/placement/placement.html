@@ -193,9 +193,9 @@
 
         {% else %}
             <div class="card gradient-hero text-primary-foreground border-0 shadow-elegant p-10 text-center">
-                <p class="mb-2" style="opacity:0.9">{% t "pl.result" %}</p>
+                <p class="mb-2 opacity-90">{% t "pl.result" %}</p>
                 <div class="font-display text-7xl font-bold mb-4">{{ result.level }}</div>
-                <p class="max-w-md mx-auto mb-8 leading-relaxed" style="opacity:0.9">{{ result.feedback|humanize }}</p>
+                <p class="max-w-md mx-auto mb-8 leading-relaxed opacity-90">{{ result.feedback|humanize }}</p>
                 <a href="{% url 'dashboard' %}" class="btn btn-glass btn-lg">
                     {% t "pl.continue" %}
                     <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>

@@ -19,7 +19,7 @@
                 <i data-lucide="check-circle-2" class="h-12 w-12 mx-auto mb-3"></i>
                 <h2 class="font-display text-2xl font-bold mb-2">{% t "pay.active" %}</h2>
                 {% if profile.subscription_expires_at %}
-                <p style="opacity:0.9">
+                <p class="opacity-90">
                     {% t_either "Active until" "مفعل حتى" %}: {{ profile.subscription_expires_at|date:"Y-m-d" }}
                 </p>
                 {% endif %}
@@ -27,11 +27,11 @@
         {% endif %}
 
         {% if last_rejected %}
-        <div class="card p-5 mb-6" style="border-color: hsl(var(--destructive)); background: hsl(0 75% 97%);">
+        <div class="card p-5 mb-6 border-destructive bg-destructive/5">
           <div class="flex items-start gap-3">
-            <i data-lucide="alert-circle" class="h-5 w-5 mt-0.5" style="color: hsl(var(--destructive))"></i>
+            <i data-lucide="alert-circle" class="h-5 w-5 mt-0.5 text-destructive"></i>
             <div class="flex-1">
-              <h3 class="font-semibold mb-1" style="color: hsl(var(--destructive))">
+              <h3 class="font-semibold mb-1 text-destructive">
                 {% t "pay.rejected_title" %}
               </h3>
               <p class="text-sm">

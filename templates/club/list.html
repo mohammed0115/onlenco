@@ -28,7 +28,7 @@
             <div class="card p-6" style="border-color:hsl(var(--destructive)); background:hsl(0 75% 97%);">
                 <div class="flex items-start justify-between gap-4 flex-wrap">
                     <div class="flex items-start gap-3">
-                        <i data-lucide="lock" class="h-5 w-5 mt-0.5" style="color:hsl(var(--destructive))"></i>
+                        <i data-lucide="lock" class="h-5 w-5 mt-0.5 text-destructive"></i>
                         <div>
                             <div class="font-semibold mb-1">{% t "club.locked" %}</div>
                             <div class="text-sm text-muted-foreground">{% t_either "You can preview upcoming sessions, but RSVP and Meet links require a subscription." "يمكنك معاينة الجلسات، لكن التسجيل وروابط الجلسة تتطلب اشتراكاً." %}</div>
@@ -45,10 +45,10 @@
                     <a href="{% url 'club_event' e.pk %}" class="card gradient-card p-7 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
                         <div class="flex items-start justify-between gap-4 mb-4">
                             <div class="px-4 py-3 rounded-xl gradient-sunset text-primary-foreground">
-                                <div class="text-xs font-semibold" style="opacity:0.95">
+                                <div class="text-xs font-semibold opacity-95">
                                     <time class="js-local" datetime="{{ e.starts_at|date:'c' }}">{{ e.starts_at|date:"D d M · H:i" }}</time>
                                 </div>
-                                <div class="text-xs" style="opacity:0.85">{{ e.duration_minutes }} {% t_either "min" "د" %}</div>
+                                <div class="text-xs opacity-90">{{ e.duration_minutes }} {% t_either "min" "د" %}</div>
                             </div>
                             {% if e.my_rsvp %}
                                 {% if e.my_rsvp.status == "going" %}<span class="badge badge-secondary"><i data-lucide="check" class="h-3 w-3"></i> {% t "club.rsvp.going" %}</span>
