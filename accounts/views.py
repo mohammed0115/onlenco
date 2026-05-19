@@ -1,13 +1,72 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
+from django.core.cache import cache
 from django.shortcuts import redirect, render
 from django.utils import translation
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .forms import SignUpForm, EmailLoginForm
 from . import onboarding as onboarding_lib
+
+
+SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR = 5
+
+
+def _client_ip(request) -> str:
+    """First IP from X-Forwarded-For (Caddy passes it), else REMOTE_ADDR.
+    Strip any :port that proxies sometimes include — same gotcha that
+    bit us on the audit-log inet column (commit 1642539)."""
+    fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    raw = (fwd.split(",", 1)[0].strip() if fwd else request.META.get("REMOTE_ADDR", "")) or "0.0.0.0"
+    if raw.startswith("[") and "]" in raw:
+        return raw[1:raw.index("]")]
+    if raw.count(":") == 1:
+        return raw.split(":", 1)[0]
+    return raw
+
+
+def _signup_rate_exceeded(request) -> bool:
+    """Returns True if this IP has hit its hourly signup cap."""
+    ip = _client_ip(request)
+    key = f"signup_rate:{ip}"
+    n = cache.get(key, 0)
+    if n >= SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR:
+        return True
+    # Set with a 1-hour TTL on first hit; subsequent hits just inc.
+    if n == 0:
+        cache.set(key, 1, 3600)
+    else:
+        try:
+            cache.incr(key)
+        except ValueError:
+            cache.set(key, 1, 3600)
+    return False
+
+
+def _hcaptcha_verify(request) -> bool:
+    """If HCAPTCHA_SECRET is set, require a valid hCaptcha token.
+    Returns True when verified OR when hCaptcha is disabled (no secret)."""
+    secret = (getattr(settings, "HCAPTCHA_SECRET", "") or "").strip()
+    if not secret:
+        return True   # feature disabled
+    token = (request.POST.get("h-captcha-response") or "").strip()
+    if not token:
+        return False
+    try:
+        import requests
+        r = requests.post(
+            "https://hcaptcha.com/siteverify",
+            data={"secret": secret, "response": token, "remoteip": _client_ip(request)},
+            timeout=8,
+        )
+        return bool((r.json() or {}).get("success"))
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("hCaptcha verification failed", exc_info=True)
+        return False
 
 
 def _post_login_destination(user):
@@ -55,8 +114,24 @@ def auth_view(request):
 
     if request.method == "POST":
         if mode == "signup":
+            # Rate-limit by IP first — cheapest check, blocks brute-force
+            # signup floods before we even validate the form.
+            if _signup_rate_exceeded(request):
+                messages.error(
+                    request,
+                    "Too many signup attempts from your network. Please try again later.",
+                )
+                return render(request, "accounts/auth.html", {
+                    "mode": "signup",
+                    "signin_form": signin_form,
+                    "signup_form": signup_form,
+                    "HCAPTCHA_SITE_KEY": getattr(settings, "HCAPTCHA_SITE_KEY", "") or "",
+                })
             signup_form = SignUpForm(request.POST)
-            if signup_form.is_valid():
+            captcha_ok = signup_form.is_valid() and _hcaptcha_verify(request)
+            if signup_form.is_valid() and not captcha_ok:
+                messages.error(request, "Please complete the CAPTCHA challenge and try again.")
+            if captcha_ok:
                 user = signup_form.save()
 
                 # Persist the active request language onto the profile +
@@ -134,6 +209,7 @@ def auth_view(request):
         "mode": mode,
         "signin_form": signin_form,
         "signup_form": signup_form,
+        "HCAPTCHA_SITE_KEY": getattr(settings, "HCAPTCHA_SITE_KEY", "") or "",
     })
 
 

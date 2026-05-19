@@ -304,6 +304,13 @@ EMAIL_REPLY_TO = env_get("EMAIL_REPLY_TO", "")
 # fallback, CTA links). Provider strips of CID images hit this URL.
 ONLENCO_BASE_URL = env_get("ONLENCO_BASE_URL", "")
 
+# --- Anti-bot signup protection ---------------------------------------
+# Optional hCaptcha on /auth/?mode=signup. Both keys must be set to
+# enable; leave empty to skip (honeypot + rate-limit still apply).
+# Site key is public (rendered in HTML); secret is server-side only.
+HCAPTCHA_SITE_KEY = env_get("HCAPTCHA_SITE_KEY", "")
+HCAPTCHA_SECRET = env_get("HCAPTCHA_SECRET", "")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

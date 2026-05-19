@@ -88,6 +88,11 @@ def fire(now) -> None:
     if hh == 4 and mm == 15:
         _run("send_subscription_expiring")
 
+    if hh == 4 and mm == 30:
+        # Drop unverified signups older than 24h — bots leave them behind.
+        # Real students normally verify within minutes.
+        _run("prune_unverified_users")
+
     if weekday == 0 and hh == 9 and mm == 0:
         _run("run_motivation_engine", weekly=True)
 

@@ -1,8 +1,22 @@
+import time
+
 from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 
 User = get_user_model()
+
+
+# Bots usually submit signup forms either instantly (under a second) or
+# from a script that fills every field they can find. We catch both:
+#   1. A hidden `website` honeypot — only filled by bots that fill
+#      everything blindly.
+#   2. A signed timestamp the template renders into a hidden field
+#      when the page loads. Submissions under MIN_FILL_SECONDS reject.
+HONEYPOT_FIELD = "website"
+SIGNUP_FORM_TIMESTAMP_FIELD = "form_started_at"
+MIN_FILL_SECONDS = 3
 
 
 class SignUpForm(forms.Form):
@@ -13,6 +27,29 @@ class SignUpForm(forms.Form):
     full_name = forms.CharField(max_length=100, required=True)
     email = forms.EmailField(max_length=255, required=True)
     password = forms.CharField(min_length=6, max_length=100, widget=forms.PasswordInput)
+    # Honeypot — must be left empty. Hidden via CSS in the template.
+    website = forms.CharField(required=False, widget=forms.HiddenInput)
+    # Set by the template on page load. We reject submissions where the
+    # gap between page-load and submit is unrealistically short.
+    form_started_at = forms.IntegerField(required=False, widget=forms.HiddenInput)
+
+    def clean_website(self):
+        if (self.cleaned_data.get("website") or "").strip():
+            # Don't tell the bot what tripped it — pretend the email is taken.
+            raise forms.ValidationError("An account with this email already exists.")
+        return ""
+
+    def clean_form_started_at(self):
+        started = self.cleaned_data.get("form_started_at") or 0
+        if not started:
+            # Older client (no JS) or stale page — let it through.
+            return started
+        elapsed = int(time.time()) - int(started)
+        if elapsed < MIN_FILL_SECONDS:
+            raise forms.ValidationError("Please take a moment to review the form.")
+        if elapsed > 24 * 60 * 60:
+            raise forms.ValidationError("Page expired — please refresh and try again.")
+        return started
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
