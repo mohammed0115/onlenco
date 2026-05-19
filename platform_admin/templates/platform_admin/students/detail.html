@@ -67,7 +67,7 @@
       <h2 class="font-semibold mb-3">Weaknesses & Mistakes</h2>
       <div class="stack">
         {% for weakness in weaknesses %}
-          <div><span class="badge badge-yellow">{{ weakness.skill.name|default:weakness.grammar_topic.name|default:"general" }}</span> <span class="muted">priority {{ weakness.priority_score|floatformat:1 }}</span></div>
+          <div><span class="badge badge-yellow">{% if weakness.skill %}{{ weakness.skill.name }}{% elif weakness.grammar_topic %}{{ weakness.grammar_topic.name }}{% else %}general{% endif %}</span> <span class="muted">priority {{ weakness.priority_score|floatformat:1 }}</span></div>
         {% empty %}
           <div class="muted">No weaknesses tracked.</div>
         {% endfor %}
