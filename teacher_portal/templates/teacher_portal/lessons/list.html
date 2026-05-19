@@ -4,37 +4,100 @@
 
 {% block teacher_content %}
 <div class="toolbar-line">
-  <a class="teacher-btn teacher-btn-primary" href="{% url 'teacher_portal:lesson_create' course.pk %}"><i data-lucide="plus"></i>{% if lang == "ar" %}إضافة درس{% else %}Add Lesson{% endif %}</a>
+  <a class="teacher-btn teacher-btn-primary" href="{% url 'teacher_portal:lesson_create' course.pk %}">
+    <i data-lucide="plus"></i>
+    {% if lang == "ar" %}إضافة درس{% else %}Add Lesson{% endif %}
+  </a>
+  <form method="get" style="display:inline-flex;gap:8px;align-items:center;margin-inline-start:12px">
+    <label class="muted" style="font-size:13px">{% if lang == "ar" %}ترتيب:{% else %}Sort:{% endif %}</label>
+    <select name="sort" onchange="this.form.submit()">
+      <option value="order"     {% if sort_param == "order" %}selected{% endif %}>{% if lang == "ar" %}حسب الترتيب{% else %}By order{% endif %}</option>
+      <option value="-order"    {% if sort_param == "-order" %}selected{% endif %}>{% if lang == "ar" %}الترتيب عكسياً{% else %}Reverse order{% endif %}</option>
+      <option value="title"     {% if sort_param == "title" %}selected{% endif %}>{% if lang == "ar" %}العنوان أ→ي{% else %}Title A→Z{% endif %}</option>
+      <option value="-title"    {% if sort_param == "-title" %}selected{% endif %}>{% if lang == "ar" %}العنوان ي→أ{% else %}Title Z→A{% endif %}</option>
+      <option value="status"    {% if sort_param == "status" %}selected{% endif %}>{% if lang == "ar" %}حسب الحالة{% else %}By status{% endif %}</option>
+      <option value="-updated"  {% if sort_param == "-updated" %}selected{% endif %}>{% if lang == "ar" %}الأحدث تحديثًا{% else %}Recently updated{% endif %}</option>
+      <option value="-created"  {% if sort_param == "-created" %}selected{% endif %}>{% if lang == "ar" %}الأحدث إنشاءً{% else %}Newest first{% endif %}</option>
+      <option value="created"   {% if sort_param == "created" %}selected{% endif %}>{% if lang == "ar" %}الأقدم إنشاءً{% else %}Oldest first{% endif %}</option>
+    </select>
+  </form>
 </div>
 <section class="teacher-panel">
   <table class="teacher-table">
-    <thead><tr><th>Order</th><th>Title</th><th>Skill</th><th>Status</th><th>Worksheet</th><th>Actions</th></tr></thead>
+    <thead>
+      <tr>
+        <th>
+          <a href="?sort={% if sort_param == 'order' %}-order{% else %}order{% endif %}"
+             class="th-sort {% if sort_param == 'order' or sort_param == '-order' %}sort-active{% endif %}">
+            #
+            {% if sort_param == "order" %}▲{% elif sort_param == "-order" %}▼{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if sort_param == 'title' %}-title{% else %}title{% endif %}"
+             class="th-sort {% if sort_param == 'title' or sort_param == '-title' %}sort-active{% endif %}">
+            {% if lang == "ar" %}العنوان{% else %}Title{% endif %}
+            {% if sort_param == "title" %}▲{% elif sort_param == "-title" %}▼{% endif %}
+          </a>
+        </th>
+        <th>{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</th>
+        <th>
+          <a href="?sort={% if sort_param == 'status' %}-status{% else %}status{% endif %}"
+             class="th-sort {% if sort_param == 'status' or sort_param == '-status' %}sort-active{% endif %}">
+            {% if lang == "ar" %}الحالة{% else %}Status{% endif %}
+            {% if sort_param == "status" %}▲{% elif sort_param == "-status" %}▼{% endif %}
+          </a>
+        </th>
+        <th>{% if lang == "ar" %}ورقة عمل{% else %}Worksheet{% endif %}</th>
+        <th>
+          <a href="?sort={% if sort_param == '-updated' %}updated{% else %}-updated{% endif %}"
+             class="th-sort {% if sort_param == 'updated' or sort_param == '-updated' %}sort-active{% endif %}">
+            {% if lang == "ar" %}آخر تحديث{% else %}Updated{% endif %}
+            {% if sort_param == "updated" %}▲{% elif sort_param == "-updated" %}▼{% endif %}
+          </a>
+        </th>
+        <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
+      </tr>
+    </thead>
     <tbody>
       {% for lesson in lessons %}
         <tr>
           <td>{{ lesson.order }}</td>
           <td>{{ lesson.title_ar|default:lesson.title }}</td>
           <td>{{ lesson.skill|default:lesson.lesson_type }}</td>
-          <td><span class="status-pill status-{{ lesson.status }}">{{ lesson.status }}</span></td>
+          <td>
+            <span class="status-pill status-{{ lesson.status }}">
+              {% if lesson.status == "draft" %}{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}
+              {% elif lesson.status == "pending_review" %}{% if lang == "ar" %}قيد المراجعة{% else %}Pending review{% endif %}
+              {% elif lesson.status == "approved" %}{% if lang == "ar" %}معتمد{% else %}Approved{% endif %}
+              {% elif lesson.status == "published" %}{% if lang == "ar" %}منشور{% else %}Published{% endif %}
+              {% elif lesson.status == "rejected" %}{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}
+              {% else %}{{ lesson.status }}{% endif %}
+            </span>
+          </td>
           <td>{{ lesson.resources.count }}</td>
+          <td><span dir="ltr">{{ lesson.updated_at|date:"Y-m-d" }}</span></td>
           <td class="row-actions">
-            {% if lesson.status == "draft" or lesson.status == "rejected" %}<a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>{% endif %}
             <a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}">{% if lang == "ar" %}الاختبار{% else %}Quiz{% endif %}</a>
             {% if lesson.status == "draft" or lesson.status == "rejected" %}
+              <a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
               <form method="post" action="{% url 'teacher_portal:lesson_submit_review' lesson.pk %}" style="display:inline">
-                {% csrf_token %}<button type="submit">{% if lang == "ar" %}إرسال للمراجعة{% else %}Submit{% endif %}</button>
+                {% csrf_token %}
+                <button type="submit">{% if lang == "ar" %}إرسال للمراجعة{% else %}Submit{% endif %}</button>
               </form>
-              <form method="post" action="{% url 'teacher_portal:lesson_delete' lesson.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الدرس؟{% else %}Delete this lesson?{% endif %}');" style="display:inline">
-                {% csrf_token %}<button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+              <form method="post" action="{% url 'teacher_portal:lesson_delete' lesson.pk %}"
+                    onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الدرس؟{% else %}Delete this lesson?{% endif %}');"
+                    style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
               </form>
             {% endif %}
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="6" class="muted">No lessons yet.</td></tr>
+        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد دروس بعد.{% else %}No lessons yet.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 {% endblock %}
-

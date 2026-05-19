@@ -1,55 +1,141 @@
 {% extends "teacher_portal/base.html" %}
 
 {% block teacher_title %}{% if lang == "ar" %}كورساتي{% else %}My Courses{% endif %}{% endblock %}
-{% block teacher_subtitle %}{% if lang == "ar" %}مسودات، مراجعات، وكورسات منشورة في مكان واحد.{% else %}Drafts, reviews, and published courses in one place.{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}مسودات ومراجعات وكورسات منشورة في مكان واحد.{% else %}Drafts, reviews, and published courses in one place.{% endif %}{% endblock %}
 
 {% block teacher_content %}
 <form class="teacher-filters" method="get">
   <input name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث{% else %}Search{% endif %}">
   <select name="status">
-    <option value="">Status</option>
-    <option value="draft">draft</option>
-    <option value="pending_review">pending_review</option>
-    <option value="published">published</option>
-    <option value="rejected">rejected</option>
+    <option value="">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</option>
+    <option value="draft"          {% if filters.status == "draft" %}selected{% endif %}>{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}</option>
+    <option value="pending_review" {% if filters.status == "pending_review" %}selected{% endif %}>{% if lang == "ar" %}قيد المراجعة{% else %}Pending review{% endif %}</option>
+    <option value="published"      {% if filters.status == "published" %}selected{% endif %}>{% if lang == "ar" %}منشور{% else %}Published{% endif %}</option>
+    <option value="rejected"       {% if filters.status == "rejected" %}selected{% endif %}>{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}</option>
+    <option value="archived"       {% if filters.status == "archived" %}selected{% endif %}>{% if lang == "ar" %}مؤرشف{% else %}Archived{% endif %}</option>
   </select>
   <select name="language">
-    <option value="">Language</option>
-    <option value="ar">Arabic</option>
-    <option value="en">English</option>
-    <option value="bilingual">Bilingual</option>
+    <option value="">{% if lang == "ar" %}اللغة{% else %}Language{% endif %}</option>
+    <option value="ar"        {% if filters.language == "ar" %}selected{% endif %}>{% if lang == "ar" %}عربي{% else %}Arabic{% endif %}</option>
+    <option value="en"        {% if filters.language == "en" %}selected{% endif %}>{% if lang == "ar" %}إنجليزي{% else %}English{% endif %}</option>
+    <option value="bilingual" {% if filters.language == "bilingual" %}selected{% endif %}>{% if lang == "ar" %}ثنائي اللغة{% else %}Bilingual{% endif %}</option>
   </select>
-  <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="search"></i>{% if lang == "ar" %}تصفية{% else %}Filter{% endif %}</button>
+  <select name="sort" onchange="this.form.submit()">
+    <option value="-updated"  {% if sort_param == "-updated" %}selected{% endif %}>{% if lang == "ar" %}الأحدث تحديثًا{% else %}Recently updated{% endif %}</option>
+    <option value="updated"   {% if sort_param == "updated" %}selected{% endif %}>{% if lang == "ar" %}الأقدم تحديثًا{% else %}Oldest updated{% endif %}</option>
+    <option value="-created"  {% if sort_param == "-created" %}selected{% endif %}>{% if lang == "ar" %}الأحدث إنشاءً{% else %}Newest first{% endif %}</option>
+    <option value="created"   {% if sort_param == "created" %}selected{% endif %}>{% if lang == "ar" %}الأقدم إنشاءً{% else %}Oldest first{% endif %}</option>
+    <option value="title"     {% if sort_param == "title" %}selected{% endif %}>{% if lang == "ar" %}العنوان أ→ي{% else %}Title A→Z{% endif %}</option>
+    <option value="-title"    {% if sort_param == "-title" %}selected{% endif %}>{% if lang == "ar" %}العنوان ي→أ{% else %}Title Z→A{% endif %}</option>
+    <option value="level"     {% if sort_param == "level" %}selected{% endif %}>{% if lang == "ar" %}المستوى تصاعدي{% else %}Level ascending{% endif %}</option>
+    <option value="-level"    {% if sort_param == "-level" %}selected{% endif %}>{% if lang == "ar" %}المستوى تنازلي{% else %}Level descending{% endif %}</option>
+    <option value="-students" {% if sort_param == "-students" %}selected{% endif %}>{% if lang == "ar" %}الأكثر طلاباً{% else %}Most students{% endif %}</option>
+    <option value="-lessons"  {% if sort_param == "-lessons" %}selected{% endif %}>{% if lang == "ar" %}الأكثر دروساً{% else %}Most lessons{% endif %}</option>
+  </select>
+  <button class="teacher-btn teacher-btn-primary" type="submit">
+    <i data-lucide="search"></i>{% if lang == "ar" %}تصفية{% else %}Filter{% endif %}
+  </button>
 </form>
+
+{% comment %}
+Helper: render a sortable column header. Clicking flips the sort key.
+The `class="sort-active"` styling tells the user the current order.
+{% endcomment %}
+{% spaceless %}
+{% endspaceless %}
 
 <section class="teacher-panel">
   <table class="teacher-table">
-    <thead><tr><th>Title</th><th>Level</th><th>Status</th><th>Lessons</th><th>Students</th><th>Updated</th><th>Actions</th></tr></thead>
+    <thead>
+      <tr>
+        <th>
+          <a href="?sort={% if sort_param == 'title' %}-title{% else %}title{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.language %}&language={{ filters.language }}{% endif %}"
+             class="th-sort {% if sort_param == 'title' or sort_param == '-title' %}sort-active{% endif %}">
+            {% if lang == "ar" %}العنوان{% else %}Title{% endif %}
+            {% if sort_param == "title" %}▲{% elif sort_param == "-title" %}▼{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if sort_param == 'level' %}-level{% else %}level{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.language %}&language={{ filters.language }}{% endif %}"
+             class="th-sort {% if sort_param == 'level' or sort_param == '-level' %}sort-active{% endif %}">
+            {% if lang == "ar" %}المستوى{% else %}Level{% endif %}
+            {% if sort_param == "level" %}▲{% elif sort_param == "-level" %}▼{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if sort_param == 'status' %}-status{% else %}status{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.language %}&language={{ filters.language }}{% endif %}"
+             class="th-sort {% if sort_param == 'status' or sort_param == '-status' %}sort-active{% endif %}">
+            {% if lang == "ar" %}الحالة{% else %}Status{% endif %}
+            {% if sort_param == "status" %}▲{% elif sort_param == "-status" %}▼{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if sort_param == '-lessons' %}lessons{% else %}-lessons{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.language %}&language={{ filters.language }}{% endif %}"
+             class="th-sort {% if sort_param == 'lessons' or sort_param == '-lessons' %}sort-active{% endif %}">
+            {% if lang == "ar" %}الدروس{% else %}Lessons{% endif %}
+            {% if sort_param == "lessons" %}▲{% elif sort_param == "-lessons" %}▼{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if sort_param == '-students' %}students{% else %}-students{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.language %}&language={{ filters.language }}{% endif %}"
+             class="th-sort {% if sort_param == 'students' or sort_param == '-students' %}sort-active{% endif %}">
+            {% if lang == "ar" %}الطلاب{% else %}Students{% endif %}
+            {% if sort_param == "students" %}▲{% elif sort_param == "-students" %}▼{% endif %}
+          </a>
+        </th>
+        <th>
+          <a href="?sort={% if sort_param == '-updated' %}updated{% else %}-updated{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.language %}&language={{ filters.language }}{% endif %}"
+             class="th-sort {% if sort_param == 'updated' or sort_param == '-updated' %}sort-active{% endif %}">
+            {% if lang == "ar" %}آخر تحديث{% else %}Updated{% endif %}
+            {% if sort_param == "updated" %}▲{% elif sort_param == "-updated" %}▼{% endif %}
+          </a>
+        </th>
+        <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
+      </tr>
+    </thead>
     <tbody>
       {% for course in page_obj.object_list %}
         <tr>
           <td>{{ course.title_ar|default:course.title }}</td>
           <td>{{ course.level.code }}</td>
-          <td><span class="status-pill status-{{ course.status }}">{{ course.status }}</span></td>
-          <td>{{ course.lessons.count }}</td>
-          <td>{{ course.enrollments.count }}</td>
-          <td>{{ course.updated_at|date:"Y-m-d" }}</td>
+          <td>
+            <span class="status-pill status-{{ course.status }}">
+              {% if course.status == "draft" %}{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}
+              {% elif course.status == "pending_review" %}{% if lang == "ar" %}قيد المراجعة{% else %}Pending review{% endif %}
+              {% elif course.status == "published" %}{% if lang == "ar" %}منشور{% else %}Published{% endif %}
+              {% elif course.status == "rejected" %}{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}
+              {% elif course.status == "archived" %}{% if lang == "ar" %}مؤرشف{% else %}Archived{% endif %}
+              {% else %}{{ course.status }}{% endif %}
+            </span>
+          </td>
+          <td>{{ course.lessons_count }}</td>
+          <td>{{ course.students_count }}</td>
+          <td><span dir="ltr">{{ course.updated_at|date:"Y-m-d" }}</span></td>
           <td class="row-actions">
-            <a href="{% url 'teacher_portal:course_detail' course.pk %}">{% if lang == "ar" %}عرض{% else %}View{% endif %}</a>
+            <a href="{% url 'teacher_portal:course_detail' course.pk %}">{% if lang == "ar" %}فتح{% else %}View{% endif %}</a>
             <a href="{% url 'teacher_portal:lessons' course.pk %}">{% if lang == "ar" %}الدروس{% else %}Lessons{% endif %}</a>
             {% if course.status == "draft" or course.status == "rejected" %}
               <a href="{% url 'teacher_portal:course_edit' course.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
-              <form method="post" action="{% url 'teacher_portal:course_delete' course.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الكورس؟{% else %}Delete this course?{% endif %}');" style="display:inline">
-                {% csrf_token %}<button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+              <form method="post" action="{% url 'teacher_portal:course_delete' course.pk %}"
+                    onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الكورس نهائياً؟{% else %}Delete this course permanently?{% endif %}');"
+                    style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+              </form>
+            {% elif course.status == "published" %}
+              <form method="post" action="{% url 'teacher_portal:course_archive' course.pk %}"
+                    onsubmit="return confirm('{% if lang == "ar" %}أرشفة الكورس تخفيه عن الطلاب — هل أنت متأكد؟{% else %}Archiving hides this course from students. Continue?{% endif %}');"
+                    style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="link-danger">{% if lang == "ar" %}أرشفة{% else %}Archive{% endif %}</button>
               </form>
             {% endif %}
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" class="muted">No courses.</td></tr>
+        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد كورسات.{% else %}No courses.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 {% endblock %}
-

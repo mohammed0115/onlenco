@@ -113,9 +113,41 @@ def dashboard(request):
     )
 
 
+_COURSE_SORT_KEYS = {
+    # url-param → DB ordering (negative = DESC). Whitelist so no
+    # arbitrary column name from query string ever reaches Django's
+    # order_by — that'd be both an injection risk and a query-planner
+    # surprise.
+    "title":      "title",
+    "-title":     "-title",
+    "level":      "level__sort_order",
+    "-level":     "-level__sort_order",
+    "status":     "status",
+    "-status":    "-status",
+    "lessons":    "lessons_count",
+    "-lessons":   "-lessons_count",
+    "students":   "students_count",
+    "-students":  "-students_count",
+    "updated":    "updated_at",
+    "-updated":   "-updated_at",
+    "created":    "created_at",
+    "-created":   "-created_at",
+}
+_COURSE_SORT_DEFAULT = "-updated"
+
+
 @teacher_required
 def courses_list(request):
-    qs = teacher_perms.teacher_course_queryset(request.user).select_related("level").prefetch_related("lessons", "enrollments")
+    from django.db.models import Count
+    qs = (
+        teacher_perms.teacher_course_queryset(request.user)
+        .select_related("level")
+        .prefetch_related("lessons", "enrollments")
+        .annotate(
+            lessons_count=Count("lessons", distinct=True),
+            students_count=Count("enrollments", distinct=True),
+        )
+    )
     q = (request.GET.get("q") or "").strip()
     status = (request.GET.get("status") or "").strip()
     level = (request.GET.get("level") or "").strip()
@@ -128,11 +160,22 @@ def courses_list(request):
         qs = qs.filter(level__code=level)
     if language:
         qs = qs.filter(language=language)
+
+    sort_param = (request.GET.get("sort") or _COURSE_SORT_DEFAULT).strip()
+    ordering = _COURSE_SORT_KEYS.get(sort_param) or _COURSE_SORT_KEYS[_COURSE_SORT_DEFAULT]
+    if sort_param not in _COURSE_SORT_KEYS:
+        sort_param = _COURSE_SORT_DEFAULT
+    qs = qs.order_by(ordering, "-id")
+
     return _render(
         request,
         "teacher_portal/courses/list.html",
         "courses",
-        {"page_obj": _paginate(request, qs), "filters": request.GET},
+        {
+            "page_obj": _paginate(request, qs),
+            "filters": request.GET,
+            "sort_param": sort_param,
+        },
     )
 
 
@@ -191,11 +234,35 @@ def course_submit_review(request, pk):
     return redirect("teacher_portal:course_detail", pk=course.pk)
 
 
+_LESSON_SORT_KEYS = {
+    "order":      "order",
+    "-order":     "-order",
+    "title":      "title",
+    "-title":     "-title",
+    "status":     "status",
+    "-status":    "-status",
+    "updated":    "updated_at",
+    "-updated":   "-updated_at",
+    "created":    "created_at",
+    "-created":   "-created_at",
+}
+_LESSON_SORT_DEFAULT = "order"
+
+
 @teacher_required
 def lessons_list(request, course_id):
     course = get_object_or_404(teacher_perms.teacher_course_queryset(request.user), pk=course_id)
-    lessons = course.lessons.order_by("order", "id")
-    return _render(request, "teacher_portal/lessons/list.html", "lessons", {"course": course, "lessons": lessons})
+    sort_param = (request.GET.get("sort") or _LESSON_SORT_DEFAULT).strip()
+    ordering = _LESSON_SORT_KEYS.get(sort_param) or _LESSON_SORT_KEYS[_LESSON_SORT_DEFAULT]
+    if sort_param not in _LESSON_SORT_KEYS:
+        sort_param = _LESSON_SORT_DEFAULT
+    lessons = course.lessons.order_by(ordering, "id")
+    return _render(
+        request,
+        "teacher_portal/lessons/list.html",
+        "lessons",
+        {"course": course, "lessons": lessons, "sort_param": sort_param},
+    )
 
 
 @teacher_required
@@ -497,6 +564,21 @@ def course_delete(request, pk):
         return HttpResponseForbidden("Only draft or rejected courses can be deleted")
     course.delete()
     messages.success(request, "Course deleted.")
+    return redirect("teacher_portal:courses")
+
+
+@require_POST
+@teacher_required
+def course_archive(request, pk):
+    """Soft-delete: flip the course to archived + inactive so it
+    disappears from students without losing enrollment data. Allowed
+    for published/draft/rejected — anything the teacher owns.
+    """
+    course = get_object_or_404(teacher_perms.teacher_course_queryset(request.user), pk=pk)
+    course.status = "archived"
+    course.is_active = False
+    course.save(update_fields=["status", "is_active", "updated_at"])
+    messages.success(request, "Course archived.")
     return redirect("teacher_portal:courses")
 
 

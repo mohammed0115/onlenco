@@ -230,9 +230,27 @@ body {
 .teacher-table th {
   color: var(--tp-muted);
   font-size: 0.78rem;
-  text-transform: uppercase;
+  font-weight: 600;
   letter-spacing: 0;
   background: #F8FAFC;
+}
+
+/* Click-to-sort column headers. The "▲ / ▼" arrows live in the
+   template; .sort-active gets a stronger color so the active column
+   reads at a glance. */
+.teacher-table th .th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}
+.teacher-table th .th-sort:hover { color: var(--tp-fg); }
+.teacher-table th .th-sort.sort-active {
+  color: var(--tp-fg);
+  font-weight: 700;
 }
 
 .teacher-filters,
