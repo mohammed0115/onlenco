@@ -44,6 +44,45 @@ class TutorMessage(models.Model):
         return f"{self.role}: {self.content[:40]}".strip()
 
 
+CEFR_CHOICES = [
+    ("A0", "A0"), ("A1", "A1"), ("A2", "A2"),
+    ("B1", "B1"), ("B2", "B2"),
+    ("C1", "C1"), ("C2", "C2"),
+]
+
+
+class VoiceCallEvaluation(models.Model):
+    """One-shot evaluation of a voice-call session.
+
+    Written at end-of-call by `evaluation_service.evaluate_voice_call`.
+    Scores are 0-100; CEFR is derived from overall_score + vocabulary
+    range. Heuristic-driven for now (word count, turn count, unique-token
+    ratio) — schema is ready for an AI-driven assessor to take over.
+    """
+
+    conversation = models.OneToOneField(
+        "TutorConversation", on_delete=models.CASCADE, related_name="evaluation",
+    )
+    cefr_level = models.CharField(max_length=2, choices=CEFR_CHOICES, blank=True)
+    fluency_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    vocabulary_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    grammar_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    pronunciation_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    overall_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    summary = models.TextField(blank=True)
+    word_count = models.PositiveIntegerField(default=0)
+    turns_count = models.PositiveSmallIntegerField(default=0)
+    seconds = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Voice call evaluation")
+        verbose_name_plural = _("Voice call evaluations")
+
+    def __str__(self):
+        return f"VoiceCallEvaluation<conv={self.conversation_id} {self.cefr_level or '-'}>"
+
+
 # ---------------------------------------------------------------------------
 # Curriculum-driven tutor prompts
 # ---------------------------------------------------------------------------

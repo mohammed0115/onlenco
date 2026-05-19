@@ -197,6 +197,12 @@ class PlacementAttempt(models.Model):
         null=True, blank=True, related_name="attempts",
         help_text=_("Linked PlacementResult once scoring completes."),
     )
+    voice_conversation = models.ForeignKey(
+        "tutor.TutorConversation", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="placement_attempts",
+        help_text=_("Linked TutorConversation when the speaking step is "
+                    "done via a live voice call (Part 2 of placement)."),
+    )
 
     class Meta:
         ordering = ["-started_at"]

@@ -1040,6 +1040,17 @@ def voice_call_log(request):
         except Exception:
             logger.exception("Tutor realtime: activity credit failed")
 
+    # End-of-call evaluation: score the user side of the transcript so
+    # we have CEFR + sub-scores for placement and the conversation
+    # detail page. Best-effort — failures are swallowed so they never
+    # block the hangup response or leak a 500 to the browser.
+    if conv is not None:
+        try:
+            from tutor.services.evaluation_service import evaluate_voice_call
+            evaluate_voice_call(conv, seconds=seconds)
+        except Exception:
+            logger.exception("Tutor realtime: voice-call evaluation failed")
+
     return Response({
         "success": True,
         "logged_seconds": seconds,

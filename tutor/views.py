@@ -78,10 +78,15 @@ def conversation_detail(request, pk):
         "fields_en": _merged_field_glossary("en"),
         "fields_ar": _merged_field_glossary("ar"),
     }
+    # Latest voice-call evaluation (if any) — surfaced in a small card
+    # so the student sees their CEFR + fluency/vocab/grammar scores
+    # without having to dig into placement results.
+    evaluation = getattr(conv, "evaluation", None)
     return render(request, "tutor/detail.html", {
         "conversation": conv,
         "humanizer_glossary_json": humanizer_glossary,
         "sidebar": build_sidebar_payload(request.user),
+        "evaluation": evaluation,
     })
 
 
@@ -169,6 +174,21 @@ def voice_call_page(request, pk):
         return (name or "").split("—", 1)[0].strip()
     tutor_name_en = _first(getattr(avatar, "name_en", "")) or "Layla"
     tutor_name_ar = _first(getattr(avatar, "name_ar", "")) or "ليلى"
+    # Placement Part 2: when /placement/<id>/voice-call/ hands the
+    # user off here, it appends ?placement_attempt=N. After hang-up we
+    # send the browser to placement_voice_finalise instead of the
+    # standard conversation detail page.
+    placement_attempt_id = request.GET.get("placement_attempt") or ""
+    placement_back_path = ""
+    if placement_attempt_id.isdigit():
+        from django.urls import reverse
+        try:
+            placement_back_path = reverse(
+                "placement_voice_finalise",
+                args=[int(placement_attempt_id)],
+            )
+        except Exception:
+            placement_back_path = ""
     return render(request, "tutor/voice_call.html", {
         "conversation": conv,
         "minutes_remaining": daily_minute_cap_remaining(request.user),
@@ -176,6 +196,8 @@ def voice_call_page(request, pk):
         "voice": voice,
         "tutor_name_en": tutor_name_en,
         "tutor_name_ar": tutor_name_ar,
+        "placement_attempt_id": placement_attempt_id,
+        "placement_back_path": placement_back_path,
     })
 
 

@@ -121,7 +121,7 @@
       cancelStaleUrl: "{% url 'api_tutor_voice_call_cancel_stale' %}",
       sdpRelayUrl:   "{% url 'api_tutor_voice_call_sdp' %}",
       conversationId: {{ conversation.pk }},
-      backUrl:       "{% url 'tutor_detail' conversation.pk %}",
+      backUrl:       "{% if placement_back_path %}{{ placement_back_path }}{% else %}{% url 'tutor_detail' conversation.pk %}{% endif %}",
       language:      "{{ request.LANGUAGE_CODE|default:'en' }}",
       tutorNameEn:   "{{ tutor_name_en|escapejs }}",
       tutorNameAr:   "{{ tutor_name_ar|escapejs }}",

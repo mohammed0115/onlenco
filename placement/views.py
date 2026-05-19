@@ -185,7 +185,10 @@ def placement_written(request, attempt_id: int):
         if attempt.status == "started":
             attempt.status = "written_completed"
             attempt.save(update_fields=["status"])
-        return redirect("placement_speaking", attempt_id=attempt.id)
+        # Part 2 is now a live voice call with the AI tutor; the old
+        # MCQ-style speaking flow stays reachable via direct URL for
+        # legacy attempts (and as a fallback if voice fails to start).
+        return redirect("placement_voice_handoff", attempt_id=attempt.id)
 
     return render(request, "placement/written.html", {
         "attempt": attempt,
@@ -249,6 +252,92 @@ def placement_speaking(request, attempt_id: int):
         "step": 2,
         "total_steps": 2,
     })
+
+
+@login_required
+def placement_voice_handoff(request, attempt_id: int):
+    """Start of placement Part 2 — create (or reuse) a TutorConversation
+    tagged for placement and redirect into the voice-call page with a
+    `?placement_attempt=N` flag so the call's hang-up routes back to
+    `placement_voice_finalise` instead of the normal conversation
+    detail page.
+    """
+    from tutor.models import TutorConversation
+    attempt = _user_attempt(request, attempt_id)
+    conv = attempt.voice_conversation
+    if conv is None:
+        conv = TutorConversation.objects.create(
+            user=request.user,
+            topic="placement",
+            title=f"Placement #{attempt.id}",
+        )
+        attempt.voice_conversation = conv
+        attempt.save(update_fields=["voice_conversation"])
+    return redirect(
+        f"/tutor/{conv.pk}/voice-call/?placement_attempt={attempt.id}"
+    )
+
+
+@login_required
+def placement_voice_finalise(request, attempt_id: int):
+    """Called from the voice-call screen after the student hangs up.
+
+    Pulls the VoiceCallEvaluation written during the call, copies its
+    scores onto the PlacementAttempt, marks it completed, then sends
+    the student to the standard placement_result page.
+    """
+    from django.utils import timezone
+    from tutor.models import VoiceCallEvaluation
+
+    attempt = _user_attempt(request, attempt_id)
+    conv = attempt.voice_conversation
+    eval_obj = (
+        VoiceCallEvaluation.objects.filter(conversation=conv).first()
+        if conv is not None else None
+    )
+    if eval_obj is None:
+        # The call ended too short to produce a transcript. Fall back to
+        # the deterministic rule-based scorer so the student still gets
+        # a level — they can retake from the result screen.
+        _score_and_finalise(request, attempt)
+        return redirect("placement_result", attempt_id=attempt.id)
+
+    # Map voice-call eval scores onto the placement attempt schema.
+    attempt.speaking_score = eval_obj.overall_score or 0
+    attempt.fluency_score = eval_obj.fluency_score
+    attempt.vocabulary_score = eval_obj.vocabulary_score
+    attempt.grammar_score = eval_obj.grammar_score
+    attempt.pronunciation_score = eval_obj.pronunciation_score
+    # Written score was already captured during Step 1; recompute overall
+    # as a 50/50 blend so both parts count.
+    written = attempt.written_score or 0
+    speaking = attempt.speaking_score or 0
+    attempt.overall_score = int(round((written + speaking) / 2))
+    attempt.recommended_cefr_level = eval_obj.cefr_level or "A1"
+    attempt.feedback = eval_obj.summary or attempt.feedback
+    attempt.status = "completed"
+    attempt.completed_at = timezone.now()
+    placement_result = PlacementResult.objects.create(
+        user=request.user,
+        level=attempt.recommended_cefr_level,
+        written_score=written,
+        speaking_score=speaking,
+        grammar_score=attempt.grammar_score,
+        vocabulary_score=attempt.vocabulary_score,
+        fluency_score=attempt.fluency_score,
+        pronunciation_score=attempt.pronunciation_score,
+        overall_score=attempt.overall_score,
+        feedback=attempt.feedback,
+        transcript={"source": "voice_call", "conversation_id": conv.pk},
+    )
+    attempt.result = placement_result
+    attempt.save(update_fields=[
+        "written_score", "speaking_score", "grammar_score",
+        "vocabulary_score", "fluency_score", "pronunciation_score",
+        "overall_score", "recommended_cefr_level",
+        "feedback", "status", "completed_at", "result",
+    ])
+    return redirect("placement_result", attempt_id=attempt.id)
 
 
 @login_required

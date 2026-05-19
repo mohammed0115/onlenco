@@ -346,9 +346,12 @@
     startTimer();
 
     // Auto end after the server-imposed cap so a forgotten tab can't
-    // burn minutes for hours.
+    // burn minutes for hours. We pass userInitiated=true so the
+    // backUrl navigation still fires — for placement Part 2 the
+    // student needs to land on the finalise page even when the 5-min
+    // cap (not their finger on the End button) closed the call.
     if (maxSessionTimer) clearTimeout(maxSessionTimer);
-    maxSessionTimer = setTimeout(() => endCall(false), maxSessionSeconds * 1000);
+    maxSessionTimer = setTimeout(() => endCall(true), maxSessionSeconds * 1000);
   }
 
   // ----- Realtime event router -----------------------------------------
@@ -495,7 +498,7 @@
     }
   }
 
-  function endCall(/* userInitiated */) {
+  function endCall(userInitiated) {
     if (!peer && !micStream) return;       // already torn down
     const seconds = callStartedAt ? Math.max(1, Math.round((Date.now() - callStartedAt) / 1000)) : 0;
     const turns = transcriptTurns.slice();
@@ -509,8 +512,14 @@
     // server closes the exact row instead of falling back to a
     // "find the user's open session" lookup.
     const sessionId = activeSessionInfo && activeSessionInfo.tutor_session_id;
+    // We navigate to backUrl AFTER the log post resolves so the
+    // server-side evaluation has time to run BEFORE the next page
+    // reads it (placement_voice_finalise reads VoiceCallEvaluation).
+    // For pagehide / beforeunload we skip the navigation — the page
+    // is already on its way out.
+    const shouldNavigate = userInitiated && Config.backUrl;
     if (Config.logUrl) {
-      postJSON(Config.logUrl, {
+      const p = postJSON(Config.logUrl, {
         conversation_id: Config.conversationId,
         tutor_session_id: sessionId,
         seconds: seconds,
@@ -518,6 +527,11 @@
       }).catch((e) => {
         console.warn('[onlenco-call] log post failed:', e);
       });
+      if (shouldNavigate) {
+        p.finally(() => { window.location.href = Config.backUrl; });
+      }
+    } else if (shouldNavigate) {
+      window.location.href = Config.backUrl;
     }
     activeSessionInfo = null;
   }
