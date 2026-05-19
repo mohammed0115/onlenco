@@ -1,0 +1,308 @@
+/*
+ * Onlenco unified design tokens.
+ *
+ * Phase 2 of the UI unification. This file is the SOURCE OF TRUTH for
+ * every design value (colour, spacing, radius, shadow, typography,
+ * motion, z-index) across the project. It loads BEFORE any other CSS
+ * in base.html.
+ *
+ * Token naming follows two layers:
+ *   1. RAW palette tokens   (--brand-teal-700, --space-3, ...)
+ *      Stable across themes — never change shade per page.
+ *   2. SEMANTIC tokens      (--primary, --background, --border, ...)
+ *      Theme-aware — may swap when a dark mode / accent variant ships.
+ *
+ * Phase 2 is ADDITIVE. The existing per-file --primary / --background
+ * declarations in onlenco.css are left in place; their values match
+ * what we define here, so the cascade resolves to the same colours.
+ * Phase 3 will collapse the duplicates and prune onlenco.css.
+ *
+ * Do NOT consume the --brand-* / --space-* tokens directly from page
+ * CSS — go through the semantic layer (--primary, --space-3, etc.)
+ * unless you have a brand-specific reason (gradients, marketing pages).
+ */
+
+:root {
+  /* ============================================================
+   * 1. RAW PALETTE — Brand + neutrals
+   *    HSL triplets (no `hsl(...)` wrapper) so they compose with
+   *    Tailwind's `hsl(var(--primary))` pattern.
+   * ============================================================ */
+
+  /* Brand teal — "Nile depth" */
+  --brand-teal-50:  178 60% 95%;
+  --brand-teal-100: 178 55% 88%;
+  --brand-teal-200: 178 50% 78%;
+  --brand-teal-300: 178 50% 60%;
+  --brand-teal-400: 178 55% 45%;
+  --brand-teal-500: 178 60% 28%;
+  --brand-teal-600: 178 65% 22%;
+  --brand-teal-700: 178 65% 18%;   /* canonical brand teal */
+  --brand-teal-800: 178 70% 13%;
+  --brand-teal-900: 178 70% 10%;
+
+  /* Brand amber — "Sudanese sunset" */
+  --brand-amber-50:  28 90% 96%;
+  --brand-amber-100: 28 88% 90%;
+  --brand-amber-200: 28 85% 80%;
+  --brand-amber-300: 28 85% 70%;
+  --brand-amber-400: 28 85% 64%;
+  --brand-amber-500: 28 85% 58%;   /* canonical brand amber */
+  --brand-amber-600: 28 80% 50%;
+  --brand-amber-700: 28 75% 45%;
+  --brand-amber-800: 14 80% 40%;
+  --brand-amber-900: 14 80% 30%;
+
+  /* Neutral warm — body/surface scale.
+     Tinted toward the teal/amber palette so the UI feels cohesive
+     instead of generic slate. */
+  --warm-50:  36 38% 97%;          /* page bg cream */
+  --warm-100: 36 30% 95%;
+  --warm-200: 36 25% 92%;          /* muted bg */
+  --warm-300: 36 20% 88%;          /* border */
+  --warm-400: 36 20% 75%;
+  --warm-500: 178 15% 55%;
+  --warm-600: 178 15% 38%;         /* muted-foreground */
+  --warm-700: 178 25% 22%;
+  --warm-800: 178 35% 15%;
+  --warm-900: 178 45% 10%;         /* body text */
+
+  /* Status colours */
+  --status-success-500: 158 65% 38%;
+  --status-success-100: 158 65% 92%;
+  --status-warning-500: 38 90% 50%;
+  --status-warning-100: 38 90% 92%;
+  --status-danger-500:  0 75% 50%;
+  --status-danger-100:  0 75% 95%;
+  --status-info-500:    210 75% 50%;
+  --status-info-100:    210 75% 95%;
+
+
+  /* ============================================================
+   * 2. SEMANTIC COLOUR TOKENS
+   *    These are the names page CSS and Tailwind utilities should
+   *    reach for. Re-aliased to the raw palette above.
+   *
+   *    NOTE: values intentionally match what onlenco.css declares
+   *    today, so adding this layer is a no-op visually. Phase 3
+   *    will remove the duplicate :root in onlenco.css.
+   * ============================================================ */
+
+  --background:          var(--warm-50);                /* was: 36 38% 97% */
+  --foreground:          var(--warm-900);               /* was: 178 45% 10% */
+
+  --card:                0 0% 100%;
+  --card-foreground:     var(--warm-900);
+  --popover:             0 0% 100%;
+  --popover-foreground:  var(--warm-900);
+
+  --primary:             var(--brand-teal-700);         /* was: 178 65% 18% */
+  --primary-foreground:  var(--warm-50);
+  --primary-glow:        178 55% 35%;
+
+  --secondary:           var(--brand-amber-500);        /* was: 28 85% 58% */
+  --secondary-foreground: var(--warm-900);
+
+  --muted:               var(--warm-200);
+  --muted-foreground:    var(--warm-600);
+
+  --accent:              14 80% 60%;
+  --accent-foreground:   var(--warm-50);
+
+  --destructive:         var(--status-danger-500);
+  --destructive-foreground: 0 0% 100%;
+
+  --success:             var(--status-success-500);
+  --success-foreground:  0 0% 100%;
+
+  --warning:             var(--status-warning-500);
+  --warning-foreground:  var(--warm-900);
+
+  --info:                var(--status-info-500);
+  --info-foreground:     0 0% 100%;
+
+  --border:              var(--warm-300);
+  --input:               36 20% 90%;
+  --ring:                var(--brand-teal-700);
+
+
+  /* ============================================================
+   * 3. SPACING — 4px base, Tailwind-compatible.
+   *    Page CSS and components should reach for these by name so
+   *    a single bump (e.g. tighten the whole UI) is one token edit.
+   * ============================================================ */
+
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-7:   28px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+
+
+  /* ============================================================
+   * 4. RADII
+   *    Matches `--radius` (= --radius-lg) so Tailwind's
+   *    `rounded-{sm,md,lg}` keeps resolving.
+   * ============================================================ */
+
+  --radius-none: 0;
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   16px;    /* = --radius */
+  --radius-xl:   20px;
+  --radius-2xl:  28px;
+  --radius-pill: 9999px;
+  --radius-full: 50%;
+
+  --radius:      var(--radius-lg);    /* legacy alias */
+
+
+  /* ============================================================
+   * 5. TYPOGRAPHY
+   *    7-step scale + weight + leading.
+   * ============================================================ */
+
+  --font-sans:    'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-arabic:  'Cairo', system-ui, sans-serif;
+  --font-mono:    ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs:    12px;
+  --text-sm:    14px;
+  --text-base:  16px;
+  --text-lg:    18px;
+  --text-xl:    20px;
+  --text-2xl:   24px;
+  --text-3xl:   30px;
+  --text-4xl:   36px;
+  --text-5xl:   48px;
+
+  --font-regular:  400;
+  --font-medium:   500;
+  --font-semibold: 600;
+  --font-bold:     700;
+  --font-extrabold: 800;
+
+  --leading-none:    1;
+  --leading-tight:   1.25;
+  --leading-snug:    1.4;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.65;
+  --leading-loose:   1.8;
+
+
+  /* ============================================================
+   * 6. SHADOW
+   *    Tinted with the brand teal so shadows feel warm, not grey.
+   * ============================================================ */
+
+  --shadow-none: none;
+  --shadow-xs:   0 1px 2px hsl(var(--warm-900) / .04);
+  --shadow-sm:   0 1px 3px hsl(var(--warm-900) / .06), 0 1px 2px hsl(var(--warm-900) / .04);
+  --shadow-md:   0 2px 8px -2px hsl(var(--warm-900) / .08);
+  --shadow-lg:   0 20px 50px -20px hsl(var(--warm-900) / .25);
+  --shadow-xl:   0 25px 60px -20px hsl(var(--warm-900) / .35);
+  --shadow-2xl:  0 35px 80px -25px hsl(var(--warm-900) / .45);
+
+  /* Legacy aliases — existing onlenco.css names. */
+  --shadow-soft:    var(--shadow-md);
+  --shadow-elegant: var(--shadow-lg);
+  --shadow-accent-glow: 0 0 60px hsl(var(--secondary) / .35);
+  --shadow-glow:        var(--shadow-accent-glow);
+
+
+  /* ============================================================
+   * 7. GRADIENTS
+   *    Brand expressions. Centralised so admin/teacher pages can
+   *    reach for them too instead of inventing their own.
+   * ============================================================ */
+
+  --gradient-hero:   linear-gradient(135deg, hsl(var(--brand-teal-700)) 0%, hsl(var(--brand-teal-500)) 50%, hsl(var(--brand-amber-700)) 100%);
+  --gradient-sunset: linear-gradient(135deg, hsl(var(--brand-amber-500)) 0%, hsl(var(--accent)) 100%);
+  --gradient-card:   linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(var(--warm-100)) 100%);
+  --gradient-text:   linear-gradient(135deg, hsl(var(--brand-teal-700)), hsl(var(--brand-amber-700)));
+
+
+  /* ============================================================
+   * 8. MOTION
+   *    All timed transitions should reference a duration token so
+   *    a "make the UI feel snappier" change is one variable.
+   * ============================================================ */
+
+  --ease-out:     cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in:      cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce:  cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --duration-instant: 80ms;
+  --duration-fast:    120ms;
+  --duration-base:    200ms;
+  --duration-slow:    400ms;
+  --duration-slower:  600ms;
+
+  --transition-smooth: var(--ease-out);   /* legacy alias */
+
+
+  /* ============================================================
+   * 9. Z-INDEX SCALE
+   * ============================================================ */
+
+  --z-base:     0;
+  --z-elevated: 10;
+  --z-sticky:   100;
+  --z-overlay:  500;
+  --z-modal:    1000;
+  --z-popover:  1500;
+  --z-toast:    2000;
+  --z-tooltip:  2500;
+
+
+  /* ============================================================
+   * 10. LAYOUT
+   * ============================================================ */
+
+  --container-narrow: 640px;
+  --container-base:   1024px;
+  --container-wide:   1280px;
+  --container-max:    1440px;
+
+  --header-height:     64px;
+  --sidebar-width:     260px;
+  --sidebar-collapsed: 72px;
+}
+
+
+/* ============================================================
+ * DARK THEME — opt-in via <html data-theme="dark"> or class="dark".
+ * Stubbed now so Phase 10's dark-mode toggle has hooks. Not wired
+ * to a UI control yet; activating it is a one-line attribute change.
+ * ============================================================ */
+
+[data-theme="dark"],
+.dark {
+  --background:         var(--brand-teal-900);
+  --foreground:         var(--warm-100);
+
+  --card:               178 40% 12%;
+  --card-foreground:    var(--warm-100);
+  --popover:            178 40% 14%;
+  --popover-foreground: var(--warm-100);
+
+  --primary:            var(--brand-teal-300);
+  --primary-foreground: var(--brand-teal-900);
+
+  --muted:              178 25% 18%;
+  --muted-foreground:   178 15% 65%;
+
+  --border:             178 25% 22%;
+  --input:              178 25% 22%;
+}

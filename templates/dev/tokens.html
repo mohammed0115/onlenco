@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Design Tokens — Onlenco{% endblock %}
+
+{% block extra_head %}
+<style>
+  /*
+   * Page-local styles for the kitchen sink. Each swatch reads the
+   * token DIRECTLY so a future regression on tokens.css shows up
+   * visually here before it shows up on a real page.
+   */
+  .ks-section {
+    max-width: var(--container-base);
+    margin: var(--space-10) auto;
+    padding: 0 var(--space-6);
+  }
+  .ks-title {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    margin: var(--space-8) 0 var(--space-3);
+    color: hsl(var(--foreground));
+  }
+  .ks-sub {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: hsl(var(--muted-foreground));
+    margin: 0 0 var(--space-5);
+  }
+  .ks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--space-3);
+  }
+  .ks-swatch {
+    display: flex; flex-direction: column;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    font-size: var(--text-xs);
+  }
+  .ks-swatch-color { height: 64px; }
+  .ks-swatch-label {
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-mono);
+    color: hsl(var(--foreground));
+    border-top: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+  }
+  .ks-swatch-label small { color: hsl(var(--muted-foreground)); }
+
+  .ks-row { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; }
+  .ks-radius-demo {
+    width: 80px; height: 80px;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: var(--text-xs);
+  }
+  .ks-shadow-demo {
+    width: 120px; height: 80px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: var(--text-xs);
+    color: hsl(var(--muted-foreground));
+  }
+  .ks-gradient-demo {
+    height: 96px;
+    border-radius: var(--radius-lg);
+    display: flex; align-items: flex-end;
+    padding: var(--space-3);
+    color: white;
+    font-family: var(--font-mono); font-size: var(--text-xs);
+    text-shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+  .ks-space-bar {
+    background: hsl(var(--primary));
+    height: 16px;
+    border-radius: var(--radius-sm);
+  }
+  .ks-space-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: hsl(var(--muted-foreground));
+    margin-top: var(--space-1);
+  }
+  .ks-type-sample {
+    margin: 0;
+    color: hsl(var(--foreground));
+  }
+  .ks-divider {
+    border: none;
+    border-top: 1px dashed hsl(var(--border));
+    margin: var(--space-8) 0;
+  }
+  .ks-page-header {
+    background: var(--gradient-hero);
+    color: white;
+    padding: var(--space-10) var(--space-6);
+    margin-bottom: var(--space-8);
+  }
+  .ks-page-header h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-4xl);
+    margin: 0 0 var(--space-2);
+  }
+  .ks-page-header p { opacity: .9; max-width: 60ch; margin: 0; }
+  .ks-warn {
+    background: hsl(var(--status-warning-100));
+    color: hsl(var(--status-warning-500));
+    border-left: 4px solid hsl(var(--status-warning-500));
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    margin: var(--space-6) auto;
+    max-width: var(--container-base);
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+<header class="ks-page-header">
+  <h1>Onlenco Design Tokens</h1>
+  <p>Kitchen sink for Phase 2. Every swatch reads <code>var(--token)</code> directly, so a regression on <code>onlenco-tokens.css</code> surfaces here before it ships to a real page.</p>
+</header>
+
+<div class="ks-warn">
+  <strong>DEBUG-only.</strong> This route only registers when <code>settings.DEBUG=True</code>. It is not reachable on production.
+</div>
+
+<!-- ===================== Brand palette ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Brand · Teal "Nile depth"</h2>
+  <p class="ks-sub">Canonical primary at <code>--brand-teal-700</code>.</p>
+  <div class="ks-grid">
+    {% for s in "50,100,200,300,400,500,600,700,800,900"|cut:" " %}{% endfor %}
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-50));"></div><div class="ks-swatch-label">--brand-teal-50</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-100));"></div><div class="ks-swatch-label">--brand-teal-100</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-200));"></div><div class="ks-swatch-label">--brand-teal-200</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-300));"></div><div class="ks-swatch-label">--brand-teal-300</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-400));"></div><div class="ks-swatch-label">--brand-teal-400</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-500));"></div><div class="ks-swatch-label">--brand-teal-500</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-600));"></div><div class="ks-swatch-label">--brand-teal-600</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-700));"></div><div class="ks-swatch-label">--brand-teal-700 <small>= --primary</small></div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-800));"></div><div class="ks-swatch-label">--brand-teal-800</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-teal-900));"></div><div class="ks-swatch-label">--brand-teal-900</div></div>
+  </div>
+
+  <h2 class="ks-title">Brand · Amber "Sudanese sunset"</h2>
+  <p class="ks-sub">Canonical secondary at <code>--brand-amber-500</code>.</p>
+  <div class="ks-grid">
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-50));"></div><div class="ks-swatch-label">--brand-amber-50</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-100));"></div><div class="ks-swatch-label">--brand-amber-100</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-200));"></div><div class="ks-swatch-label">--brand-amber-200</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-300));"></div><div class="ks-swatch-label">--brand-amber-300</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-400));"></div><div class="ks-swatch-label">--brand-amber-400</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-500));"></div><div class="ks-swatch-label">--brand-amber-500 <small>= --secondary</small></div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-600));"></div><div class="ks-swatch-label">--brand-amber-600</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-700));"></div><div class="ks-swatch-label">--brand-amber-700</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-800));"></div><div class="ks-swatch-label">--brand-amber-800</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--brand-amber-900));"></div><div class="ks-swatch-label">--brand-amber-900</div></div>
+  </div>
+</section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Neutral / warm ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Neutral · Warm</h2>
+  <p class="ks-sub">Surface / text / border scale tinted toward teal-amber for warmth.</p>
+  <div class="ks-grid">
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-50));"></div><div class="ks-swatch-label">--warm-50 <small>= --background</small></div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-100));"></div><div class="ks-swatch-label">--warm-100</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-200));"></div><div class="ks-swatch-label">--warm-200 <small>= --muted</small></div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-300));"></div><div class="ks-swatch-label">--warm-300 <small>= --border</small></div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-400));"></div><div class="ks-swatch-label">--warm-400</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-500));"></div><div class="ks-swatch-label">--warm-500</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-600));"></div><div class="ks-swatch-label">--warm-600 <small>= --muted-fg</small></div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-700));"></div><div class="ks-swatch-label">--warm-700</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-800));"></div><div class="ks-swatch-label">--warm-800</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warm-900));"></div><div class="ks-swatch-label">--warm-900 <small>= --foreground</small></div></div>
+  </div>
+</section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Semantic ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Semantic</h2>
+  <p class="ks-sub">Theme-aware aliases. Switch to dark mode with <code>document.documentElement.dataset.theme = 'dark'</code> in the console.</p>
+  <div class="ks-grid">
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--primary));"></div><div class="ks-swatch-label">--primary</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--secondary));"></div><div class="ks-swatch-label">--secondary</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--accent));"></div><div class="ks-swatch-label">--accent</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--success));"></div><div class="ks-swatch-label">--success</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--warning));"></div><div class="ks-swatch-label">--warning</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--destructive));"></div><div class="ks-swatch-label">--destructive</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--info));"></div><div class="ks-swatch-label">--info</div></div>
+    <div class="ks-swatch"><div class="ks-swatch-color" style="background: hsl(var(--card));"></div><div class="ks-swatch-label">--card</div></div>
+  </div>
+</section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Spacing ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Spacing</h2>
+  <p class="ks-sub">4px base. Use <code>--space-3</code> for 12px gaps, <code>--space-4</code> for 16px, etc.</p>
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); max-width: 720px;">
+    {% for tok, w in spacing_tokens %}
+    <div>
+      <div class="ks-space-bar" style="width: {{ w }};"></div>
+      <div class="ks-space-label">{{ tok }} — {{ w }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Radius ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Radius</h2>
+  <p class="ks-sub">Smaller for inputs, larger for cards, pill for badges.</p>
+  <div class="ks-row">
+    <div>
+      <div class="ks-radius-demo" style="border-radius: var(--radius-none);">none</div>
+      <div class="ks-space-label">--radius-none · 0</div>
+    </div>
+    <div>
+      <div class="ks-radius-demo" style="border-radius: var(--radius-sm);">sm</div>
+      <div class="ks-space-label">--radius-sm · 6px</div>
+    </div>
+    <div>
+      <div class="ks-radius-demo" style="border-radius: var(--radius-md);">md</div>
+      <div class="ks-space-label">--radius-md · 12px</div>
+    </div>
+    <div>
+      <div class="ks-radius-demo" style="border-radius: var(--radius-lg);">lg</div>
+      <div class="ks-space-label">--radius-lg · 16px = --radius</div>
+    </div>
+    <div>
+      <div class="ks-radius-demo" style="border-radius: var(--radius-xl);">xl</div>
+      <div class="ks-space-label">--radius-xl · 20px</div>
+    </div>
+    <div>
+      <div class="ks-radius-demo" style="border-radius: var(--radius-2xl);">2xl</div>
+      <div class="ks-space-label">--radius-2xl · 28px</div>
+    </div>
+    <div>
+      <div class="ks-radius-demo" style="border-radius: var(--radius-pill);">pill</div>
+      <div class="ks-space-label">--radius-pill · 9999px</div>
+    </div>
+    <div>
+      <div class="ks-radius-demo" style="border-radius: var(--radius-full);">full</div>
+      <div class="ks-space-label">--radius-full · 50%</div>
+    </div>
+  </div>
+</section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Typography ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Typography</h2>
+  <p class="ks-sub">Plus Jakarta Sans for UI, Fraunces for display, Cairo for Arabic.</p>
+
+  <p class="ks-type-sample" style="font-size: var(--text-5xl); font-family: var(--font-display); font-weight: var(--font-bold); line-height: var(--leading-tight);">Display 5xl · 48px</p>
+  <p class="ks-type-sample" style="font-size: var(--text-4xl); font-family: var(--font-display); font-weight: var(--font-bold); line-height: var(--leading-tight);">Display 4xl · 36px</p>
+  <p class="ks-type-sample" style="font-size: var(--text-3xl); font-family: var(--font-display); font-weight: var(--font-bold); line-height: var(--leading-snug);">Display 3xl · 30px</p>
+  <p class="ks-type-sample" style="font-size: var(--text-2xl); font-weight: var(--font-semibold); line-height: var(--leading-snug);">Heading 2xl · 24px</p>
+  <p class="ks-type-sample" style="font-size: var(--text-xl); font-weight: var(--font-semibold); line-height: var(--leading-normal);">Heading xl · 20px</p>
+  <p class="ks-type-sample" style="font-size: var(--text-lg); font-weight: var(--font-medium); line-height: var(--leading-normal);">Body lg · 18px — the quick brown fox jumps over the lazy dog.</p>
+  <p class="ks-type-sample" style="font-size: var(--text-base); line-height: var(--leading-relaxed);">Body base · 16px — the quick brown fox jumps over the lazy dog.</p>
+  <p class="ks-type-sample" style="font-size: var(--text-sm); color: hsl(var(--muted-foreground));">Body sm · 14px — meta, captions, table cells.</p>
+  <p class="ks-type-sample" style="font-size: var(--text-xs); color: hsl(var(--muted-foreground));">Body xs · 12px — timestamps, fine print.</p>
+
+  <p class="ks-type-sample" lang="ar" dir="rtl" style="font-family: var(--font-arabic); font-size: var(--text-2xl); margin-top: var(--space-6);">العربية · مدرّس Onlenco الذكي يردّ أثناء حديثك.</p>
+  <p class="ks-type-sample" lang="ar" dir="rtl" style="font-family: var(--font-arabic); font-size: var(--text-base);">جسم النصّ بالعربية بحجم 16px — اختبار رشاقة الخط في RTL.</p>
+</section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Shadow ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Shadow</h2>
+  <p class="ks-sub">Tinted with the brand teal so shadows feel warm.</p>
+  <div class="ks-row" style="gap: var(--space-6);">
+    <div><div class="ks-shadow-demo" style="box-shadow: var(--shadow-xs);">xs</div><div class="ks-space-label">--shadow-xs</div></div>
+    <div><div class="ks-shadow-demo" style="box-shadow: var(--shadow-sm);">sm</div><div class="ks-space-label">--shadow-sm</div></div>
+    <div><div class="ks-shadow-demo" style="box-shadow: var(--shadow-md);">md</div><div class="ks-space-label">--shadow-md = --shadow-soft</div></div>
+    <div><div class="ks-shadow-demo" style="box-shadow: var(--shadow-lg);">lg</div><div class="ks-space-label">--shadow-lg = --shadow-elegant</div></div>
+    <div><div class="ks-shadow-demo" style="box-shadow: var(--shadow-xl);">xl</div><div class="ks-space-label">--shadow-xl</div></div>
+    <div><div class="ks-shadow-demo" style="box-shadow: var(--shadow-accent-glow);">glow</div><div class="ks-space-label">--shadow-accent-glow</div></div>
+  </div>
+</section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Gradients ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Gradients</h2>
+  <p class="ks-sub">Brand expressions. Use sparingly — hero / CTA / feature cards.</p>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4);">
+    <div class="ks-gradient-demo" style="background: var(--gradient-hero);">--gradient-hero</div>
+    <div class="ks-gradient-demo" style="background: var(--gradient-sunset);">--gradient-sunset</div>
+    <div class="ks-gradient-demo" style="background: var(--gradient-card); color: hsl(var(--foreground)); text-shadow: none;">--gradient-card</div>
+    <div class="ks-gradient-demo" style="background: var(--gradient-text);">--gradient-text</div>
+  </div>
+</section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Motion + Z-index ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Motion</h2>
+  <p class="ks-sub">Durations and easings. Hover the box to see <code>--duration-base</code> + <code>--ease-out</code>.</p>
+  <div class="ks-row">
+    <div style="
+      width: 96px; height: 96px;
+      background: hsl(var(--primary));
+      border-radius: var(--radius-md);
+      transition: transform var(--duration-base) var(--ease-out),
+                  box-shadow var(--duration-base) var(--ease-out);
+      cursor: pointer;
+    "
+    onmouseover="this.style.transform='scale(1.06)'; this.style.boxShadow='var(--shadow-lg)';"
+    onmouseout="this.style.transform=''; this.style.boxShadow='';">
+    </div>
+  </div>
+
+  <h2 class="ks-title">Z-index</h2>
+  <p class="ks-sub" style="font-family: var(--font-mono); font-size: var(--text-xs);">
+    --z-base 0 · --z-elevated 10 · --z-sticky 100 · --z-overlay 500 · --z-modal 1000 · --z-popover 1500 · --z-toast 2000 · --z-tooltip 2500
+  </p>
+</section>
+{% endblock %}

@@ -58,6 +58,11 @@
     }
   </script>
 
+  {# Unified design tokens — source of truth for colour / spacing /
+     radius / shadow / type / motion. Loaded BEFORE any other CSS so
+     downstream rules can reference --primary, --space-*, etc. See
+     Docs/design-tokens-audit.md for the inventory. #}
+  <link rel="stylesheet" href="{% static 'css/onlenco-tokens.css' %}">
   <link rel="stylesheet" href="{% static 'css/onlenco.css' %}">
 
   {# Lucide icons #}

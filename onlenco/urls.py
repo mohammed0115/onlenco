@@ -74,3 +74,30 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+    # Design tokens kitchen sink — Phase 2 regression fence.
+    # Renders every --var defined in static/css/onlenco-tokens.css so
+    # changes to the token layer are immediately visible. Wrapped in
+    # the DEBUG branch so it is never reachable on production.
+    from django.shortcuts import render
+
+    def _design_tokens_view(request):
+        # The spacing-bar widths are derived from the token names so
+        # adding/removing a --space-N token here is a one-line change.
+        spacing_tokens = [
+            ("--space-1",  "4px"),
+            ("--space-2",  "8px"),
+            ("--space-3",  "12px"),
+            ("--space-4",  "16px"),
+            ("--space-5",  "20px"),
+            ("--space-6",  "24px"),
+            ("--space-7",  "28px"),
+            ("--space-8",  "32px"),
+            ("--space-10", "40px"),
+            ("--space-12", "48px"),
+            ("--space-16", "64px"),
+            ("--space-20", "80px"),
+        ]
+        return render(request, "dev/tokens.html", {"spacing_tokens": spacing_tokens})
+
+    urlpatterns += [path("dev/tokens/", _design_tokens_view, name="dev_design_tokens")]
