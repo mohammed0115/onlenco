@@ -402,9 +402,12 @@
 
     const line = document.createElement('div');
     line.className = 'onlenco-call-line ' + (role === 'user' ? 'is-user' : 'is-assistant');
+    const tutorLabel = (Config.language === 'ar')
+      ? (Config.tutorNameAr || 'ليلى')
+      : (Config.tutorNameEn || 'Layla');
     const label = (Config.language === 'ar')
-      ? (role === 'user' ? 'أنت: ' : 'ليلى: ')
-      : (role === 'user' ? 'You: ' : 'Layla: ');
+      ? (role === 'user' ? 'أنت: ' : tutorLabel + ': ')
+      : (role === 'user' ? 'You: ' : tutorLabel + ': ');
     const strong = document.createElement('strong');
     strong.textContent = label;
     line.appendChild(strong);
