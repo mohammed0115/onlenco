@@ -488,6 +488,60 @@
 
 
 /* ============================================================
+ *  Status dots — small coloured circles next to labels.
+ *  Used in difficulty legends, online/offline indicators, etc.
+ * ============================================================ */
+
+.dot-easy   { background: hsl(var(--status-success-500)); }
+.dot-medium { background: hsl(var(--status-warning-500)); }
+.dot-hard   { background: hsl(var(--status-danger-500)); }
+.dot-online { background: hsl(var(--status-success-500)); }
+.dot-offline { background: hsl(var(--warm-500)); }
+
+
+/* ============================================================
+ *  Status pills — labelled badges with success/warning/danger
+ *  semantics used inline-with-text (profile fields, "Verified",
+ *  "Pending", "Rejected", "Approved" markers).
+ *
+ *  Different from .badge-* (which has a bordered, sometimes
+ *  uppercase look). These are softer fills, often inline with
+ *  body copy, no border.
+ * ============================================================ */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  line-height: 1.4;
+}
+.pill-success {
+  background: hsl(var(--status-success-100));
+  color: hsl(var(--status-success-500));
+}
+.pill-warning {
+  background: hsl(var(--status-warning-100));
+  color: hsl(var(--status-warning-500));
+}
+.pill-danger {
+  background: hsl(var(--status-danger-100));
+  color: hsl(var(--status-danger-500));
+}
+.pill-info {
+  background: hsl(var(--status-info-100));
+  color: hsl(var(--status-info-500));
+}
+.pill-neutral {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+
+/* ============================================================
  *  Utility: visually hidden (a11y) — for skip links, sr-only labels.
  *  Tailwind already exposes .sr-only; this is for non-Tailwind pages.
  * ============================================================ */

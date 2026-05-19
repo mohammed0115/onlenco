@@ -82,9 +82,9 @@
                         <div style="flex: {{ blueprint.difficulty_distribution.hard|default:0|stringformat:'.2f' }}"></div>
                     </div>
                     <div class="flex items-center gap-4 text-[11px] text-muted-foreground mt-2">
-                        <span><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#22c55e"></span> {% t_either "easy" "سهل" %}</span>
-                        <span><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#eab308"></span> {% t_either "medium" "متوسط" %}</span>
-                        <span><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#ef4444"></span> {% t_either "hard" "صعب" %}</span>
+                        <span><span class="inline-block w-2.5 h-2.5 rounded-full dot-easy"></span> {% t_either "easy" "سهل" %}</span>
+                        <span><span class="inline-block w-2.5 h-2.5 rounded-full dot-medium"></span> {% t_either "medium" "متوسط" %}</span>
+                        <span><span class="inline-block w-2.5 h-2.5 rounded-full dot-hard"></span> {% t_either "hard" "صعب" %}</span>
                     </div>
                 </div>
             {% endif %}

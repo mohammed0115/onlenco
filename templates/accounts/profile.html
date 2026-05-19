@@ -86,9 +86,9 @@
         <div class="label">{% t_either "Email verified" "تم التحقق" %}</div>
         <div class="value">
           {% if profile.email_verified %}
-            <span class="pill" style="background:#dcfce7;color:#14532d">{% t_either "Verified" "مُفعَّل" %}</span>
+            <span class="pill pill-success">{% t_either "Verified" "مُفعَّل" %}</span>
           {% else %}
-            <span class="pill" style="background:#fef9c3;color:#713f12">{% t_either "Pending" "في الانتظار" %}</span>
+            <span class="pill pill-warning">{% t_either "Pending" "في الانتظار" %}</span>
           {% endif %}
         </div>
       </div>
@@ -194,15 +194,15 @@
         <div class="label">{% t_either "Status" "الحالة" %}</div>
         <div class="value">
           {% if profile.subscription_status == "active" %}
-            <span class="pill" style="background:#dcfce7;color:#14532d">
+            <span class="pill pill-success">
               {% t_either "Active" "نشط" %}
             </span>
           {% elif profile.subscription_status == "expired" %}
-            <span class="pill" style="background:#fee2e2;color:#991b1b">
+            <span class="pill pill-danger">
               {% t_either "Expired" "منتهي" %}
             </span>
           {% elif profile.subscription_status == "pending" %}
-            <span class="pill" style="background:#fef9c3;color:#713f12">
+            <span class="pill pill-warning">
               {% t_either "Pending" "في الانتظار" %}
             </span>
           {% else %}
@@ -225,7 +225,7 @@
         </div>
       </div>
       {% endif %}
-      <div class="mt-3" style="display:flex;gap:14px;flex-wrap:wrap">
+      <div class="mt-3 flex flex-wrap gap-3">
         <a href="{% url 'subscriptions:upgrade' %}" class="text-sm font-semibold text-indigo-600 hover:underline">
           {% t_either "View plans →" "عرض الخطط ←" %}
         </a>
