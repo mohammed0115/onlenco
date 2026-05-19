@@ -19,10 +19,10 @@
         </div>
 
         {% if last_rejected %}
-        <div class="card p-5" style="border-color: hsl(var(--destructive)); background: hsl(0 75% 97%);">
+        <div class="card p-5 border-destructive bg-destructive/5">
           <div class="flex items-start justify-between gap-6 flex-wrap">
             <div class="flex items-start gap-3">
-              <i data-lucide="alert-circle" class="h-5 w-5 mt-0.5" style="color: hsl(var(--destructive))"></i>
+              <i data-lucide="alert-circle" class="h-5 w-5 mt-0.5 text-destructive"></i>
               <div>
                 <h3 class="font-semibold mb-1">{% t "pay.rejected_title" %}</h3>
                 {% if last_rejected.admin_note %}
@@ -74,7 +74,7 @@
                 <h2 class="font-display text-2xl md:text-3xl font-bold mb-2">
                     {% t_either "Choose how to start" "اختر كيف تبدأ" %}
                 </h2>
-                <p class="max-w-lg" style="opacity:0.92">
+                <p class="max-w-lg opacity-90">
                     {% t_either "Take the placement test, or start from beginner (A0). You can switch later." "خذ اختبار تحديد المستوى، أو ابدأ من المبتدئ (A0). يمكنك التغيير لاحقاً." %}
                 </p>
             </div>
@@ -106,13 +106,13 @@
                         <div class="font-display text-2xl md:text-3xl font-bold mb-1">
                             {% t_either "Start today's plan" "ابدأ خطة اليوم" %}
                         </div>
-                        <div class="text-sm" style="opacity:0.92">
+                        <div class="text-sm opacity-90">
                             {% t_either "A short daily lesson made for you. About 10 minutes."
                                         "درس يومي قصير مُعدّ لك. حوالي 10 دقائق." %}
                         </div>
                     </div>
                     <div class="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
-                         style="background: rgba(255,255,255,0.2);">
+                         class="bg-white/20">
                         <i data-lucide="play" class="h-6 w-6"></i>
                     </div>
                 </div>
@@ -126,13 +126,13 @@
            data-testid="recommended-course-hero">
             <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0">
-                    <div class="text-xs uppercase tracking-widest" style="opacity:0.8">
+                    <div class="text-xs uppercase tracking-widest opacity-80">
                         {% t_either "Continue learning" "تابع التعلم" %}
                     </div>
                     <div class="font-display text-2xl font-bold mt-1 mb-1">
                         {{ learning_plan.recommended_course.title }}
                     </div>
-                    <div class="text-sm" style="opacity:0.92">
+                    <div class="text-sm opacity-90">
                         {% if learning_plan.recommended_lesson %}
                             {{ learning_plan.recommended_lesson.title }}
                         {% else %}
@@ -141,7 +141,7 @@
                     </div>
                 </div>
                 <div class="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
-                     style="background: rgba(255,255,255,0.2);">
+                     class="bg-white/20">
                     <i data-lucide="play" class="h-6 w-6"></i>
                 </div>
             </div>
@@ -155,16 +155,16 @@
                style="background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%); color: #ffffff; border: 0;">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="h-11 w-11 rounded-xl flex items-center justify-center"
-                         style="background: rgba(255,255,255,0.2);">
+                         class="bg-white/20">
                         <i data-lucide="zap" class="h-5 w-5"></i>
                     </div>
                     <span class="text-xs font-semibold px-2 py-1 rounded-full"
-                          style="background: rgba(255,255,255,0.2);">5 {% t_either "questions" "أسئلة" %}</span>
+                          class="bg-white/20">5 {% t_either "questions" "أسئلة" %}</span>
                 </div>
                 <div class="font-display text-xl font-bold mb-1">
                     {% t_either "Daily exam" "تقييم يومي" %}
                 </div>
-                <div class="text-sm" style="opacity:0.92">
+                <div class="text-sm opacity-90">
                     {% t_either "A quick 3-minute check to keep your streak alive." "تحقق سريع لمدة 3 دقائق لإبقاء سلسلتك حية." %}
                 </div>
             </a>
@@ -175,16 +175,16 @@
                style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; border: 0;">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="h-11 w-11 rounded-xl flex items-center justify-center"
-                         style="background: rgba(255,255,255,0.2);">
+                         class="bg-white/20">
                         <i data-lucide="award" class="h-5 w-5"></i>
                     </div>
                     <span class="text-xs font-semibold px-2 py-1 rounded-full"
-                          style="background: rgba(255,255,255,0.2);">10 {% t_either "questions" "أسئلة" %}</span>
+                          class="bg-white/20">10 {% t_either "questions" "أسئلة" %}</span>
                 </div>
                 <div class="font-display text-xl font-bold mb-1">
                     {% t_either "Weekly exam" "تقييم أسبوعي" %}
                 </div>
-                <div class="text-sm" style="opacity:0.92">
+                <div class="text-sm opacity-90">
                     {% t_either "Refresh your level and get fresh recommendations." "حدّث مستواك واحصل على توصيات جديدة." %}
                 </div>
             </a>
