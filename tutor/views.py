@@ -163,11 +163,19 @@ def voice_call_page(request, pk):
         voice = preference_service.resolve_voice_for(request.user)
     except Exception:
         pass
+    # Strip the "— Friendly Teacher" suffix so the title bar / UI can
+    # use the bare first name (Layla / Omar / Sara).
+    def _first(name):
+        return (name or "").split("—", 1)[0].strip()
+    tutor_name_en = _first(getattr(avatar, "name_en", "")) or "Layla"
+    tutor_name_ar = _first(getattr(avatar, "name_ar", "")) or "ليلى"
     return render(request, "tutor/voice_call.html", {
         "conversation": conv,
         "minutes_remaining": daily_minute_cap_remaining(request.user),
         "avatar": avatar,
         "voice": voice,
+        "tutor_name_en": tutor_name_en,
+        "tutor_name_ar": tutor_name_ar,
     })
 
 

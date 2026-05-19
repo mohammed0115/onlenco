@@ -263,7 +263,7 @@ AI_REALTIME_DAILY_MINUTE_CAP = int(env_get("AI_REALTIME_DAILY_MINUTE_CAP", "30")
 # Hard cap on a single session length so a forgotten tab doesn't burn
 # minutes for hours. Server returns this to the browser; browser
 # auto-ends when reached.
-AI_REALTIME_MAX_SESSION_SECONDS = int(env_get("AI_REALTIME_MAX_SESSION_SECONDS", "900") or 900)
+AI_REALTIME_MAX_SESSION_SECONDS = int(env_get("AI_REALTIME_MAX_SESSION_SECONDS", "300") or 300)
 
 # --- ai_engine local providers -----------------------------------------
 # Set AI_LOCAL_CLASSIFIER_ENABLED=1 in env to let the router try local

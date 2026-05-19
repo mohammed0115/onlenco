@@ -28,11 +28,51 @@ def _default_avatar() -> Optional[AvatarProfile]:
     return AvatarProfile.objects.filter(is_active=True).order_by("sort_order", "id").first()
 
 
+def _voice_for_gender(gender: str) -> Optional[VoiceProfile]:
+    g = (gender or "").lower()
+    if g not in ("male", "female"):
+        return None
+    return (
+        VoiceProfile.objects.filter(is_active=True, voice_type=g)
+        .order_by("sort_order", "id")
+        .first()
+    )
+
+
+def _gender_mismatch(voice: VoiceProfile, avatar: AvatarProfile) -> bool:
+    v = (voice.voice_type or "neutral").lower()
+    a = (avatar.gender or "neutral").lower()
+    if v == "neutral" or a == "neutral":
+        return False
+    return v != a
+
+
 def resolve_voice_for(user) -> Optional[VoiceProfile]:
-    """The voice that should drive this user's next tutor session."""
-    pref = UserAIPreference.objects.select_related("voice_profile").filter(user=user).first()
-    if pref and pref.voice_profile and pref.voice_profile.is_active:
-        return pref.voice_profile
+    """The voice that should drive this user's next tutor session.
+
+    Spec: the chosen avatar's gender drives the voice. If the user has
+    explicitly picked a voice that matches the avatar's gender, respect it
+    (lets students pick between e.g. two female voices). If the explicit
+    voice mismatches (female voice + male avatar), the avatar wins.
+    """
+    pref = (
+        UserAIPreference.objects
+        .select_related("voice_profile", "avatar_profile")
+        .filter(user=user).first()
+    )
+    avatar = pref.avatar_profile if (pref and pref.avatar_profile and pref.avatar_profile.is_active) else None
+    voice = pref.voice_profile if (pref and pref.voice_profile and pref.voice_profile.is_active) else None
+
+    if voice and avatar and _gender_mismatch(voice, avatar):
+        aligned = _voice_for_gender(avatar.gender)
+        if aligned:
+            return aligned
+    if voice:
+        return voice
+    if avatar:
+        aligned = _voice_for_gender(avatar.gender)
+        if aligned:
+            return aligned
     return _default_voice()
 
 

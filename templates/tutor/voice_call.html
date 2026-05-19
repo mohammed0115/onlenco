@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static i18n_dict %}
 
-{% block title %}{% t_either "Voice call with Layla" "مكالمة صوتية مع ليلى" %} — Onlenco{% endblock %}
+{% block title %}{% if lang == "ar" %}مكالمة صوتية مع {{ tutor_name_ar }}{% else %}Voice call with {{ tutor_name_en }}{% endif %} — Onlenco{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'css/ai_tutor_voice.css' %}">
@@ -78,10 +78,10 @@
 
             <div class="onlenco-call-status">
                 <h1 class="onlenco-call-title" id="callTitle">
-                    {% if lang == "ar" %}اضغط لبدء المكالمة مع {{ avatar.name_ar|default:"ليلى" }}{% else %}Tap to call {{ avatar.name_en|default:"Layla" }}{% endif %}
+                    {% if lang == "ar" %}اضغط لبدء المكالمة مع {{ tutor_name_ar }}{% else %}Tap to call {{ tutor_name_en }}{% endif %}
                 </h1>
                 <p class="onlenco-call-sub" id="callSub">
-                    {% t_either "She'll greet you and start a real English conversation." "ستحييك وتبدأ محادثة إنجليزية حقيقية." %}
+                    {% t_either "Your teacher will greet you and start a real English conversation." "سيرحّب بك معلمك ويبدأ محادثة إنجليزية حقيقية." %}
                 </p>
                 <div class="onlenco-call-timer" id="callTimer" hidden>00:00</div>
             </div>
@@ -123,6 +123,8 @@
       conversationId: {{ conversation.pk }},
       backUrl:       "{% url 'tutor_detail' conversation.pk %}",
       language:      "{{ request.LANGUAGE_CODE|default:'en' }}",
+      tutorNameEn:   "{{ tutor_name_en|escapejs }}",
+      tutorNameAr:   "{{ tutor_name_ar|escapejs }}",
     });
     if (window.lucide) window.lucide.createIcons();
   });

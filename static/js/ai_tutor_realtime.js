@@ -27,22 +27,28 @@
     conversationId: null,
     backUrl:        null,
     language:       'en',
+    tutorNameEn:    'Layla',
+    tutorNameAr:    'ليلى',
   };
 
+  // Strings use {name} as a placeholder for the chosen tutor (Layla /
+  // Omar / Sara). Arabic strings stay gender-neutral so the same copy
+  // works for any avatar — verb-y phrases are rephrased to neutral
+  // forms ("جارٍ تحضير الرد" rather than "تجهّز إجابتها").
   const STRINGS = {
     en: {
-      idle_title:        'Tap to call Layla',
-      idle_sub:          "She'll greet you and start a real English conversation.",
+      idle_title:        'Tap to call {name}',
+      idle_sub:          "Your teacher will greet you and start a real English conversation.",
       connecting_title:  'Connecting…',
       connecting_sub:    'Setting up your call. Hang on a moment.',
       listening_title:   'Listening…',
-      listening_sub:     'Go ahead — Layla can hear you.',
+      listening_sub:     'Go ahead — {name} can hear you.',
       thinking_title:    'Thinking…',
-      thinking_sub:      'Layla is preparing her reply.',
-      speaking_title:    'Layla is speaking',
+      thinking_sub:      '{name} is preparing a reply.',
+      speaking_title:    '{name} is speaking',
       speaking_sub:      'Listen — your turn next.',
-      live_title:        'On a call with Layla',
-      live_sub:          'Speak naturally. She listens and replies as you talk.',
+      live_title:        'On a call with {name}',
+      live_sub:          'Speak naturally. Your teacher listens and replies as you talk.',
       ended_title:       'Call ended',
       ended_sub:         'Tap to call again.',
       error_title:       'Something went wrong',
@@ -57,18 +63,18 @@
       mute_off:          'Unmute',
     },
     ar: {
-      idle_title:        'اضغط لبدء المكالمة مع ليلى',
-      idle_sub:          'ستحييك وتبدأ محادثة إنجليزية حقيقية.',
+      idle_title:        'اضغط لبدء المكالمة مع {name}',
+      idle_sub:          'سيرحّب بك معلمك ويبدأ محادثة إنجليزية حقيقية.',
       connecting_title:  'جارٍ الاتصال…',
       connecting_sub:    'جارٍ تجهيز المكالمة، لحظة من فضلك.',
       listening_title:   'جارٍ الاستماع…',
-      listening_sub:     'تفضل — ليلى تسمعك.',
-      thinking_title:    'تفكّر…',
-      thinking_sub:      'ليلى تجهّز إجابتها.',
-      speaking_title:    'ليلى تتحدّث',
+      listening_sub:     'تفضّل بالحديث — {name} ينصت إليك.',
+      thinking_title:    'تفكير…',
+      thinking_sub:      'جارٍ تحضير الرد…',
+      speaking_title:    'يتحدّث {name}',
       speaking_sub:      'استمع — دورك بعدها.',
-      live_title:        'مكالمة مع ليلى',
-      live_sub:          'تحدّث بطبيعية. ستستمع وتردّ أثناء كلامك.',
+      live_title:        'مكالمة مع {name}',
+      live_sub:          'تحدّث بطبيعية. معلمك ينصت ويردّ أثناء كلامك.',
       ended_title:       'انتهت المكالمة',
       ended_sub:         'اضغط للاتصال مرة أخرى.',
       error_title:       'حدث خطأ',
@@ -86,7 +92,9 @@
 
   function t(key) {
     const lang = Config.language === 'ar' ? 'ar' : 'en';
-    return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
+    const raw = (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
+    const name = lang === 'ar' ? (Config.tutorNameAr || 'ليلى') : (Config.tutorNameEn || 'Layla');
+    return raw.replace(/\{name\}/g, name);
   }
 
   // ----- Element refs (filled in init) ---------------------------------

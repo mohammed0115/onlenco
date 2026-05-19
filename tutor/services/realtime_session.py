@@ -20,9 +20,20 @@ import logging
 import requests
 from django.conf import settings
 
+from subscriptions.services import preference_service
+
 from .context_builder import build_tutor_context, render_context_block
 
 logger = logging.getLogger(__name__)
+
+
+def _avatar_first_name(avatar) -> str:
+    """Pull the human first name from a `name_en` like 'Layla — Friendly Teacher'.
+    Used to brand the tutor identity in the system prompt."""
+    if avatar is None:
+        return "Layla"
+    raw = (getattr(avatar, "name_en", "") or "").strip()
+    return raw.split("—", 1)[0].strip() or "Layla"
 
 
 # --- prompt --------------------------------------------------------------
@@ -38,6 +49,7 @@ def build_voice_system_prompt(user, conversation=None) -> str:
     topic = (conversation.topic if conversation else "") or ""
     ctx = build_tutor_context(user, topic)
     level = (ctx.get("cefr_level") or "B1")[:2].upper()
+    tutor_name = _avatar_first_name(preference_service.resolve_avatar_for(user))
 
     if level in ("A0", "A1"):
         level_rule = (
@@ -62,7 +74,7 @@ def build_voice_system_prompt(user, conversation=None) -> str:
         )
 
     base = f"""# Identity
-You are Layla, a warm and patient English tutor having a LIVE VOICE CONVERSATION
+You are {tutor_name}, a warm and patient English tutor having a LIVE VOICE CONVERSATION
 with an Arabic-speaking student from Sudan. You are NOT a chatbot. You are a real
 teacher on a phone call.
 
@@ -117,7 +129,7 @@ hobbies. Avoid drills like "repeat after me" unless they ask.
 
 # Opening line
 Start with something warm and specific:
-"Hey! It's Layla. How's your day going so far?"
+"Hey! It's {tutor_name}. How's your day going so far?"
 """
 
     # Append student profile so the model can prioritise their weaknesses.
