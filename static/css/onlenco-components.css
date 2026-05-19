@@ -542,6 +542,65 @@
 
 
 /* ============================================================
+ *  Skip-to-content link — visible only when focused via keyboard.
+ *  Lives just inside <body> and lets sighted-keyboard / screen
+ *  reader users bypass the header nav on every page (WCAG SC 2.4.1).
+ * ============================================================ */
+
+.skip-to-content {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  top: var(--space-3);
+  z-index: var(--z-tooltip);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-200%);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
+  transform: translateY(0);
+  outline: none;
+}
+
+/* The skip-target wrapper needs a focusable :target style so screen
+   readers + keyboard users see they've landed. Subtle outline, no
+   layout shift. */
+#main-content:focus,
+#main-content:focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.4);
+  outline-offset: -2px;
+}
+
+
+/* ============================================================
+ *  Universal focus polish — any element receiving keyboard focus
+ *  should be visually obvious. Tailwind's default focus ring
+ *  doesn't cover non-utility elements (legacy classes, raw HTML).
+ * ============================================================ */
+
+:focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.6);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Inputs already have their own focus ring via .input-base. Don't
+   double up. */
+.input-base:focus-visible,
+.select-base:focus-visible,
+.textarea-base:focus-visible {
+  outline: none;
+}
+
+
+/* ============================================================
  *  Utility: visually hidden (a11y) — for skip links, sr-only labels.
  *  Tailwind already exposes .sr-only; this is for non-Tailwind pages.
  * ============================================================ */
@@ -574,11 +633,25 @@
 
 
 /* ============================================================
- *  Reduced motion — kill non-essential animations.
+ *  Reduced motion — global safety net.
+ *  When the user has prefers-reduced-motion enabled, we kill any
+ *  animation or scroll-smoothing that isn't essential to feedback.
+ *  Per-component overrides already exist in this file (skeleton,
+ *  spinner, modal) and in daily_journey.css; this is the safety
+ *  net for anything we missed.
  * ============================================================ */
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton { animation: none; background: hsl(var(--muted)); }
-  .spinner  { animation-duration: 2s; }
-  .modal-dialog { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Carve-outs for animations whose duration carries information
+     (loading spinners, audio-driven mouth/orb) — leave them slow
+     instead of zero. */
+  .spinner { animation-duration: 2s !important; }
+  .skeleton { background: hsl(var(--muted)) !important; animation: none !important; }
+  .modal-dialog { animation: none !important; }
 }

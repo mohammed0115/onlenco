@@ -81,6 +81,16 @@
 </head>
 <body>
 
+{% comment %}
+  Skip to main content — keyboard-only and screen-reader users tab
+  past the nav to reach the page body directly. Hidden visually until
+  it receives focus, at which point it appears as a brand-coloured
+  pill in the top-left so the user sees they activated it.
+{% endcomment %}
+<a href="#main-content" class="skip-to-content">
+  {% if dir == "rtl" %}الانتقال إلى المحتوى{% else %}Skip to main content{% endif %}
+</a>
+
 {% if messages %}
 <div class="toast-container fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
   {% for message in messages %}
@@ -92,7 +102,15 @@
 </script>
 {% endif %}
 
+{% comment %}
+  Wrap the per-page body in a focusable target the skip-link jumps
+  to. Plain <div> (not <main>) because most pages already render
+  their own <main> inside {% block body %} — nested <main> elements
+  are invalid HTML.
+{% endcomment %}
+<div id="main-content" tabindex="-1">
 {% block body %}{% endblock %}
+</div>
 
 {% include "_gamification_toast.html" %}
 
