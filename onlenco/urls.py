@@ -47,7 +47,12 @@ if getattr(settings, "ENABLE_2FA_ADMIN", False):
     admin.site.__class__ = OTPAdminSite
 
 urlpatterns = [
-    # path("admin/", admin.site.urls),
+    # Built-in Django admin lives at /django-admin/ — the custom
+    # Control Center owns /admin/. Django admin gives staff direct
+    # CRUD over every model (placement questions, voice profiles,
+    # avatar profiles, etc.) that the Control Center hasn't wrapped
+    # in a custom view yet.
+    path("django-admin/", admin.site.urls),
     path("admin/", include("platform_admin.urls")),
     path("teacher/", include("teacher_portal.urls")),
     path("set-language/", set_language, name="set_language"),

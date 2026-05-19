@@ -254,6 +254,11 @@ def nav_items_for(user) -> list[dict]:
         (CAP_PAYMENTS_VIEW, "Payments", "المدفوعات", "wallet", "platform_admin:payments"),
         (CAP_PLANS_VIEW, "Plans", "الخطط", "package", "platform_admin:plans"),
         (CAP_SETTINGS_VIEW, "Voices & Avatars", "الأصوات والصور", "mic", "platform_admin:voices"),
+        # Placement question bank — Django admin handles the CRUD;
+        # platform_admin just surfaces a link to it in the sidebar
+        # so academic admins can edit the 5-question pool without
+        # leaving the Control Center mental model.
+        (CAP_SETTINGS_MANAGE, "Placement Questions", "أسئلة تحديد المستوى", "list-tree", "admin:placement_placementquestion_changelist"),
         (CAP_AI_VIEW, "AI Monitor", "مراقبة AI", "bot", "platform_admin:ai_overview"),
         (CAP_ANALYTICS_VIEW, "Analytics", "التحليلات", "bar-chart-3", "platform_admin:analytics"),
         (CAP_GAMIFICATION_MANAGE, "Game Sounds", "أصوات اللعبة", "music", "platform_admin:gamification_sounds"),

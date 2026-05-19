@@ -38,6 +38,97 @@ def _avatar_first_name(avatar) -> str:
 
 # --- prompt --------------------------------------------------------------
 
+def _build_placement_voice_prompt(conversation, user) -> str:
+    """Structured-interview prompt for placement Part 2.
+
+    Looks up the linked PlacementAttempt via the reverse
+    ``placement_attempts`` related-set on TutorConversation, pulls its
+    5 ``section="speaking"`` questions (admin-curated, already
+    pre-selected when the attempt was created), and writes them into
+    the system prompt so the AI asks them in order rather than holding
+    an open-ended chat.
+
+    Returns "" when this conversation isn't linked to an active
+    placement attempt — caller falls back to the generic prompt.
+    """
+    try:
+        attempt = conversation.placement_attempts.filter(
+            status__in=["written_completed", "speaking_completed", "started"],
+        ).order_by("-id").first()
+    except Exception:
+        attempt = None
+    if attempt is None:
+        return ""
+
+    speaking_qs = list(
+        attempt.questions
+        .filter(section="speaking")
+        .select_related("question")
+        .order_by("order", "id")[:5]
+    )
+    if not speaking_qs:
+        return ""
+
+    tutor_name = _avatar_first_name(preference_service.resolve_avatar_for(user))
+
+    # Render the 5 questions as a numbered list the model will follow.
+    # We use the English question text — the AI sees both languages
+    # via the user's spoken response, but the question itself is asked
+    # in English to assess English skill.
+    question_lines = "\n".join(
+        f"{i + 1}. {(aq.question.question_text or '').strip()}"
+        for i, aq in enumerate(speaking_qs)
+    )
+
+    return f"""# Identity & role
+You are {tutor_name}, conducting a SHORT PLACEMENT INTERVIEW with an
+Arabic-speaking student from Sudan. This is NOT an open conversation —
+it's a structured 5-question oral assessment used to place the student
+at a CEFR level (A0 / A1 / A2 / B1 / B2 / C1 / C2).
+
+# How you speak
+Your output becomes audio. Speak like a teacher running an oral test:
+- Warm but focused. Brief praise OK; no monologue.
+- One question at a time. Wait for the student's full answer before
+  moving to the next one.
+- Use contractions: "you're", "don't", "it's".
+- If they don't understand, repeat the question more slowly with
+  simpler words. Do NOT translate to Arabic unless they look completely
+  stuck after two attempts — then ONE short Arabic clarification.
+- NEVER add follow-up questions of your own. Stick to the 5 below.
+- NEVER use markdown, bullets, asterisks, emojis.
+
+# The 5 questions — ask in this exact order, one at a time
+{question_lines}
+
+# Pacing rules
+1. Open with: "Hi! I'm {tutor_name}. I'll ask you five quick questions
+   to see your English level. Take your time. Ready? Here's the first one."
+2. Ask question 1. Wait for the student's response (one to several
+   sentences). Acknowledge briefly ("OK", "Got it", "Nice"). Move on.
+3. Repeat for questions 2, 3, 4, 5.
+4. After question 5 and the student's answer, say:
+   "Great — that's all five questions. You did well. I'm sending you
+   to your results now."
+   Then stop talking. The system will end the call automatically.
+
+# Hard rules
+- Do NOT improvise extra questions, even if the student is fluent.
+- Do NOT correct grammar in real time during the test — this is an
+  assessment, not a lesson. The scorer reads the transcript afterward.
+- Do NOT skip a question.
+- Do NOT continue past question 5.
+- If the student tries to chat freely, gently redirect: "Let's stay
+  with the test for now — here's the next question."
+- Never say "as an AI" or break character.
+
+# Opening line
+Start exactly with: "Hi! I'm {tutor_name}. I'll ask you five quick
+questions to see your English level. Take your time. Ready? Here's
+the first one."
+"""
+
+
 def build_voice_system_prompt(user, conversation=None) -> str:
     """System prompt optimised for spoken conversation.
 
@@ -45,8 +136,20 @@ def build_voice_system_prompt(user, conversation=None) -> str:
     - Output becomes audio: no markdown, no bullets, contractions only.
     - Replies must be one or two short sentences.
     - The model should react like a human (filler words, brief follow-ups).
+
+    Special-case: when the conversation is tagged for a placement
+    attempt, we deliver a STRUCTURED interview script instead of an
+    open-ended chat. The AI walks the student through the 5
+    pre-selected speaking questions in order, then signals end of test.
     """
     topic = (conversation.topic if conversation else "") or ""
+
+    # Placement Part 2 — structured interview using admin-curated questions.
+    if topic == "placement" and conversation is not None:
+        placement_prompt = _build_placement_voice_prompt(conversation, user)
+        if placement_prompt:
+            return placement_prompt
+
     ctx = build_tutor_context(user, topic)
     level = (ctx.get("cefr_level") or "B1")[:2].upper()
     tutor_name = _avatar_first_name(preference_service.resolve_avatar_for(user))
