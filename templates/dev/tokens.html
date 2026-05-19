@@ -337,4 +337,126 @@
     --z-base 0 · --z-elevated 10 · --z-sticky 100 · --z-overlay 500 · --z-modal 1000 · --z-popover 1500 · --z-toast 2000 · --z-tooltip 2500
   </p>
 </section>
+
+<hr class="ks-divider">
+
+<!-- ===================== Components preview (Phase 3) ===================== -->
+<section class="ks-section">
+  <h2 class="ks-title">Buttons</h2>
+  <p class="ks-sub">Legacy variants (.btn-hero, .btn-outline, .btn-ghost) + Phase 3 semantic (.btn-primary, .btn-secondary, .btn-danger) + size modifier (.btn-sm).</p>
+  <div class="ks-row" style="gap: var(--space-3);">
+    <button class="btn btn-hero">btn btn-hero</button>
+    <button class="btn btn-primary">btn btn-primary</button>
+    <button class="btn btn-secondary">btn btn-secondary</button>
+    <button class="btn btn-outline">btn btn-outline</button>
+    <button class="btn btn-ghost">btn btn-ghost</button>
+    <button class="btn btn-danger">btn btn-danger</button>
+    <button class="btn btn-primary btn-sm">btn-primary btn-sm</button>
+    <button class="btn btn-primary btn-lg">btn-primary btn-lg</button>
+    <button class="btn btn-primary" disabled>disabled</button>
+  </div>
+
+  <h2 class="ks-title">Badges</h2>
+  <div class="ks-row" style="gap: var(--space-2);">
+    <span class="badge badge-success">success</span>
+    <span class="badge badge-warning">warning</span>
+    <span class="badge badge-danger">danger</span>
+    <span class="badge badge-info">info</span>
+    <span class="badge badge-neutral">neutral</span>
+    <span class="badge badge-secondary">secondary (legacy)</span>
+    <span class="badge badge-outline">outline (legacy)</span>
+  </div>
+
+  <h2 class="ks-title">Alerts</h2>
+  <div style="display: grid; gap: var(--space-3); max-width: 720px;">
+    <div class="alert alert-success">✓ Payment approved — your subscription is now active.</div>
+    <div class="alert alert-warning">⚠ Your subscription expires in 3 days.</div>
+    <div class="alert alert-danger">✗ We couldn't verify your payment. Please re-upload the screenshot.</div>
+    <div class="alert alert-info">ℹ Daily plan refreshed — 5 new exercises ready.</div>
+  </div>
+
+  <h2 class="ks-title">Form fields</h2>
+  <div style="display: grid; gap: var(--space-4); max-width: 480px;">
+    <div>
+      <label class="label-base" for="ks-name">Name</label>
+      <input id="ks-name" class="input-base" placeholder="Enter your name">
+      <p class="help-text">Used on your dashboard greeting.</p>
+    </div>
+    <div>
+      <label class="label-base" for="ks-level">Level</label>
+      <select id="ks-level" class="select-base">
+        <option>A0 — Pre-beginner</option><option>A1 — Beginner</option><option>B1 — Intermediate</option>
+      </select>
+    </div>
+    <div>
+      <label class="label-base" for="ks-bio">Bio</label>
+      <textarea id="ks-bio" class="textarea-base" rows="3" placeholder="A few lines about yourself"></textarea>
+    </div>
+    <div>
+      <label class="label-base" for="ks-bad">Invalid input</label>
+      <input id="ks-bad" class="input-base" aria-invalid="true" value="not-an-email">
+      <p class="error-text">Please enter a valid email address.</p>
+    </div>
+    <div>
+      <label class="label-base">Disabled</label>
+      <input class="input-base" disabled value="locked">
+    </div>
+  </div>
+
+  <h2 class="ks-title">Table</h2>
+  <div style="max-width: 720px;">
+    <table class="table-base table-sortable">
+      <thead>
+        <tr>
+          <th><a class="th-sort sort-active" href="#">Title ▲</a></th>
+          <th><a class="th-sort" href="#">Level</a></th>
+          <th><a class="th-sort" href="#">Status</a></th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>A0 Unit 1 — Hello English</td><td>A0</td><td><span class="badge badge-success">Published</span></td><td><a href="#">View</a></td></tr>
+        <tr><td>A0 Unit 2 — About Me</td><td>A0</td><td><span class="badge badge-warning">Pending</span></td><td><a href="#">View</a></td></tr>
+        <tr><td>A1 Unit 1 — Daily Routine</td><td>A1</td><td><span class="badge badge-neutral">Draft</span></td><td><a href="#">View</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="ks-title">Loading states</h2>
+  <p class="ks-sub">Skeleton placeholders + spinners.</p>
+  <div class="ks-row" style="gap: var(--space-6); align-items: flex-start;">
+    <div style="width: 240px;">
+      <div class="skeleton skeleton-circle"></div>
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-text"></div>
+      <div class="skeleton skeleton-text" style="width: 60%;"></div>
+    </div>
+    <div style="width: 240px;">
+      <div class="skeleton skeleton-card"></div>
+    </div>
+    <div class="ks-row" style="gap: var(--space-3); align-items: center;">
+      <span class="spinner spinner-sm"></span>
+      <span class="spinner"></span>
+      <span class="spinner spinner-lg"></span>
+    </div>
+  </div>
+
+  <h2 class="ks-title">Pagination</h2>
+  <nav class="pagination-base">
+    <a href="#">‹</a>
+    <a href="#">1</a>
+    <span class="is-current">2</span>
+    <a href="#">3</a>
+    <a href="#">4</a>
+    <a href="#">5</a>
+    <a href="#">›</a>
+  </nav>
+
+  <h2 class="ks-title">Empty state</h2>
+  <div class="empty-state" style="border: 1px dashed hsl(var(--border)); border-radius: var(--radius-lg);">
+    <i data-lucide="inbox" class="empty-icon" style="width: 64px; height: 64px;"></i>
+    <h3>No courses yet</h3>
+    <p>When you create your first course it'll show up here. Try clicking "Add Course" in the top right.</p>
+  </div>
+</section>
 {% endblock %}
