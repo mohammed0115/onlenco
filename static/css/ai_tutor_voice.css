@@ -27,7 +27,7 @@
     position:relative; z-index:2;
     display:flex; align-items:center; justify-content:center;
     width:100%; height:100%;
-    color:#fff;
+    color:hsl(0 0% 100%);
     border-radius:9999px;
     background:linear-gradient(140deg, hsl(var(--mic-hue) 75% 55%), hsl(calc(var(--mic-hue) + 40) 80% 45%));
     box-shadow:0 6px 18px -6px hsl(var(--mic-hue) 70% 45% / .6),
@@ -162,7 +162,7 @@
 
 .onlenco-toast{
     position:fixed; left:50%; bottom:1.5rem; transform:translateX(-50%);
-    background:hsl(0 70% 30%); color:#fff;
+    background:hsl(0 70% 30%); color:hsl(0 0% 100%);
     padding:.7rem 1.1rem;
     border-radius:.75rem;
     font-size:.9rem;
@@ -178,7 +178,7 @@
 
 .onlenco-bubble-user{
     align-self:flex-end;
-    background:hsl(160 65% 45%); color:#fff;
+    background:hsl(160 65% 45%); color:hsl(0 0% 100%);
     padding:.7rem 1rem; border-radius:1.1rem;
     max-width:85%;
     white-space:pre-wrap;
@@ -186,8 +186,8 @@
 }
 .onlenco-bubble-ai{
     align-self:flex-start;
-    background:hsl(220 20% 98%); color:hsl(220 30% 15%);
-    border:1px solid hsl(220 20% 90%);
+    background:hsl(var(--background)); color:hsl(var(--foreground));
+    border:1px solid hsl(var(--border));
     padding:.7rem 1rem; border-radius:1.1rem;
     max-width:85%;
     white-space:pre-wrap;
@@ -221,7 +221,7 @@
     display:flex; flex-direction:column;
     min-height:0;
     background:hsl(0 0% 100%);
-    border:1px solid hsl(220 15% 92%);
+    border:1px solid hsl(var(--border));
     border-radius:1rem;
     box-shadow:0 12px 32px -22px hsl(220 30% 30% / .35);
     overflow:hidden;
@@ -230,12 +230,12 @@
 .onlenco-tutor-toolbar{
     display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
     padding:.65rem .9rem;
-    border-bottom:1px solid hsl(220 15% 94%);
-    background:linear-gradient(180deg, hsl(220 25% 99%), hsl(220 25% 97%));
+    border-bottom:1px solid hsl(var(--border));
+    background:linear-gradient(180deg, hsl(0 0% 100%), hsl(var(--background)));
 }
 .onlenco-toggle{
     display:inline-flex; align-items:center; gap:.4rem;
-    font-size:.8rem; color:hsl(220 15% 35%);
+    font-size:.8rem; color:hsl(var(--foreground));
     cursor:pointer;
 }
 .onlenco-toggle input{cursor:pointer;}
@@ -257,7 +257,7 @@
     flex:1 1 auto;
     overflow-y:auto;
     padding:1rem 1rem 1.25rem;
-    background:linear-gradient(180deg, hsl(220 30% 99%), hsl(220 30% 98%));
+    background:linear-gradient(180deg, hsl(0 0% 100%), hsl(var(--background)));
     min-height:24rem;
     max-height:calc(100vh - 18rem);
     scroll-behavior:smooth;
@@ -283,7 +283,7 @@
     width:1.85rem; height:1.85rem;
     border-radius:9999px;
     background:linear-gradient(135deg, hsl(160 70% 50%), hsl(200 80% 55%));
-    color:#fff;
+    color:hsl(0 0% 100%);
     display:flex; align-items:center; justify-content:center;
     box-shadow:0 4px 10px -4px hsl(200 50% 40% / .4);
     flex:0 0 auto;
@@ -298,7 +298,7 @@
 .onlenco-row-ai   .onlenco-bubble-wrap{align-items:flex-start;}
 
 .onlenco-bubble-meta{
-    font-size:.7rem; color:hsl(220 10% 45%);
+    font-size:.7rem; color:hsl(var(--muted-foreground));
     padding-inline:.4rem;
 }
 
@@ -314,7 +314,7 @@
 }
 .onlenco-bubble-ai{
     background:hsl(0 0% 100%);
-    border-color:hsl(220 18% 90%);
+    border-color:hsl(var(--border));
     border-bottom-left-radius:.35rem;
     box-shadow:0 4px 14px -8px hsl(220 30% 40% / .25);
 }
@@ -343,11 +343,11 @@
     border-radius:1.1rem;
     background:linear-gradient(135deg, hsl(35 90% 60%), hsl(0 80% 60%));
     display:flex; align-items:center; justify-content:center;
-    color:#fff;
+    color:hsl(0 0% 100%);
     box-shadow:0 10px 24px -10px hsl(20 80% 45% / .55);
 }
 .onlenco-welcome-sub{
-    color:hsl(220 10% 45%);
+    color:hsl(var(--muted-foreground));
     font-size:.9rem;
     max-width:26rem;
 }
@@ -360,8 +360,8 @@
     padding:.45rem .85rem;
     border-radius:9999px;
     background:hsl(0 0% 100%);
-    border:1px solid hsl(220 15% 88%);
-    color:hsl(220 25% 25%);
+    border:1px solid hsl(var(--border));
+    color:hsl(var(--foreground));
     font-size:.85rem;
     cursor:pointer;
     transition:background .15s ease, border-color .15s ease, transform .12s ease;
@@ -378,14 +378,14 @@
     position:sticky;
     bottom:0;
     background:hsl(0 0% 100%);
-    border-top:1px solid hsl(220 15% 92%);
+    border-top:1px solid hsl(var(--border));
     padding:.75rem .9rem .9rem;
     z-index:5;
 }
 .onlenco-composer-inner{
     display:flex; align-items:flex-end; gap:.5rem;
-    background:hsl(220 25% 98%);
-    border:1px solid hsl(220 15% 90%);
+    background:hsl(var(--background));
+    border:1px solid hsl(var(--border));
     border-radius:1rem;
     padding:.4rem .5rem;
     transition:border-color .15s ease, box-shadow .15s ease;
@@ -405,11 +405,11 @@
     color:hsl(220 25% 15%);
     font-family:inherit;
 }
-.onlenco-input::placeholder{color:hsl(220 10% 55%);}
+.onlenco-input::placeholder{color:hsl(var(--muted-foreground));}
 .onlenco-thinking{
     margin-top:.5rem;
     font-size:.8rem;
-    color:hsl(220 15% 45%);
+    color:hsl(var(--muted-foreground));
     display:flex; align-items:center; gap:.4rem;
 }
 
@@ -421,7 +421,7 @@
 }
 .onlenco-sidebar-card{
     background:hsl(0 0% 100%);
-    border:1px solid hsl(220 15% 92%);
+    border:1px solid hsl(var(--border));
     border-radius:.9rem;
     padding:.85rem 1rem;
     box-shadow:0 6px 16px -12px hsl(220 30% 30% / .25);
@@ -429,7 +429,7 @@
 .onlenco-sidebar-head{
     display:flex; align-items:center; gap:.45rem;
     font-size:.8rem; font-weight:600;
-    color:hsl(220 20% 25%);
+    color:hsl(var(--foreground));
     text-transform:uppercase;
     letter-spacing:.04em;
     margin-bottom:.55rem;
@@ -441,7 +441,7 @@
     padding:.35rem .9rem;
     border-radius:9999px;
     background:linear-gradient(135deg, hsl(160 70% 45%), hsl(200 70% 50%));
-    color:#fff;
+    color:hsl(0 0% 100%);
     font-weight:700;
     font-size:1rem;
     letter-spacing:.05em;
@@ -452,16 +452,16 @@
 }
 .onlenco-stat{
     display:inline-flex; align-items:center; gap:.3rem;
-    font-size:.85rem; color:hsl(220 15% 30%);
+    font-size:.85rem; color:hsl(var(--muted-foreground));
 }
-.onlenco-stat strong{color:hsl(220 30% 15%);}
+.onlenco-stat strong{color:hsl(var(--foreground));}
 .onlenco-stat i{color:hsl(35 80% 50%);}
 
 .onlenco-list{
     list-style:none; padding:0; margin:0;
     display:flex; flex-direction:column; gap:.4rem;
     font-size:.85rem;
-    color:hsl(220 15% 30%);
+    color:hsl(var(--muted-foreground));
 }
 .onlenco-list li{
     display:flex; align-items:center; justify-content:space-between;
@@ -470,8 +470,8 @@
 .onlenco-list-stacked li{
     flex-direction:column; align-items:flex-start; gap:.15rem;
     padding:.45rem .55rem;
-    background:hsl(220 25% 98%);
-    border:1px solid hsl(220 15% 92%);
+    background:hsl(var(--background));
+    border:1px solid hsl(var(--border));
     border-radius:.55rem;
 }
 .onlenco-list-label{
@@ -489,7 +489,7 @@
 }
 .onlenco-mistake-fragment{
     font-style:italic;
-    color:hsl(220 25% 20%);
+    color:hsl(var(--foreground));
     word-break:break-word;
 }
 .onlenco-mistake-type{
@@ -516,13 +516,13 @@
    handles the prominence. */
 #stopRecordingBtn:not([hidden]){
     background:hsl(0 75% 50%);
-    color:#fff;
+    color:hsl(0 0% 100%);
     border-radius:9999px;
     padding:.5rem .9rem;
     box-shadow:0 6px 16px -6px hsl(0 75% 35% / .55);
     animation:onlenco-stop-pulse 1.4s ease-in-out infinite;
 }
-#stopRecordingBtn:not([hidden]) i{color:#fff;}
+#stopRecordingBtn:not([hidden]) i{color:hsl(0 0% 100%);}
 @keyframes onlenco-stop-pulse{
     0%,100%{box-shadow:0 6px 16px -6px hsl(0 75% 35% / .55), 0 0 0 0 hsl(0 75% 50% / .35);}
     50%    {box-shadow:0 6px 16px -6px hsl(0 75% 35% / .55), 0 0 0 8px hsl(0 75% 50% / 0);}

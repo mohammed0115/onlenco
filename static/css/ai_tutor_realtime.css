@@ -10,13 +10,13 @@
     background:
       radial-gradient(circle at 30% 20%, hsl(200 50% 96%) 0%, transparent 50%),
       radial-gradient(circle at 70% 80%, hsl(160 50% 96%) 0%, transparent 50%),
-      hsl(220 30% 98%);
+      hsl(var(--background));
 }
 
 .onlenco-call-card{
     width:100%; max-width:32rem;
     background:hsl(0 0% 100%);
-    border:1px solid hsl(220 15% 92%);
+    border:1px solid hsl(var(--border));
     border-radius:1.5rem;
     box-shadow:0 24px 48px -24px hsl(220 30% 30% / .25);
     padding:1.75rem;
@@ -60,7 +60,7 @@
     width:100%; height:100%;
     border-radius:9999px;
     display:flex; align-items:center; justify-content:center;
-    color:#fff;
+    color:hsl(0 0% 100%);
     background:linear-gradient(140deg,
         hsl(var(--orb-hue) 75% 55%),
         hsl(calc(var(--orb-hue) + 40) 80% 45%));
@@ -153,11 +153,11 @@
 .onlenco-call-title{
     font-family:'Fraunces', Georgia, serif;
     font-size:1.25rem; font-weight:700;
-    color:hsl(220 30% 15%);
+    color:hsl(var(--foreground));
     margin:0;
 }
 .onlenco-call-sub{
-    color:hsl(220 15% 45%);
+    color:hsl(var(--muted-foreground));
     font-size:.9rem;
     margin:0;
     max-width:24rem;
@@ -166,8 +166,8 @@
     margin-top:.25rem;
     font-variant-numeric:tabular-nums;
     font-weight:600;
-    color:hsl(220 25% 25%);
-    background:hsl(220 25% 96%);
+    color:hsl(var(--foreground));
+    background:hsl(var(--muted));
     padding:.2rem .65rem;
     border-radius:9999px;
     font-size:.85rem;
@@ -179,11 +179,11 @@
     max-height:10rem;
     overflow-y:auto;
     padding:.6rem .8rem;
-    background:hsl(220 25% 98%);
-    border:1px solid hsl(220 15% 92%);
+    background:hsl(var(--background));
+    border:1px solid hsl(var(--border));
     border-radius:.75rem;
     font-size:.85rem;
-    color:hsl(220 25% 25%);
+    color:hsl(var(--foreground));
     display:flex; flex-direction:column; gap:.4rem;
     scroll-behavior:smooth;
 }
@@ -191,7 +191,7 @@
     line-height:1.4;
 }
 .onlenco-call-line strong{
-    color:hsl(220 30% 15%);
+    color:hsl(var(--foreground));
     margin-inline-end:.3rem;
 }
 .onlenco-call-line.is-user strong{color:hsl(160 60% 35%);}
@@ -214,20 +214,20 @@
 }
 .onlenco-call-start-btn{
     background:linear-gradient(135deg, hsl(160 70% 45%), hsl(200 70% 50%));
-    color:#fff;
+    color:hsl(0 0% 100%);
     box-shadow:0 8px 18px -8px hsl(180 60% 35% / .55);
 }
 .onlenco-call-start-btn:hover{transform:translateY(-1px);}
 .onlenco-call-start-btn:active{transform:translateY(0);}
 .onlenco-call-end-btn{
-    background:hsl(0 75% 50%); color:#fff;
+    background:hsl(0 75% 50%); color:hsl(0 0% 100%);
     box-shadow:0 8px 18px -8px hsl(0 75% 35% / .55);
 }
 .onlenco-call-end-btn:hover{filter:brightness(1.06);}
 .onlenco-call-mute-btn{
-    background:hsl(220 25% 96%);
-    color:hsl(220 25% 25%);
-    border:1px solid hsl(220 15% 88%);
+    background:hsl(var(--muted));
+    color:hsl(var(--foreground));
+    border:1px solid hsl(var(--border));
 }
 .onlenco-call-mute-btn[aria-pressed="true"]{
     background:hsl(0 80% 95%);
@@ -263,23 +263,41 @@
   border-radius:50%;
   display:block;
 }
+/* Tutor identity card — name + role line under the avatar photo.
+   Reads as a teacher's nameplate rather than a generic label. The
+   --tutor-status-color CSS var is set by the [data-state] selectors
+   on the call card so the bottom border subtly shifts colour with
+   the live state (listening = teal, speaking = amber, etc.). */
 .tutor-avatar-name{
   text-align:center;
-  margin-top:.85rem;
-  font-weight:600;
-  font-size:1rem;
-  color:hsl(220 15% 25%);
+  margin-top:var(--space-3);
+  font-family:'Fraunces', Georgia, serif;
+  font-weight:var(--font-semibold);
+  font-size:var(--text-lg);
+  line-height:var(--leading-tight);
+  color:hsl(var(--foreground));
+  letter-spacing:-0.01em;
+}
+[dir="rtl"] .tutor-avatar-name{
+  font-family:'Cairo', system-ui, sans-serif;
 }
 .tutor-avatar-change{
   display:inline-flex;
-  gap:.35rem;
+  gap:var(--space-1);
   align-items:center;
-  margin-top:.2rem;
-  font-size:.75rem;
-  color:hsl(220 12% 55%);
+  margin-top:var(--space-1);
+  padding:var(--space-1) var(--space-2);
+  font-size:var(--text-xs);
+  color:hsl(var(--muted-foreground));
+  text-decoration:none;
+  border-radius:var(--radius-pill);
+  transition:background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.tutor-avatar-change:hover{
+  background:hsl(var(--muted));
+  color:hsl(var(--primary));
   text-decoration:none;
 }
-.tutor-avatar-change:hover{ color:hsl(178 65% 28%); text-decoration:underline; }
 
 /* "Speaking" state animations: subtle scale pulse + mouth opens/closes. */
 .tutor-avatar-orb[data-state="speaking"] .tutor-avatar-img,
