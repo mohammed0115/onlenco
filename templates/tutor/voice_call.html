@@ -36,7 +36,7 @@
                                class="tutor-avatar-img"
                                id="callOrbAvatar">
                           <span class="tutor-avatar-mouth-overlay" aria-hidden="true"></span>
-                        {% elif avatar.code == "layla_female_teacher" or avatar.code == "omar_male_teacher" or avatar.code == "sara_energetic" %}
+                        {% elif avatar.code == "layla_female_teacher" or avatar.code == "omar_male_teacher" or avatar.code == "sara_energetic" or avatar.code == "hassabu_male_teacher" %}
                           {# Bundled portrait shipped with the repo — used when no admin upload exists yet. #}
                           <img src="{% static 'img/avatars/'|add:avatar.code|add:'.jpg' %}"
                                alt="{% if lang == 'ar' %}{{ avatar.name_ar }}{% else %}{{ avatar.name_en }}{% endif %}"
