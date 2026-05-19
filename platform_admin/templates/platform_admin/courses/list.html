@@ -1,14 +1,15 @@
 {% extends "platform_admin/base.html" %}
 
 {% block control_title %}{% if lang == "ar" %}إدارة الكورسات والدروس{% else %}Course & Lesson Management{% endif %}{% endblock %}
-{% block control_subtitle %}{% if lang == "ar" %}فيديوهات، worksheets، مراجعة محتوى، ونطاق المعلمين.{% else %}Videos, worksheets, content review, and teacher scoping.{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}فيديوهات وأوراق عمل ومراجعة المحتوى، وتعيين المعلّمين.{% else %}Videos, worksheets, content review, and teacher scoping.{% endif %}{% endblock %}
 
 {% block control_content %}
 <div class="toolbar">
   <form method="get" class="filters">
-    <input name="q" value="{{ filters.q }}" placeholder="course / teacher">
-    <select name="level">
-      <option value="">Level</option>
+    <input name="q" value="{{ filters.q }}"
+           placeholder="{% if lang == 'ar' %}بحث باسم الكورس أو المعلّم{% else %}course / teacher{% endif %}">
+    <select name="level" aria-label="{% if lang == 'ar' %}المستوى{% else %}Level{% endif %}">
+      <option value="">{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</option>
       <option value="A0" {% if filters.level == "A0" %}selected{% endif %}>A0</option>
       <option value="A1" {% if filters.level == "A1" %}selected{% endif %}>A1</option>
       <option value="A2" {% if filters.level == "A2" %}selected{% endif %}>A2</option>
@@ -17,42 +18,73 @@
       <option value="C1" {% if filters.level == "C1" %}selected{% endif %}>C1</option>
       <option value="C2" {% if filters.level == "C2" %}selected{% endif %}>C2</option>
     </select>
-    <select name="status">
-      <option value="">Status</option>
-      <option value="draft" {% if filters.status == "draft" %}selected{% endif %}>Draft</option>
-      <option value="pending_review" {% if filters.status == "pending_review" %}selected{% endif %}>Pending review</option>
-      <option value="published" {% if filters.status == "published" %}selected{% endif %}>Published</option>
-      <option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>Rejected</option>
-      <option value="archived" {% if filters.status == "archived" %}selected{% endif %}>Archived</option>
+    <select name="status" aria-label="{% if lang == 'ar' %}الحالة{% else %}Status{% endif %}">
+      <option value="">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</option>
+      <option value="draft"          {% if filters.status == "draft" %}selected{% endif %}>{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}</option>
+      <option value="pending_review" {% if filters.status == "pending_review" %}selected{% endif %}>{% if lang == "ar" %}قيد المراجعة{% else %}Pending review{% endif %}</option>
+      <option value="published"      {% if filters.status == "published" %}selected{% endif %}>{% if lang == "ar" %}منشور{% else %}Published{% endif %}</option>
+      <option value="rejected"       {% if filters.status == "rejected" %}selected{% endif %}>{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}</option>
+      <option value="archived"       {% if filters.status == "archived" %}selected{% endif %}>{% if lang == "ar" %}مؤرشف{% else %}Archived{% endif %}</option>
     </select>
-    <select name="language">
-      <option value="">Language</option>
-      <option value="ar" {% if filters.language == "ar" %}selected{% endif %}>Arabic</option>
-      <option value="en" {% if filters.language == "en" %}selected{% endif %}>English</option>
-      <option value="bilingual" {% if filters.language == "bilingual" %}selected{% endif %}>Bilingual</option>
+    <select name="language" aria-label="{% if lang == 'ar' %}اللغة{% else %}Language{% endif %}">
+      <option value="">{% if lang == "ar" %}اللغة{% else %}Language{% endif %}</option>
+      <option value="ar"        {% if filters.language == "ar" %}selected{% endif %}>{% if lang == "ar" %}عربي{% else %}Arabic{% endif %}</option>
+      <option value="en"        {% if filters.language == "en" %}selected{% endif %}>{% if lang == "ar" %}إنجليزي{% else %}English{% endif %}</option>
+      <option value="bilingual" {% if filters.language == "bilingual" %}selected{% endif %}>{% if lang == "ar" %}ثنائي اللغة{% else %}Bilingual{% endif %}</option>
     </select>
-    <button class="btn-control btn-primary" type="submit"><i data-lucide="filter" class="h-4 w-4"></i> Filter</button>
+    <button class="btn-control btn-primary" type="submit">
+      <i data-lucide="filter" class="h-4 w-4"></i>
+      {% if lang == "ar" %}تصفية{% else %}Filter{% endif %}
+    </button>
   </form>
-  <a class="btn-control" href="{% url 'platform_admin:courses_review' %}"><i data-lucide="file-search" class="h-4 w-4"></i> Review queue</a>
+  <a class="btn-control" href="{% url 'platform_admin:courses_review' %}">
+    <i data-lucide="file-search" class="h-4 w-4"></i>
+    {% if lang == "ar" %}قائمة المراجعة{% else %}Review queue{% endif %}
+  </a>
 </div>
 
 <div class="control-panel">
   <table class="control-table">
-    <thead><tr><th>Title</th><th>Level</th><th>Teacher</th><th>Status</th><th>Lessons</th><th>Students</th><th>Updated</th><th>Actions</th></tr></thead>
+    <thead>
+      <tr>
+        <th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th>
+        <th>{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</th>
+        <th>{% if lang == "ar" %}المعلّم{% else %}Teacher{% endif %}</th>
+        <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+        <th>{% if lang == "ar" %}الدروس{% else %}Lessons{% endif %}</th>
+        <th>{% if lang == "ar" %}الطلاب{% else %}Students{% endif %}</th>
+        <th>{% if lang == "ar" %}آخر تحديث{% else %}Updated{% endif %}</th>
+        <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
+      </tr>
+    </thead>
     <tbody>
       {% for course in page_obj.object_list %}
         <tr>
           <td>{{ course.title }}</td>
           <td>{{ course.level.code }}</td>
-          <td>{% if course.teacher %}{{ course.teacher.email|default:course.teacher.username }}{% else %}-{% endif %}</td>
-          <td><span class="badge {% if course.status == 'published' %}badge-green{% elif course.status == 'pending_review' %}badge-yellow{% elif course.status == 'rejected' %}badge-red{% endif %}">{{ course.status }}</span></td>
+          <td>{% if course.teacher %}{{ course.teacher.email|default:course.teacher.username }}{% else %}—{% endif %}</td>
+          <td>
+            <span class="badge {% if course.status == 'published' %}badge-green{% elif course.status == 'pending_review' %}badge-yellow{% elif course.status == 'rejected' %}badge-red{% endif %}">
+              {% if course.status == "draft" %}{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}
+              {% elif course.status == "pending_review" %}{% if lang == "ar" %}قيد المراجعة{% else %}Pending review{% endif %}
+              {% elif course.status == "published" %}{% if lang == "ar" %}منشور{% else %}Published{% endif %}
+              {% elif course.status == "rejected" %}{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}
+              {% elif course.status == "archived" %}{% if lang == "ar" %}مؤرشف{% else %}Archived{% endif %}
+              {% else %}{{ course.status }}{% endif %}
+            </span>
+          </td>
           <td>{{ course.lessons_count }}</td>
           <td>{{ course.students_count }}</td>
-          <td>{{ course.updated_at|date:"Y-m-d" }}</td>
-          <td><a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> View</a></td>
+          <td><span dir="ltr">{{ course.updated_at|date:"Y-m-d" }}</span></td>
+          <td>
+            <a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}">
+              <i data-lucide="eye" class="h-4 w-4"></i>
+              {% if lang == "ar" %}فتح{% else %}View{% endif %}
+            </a>
+          </td>
         </tr>
       {% empty %}
-        <tr><td colspan="8" class="muted">No courses found.</td></tr>
+        <tr><td colspan="8" class="muted">{% if lang == "ar" %}لا توجد كورسات.{% else %}No courses found.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

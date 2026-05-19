@@ -1,14 +1,14 @@
 {% extends "platform_admin/base.html" %}
 
 {% block control_title %}{% if lang == "ar" %}إدارة الطلاب{% else %}Student Management{% endif %}{% endblock %}
-{% block control_subtitle %}{% if lang == "ar" %}بحث، فلاتر، تقدم، اشتراك، وخطر التوقف.{% else %}Search, filters, progress, subscription, and risk status.{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}بحث وفلاتر، تتبّع التقدم والاشتراك ومخاطر التوقف.{% else %}Search, filters, progress, subscription, and risk status.{% endif %}{% endblock %}
 
 {% block control_content %}
 <div class="toolbar">
   <form method="get" class="filters">
-    <input name="q" value="{{ filters.q }}" placeholder="name / email / phone">
-    <select name="level">
-      <option value="">Level</option>
+    <input name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}الاسم أو البريد أو الهاتف{% else %}name / email / phone{% endif %}">
+    <select name="level" aria-label="{% if lang == 'ar' %}المستوى{% else %}Level{% endif %}">
+      <option value="">{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</option>
       <option value="A0" {% if filters.level == "A0" %}selected{% endif %}>A0</option>
       <option value="A1" {% if filters.level == "A1" %}selected{% endif %}>A1</option>
       <option value="A2" {% if filters.level == "A2" %}selected{% endif %}>A2</option>
@@ -17,26 +17,29 @@
       <option value="C1" {% if filters.level == "C1" %}selected{% endif %}>C1</option>
       <option value="C2" {% if filters.level == "C2" %}selected{% endif %}>C2</option>
     </select>
-    <select name="subscription">
-      <option value="">Subscription</option>
-      <option value="inactive" {% if filters.subscription == "inactive" %}selected{% endif %}>Inactive</option>
-      <option value="pending" {% if filters.subscription == "pending" %}selected{% endif %}>Pending</option>
-      <option value="active" {% if filters.subscription == "active" %}selected{% endif %}>Active</option>
-      <option value="expired" {% if filters.subscription == "expired" %}selected{% endif %}>Expired</option>
+    <select name="subscription" aria-label="{% if lang == 'ar' %}الاشتراك{% else %}Subscription{% endif %}">
+      <option value="">{% if lang == "ar" %}الاشتراك{% else %}Subscription{% endif %}</option>
+      <option value="inactive" {% if filters.subscription == "inactive" %}selected{% endif %}>{% if lang == "ar" %}غير نشط{% else %}Inactive{% endif %}</option>
+      <option value="pending"  {% if filters.subscription == "pending" %}selected{% endif %}>{% if lang == "ar" %}قيد الانتظار{% else %}Pending{% endif %}</option>
+      <option value="active"   {% if filters.subscription == "active" %}selected{% endif %}>{% if lang == "ar" %}نشط{% else %}Active{% endif %}</option>
+      <option value="expired"  {% if filters.subscription == "expired" %}selected{% endif %}>{% if lang == "ar" %}منتهي{% else %}Expired{% endif %}</option>
     </select>
-    <select name="language">
-      <option value="">Language</option>
-      <option value="ar" {% if filters.language == "ar" %}selected{% endif %}>Arabic</option>
-      <option value="en" {% if filters.language == "en" %}selected{% endif %}>English</option>
+    <select name="language" aria-label="{% if lang == 'ar' %}اللغة{% else %}Language{% endif %}">
+      <option value="">{% if lang == "ar" %}اللغة{% else %}Language{% endif %}</option>
+      <option value="ar" {% if filters.language == "ar" %}selected{% endif %}>{% if lang == "ar" %}عربي{% else %}Arabic{% endif %}</option>
+      <option value="en" {% if filters.language == "en" %}selected{% endif %}>{% if lang == "ar" %}إنجليزي{% else %}English{% endif %}</option>
     </select>
-    <select name="risk">
-      <option value="">Risk</option>
-      <option value="normal" {% if filters.risk == "normal" %}selected{% endif %}>Normal</option>
-      <option value="watch" {% if filters.risk == "watch" %}selected{% endif %}>Watch</option>
-      <option value="at_risk" {% if filters.risk == "at_risk" %}selected{% endif %}>At risk</option>
-      <option value="critical" {% if filters.risk == "critical" %}selected{% endif %}>Critical</option>
+    <select name="risk" aria-label="{% if lang == 'ar' %}مخاطرة{% else %}Risk{% endif %}">
+      <option value="">{% if lang == "ar" %}مخاطرة{% else %}Risk{% endif %}</option>
+      <option value="normal"   {% if filters.risk == "normal" %}selected{% endif %}>{% if lang == "ar" %}طبيعي{% else %}Normal{% endif %}</option>
+      <option value="watch"    {% if filters.risk == "watch" %}selected{% endif %}>{% if lang == "ar" %}مراقَب{% else %}Watch{% endif %}</option>
+      <option value="at_risk"  {% if filters.risk == "at_risk" %}selected{% endif %}>{% if lang == "ar" %}في خطر{% else %}At risk{% endif %}</option>
+      <option value="critical" {% if filters.risk == "critical" %}selected{% endif %}>{% if lang == "ar" %}حرج{% else %}Critical{% endif %}</option>
     </select>
-    <button class="btn-control btn-primary" type="submit"><i data-lucide="filter" class="h-4 w-4"></i> Filter</button>
+    <button class="btn-control btn-primary" type="submit">
+      <i data-lucide="filter" class="h-4 w-4"></i>
+      {% if lang == "ar" %}تصفية{% else %}Filter{% endif %}
+    </button>
   </form>
 </div>
 
@@ -44,26 +47,57 @@
   <table class="control-table">
     <thead>
       <tr>
-        <th>Name</th><th>Email</th><th>Language</th><th>Level</th><th>Onboarding</th><th>Subscription</th><th>Last login</th><th>XP</th><th>Streak</th><th>Risk</th><th>Actions</th>
+        <th>{% if lang == "ar" %}الاسم{% else %}Name{% endif %}</th>
+        <th>{% if lang == "ar" %}البريد{% else %}Email{% endif %}</th>
+        <th>{% if lang == "ar" %}اللغة{% else %}Language{% endif %}</th>
+        <th>{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</th>
+        <th>{% if lang == "ar" %}المسار{% else %}Onboarding{% endif %}</th>
+        <th>{% if lang == "ar" %}الاشتراك{% else %}Subscription{% endif %}</th>
+        <th>{% if lang == "ar" %}آخر دخول{% else %}Last login{% endif %}</th>
+        <th>XP</th>
+        <th>{% if lang == "ar" %}سلسلة{% else %}Streak{% endif %}</th>
+        <th>{% if lang == "ar" %}مخاطرة{% else %}Risk{% endif %}</th>
+        <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
       </tr>
     </thead>
     <tbody>
       {% for row in rows %}
         <tr>
           <td>{{ row.name }}</td>
-          <td>{{ row.email|default:"-" }}</td>
+          <td><span dir="ltr">{{ row.email|default:"—" }}</span></td>
           <td>{{ row.language }}</td>
           <td>{{ row.level }}</td>
           <td>{{ row.onboarding_path }}</td>
-          <td><span class="badge {% if row.subscription == 'active' %}badge-green{% elif row.subscription == 'pending' %}badge-yellow{% endif %}">{{ row.subscription }}</span></td>
-          <td>{{ row.last_login|date:"Y-m-d H:i"|default:"-" }}</td>
+          <td>
+            <span class="badge {% if row.subscription == 'active' %}badge-green{% elif row.subscription == 'pending' %}badge-yellow{% endif %}">
+              {% if row.subscription == "active" %}{% if lang == "ar" %}نشط{% else %}Active{% endif %}
+              {% elif row.subscription == "pending" %}{% if lang == "ar" %}قيد الانتظار{% else %}Pending{% endif %}
+              {% elif row.subscription == "inactive" %}{% if lang == "ar" %}غير نشط{% else %}Inactive{% endif %}
+              {% elif row.subscription == "expired" %}{% if lang == "ar" %}منتهي{% else %}Expired{% endif %}
+              {% else %}{{ row.subscription }}{% endif %}
+            </span>
+          </td>
+          <td><span dir="ltr">{{ row.last_login|date:"Y-m-d H:i"|default:"—" }}</span></td>
           <td>{{ row.xp }}</td>
           <td>{{ row.streak }}</td>
-          <td><span class="badge {% if row.risk_status == 'normal' %}badge-green{% else %}badge-red{% endif %}">{{ row.risk_status }}</span></td>
-          <td><a class="btn-control" href="{% url 'platform_admin:student_detail' row.user.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> View</a></td>
+          <td>
+            <span class="badge {% if row.risk_status == 'normal' %}badge-green{% else %}badge-red{% endif %}">
+              {% if row.risk_status == "normal" %}{% if lang == "ar" %}طبيعي{% else %}Normal{% endif %}
+              {% elif row.risk_status == "watch" %}{% if lang == "ar" %}مراقَب{% else %}Watch{% endif %}
+              {% elif row.risk_status == "at_risk" %}{% if lang == "ar" %}في خطر{% else %}At risk{% endif %}
+              {% elif row.risk_status == "critical" %}{% if lang == "ar" %}حرج{% else %}Critical{% endif %}
+              {% else %}{{ row.risk_status }}{% endif %}
+            </span>
+          </td>
+          <td>
+            <a class="btn-control" href="{% url 'platform_admin:student_detail' row.user.pk %}">
+              <i data-lucide="eye" class="h-4 w-4"></i>
+              {% if lang == "ar" %}فتح{% else %}View{% endif %}
+            </a>
+          </td>
         </tr>
       {% empty %}
-        <tr><td colspan="11" class="muted">No students found.</td></tr>
+        <tr><td colspan="11" class="muted">{% if lang == "ar" %}لا يوجد طلاب.{% else %}No students found.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

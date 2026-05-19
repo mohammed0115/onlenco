@@ -1,51 +1,82 @@
 {% extends "platform_admin/base.html" %}
 
 {% block control_title %}{% if lang == "ar" %}إدارة الدفع والاشتراكات{% else %}Payments & Subscriptions{% endif %}{% endblock %}
-{% block control_subtitle %}{% if lang == "ar" %}مراجعة الإثباتات، قبول/رفض الدفع، وتمديد الاشتراكات.{% else %}Review protected proofs, approve/reject payments, and manage subscriptions.{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}مراجعة الإثباتات، قبول أو رفض الدفع، وإدارة الاشتراكات.{% else %}Review protected proofs, approve/reject payments, and manage subscriptions.{% endif %}{% endblock %}
 
 {% block control_content %}
 <div class="control-grid metrics-grid" style="margin-bottom:16px">
-  <div class="control-card"><div class="metric-value">{{ metrics.pending }}</div><div class="muted">Pending</div></div>
-  <div class="control-card"><div class="metric-value">{{ metrics.approved }}</div><div class="muted">Approved</div></div>
-  <div class="control-card"><div class="metric-value">{{ metrics.rejected }}</div><div class="muted">Rejected</div></div>
-  <div class="control-card"><div class="metric-value">{{ metrics.revenue_month }}</div><div class="muted">Revenue this month SDG</div></div>
+  <div class="control-card"><div class="metric-value">{{ metrics.pending }}</div><div class="muted">{% if lang == "ar" %}قيد الانتظار{% else %}Pending{% endif %}</div></div>
+  <div class="control-card"><div class="metric-value">{{ metrics.approved }}</div><div class="muted">{% if lang == "ar" %}مقبول{% else %}Approved{% endif %}</div></div>
+  <div class="control-card"><div class="metric-value">{{ metrics.rejected }}</div><div class="muted">{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}</div></div>
+  <div class="control-card"><div class="metric-value">{{ metrics.revenue_month }}</div><div class="muted">{% if lang == "ar" %}إيرادات الشهر (جنيه){% else %}Revenue this month (SDG){% endif %}</div></div>
 </div>
 
 <div class="toolbar">
   <form method="get" class="filters">
-    <input name="q" value="{{ filters.q }}" placeholder="student / reference">
-    <select name="status">
-      <option value="">Status</option>
-      <option value="pending" {% if filters.status == "pending" %}selected{% endif %}>Pending</option>
-      <option value="needs_review" {% if filters.status == "needs_review" %}selected{% endif %}>Needs review</option>
-      <option value="approved" {% if filters.status == "approved" %}selected{% endif %}>Approved</option>
-      <option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>Rejected</option>
+    <input name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}اسم الطالب أو رقم العملية{% else %}student / reference{% endif %}">
+    <select name="status" aria-label="{% if lang == 'ar' %}الحالة{% else %}Status{% endif %}">
+      <option value="">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</option>
+      <option value="pending"      {% if filters.status == "pending" %}selected{% endif %}>{% if lang == "ar" %}قيد الانتظار{% else %}Pending{% endif %}</option>
+      <option value="needs_review" {% if filters.status == "needs_review" %}selected{% endif %}>{% if lang == "ar" %}بحاجة لمراجعة{% else %}Needs review{% endif %}</option>
+      <option value="approved"     {% if filters.status == "approved" %}selected{% endif %}>{% if lang == "ar" %}مقبول{% else %}Approved{% endif %}</option>
+      <option value="rejected"     {% if filters.status == "rejected" %}selected{% endif %}>{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}</option>
     </select>
-    <select name="plan">
-      <option value="">Plan</option>
-      <option value="monthly" {% if filters.plan == "monthly" %}selected{% endif %}>Monthly</option>
-      <option value="quarterly" {% if filters.plan == "quarterly" %}selected{% endif %}>3 Months</option>
+    <select name="plan" aria-label="{% if lang == 'ar' %}الخطة{% else %}Plan{% endif %}">
+      <option value="">{% if lang == "ar" %}الخطة{% else %}Plan{% endif %}</option>
+      <option value="monthly"   {% if filters.plan == "monthly" %}selected{% endif %}>{% if lang == "ar" %}شهري{% else %}Monthly{% endif %}</option>
+      <option value="quarterly" {% if filters.plan == "quarterly" %}selected{% endif %}>{% if lang == "ar" %}ثلاثة أشهر{% else %}3 Months{% endif %}</option>
     </select>
-    <button class="btn-control btn-primary" type="submit"><i data-lucide="filter" class="h-4 w-4"></i> Filter</button>
+    <button class="btn-control btn-primary" type="submit">
+      <i data-lucide="filter" class="h-4 w-4"></i>
+      {% if lang == "ar" %}تصفية{% else %}Filter{% endif %}
+    </button>
   </form>
 </div>
 
 <div class="control-panel">
   <table class="control-table">
-    <thead><tr><th>Student</th><th>Plan</th><th>Amount</th><th>Status</th><th>Uploaded</th><th>Proof</th><th>Actions</th></tr></thead>
+    <thead>
+      <tr>
+        <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
+        <th>{% if lang == "ar" %}الخطة{% else %}Plan{% endif %}</th>
+        <th>{% if lang == "ar" %}المبلغ{% else %}Amount{% endif %}</th>
+        <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+        <th>{% if lang == "ar" %}تاريخ الرفع{% else %}Uploaded{% endif %}</th>
+        <th>{% if lang == "ar" %}الإثبات{% else %}Proof{% endif %}</th>
+        <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
+      </tr>
+    </thead>
     <tbody>
       {% for payment in page_obj.object_list %}
         <tr>
           <td>{{ payment.user.profile.full_name|default:payment.user.email|default:payment.user.username }}</td>
-          <td>{{ payment.plan }}</td>
-          <td>{{ payment.amount_sdg }} SDG</td>
-          <td><span class="badge {% if payment.status == 'approved' %}badge-green{% elif payment.status == 'rejected' %}badge-red{% else %}badge-yellow{% endif %}">{{ payment.status }}</span></td>
-          <td>{{ payment.created_at|date:"Y-m-d H:i" }}</td>
-          <td><a class="btn-control" href="{% url 'platform_admin:payment_proof' payment.pk %}"><i data-lucide="lock" class="h-4 w-4"></i> Protected</a></td>
-          <td><a class="btn-control" href="{% url 'platform_admin:payment_detail' payment.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> Review</a></td>
+          <td>{% if payment.plan == "monthly" %}{% if lang == "ar" %}شهري{% else %}Monthly{% endif %}{% elif payment.plan == "quarterly" %}{% if lang == "ar" %}ثلاثة أشهر{% else %}3 Months{% endif %}{% else %}{{ payment.plan }}{% endif %}</td>
+          <td><span dir="ltr">{{ payment.amount_sdg }}</span> {% if lang == "ar" %}جنيه{% else %}SDG{% endif %}</td>
+          <td>
+            <span class="badge {% if payment.status == 'approved' %}badge-green{% elif payment.status == 'rejected' %}badge-red{% else %}badge-yellow{% endif %}">
+              {% if payment.status == "pending" %}{% if lang == "ar" %}قيد الانتظار{% else %}Pending{% endif %}
+              {% elif payment.status == "needs_review" %}{% if lang == "ar" %}بحاجة لمراجعة{% else %}Needs review{% endif %}
+              {% elif payment.status == "approved" %}{% if lang == "ar" %}مقبول{% else %}Approved{% endif %}
+              {% elif payment.status == "rejected" %}{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}
+              {% else %}{{ payment.status }}{% endif %}
+            </span>
+          </td>
+          <td><span dir="ltr">{{ payment.created_at|date:"Y-m-d H:i" }}</span></td>
+          <td>
+            <a class="btn-control" href="{% url 'platform_admin:payment_proof' payment.pk %}">
+              <i data-lucide="lock" class="h-4 w-4"></i>
+              {% if lang == "ar" %}محمي{% else %}Protected{% endif %}
+            </a>
+          </td>
+          <td>
+            <a class="btn-control" href="{% url 'platform_admin:payment_detail' payment.pk %}">
+              <i data-lucide="eye" class="h-4 w-4"></i>
+              {% if lang == "ar" %}مراجعة{% else %}Review{% endif %}
+            </a>
+          </td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" class="muted">No payments found.</td></tr>
+        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد دفعات.{% else %}No payments found.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

@@ -88,6 +88,54 @@ class CourseAssignTeacherForm(forms.Form):
         self.fields["teacher"].queryset = User.objects.filter(groups__name="Teacher").distinct().order_by("email", "username")
 
 
+class CourseEditorForm(forms.ModelForm):
+    """Admin create / edit form for a Course. Slug is derived from title
+    automatically on save; status + reviewer fields are managed by the
+    workflow actions (approve / reject / publish / archive), not by this
+    form. is_active and is_free stay editable because admins legitimately
+    flip them outside the review flow.
+    """
+
+    class Meta:
+        model = Course
+        fields = [
+            "title",
+            "title_ar", "title_en",
+            "description",
+            "description_ar", "description_en",
+            "level",
+            "teacher",
+            "language",
+            "estimated_duration_hours",
+            "learning_objectives",
+            "objectives_ar", "objectives_en",
+            "prerequisites",
+            "is_free",
+            "is_active",
+            "cover_image",
+            "intro_video",
+        ]
+        widgets = {
+            "description":      forms.Textarea(attrs={"rows": 3}),
+            "description_ar":   forms.Textarea(attrs={"rows": 3}),
+            "description_en":   forms.Textarea(attrs={"rows": 3}),
+            "learning_objectives": forms.Textarea(attrs={"rows": 3}),
+            "objectives_ar":    forms.Textarea(attrs={"rows": 3}),
+            "objectives_en":    forms.Textarea(attrs={"rows": 3}),
+            "prerequisites":    forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        User = get_user_model()
+        # Teachers dropdown — same set the assign-teacher action uses.
+        self.fields["teacher"].queryset = (
+            User.objects.filter(groups__name="Teacher")
+            .distinct().order_by("email", "username")
+        )
+        self.fields["teacher"].required = False
+
+
 class LessonEditorForm(forms.ModelForm):
     worksheet_file = forms.FileField(required=False, help_text="Optional worksheet file for this lesson.")
     worksheet_title = forms.CharField(required=False, max_length=200, initial="Worksheet")
