@@ -330,6 +330,10 @@ else
         seed_a0_audio_course
         import_a0_curriculum
         generate_a0_question_bank
+        # Placement question bank — Part 1 (written, 141 Qs) and Part 2
+        # (speaking, 110 Qs). Without this, /placement/<id>/written/
+        # renders blank because the selector finds zero questions.
+        seed_placement_questions
     )
     for cmd in "${SEEDS[@]}"; do
         note "→ $cmd"

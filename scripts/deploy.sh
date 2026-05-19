@@ -78,6 +78,7 @@ for cmd in \
     seed_dictionary \
     seed_books \
     seed_exam_blueprints \
+    seed_placement_questions \
     ; do
     sudo -u "$APP_USER" docker compose exec -T web python manage.py "$cmd" || true
 done
