@@ -151,10 +151,29 @@ def send_message(request, pk):
 
 @login_required
 def voice_call_page(request, pk):
-    """Render the live voice-call page for a single conversation."""
-    locked = _require_subscription(request)
-    if locked:
-        return locked
+    """Render the live voice-call page for a single conversation.
+
+    Subscription gate is skipped for the placement-test voice call:
+    a brand-new student takes the placement test during onboarding,
+    long before they'd ever subscribe. The ?placement_attempt=N flag
+    is only trusted when that attempt actually belongs to this user
+    and is linked to this very conversation, so it can't be used to
+    bypass the paywall for a normal call.
+    """
+    placement_attempt_id = (request.GET.get("placement_attempt") or "").strip()
+    is_placement_call = False
+    if placement_attempt_id.isdigit():
+        from placement.models import PlacementAttempt
+        is_placement_call = PlacementAttempt.objects.filter(
+            pk=int(placement_attempt_id),
+            user=request.user,
+            voice_conversation_id=pk,
+        ).exists()
+
+    if not is_placement_call:
+        locked = _require_subscription(request)
+        if locked:
+            return locked
     conv = get_object_or_404(TutorConversation, pk=pk, user=request.user)
     from tutor.services.realtime_session import daily_minute_cap_remaining
     # Pull the user's avatar + voice preference (Sprint 3) so the page
@@ -175,12 +194,12 @@ def voice_call_page(request, pk):
     tutor_name_en = _first(getattr(avatar, "name_en", "")) or "Layla"
     tutor_name_ar = _first(getattr(avatar, "name_ar", "")) or "ليلى"
     # Placement Part 2: when /placement/<id>/voice-call/ hands the
-    # user off here, it appends ?placement_attempt=N. After hang-up we
+    # user off here it appends ?placement_attempt=N. After hang-up we
     # send the browser to placement_voice_finalise instead of the
-    # standard conversation detail page.
-    placement_attempt_id = request.GET.get("placement_attempt") or ""
+    # standard conversation detail page. placement_attempt_id was
+    # already parsed above for the subscription-gate skip.
     placement_back_path = ""
-    if placement_attempt_id.isdigit():
+    if is_placement_call:
         from django.urls import reverse
         try:
             placement_back_path = reverse(

@@ -80,10 +80,16 @@ def start_session(
     conversation_id: int | None = None,
     voice_profile=None,
     avatar_profile=None,
+    skip_quota: bool = False,
 ) -> AITutorSession:
     """Open a new in-progress session, charging against quota at end.
 
-    Raises ``QuotaExhausted`` if both subscription and trial are empty.
+    Raises ``QuotaExhausted`` if both subscription and trial are empty,
+    UNLESS ``skip_quota=True`` — used by the placement-test voice call,
+    which a brand-new student takes during onboarding before they have
+    any subscription or trial minutes. The placement call is its own
+    short, free assessment (capped server-side at
+    AI_REALTIME_MAX_SESSION_SECONDS).
 
     **Concurrent-session policy**: any prior in_progress row for this
     user is force-cancelled here (zero deduction). The partial unique
@@ -94,7 +100,7 @@ def start_session(
     _cancel_all_open_for(user)
 
     remaining_seconds, source_bucket = quota_service.effective_ai_tutor_remaining(user)
-    if remaining_seconds <= 0:
+    if remaining_seconds <= 0 and not skip_quota:
         raise QuotaExhausted("No tutor seconds available.")
     try:
         return AITutorSession.objects.create(

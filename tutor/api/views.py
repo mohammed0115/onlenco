@@ -823,8 +823,33 @@ def voice_call_session(request):
         request_ephemeral_session,
     )
 
+    conversation_id = request.data.get("conversation_id")
+    conv = None
+    if conversation_id:
+        conv, err = _get_conversation_for(request.user, conversation_id)
+        if err is not None:
+            return err
+
+    # Placement-test voice call is free of the daily quota — a new
+    # student takes it during onboarding before any subscription
+    # exists. Trust the flag only when the conversation is actually
+    # linked to a placement attempt owned by this user.
+    is_placement_call = False
+    if conv is not None:
+        from placement.models import PlacementAttempt
+        is_placement_call = PlacementAttempt.objects.filter(
+            user=request.user, voice_conversation_id=conv.pk,
+        ).exists()
+
     seconds_remaining, source_bucket = quota_service.effective_ai_tutor_remaining(request.user)
-    if seconds_remaining <= 0:
+    if is_placement_call:
+        # The placement call is its own short assessment, capped by
+        # AI_REALTIME_MAX_SESSION_SECONDS. Give it that budget so the
+        # max_session_seconds calc below works without touching quota.
+        seconds_remaining = int(
+            getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 300)
+        )
+    elif seconds_remaining <= 0:
         return Response(
             {
                 "success": False, "error": "limit_reached",
@@ -833,13 +858,6 @@ def voice_call_session(request):
             },
             status=status.HTTP_402_PAYMENT_REQUIRED,
         )
-
-    conversation_id = request.data.get("conversation_id")
-    conv = None
-    if conversation_id:
-        conv, err = _get_conversation_for(request.user, conversation_id)
-        if err is not None:
-            return err
 
     # Resolve the user's preferred voice + avatar (Sprint 3). The client
     # may override the voice for this single session by passing ``voice``
@@ -863,6 +881,7 @@ def voice_call_session(request):
             conversation_id=conv.pk if conv else None,
             voice_profile=voice_profile,
             avatar_profile=avatar_profile,
+            skip_quota=is_placement_call,
         )
     except QuotaExhausted:
         return Response(
