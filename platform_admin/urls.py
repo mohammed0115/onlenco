@@ -52,4 +52,9 @@ urlpatterns = [
     path("avatars/<int:pk>/toggle/", views.avatar_toggle_active, name="avatar_toggle"),
     path("avatars/<int:pk>/image/", views.avatar_upload_image, name="avatar_image_upload"),
     path("gamification/sounds/", views.gamification_sounds, name="gamification_sounds"),
+    # Placement question bank — CRUD inside the Control Center.
+    path("placement-questions/", views.placement_questions, name="placement_questions"),
+    path("placement-questions/new/", views.placement_question_create, name="placement_question_create"),
+    path("placement-questions/<int:pk>/edit/", views.placement_question_edit, name="placement_question_edit"),
+    path("placement-questions/<int:pk>/<slug:action>/", views.placement_question_action, name="placement_question_action"),
 ]

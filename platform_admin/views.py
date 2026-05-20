@@ -23,6 +23,7 @@ from .forms import (
     ExtendSubscriptionForm,
     LessonEditorForm,
     PaymentRejectForm,
+    PlacementQuestionForm,
     RegisterTeacherForm,
     StudentNoteForm,
     StudentNotificationForm,
@@ -945,3 +946,161 @@ def avatar_upload_image(request, pk):
         "platform_admin/voices/avatar_image_upload.html",
         {"avatar": avatar, "section": "voices"},
     )
+
+
+# ---------------------------------------------------------------------------
+# Placement question bank — CRUD inside the Control Center.
+# Replaces the /django-admin/ route so academic admins manage the bank
+# without leaving the platform_admin shell.
+# ---------------------------------------------------------------------------
+
+_PQ_SORT_KEYS = {
+    "code": "code", "-code": "-code",
+    "type": "question_type", "-type": "-question_type",
+    "skill": "skill", "-skill": "-skill",
+    "level": "cefr_min_level", "-level": "-cefr_min_level",
+    "difficulty": "difficulty_score", "-difficulty": "-difficulty_score",
+    "updated": "updated_at", "-updated": "-updated_at",
+}
+_PQ_SORT_DEFAULT = "code"
+
+
+@control_permission_required(perms.CAP_SETTINGS_MANAGE)
+def placement_questions(request):
+    """List + filter the placement question bank."""
+    from placement.models import PlacementQuestion
+    qs = PlacementQuestion.objects.all()
+
+    q = (request.GET.get("q") or "").strip()
+    qtype = (request.GET.get("type") or "").strip()
+    skill = (request.GET.get("skill") or "").strip()
+    active = (request.GET.get("active") or "").strip()
+    if q:
+        qs = qs.filter(
+            Q(code__icontains=q)
+            | Q(question_text__icontains=q)
+            | Q(question_text_ar__icontains=q)
+        )
+    if qtype:
+        qs = qs.filter(question_type=qtype)
+    if skill:
+        qs = qs.filter(skill=skill)
+    if active == "yes":
+        qs = qs.filter(is_active=True)
+    elif active == "no":
+        qs = qs.filter(is_active=False)
+
+    sort_param = (request.GET.get("sort") or _PQ_SORT_DEFAULT).strip()
+    ordering = _PQ_SORT_KEYS.get(sort_param) or _PQ_SORT_KEYS[_PQ_SORT_DEFAULT]
+    if sort_param not in _PQ_SORT_KEYS:
+        sort_param = _PQ_SORT_DEFAULT
+    qs = qs.order_by(ordering, "id")
+
+    written_count = PlacementQuestion.objects.filter(question_type="written", is_active=True).count()
+    speaking_count = PlacementQuestion.objects.filter(question_type="speaking", is_active=True).count()
+
+    return _render(request, "platform_admin/placement/questions_list.html", {
+        "page_obj": _paginate(request, qs),
+        "filters": request.GET,
+        "sort_param": sort_param,
+        "written_count": written_count,
+        "speaking_count": speaking_count,
+        "section": "placement_questions",
+    })
+
+
+@control_permission_required(perms.CAP_SETTINGS_MANAGE)
+def placement_question_create(request):
+    if request.method == "POST":
+        form = PlacementQuestionForm(request.POST)
+        if form.is_valid():
+            obj = form.save()
+            from platform_admin.services.audit_log_service import log_action
+            log_action(
+                request,
+                action_type="placement_question.create",
+                object_type="PlacementQuestion",
+                object_id=obj.pk,
+                description=f"Created placement question '{obj.code}'",
+            )
+            messages.success(request, f"Question '{obj.code}' created.")
+            return redirect("platform_admin:placement_questions")
+    else:
+        form = PlacementQuestionForm()
+    return _render(request, "platform_admin/placement/question_form.html", {
+        "form": form, "question": None, "section": "placement_questions",
+    })
+
+
+@control_permission_required(perms.CAP_SETTINGS_MANAGE)
+def placement_question_edit(request, pk):
+    from placement.models import PlacementQuestion
+    question = get_object_or_404(PlacementQuestion, pk=pk)
+    if request.method == "POST":
+        form = PlacementQuestionForm(request.POST, instance=question)
+        if form.is_valid():
+            obj = form.save()
+            from platform_admin.services.audit_log_service import log_action
+            log_action(
+                request,
+                action_type="placement_question.update",
+                object_type="PlacementQuestion",
+                object_id=obj.pk,
+                description=f"Updated placement question '{obj.code}'",
+            )
+            messages.success(request, f"Question '{obj.code}' saved.")
+            return redirect("platform_admin:placement_questions")
+    else:
+        form = PlacementQuestionForm(instance=question)
+    return _render(request, "platform_admin/placement/question_form.html", {
+        "form": form, "question": question, "section": "placement_questions",
+    })
+
+
+@require_POST
+@control_permission_required(perms.CAP_SETTINGS_MANAGE)
+def placement_question_action(request, pk, action):
+    """POST-only: toggle-active or delete a placement question."""
+    from placement.models import PlacementQuestion
+    from platform_admin.services.audit_log_service import log_action
+    question = get_object_or_404(PlacementQuestion, pk=pk)
+    if action == "toggle":
+        question.is_active = not question.is_active
+        question.save(update_fields=["is_active", "updated_at"])
+        log_action(
+            request,
+            action_type="placement_question.toggle",
+            object_type="PlacementQuestion",
+            object_id=question.pk,
+            description=f"{'Activated' if question.is_active else 'Deactivated'} '{question.code}'",
+        )
+        messages.success(
+            request,
+            f"Question '{question.code}' {'activated' if question.is_active else 'deactivated'}.",
+        )
+    elif action == "delete":
+        # PROTECT on PlacementAttemptQuestion.question — a question
+        # already used in an attempt can't be hard-deleted. Deactivate
+        # instead so it drops out of future selections.
+        from django.db.models import ProtectedError
+        code = question.code
+        try:
+            question.delete()
+            log_action(
+                request,
+                action_type="placement_question.delete",
+                object_type="PlacementQuestion",
+                object_id=pk,
+                description=f"Deleted placement question '{code}'",
+            )
+            messages.success(request, f"Question '{code}' deleted.")
+        except ProtectedError:
+            question.is_active = False
+            question.save(update_fields=["is_active", "updated_at"])
+            messages.warning(
+                request,
+                f"'{code}' is used in past attempts — deactivated instead of deleted.",
+            )
+    else:
+        raise Http404("Unknown action")
+    return redirect("platform_admin:placement_questions")

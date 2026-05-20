@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 from courses.models import Course, Lesson, LessonResource
 from payments.models import PaymentSubmission
+from placement.models import PlacementQuestion
 from platform_admin.models import RISK_STATUS_CHOICES
 from subscriptions.models import SubscriptionPlan
 
@@ -204,3 +205,38 @@ class SubscriptionPlanForm(forms.ModelForm):
             "description_en": forms.Textarea(attrs={"rows": 2}),
             "description_ar": forms.Textarea(attrs={"rows": 2}),
         }
+
+
+class PlacementQuestionForm(forms.ModelForm):
+    """Create / edit a placement-test question from the Control Center.
+
+    The question bank feeds both Part 1 (written MCQ) and Part 2 (the
+    voice-call interview). `options` / `scoring_rubric` are JSON fields —
+    Django renders them as a textarea; admins paste valid JSON.
+    """
+
+    class Meta:
+        model = PlacementQuestion
+        fields = [
+            "code",
+            "question_type", "skill", "topic",
+            "question_text", "question_text_ar",
+            "cefr_min_level", "cefr_max_level", "difficulty_score",
+            "expected_answer_type", "options", "scoring_rubric",
+            "is_active",
+        ]
+        widgets = {
+            "question_text":    forms.Textarea(attrs={"rows": 3}),
+            "question_text_ar": forms.Textarea(attrs={"rows": 3}),
+            "options":          forms.Textarea(attrs={"rows": 2}),
+            "scoring_rubric":   forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def clean_code(self):
+        code = (self.cleaned_data.get("code") or "").strip()
+        qs = PlacementQuestion.objects.filter(code=code)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError("A question with this code already exists.")
+        return code

@@ -1,0 +1,107 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}بنك أسئلة تحديد المستوى{% else %}Placement Question Bank{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}أسئلة الجزء الأول (كتابي) والجزء الثاني (محادثة صوتية).{% else %}Part 1 (written MCQ) and Part 2 (voice interview) questions.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid" style="margin-bottom:16px">
+  <div class="control-card">
+    <div class="metric-value">{{ written_count }}</div>
+    <div class="muted">{% if lang == "ar" %}أسئلة كتابية نشطة{% else %}Active written questions{% endif %}</div>
+  </div>
+  <div class="control-card">
+    <div class="metric-value">{{ speaking_count }}</div>
+    <div class="muted">{% if lang == "ar" %}أسئلة محادثة نشطة{% else %}Active speaking questions{% endif %}</div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <form method="get" class="filters">
+    <input name="q" value="{{ filters.q }}"
+           placeholder="{% if lang == 'ar' %}بحث بالرمز أو نص السؤال{% else %}code / question text{% endif %}">
+    <select name="type" aria-label="{% if lang == 'ar' %}النوع{% else %}Type{% endif %}">
+      <option value="">{% if lang == "ar" %}النوع{% else %}Type{% endif %}</option>
+      <option value="written"  {% if filters.type == "written" %}selected{% endif %}>{% if lang == "ar" %}كتابي{% else %}Written{% endif %}</option>
+      <option value="speaking" {% if filters.type == "speaking" %}selected{% endif %}>{% if lang == "ar" %}محادثة{% else %}Speaking{% endif %}</option>
+    </select>
+    <select name="skill" aria-label="{% if lang == 'ar' %}المهارة{% else %}Skill{% endif %}">
+      <option value="">{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</option>
+      <option value="grammar"       {% if filters.skill == "grammar" %}selected{% endif %}>{% if lang == "ar" %}قواعد{% else %}Grammar{% endif %}</option>
+      <option value="vocabulary"    {% if filters.skill == "vocabulary" %}selected{% endif %}>{% if lang == "ar" %}مفردات{% else %}Vocabulary{% endif %}</option>
+      <option value="writing"       {% if filters.skill == "writing" %}selected{% endif %}>{% if lang == "ar" %}كتابة{% else %}Writing{% endif %}</option>
+      <option value="speaking"      {% if filters.skill == "speaking" %}selected{% endif %}>{% if lang == "ar" %}محادثة{% else %}Speaking{% endif %}</option>
+      <option value="fluency"       {% if filters.skill == "fluency" %}selected{% endif %}>{% if lang == "ar" %}طلاقة{% else %}Fluency{% endif %}</option>
+      <option value="comprehension" {% if filters.skill == "comprehension" %}selected{% endif %}>{% if lang == "ar" %}استيعاب{% else %}Comprehension{% endif %}</option>
+    </select>
+    <select name="active" aria-label="{% if lang == 'ar' %}الحالة{% else %}Status{% endif %}">
+      <option value="">{% if lang == "ar" %}الكل{% else %}All{% endif %}</option>
+      <option value="yes" {% if filters.active == "yes" %}selected{% endif %}>{% if lang == "ar" %}نشط{% else %}Active{% endif %}</option>
+      <option value="no"  {% if filters.active == "no" %}selected{% endif %}>{% if lang == "ar" %}معطّل{% else %}Inactive{% endif %}</option>
+    </select>
+    <button class="btn-control btn-primary" type="submit">
+      <i data-lucide="filter" class="h-4 w-4"></i>
+      {% if lang == "ar" %}تصفية{% else %}Filter{% endif %}
+    </button>
+  </form>
+  <a class="btn-control btn-primary" href="{% url 'platform_admin:placement_question_create' %}">
+    <i data-lucide="plus" class="h-4 w-4"></i>
+    {% if lang == "ar" %}سؤال جديد{% else %}New question{% endif %}
+  </a>
+</div>
+
+<div class="control-panel">
+  <table class="control-table">
+    <thead>
+      <tr>
+        <th>{% if lang == "ar" %}الرمز{% else %}Code{% endif %}</th>
+        <th>{% if lang == "ar" %}النوع{% else %}Type{% endif %}</th>
+        <th>{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</th>
+        <th>{% if lang == "ar" %}السؤال{% else %}Question{% endif %}</th>
+        <th>{% if lang == "ar" %}المستوى{% else %}CEFR{% endif %}</th>
+        <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+        <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for question in page_obj.object_list %}
+        <tr>
+          <td><code>{{ question.code }}</code></td>
+          <td>
+            {% if question.question_type == "written" %}{% if lang == "ar" %}كتابي{% else %}Written{% endif %}
+            {% else %}{% if lang == "ar" %}محادثة{% else %}Speaking{% endif %}{% endif %}
+          </td>
+          <td>{{ question.get_skill_display }}</td>
+          <td>{{ question.question_text|truncatechars:70 }}</td>
+          <td><span dir="ltr">{{ question.cefr_min_level }}–{{ question.cefr_max_level }}</span></td>
+          <td>
+            <span class="badge {% if question.is_active %}badge-green{% else %}badge-red{% endif %}">
+              {% if question.is_active %}{% if lang == "ar" %}نشط{% else %}Active{% endif %}{% else %}{% if lang == "ar" %}معطّل{% else %}Inactive{% endif %}{% endif %}
+            </span>
+          </td>
+          <td class="row-actions">
+            <a class="btn-control" href="{% url 'platform_admin:placement_question_edit' question.pk %}">
+              <i data-lucide="pencil" class="h-4 w-4"></i>
+              {% if lang == "ar" %}تعديل{% else %}Edit{% endif %}
+            </a>
+            <form method="post" action="{% url 'platform_admin:placement_question_action' question.pk 'toggle' %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn-control">
+                {% if question.is_active %}{% if lang == "ar" %}تعطيل{% else %}Disable{% endif %}{% else %}{% if lang == "ar" %}تفعيل{% else %}Enable{% endif %}{% endif %}
+              </button>
+            </form>
+            <form method="post" action="{% url 'platform_admin:placement_question_action' question.pk 'delete' %}"
+                  onsubmit="return confirm('{% if lang == "ar" %}حذف هذا السؤال؟{% else %}Delete this question?{% endif %}');"
+                  style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn-control link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد أسئلة. اضغط "سؤال جديد" أو شغّل seed_placement_questions.{% else %}No questions. Click "New question" or run seed_placement_questions.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include "platform_admin/pagination.html" %}
+</div>
+{% endblock %}

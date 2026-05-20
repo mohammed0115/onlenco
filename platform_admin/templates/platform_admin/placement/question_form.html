@@ -1,0 +1,115 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}
+  {% if question %}{% if lang == "ar" %}تعديل سؤال: {{ question.code }}{% else %}Edit Question: {{ question.code }}{% endif %}{% else %}{% if lang == "ar" %}سؤال تحديد مستوى جديد{% else %}New Placement Question{% endif %}{% endif %}
+{% endblock %}
+
+{% block control_subtitle %}
+  {% if lang == "ar" %}يظهر السؤال في الجزء الأول (كتابي) أو الثاني (محادثة) حسب النوع.{% else %}Appears in Part 1 (written) or Part 2 (speaking) depending on type.{% endif %}
+{% endblock %}
+
+{% block control_content %}
+<section class="control-card" style="max-width:780px">
+  <form method="post" class="control-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger" style="margin-bottom:14px">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.code.id_for_label }}">{% if lang == "ar" %}الرمز{% else %}Code{% endif %}</label>
+        {{ form.code }}
+        {% if form.code.errors %}<small class="error-text">{{ form.code.errors|join:" " }}</small>{% endif %}
+        <small class="muted">{% if lang == "ar" %}معرّف ثابت، مثل sp.intro.001 — لا يظهر للطالب.{% else %}Stable id, e.g. sp.intro.001 — never shown to the student.{% endif %}</small>
+      </div>
+      <div>
+        <label for="{{ form.is_active.id_for_label }}">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</label>
+        <div style="display:flex;align-items:center;gap:8px;min-height:38px">
+          {{ form.is_active }}
+          <span class="muted">{% if lang == "ar" %}نشط (يدخل في الاختيار){% else %}Active (eligible for selection){% endif %}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.question_type.id_for_label }}">{% if lang == "ar" %}النوع{% else %}Question type{% endif %}</label>
+        {{ form.question_type }}
+        {% if form.question_type.errors %}<small class="error-text">{{ form.question_type.errors|join:" " }}</small>{% endif %}
+        <small class="muted">{% if lang == "ar" %}كتابي = الجزء 1 · محادثة = الجزء 2 الصوتي.{% else %}Written = Part 1 · Speaking = Part 2 voice call.{% endif %}</small>
+      </div>
+      <div>
+        <label for="{{ form.skill.id_for_label }}">{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</label>
+        {{ form.skill }}
+        {% if form.skill.errors %}<small class="error-text">{{ form.skill.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+
+    <div>
+      <label for="{{ form.topic.id_for_label }}">{% if lang == "ar" %}الموضوع{% else %}Topic bucket{% endif %}</label>
+      {{ form.topic }}
+      {% if form.topic.errors %}<small class="error-text">{{ form.topic.errors|join:" " }}</small>{% endif %}
+    </div>
+
+    <div>
+      <label for="{{ form.question_text.id_for_label }}">{% if lang == "ar" %}نص السؤال (إنجليزي){% else %}Question text (English){% endif %}</label>
+      {{ form.question_text }}
+      {% if form.question_text.errors %}<small class="error-text">{{ form.question_text.errors|join:" " }}</small>{% endif %}
+    </div>
+
+    <div>
+      <label for="{{ form.question_text_ar.id_for_label }}">{% if lang == "ar" %}نص السؤال (عربي){% else %}Question text (Arabic){% endif %}</label>
+      {{ form.question_text_ar }}
+      <small class="muted">{% if lang == "ar" %}اختياري — يرجع للإنجليزي إذا تُرك فارغاً.{% else %}Optional — falls back to English if blank.{% endif %}</small>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.cefr_min_level.id_for_label }}">{% if lang == "ar" %}أدنى مستوى CEFR{% else %}CEFR min level{% endif %}</label>
+        {{ form.cefr_min_level }}
+      </div>
+      <div>
+        <label for="{{ form.cefr_max_level.id_for_label }}">{% if lang == "ar" %}أعلى مستوى CEFR{% else %}CEFR max level{% endif %}</label>
+        {{ form.cefr_max_level }}
+      </div>
+    </div>
+
+    <div class="control-grid two-grid">
+      <div>
+        <label for="{{ form.difficulty_score.id_for_label }}">{% if lang == "ar" %}درجة الصعوبة (0–1){% else %}Difficulty (0–1){% endif %}</label>
+        {{ form.difficulty_score }}
+        <small class="muted">{% if lang == "ar" %}0 = سهل جداً · 1 = متقدم C2.{% else %}0 = trivial A0 · 1 = advanced C2.{% endif %}</small>
+      </div>
+      <div>
+        <label for="{{ form.expected_answer_type.id_for_label }}">{% if lang == "ar" %}نوع الإجابة المتوقعة{% else %}Expected answer type{% endif %}</label>
+        {{ form.expected_answer_type }}
+      </div>
+    </div>
+
+    <div>
+      <label for="{{ form.options.id_for_label }}">{% if lang == "ar" %}خيارات الاختيار من متعدد (JSON){% else %}MCQ options (JSON){% endif %}</label>
+      {{ form.options }}
+      {% if form.options.errors %}<small class="error-text">{{ form.options.errors|join:" " }}</small>{% endif %}
+      <small class="muted">{% if lang == "ar" %}يُستخدم فقط عندما نوع الإجابة = اختيار من متعدد. مثال: ["go","goes","went"]{% else %}Used only when answer type = MCQ. Example: ["go","goes","went"]{% endif %}</small>
+    </div>
+
+    <div>
+      <label for="{{ form.scoring_rubric.id_for_label }}">{% if lang == "ar" %}معيار التصحيح (JSON){% else %}Scoring rubric (JSON){% endif %}</label>
+      {{ form.scoring_rubric }}
+      {% if form.scoring_rubric.errors %}<small class="error-text">{{ form.scoring_rubric.errors|join:" " }}</small>{% endif %}
+      <small class="muted">{% if lang == "ar" %}اختياري — JSON حر يقرأه المُقيّم.{% else %}Optional — free-form JSON read by the assessor.{% endif %}</small>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button type="submit" class="btn-control btn-primary">
+        <i data-lucide="check" class="h-4 w-4"></i>
+        {% if question %}{% if lang == "ar" %}حفظ التعديلات{% else %}Save changes{% endif %}{% else %}{% if lang == "ar" %}إنشاء السؤال{% else %}Create question{% endif %}{% endif %}
+      </button>
+      <a class="btn-control" href="{% url 'platform_admin:placement_questions' %}">
+        {% if lang == "ar" %}إلغاء{% else %}Cancel{% endif %}
+      </a>
+    </div>
+  </form>
+</section>
+{% endblock %}
