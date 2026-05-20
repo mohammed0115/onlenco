@@ -33,16 +33,20 @@
                     <input type="hidden" name="mode" value="{{ mode }}">
 
                     {% if mode == "signup" %}
-                        {# Anti-bot honeypot — hidden via CSS. Real users
-                           leave it empty; bots that fill every field will
-                           trip it and we silently reject the submission. #}
+                        {% comment %}
+                          Anti-bot honeypot — hidden via CSS. Real users
+                          leave it empty; bots that fill every field will
+                          trip it and we silently reject the submission.
+                        {% endcomment %}
                         <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden">
                             <label for="id_website">Website (leave empty)</label>
                             <input type="text" id="id_website" name="website" tabindex="-1" autocomplete="off" value="">
                         </div>
-                        {# Page-load timestamp — set by inline JS so bots
-                           that submit instantly get rejected. Falls back
-                           to no-op when JS is disabled. #}
+                        {% comment %}
+                          Page-load timestamp — set by inline JS so bots
+                          that submit instantly get rejected. Falls back
+                          to no-op when JS is disabled.
+                        {% endcomment %}
                         <input type="hidden" name="form_started_at" id="id_form_started_at" value="">
                         <script>document.getElementById('id_form_started_at').value = Math.floor(Date.now()/1000);</script>
                         <div>
@@ -86,9 +90,11 @@
                     {% endif %}
 
                     {% if mode == "signup" and HCAPTCHA_SITE_KEY %}
-                        {# hCaptcha widget. Loaded only when a site key is
-                           configured; the form-level check in the view
-                           rejects the POST when no token is present. #}
+                        {% comment %}
+                          hCaptcha widget. Loaded only when a site key is
+                          configured; the form-level check in the view
+                          rejects the POST when no token is present.
+                        {% endcomment %}
                         <div class="h-captcha" data-sitekey="{{ HCAPTCHA_SITE_KEY }}"></div>
                         <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
                     {% endif %}
