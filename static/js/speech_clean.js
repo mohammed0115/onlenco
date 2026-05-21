@@ -11,6 +11,63 @@
 (function (global) {
   'use strict';
 
+  // ---------------------------------------------------------------------
+  // Technical-key glossary — mirrors core/services/text_humanizer.py.
+  // Raw payload keys (event names, model fields) sometimes leak into the
+  // text that reaches TTS. Map them to human copy BEFORE underscores are
+  // stripped, so a multi-word key still matches as a whole token.
+  // ---------------------------------------------------------------------
+  var TECH_GLOSSARY = {
+    en: {
+      'weekly_assessment_available': 'weekly assessment is available',
+      'weekly_assessment_result':    'your weekly assessment results',
+      'daily_learning_plan':         "today's learning plan",
+      'weekly_assessment':           'weekly assessment',
+      'placement_completed':         'placement test complete',
+      'lesson_completed':            'lesson complete',
+      'correct_answer':              'the correct answer',
+      'user_answer':                 'your answer',
+      'current_cefr_level':          'English level',
+      'cefr_level':                  'English level',
+      'theta_score':                 'learning ability score',
+      'skill_mastery':               'skill progress',
+      'user_weakness':               'learning focus area',
+      'lesson_progress':             'lesson progress'
+    },
+    ar: {
+      'weekly_assessment_available': 'الاختبار الأسبوعي متاح الآن',
+      'weekly_assessment_result':    'نتائج اختبارك الأسبوعي',
+      'daily_learning_plan':         'خطة اليوم',
+      'weekly_assessment':           'الاختبار الأسبوعي',
+      'placement_completed':         'اكتمل اختبار تحديد المستوى',
+      'lesson_completed':            'اكتمل الدرس',
+      'correct_answer':              'الإجابة الصحيحة',
+      'user_answer':                 'إجابة الطالب',
+      'current_cefr_level':          'مستوى اللغة الإنجليزية',
+      'cefr_level':                  'مستوى اللغة الإنجليزية',
+      'theta_score':                 'مؤشر التقدم',
+      'skill_mastery':               'تقدم المهارة',
+      'user_weakness':               'نقطة تحتاج إلى تحسين',
+      'lesson_progress':             'تقدم الدرس'
+    }
+  };
+
+  // Hard-banned technical prefixes (UA_user_answer, DB_id, …) — these are
+  // never meaningful to a learner; remove the whole token.
+  var HARD_BANNED_RE = /\b(?:UA|DB|ID|PK|FK|ENUM|CTX|SQL)_[A-Za-z0-9_]+\b/gi;
+
+  function applyGlossary(text, lang) {
+    var map = (lang === 'ar') ? TECH_GLOSSARY.ar : TECH_GLOSSARY.en;
+    // Longest keys first so "weekly_assessment_available" wins over the
+    // shorter "weekly_assessment".
+    var keys = Object.keys(map).sort(function (a, b) { return b.length - a.length; });
+    var out = text;
+    keys.forEach(function (key) {
+      out = out.replace(new RegExp('\\b' + key + '\\b', 'gi'), map[key]);
+    });
+    return out;
+  }
+
   function clean(text, lang) {
     if (!text) return '';
     let out = String(text);
@@ -19,6 +76,16 @@
     out = out.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
     out = out.replace(/<[^>]+>/g, ' ');
     out = out.replace(/&(?:[a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);/g, ' ');
+
+    // 0a. Remove hard-banned technical identifiers entirely
+    //     ("UA_user_answer", "DB_id_42") \u2014 these would otherwise survive
+    //     to step 1 as "ua user answer".
+    out = out.replace(HARD_BANNED_RE, ' ');
+
+    // 0b. Map known technical keys ("weekly_assessment_available",
+    //     "cefr_level", \u2026) to human copy. Runs BEFORE the underscore
+    //     strip so multi-word keys still match as a whole token.
+    out = applyGlossary(out, lang);
 
     // 1. Underscore-runs (`___` / `_____`) used as fill-in-the-blank
     //    placeholders. Remove them entirely; users do not want TTS to
@@ -69,7 +136,10 @@
   function speak(text, opts) {
     opts = opts || {};
     if (!('speechSynthesis' in window)) return;
-    const cleaned = clean(text);
+    // Pick the glossary language from the requested voice language so a
+    // leaked key is humanised in the language the engine will speak.
+    const langCode = String(opts.lang || '').toLowerCase().indexOf('ar') === 0 ? 'ar' : 'en';
+    const cleaned = clean(text, langCode);
     if (!cleaned) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(cleaned);

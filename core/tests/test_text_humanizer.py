@@ -7,7 +7,9 @@ from core.services.text_humanizer import (
     humanize_event_name,
     humanize_field_name,
     humanize_for_speech,
+    humanize_technical_tokens,
     humanize_text,
+    remove_tts_noise_tokens,
 )
 
 
@@ -206,3 +208,120 @@ class PayloadIntegrationTests(TestCase):
             language="ar",
         )
         self.assertIn("تم قبول الدفع", out)
+
+
+class DailyWeeklySpeechTokenTests(TestCase):
+    """Covers the /daily + /weekly TTS-noise report: the voice must never
+    read underscores, ``UA`` markers, or raw payload keys.
+    """
+
+    def test_single_underscore_removed(self):
+        self.assertNotIn("_", humanize_for_speech("My name is Ahmed _ here"))
+
+    def test_double_underscore_removed(self):
+        self.assertNotIn("_", humanize_for_speech("My name is Ahmed __ here"))
+
+    def test_triple_underscore_removed(self):
+        out = humanize_for_speech("My name is Ahmed ___")
+        self.assertNotIn("_", out)
+        self.assertIn("Ahmed", out)
+
+    def test_ua_underscore_prefix_removed(self):
+        # "UA_user_answer" is a hard-banned identifier — dropped whole.
+        out = humanize_for_speech("UA_user_answer ___ is missing")
+        self.assertNotRegex(out.lower(), r"\bua\b")
+        self.assertNotIn("_", out)
+
+    def test_ua_underscore_words_removed(self):
+        out = humanize_for_speech("the answer is UA underscore here")
+        self.assertNotRegex(out.lower(), r"\bua\b")
+        self.assertNotIn("underscore", out.lower())
+        self.assertIn("answer", out)
+
+    def test_literal_underscore_word_removed(self):
+        self.assertNotIn(
+            "underscore", humanize_for_speech("type underscore then go").lower()
+        )
+
+    def test_blank_blank_blank_not_spoken(self):
+        # A prompt that is only "blank blank blank" cleans to nothing →
+        # safe fallback, so the engine never says "blank blank blank".
+        self.assertEqual(humanize_for_speech("blank blank blank"), SAFE_FALLBACK_EN)
+
+    def test_user_answer_key_humanised(self):
+        self.assertEqual(humanize_field_name("user_answer"), "your answer")
+        self.assertEqual(
+            humanize_field_name("user_answer", language="ar"), "إجابة الطالب"
+        )
+
+    def test_correct_answer_key_humanised(self):
+        self.assertEqual(humanize_field_name("correct_answer"), "the correct answer")
+        self.assertEqual(
+            humanize_field_name("correct_answer", language="ar"), "الإجابة الصحيحة"
+        )
+
+    def test_daily_learning_plan_key_humanised(self):
+        self.assertEqual(
+            humanize_field_name("daily_learning_plan"), "today's learning plan"
+        )
+        self.assertEqual(
+            humanize_field_name("daily_learning_plan", language="ar"), "خطة اليوم"
+        )
+
+    def test_weekly_assessment_available_in_speech_arabic(self):
+        out = humanize_for_speech("weekly_assessment_available", language="ar")
+        self.assertIn("الاختبار الأسبوعي متاح الآن", out)
+
+    def test_json_blob_not_spoken(self):
+        out = humanize_for_speech('{"user_answer": "go", "score": 5}')
+        self.assertNotIn("{", out)
+        self.assertNotIn("score", out)
+
+    def test_normal_english_sentence_untouched(self):
+        # The whole point: real learning content survives intact.
+        self.assertEqual(
+            humanize_for_speech("My name is Ahmed."), "My name is Ahmed."
+        )
+
+
+class RemoveTtsNoiseTokensTests(TestCase):
+    def test_strips_underscores_and_ua(self):
+        out = remove_tts_noise_tokens("She ____ UA the answer")
+        self.assertNotIn("_", out)
+        self.assertNotRegex(out.lower(), r"\bua\b")
+        self.assertIn("She", out)
+        self.assertIn("answer", out)
+
+    def test_strips_hard_banned_prefix(self):
+        self.assertNotIn("DB", remove_tts_noise_tokens("value DB_user_id here"))
+
+    def test_does_not_apply_glossary(self):
+        # Noise-only: a known key is split, not glossary-translated.
+        self.assertNotIn(
+            "English level", remove_tts_noise_tokens("cefr_level matters")
+        )
+
+    def test_none_input_safe(self):
+        self.assertEqual(remove_tts_noise_tokens(None), "")
+
+
+class HumanizeTechnicalTokensTests(TestCase):
+    def test_maps_known_field_key(self):
+        self.assertIn(
+            "English level", humanize_technical_tokens("cefr_level", language="en")
+        )
+
+    def test_maps_known_event_key_arabic(self):
+        self.assertIn(
+            "الاختبار الأسبوعي متاح الآن",
+            humanize_technical_tokens("weekly_assessment_available", language="ar"),
+        )
+
+    def test_splits_unknown_snake_case(self):
+        self.assertEqual(
+            humanize_technical_tokens("some_unknown_key", language="en"),
+            "some unknown key",
+        )
+
+    def test_none_input_safe(self):
+        self.assertEqual(humanize_technical_tokens(None), "")

@@ -18,8 +18,18 @@ from .models import (
 
 @login_required
 def book_list(request):
-    level = (request.GET.get("level") or "").strip()
     category = (request.GET.get("category") or "").strip()
+
+    # Level: on first visit (no `level` param) the library opens at the
+    # learner's own CEFR level, so content appears matched to their level.
+    # `?level=all` shows every level; `?level=A2` pins a specific one.
+    level_param = request.GET.get("level")
+    if level_param is None:
+        level = (getattr(request.user.profile, "cefr_level", "") or "").strip()
+    elif level_param.strip().lower() == "all":
+        level = ""
+    else:
+        level = level_param.strip()
 
     qs = Book.objects.filter(is_published=True)
     if level:
@@ -33,6 +43,9 @@ def book_list(request):
     return render(request, "library/list.html", {
         "page_obj": page_obj,
         "level": level,
+        # Value to put in `?level=` when rebuilding links — keeps an
+        # explicit choice ("all" or a level) across pages and filters.
+        "level_query": level or "all",
         "category": category,
         "levels": [c[0] for c in CEFR_CHOICES],
         "categories": CATEGORY_CHOICES,

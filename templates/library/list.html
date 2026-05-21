@@ -16,7 +16,9 @@
         <div class="card p-6 space-y-4">
             <div class="flex items-center justify-between gap-4 flex-wrap">
                 <div class="text-sm font-semibold">{% t "library.filter" %}</div>
-                <a href="{% url 'library' %}" class="badge badge-outline hover:bg-muted/60">{% t "library.all" %}</a>
+                <a href="{% url 'library' %}?level=all{% if category %}&category={{ category }}{% endif %}"
+                   class="badge badge-outline hover:bg-muted/60"
+                   style="{% if not level %}background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); border-color:hsl(var(--primary));{% endif %}">{% t "library.all" %}</a>
             </div>
 
             <div class="space-y-3">
@@ -34,7 +36,7 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="text-xs text-muted-foreground">{% t_either "Category" "التصنيف" %}</span>
                     {% for code, label in categories %}
-                        <a href="{% url 'library' %}?category={{ code }}{% if level %}&level={{ level }}{% endif %}"
+                        <a href="{% url 'library' %}?category={{ code }}&level={{ level_query }}"
                            class="badge badge-outline hover:bg-muted/60"
                            style="{% if category == code %}background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); border-color:hsl(var(--primary));{% endif %}">
                             {% if code == "novel" %}{% t "library.cat.novel" %}
@@ -96,7 +98,7 @@
             <div class="flex items-center justify-center gap-2">
                 {% if page_obj.has_previous %}
                     <a class="btn btn-ghost"
-                       href="{% url 'library' %}?page={{ page_obj.previous_page_number }}{% if level %}&level={{ level }}{% endif %}{% if category %}&category={{ category }}{% endif %}">
+                       href="{% url 'library' %}?page={{ page_obj.previous_page_number }}&level={{ level_query }}{% if category %}&category={{ category }}{% endif %}">
                         <i data-lucide="chevron-left" class="h-4 w-4 rtl-flip"></i> {% t_either "Prev" "السابق" %}
                     </a>
                 {% endif %}
@@ -105,7 +107,7 @@
                 </span>
                 {% if page_obj.has_next %}
                     <a class="btn btn-ghost"
-                       href="{% url 'library' %}?page={{ page_obj.next_page_number }}{% if level %}&level={{ level }}{% endif %}{% if category %}&category={{ category }}{% endif %}">
+                       href="{% url 'library' %}?page={{ page_obj.next_page_number }}&level={{ level_query }}{% if category %}&category={{ category }}{% endif %}">
                         {% t_either "Next" "التالي" %} <i data-lucide="chevron-right" class="h-4 w-4 rtl-flip"></i>
                     </a>
                 {% endif %}

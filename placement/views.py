@@ -155,13 +155,29 @@ def _user_attempt(request, attempt_id: int) -> PlacementAttempt:
 @login_required
 @require_http_methods(["GET", "POST"])
 def placement_start(request):
-    """Create a new attempt and redirect into the written step.
+    """Create a new attempt and redirect into the written step — or
+    resume an unfinished one.
 
     Accepts GET (so a redirect from `onboarding_placement` lands cleanly
-    in the browser) AND POST (when the dashboard CTA is a form). Both
-    do the same thing: create one `PlacementAttempt` for the user and
-    forward them to Step 1.
+    in the browser) AND POST (the dashboard CTA form). If the student
+    already has a placement attempt in progress, they are returned to
+    the step they stopped at instead of starting the whole test over.
     """
+    existing = (
+        PlacementAttempt.objects
+        .filter(user=request.user)
+        .exclude(status="completed")
+        .order_by("-started_at")
+        .first()
+    )
+    if existing is not None:
+        if existing.status == "started":
+            return redirect("placement_written", attempt_id=existing.id)
+        if existing.status == "written_completed":
+            return redirect("placement_voice_handoff", attempt_id=existing.id)
+        # speaking_completed — only the final scoring remains.
+        return redirect("placement_result", attempt_id=existing.id)
+
     attempt = create_placement_attempt(request.user)
     return redirect("placement_written", attempt_id=attempt.id)
 

@@ -119,6 +119,10 @@ FIELD_NAMES_EN = {
     "xp_earned":          "XP earned",
     "vocabulary_words_learned": "new vocabulary",
     "writing_attempts":   "writing attempts",
+    # Exercise / daily-plan payload keys that can leak into TTS text.
+    "user_answer":        "your answer",
+    "correct_answer":     "the correct answer",
+    "daily_learning_plan": "today's learning plan",
 }
 
 FIELD_NAMES_AR = {
@@ -142,6 +146,10 @@ FIELD_NAMES_AR = {
     "xp_earned":          "نقاط XP المكتسبة",
     "vocabulary_words_learned": "كلمات جديدة",
     "writing_attempts":   "محاولات الكتابة",
+    # Exercise / daily-plan payload keys that can leak into TTS text.
+    "user_answer":        "إجابة الطالب",
+    "correct_answer":     "الإجابة الصحيحة",
+    "daily_learning_plan": "خطة اليوم",
 }
 
 # Friendly fallbacks when a token can't be safely humanised.
@@ -462,8 +470,67 @@ def humanize_text(
 
 
 def humanize_for_speech(text: Optional[str], language: str = "en") -> str:
-    """Convenience wrapper: `humanize_text(..., mode='speech')`."""
+    """Convenience wrapper: `humanize_text(..., mode='speech')`.
+
+    This is the ONLY function any TTS path should call. Run every string
+    through it before handing it to `speechSynthesis`, an OpenAI TTS
+    request, or an audio player — never pass raw text to a voice engine.
+    """
     return humanize_text(text, language=language, mode="speech")
+
+
+def remove_tts_noise_tokens(text: Optional[str]) -> str:
+    """Strip TTS noise tokens only — no glossary, no CEFR/percent expansion.
+
+    Removes the artefacts a voice engine would otherwise read as literal
+    noise: fill-in-the-blank underscores (``_``, ``__``, ``___``), ``UA``
+    / punctuation labels, ``blank``/``null``/``undefined`` runs, hard-banned
+    technical prefixes (``UA_…``, ``DB_…``), unresolved ``{{ }}`` /
+    ``{% %}`` placeholders, and decorative symbols.
+
+    Use when you only need to scrub noise (e.g. a string that is already
+    human copy). For full humanisation use `humanize_for_speech`.
+    Always returns a string. Never raises.
+    """
+    if text is None:
+        return ""
+    if not isinstance(text, str):
+        try:
+            text = str(text)
+        except Exception:
+            return ""
+    out = _strip_unresolved_placeholders(text)
+    out = _LITERAL_BLANK_RE.sub(" ", out)
+    out = _strip_hard_banned(out)
+    out = _strip_speech_artifacts(out)
+    return _collapse_whitespace(out)
+
+
+def humanize_technical_tokens(text: Optional[str], language: str = "ar") -> str:
+    """Replace technical identifiers with human-readable copy.
+
+    Maps known field/event keys (``cefr_level`` → "English level" /
+    "مستوى اللغة الإنجليزية", ``weekly_assessment_available`` → …) and
+    splits leftover ``snake_case`` / ``camelCase`` identifiers into words.
+    Does NOT do the speech-only scrubbing — pair it with
+    `remove_tts_noise_tokens` or just call `humanize_for_speech`, which
+    does both. Always returns a string. Never raises.
+    """
+    if text is None:
+        return ""
+    if not isinstance(text, str):
+        try:
+            text = str(text)
+        except Exception:
+            return ""
+    out = text
+    for k, v in _merged_field_glossary(language).items():
+        out = re.sub(rf"\b{re.escape(k)}\b", v, out)
+    for k, v in _merged_event_glossary(language).items():
+        out = re.sub(rf"\b{re.escape(k)}\b", v, out)
+    out = _humanise_snake_case_in(out)
+    out = _humanise_camel_case_in(out)
+    return _collapse_whitespace(out)
 
 
 # ---------------------------------------------------------------------------

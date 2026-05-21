@@ -94,7 +94,7 @@
 </div>
 
 <script id="exercises-data" type="application/json">{{ exercises_json|safe }}</script>
-<script src="{% static 'js/speech_clean.js' %}?v=tts-clean-20260521"></script>
+<script src="{% static 'js/speech_clean.js' %}?v=tts-glossary-20260521"></script>
 <script>
 (function () {
   const data = JSON.parse(document.getElementById('exercises-data').textContent || '[]');
@@ -110,6 +110,7 @@
   let answers = [];        // {exercise_id, answer}
   let phase = 'answer';    // 'answer' | 'feedback' | 'done'
   let selected = null;     // string
+  let currentSpeakText = '';  // speech-safe text for the active question
 
   const $ = sel => document.querySelector(sel);
   const bar      = $('#bar');
@@ -126,7 +127,7 @@
   // (`She _____ (not/like) spicy food.`) don't get read as
   // "she blank blank blank, not slash like, spicy food".
   function speak(text) { (window.onlencoSpeak || (() => {}))(text, { rate: 1.0 }); }
-  speakBtn.addEventListener('click', () => speak(prompt.textContent));
+  speakBtn.addEventListener('click', () => speak(currentSpeakText));
 
   function renderHearts() {
     hearts.innerHTML = '';
@@ -161,6 +162,12 @@
       hero.textContent = '';
       prompt.textContent = ex.question;
     }
+    // `question` stays raw on screen (the `___` blank must be visible);
+    // TTS uses the server-sanitised `question_tts` so the voice never
+    // reads "underscore" / "UA" / a leaked field key.
+    currentSpeakText = isPicture
+      ? prompt.textContent
+      : (ex.question_tts || ex.question);
     meta.textContent = (ex.skill ? ex.skill : '') + (ex.topic ? ' · ' + ex.topic : '');
     feedback.className = 'hidden';
     feedback.textContent = '';
@@ -207,7 +214,7 @@
     phase = 'answer';
 
     // Auto-speak the prompt at A1/A2 levels (helps with listening)
-    speak(ex.question);
+    speak(currentSpeakText);
   }
 
   function check() {

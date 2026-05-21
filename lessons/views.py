@@ -543,12 +543,19 @@ def exam_play(request, assessment_id):
         assessment.save(update_fields=["status", "started_at"])
 
     # Serialise the exercises to a JSON-safe dict for the player JS.
+    # `question` keeps its raw form (fill-in-the-blank `___` must stay
+    # VISIBLE on screen); `question_tts` is the speech-safe copy the
+    # player hands to TTS so the voice never reads "underscore" / "UA" /
+    # a leaked field key. The browser sanitiser cleans it again as a
+    # second layer of defence.
     import json
+    from core.services.text_humanizer import humanize_for_speech
     exercises_payload = json.dumps([
         {
             "id": ex.id,
             "question_type": ex.question_type,
             "question": ex.question,
+            "question_tts": humanize_for_speech(ex.question, language="en"),
             "options": list(ex.options or []),
             "correct_answer": ex.correct_answer,
             "explanation": ex.explanation or "",

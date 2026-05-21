@@ -75,7 +75,12 @@ class DynamicPlacementFlowTests(TestCase):
             else:
                 data[f"q_{aq.id}"] = "I am a student. I live in Cairo and I learn English every day."
         r = self.client.post(reverse("placement_written", args=[attempt.id]), data)
-        self.assertRedirects(r, reverse("placement_speaking", args=[attempt.id]))
+        # Part 2 is now a live voice call — the written step hands off to
+        # placement_voice_handoff (which itself redirects on to the call).
+        self.assertRedirects(
+            r, reverse("placement_voice_handoff", args=[attempt.id]),
+            fetch_redirect_response=False,
+        )
 
         attempt.refresh_from_db()
         self.assertEqual(attempt.status, "written_completed")
