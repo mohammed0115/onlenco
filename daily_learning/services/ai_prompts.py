@@ -63,7 +63,9 @@ Requirements:
 - Use Arabic for explanations when language is "ar"; English otherwise.
 - Never use raw technical keys, JSON markers, or words like
   "underscore", "dash", "blank blank blank" in any student-facing text.
-- Avoid hard grammar for A0. Use full sentences only.
+- For A0, teach by example only: one word, picture or sound cue, one short sentence,
+  speaking practice, then one simple question. Do not show classroom labels like
+  "verb", "tense", or "pronoun" to the student.
 - Keep each instruction under 200 characters.
 
 Return JSON only, with this exact shape (no prose, no markdown):

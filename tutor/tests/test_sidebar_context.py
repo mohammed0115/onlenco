@@ -137,6 +137,9 @@ class SystemPromptUsesLevelAndWeaknessesTests(TestCase):
         self.assertIn("absolute beginner", prompt)
         self.assertIn("No grammar theory", prompt)
         self.assertIn("3 to 5 words", prompt)
+        self.assertIn("A0 World mission", prompt)
+        self.assertIn("one word", prompt)
+        self.assertIn("one simple question", prompt)
         # Gentle correction style — no "Quick fix:" label for A0.
         self.assertIn("GENTLE CORRECTION (A0 style)", prompt)
         self.assertIn("do NOT label it", prompt)

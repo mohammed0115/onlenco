@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load i18n_dict %}
 
-{% block title %}{{ course.title }} — Onlenco{% endblock %}
+{% block title %}{% if is_a0_world %}{% t_either "A0 World" "عالم A0" %}{% else %}{{ course.title }}{% endif %} — Onlenco{% endblock %}
 
 {% block body %}
 <div class="min-h-screen bg-muted/20">
@@ -13,6 +13,123 @@
             {% t_either "Dashboard" "لوحة التعلم" %}
         </a>
 
+        {% if is_a0_world and a0_world %}
+        <section class="a0-world-hero overflow-hidden" data-testid="a0-world">
+            <div class="relative z-10 grid lg:grid-cols-[1.25fr_0.75fr] gap-8 items-center">
+                <div class="space-y-5">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="badge badge-popular">{% t_either "Beginner journey" "رحلة من الصفر" %}</span>
+                        <span class="badge badge-outline bg-white/80">{{ course.level.code }}</span>
+                    </div>
+                    <div>
+                        <h1 class="font-display text-4xl md:text-5xl font-bold leading-tight">
+                            {% if request.LANGUAGE_CODE == "ar" %}{{ a0_world.title_ar }}{% else %}{{ a0_world.title_en }}{% endif %}
+                        </h1>
+                        <p class="mt-4 text-lg text-muted-foreground max-w-2xl" data-testid="a0-beginner-message">
+                            {% if request.LANGUAGE_CODE == "ar" %}{{ a0_world.message_ar }}{% else %}{{ a0_world.message_en }}{% endif %}
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-2xl" data-testid="a0-micro-steps">
+                        {% for step in a0_world.micro_steps %}
+                        <div class="a0-micro-step">
+                            <i data-lucide="{{ step.icon }}" class="h-4 w-4"></i>
+                            <span>{% if request.LANGUAGE_CODE == "ar" %}{{ step.label_ar }}{% else %}{{ step.label_en }}{% endif %}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <aside class="a0-progress-panel">
+                    <div class="text-sm text-muted-foreground">{% t_either "Journey progress" "تقدم الرحلة" %}</div>
+                    <div class="mt-2 flex items-end gap-2">
+                        <span class="font-display text-5xl font-bold">{{ a0_world.completed_count }}</span>
+                        <span class="pb-2 text-muted-foreground">/ {{ a0_world.total_count }} {% t_either "missions" "مهمات" %}</span>
+                    </div>
+                    <div class="mt-4 h-3 rounded-full bg-muted overflow-hidden">
+                        <div class="h-full bg-secondary" style="width: {{ a0_world.progress_percent }}%;"></div>
+                    </div>
+                    <p class="mt-4 text-sm text-muted-foreground">
+                        {% t_either "Open each mission in order. Every step stays tiny: see, hear, say, answer." "افتح كل مهمة بالترتيب. كل خطوة صغيرة: شاهد، اسمع، قل، أجب." %}
+                    </p>
+                </aside>
+            </div>
+        </section>
+
+        <section>
+            <div class="flex items-center justify-between gap-4 flex-wrap mb-5">
+                <div>
+                    <h2 class="font-display text-2xl font-bold">{% t_either "Mission map" "خريطة المهمات" %}</h2>
+                    <p class="text-sm text-muted-foreground mt-1">
+                        {% t_either "A playful path made for students who know no English yet." "مسار ممتع لطالب لا يعرف الإنجليزية بعد." %}
+                    </p>
+                </div>
+                {% if not has_access %}
+                <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-hero">
+                    <i data-lucide="lock" class="h-4 w-4"></i>
+                    {% t "dash.subscribe" %}
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="a0-mission-map" data-testid="a0-mission-map">
+                {% for mission in a0_world.missions %}
+                <article class="a0-mission-card"
+                         data-testid="a0-mission"
+                         data-mission-index="{{ mission.index }}"
+                         data-state="{{ mission.state }}">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="a0-mission-icon" data-state="{{ mission.state }}">
+                            {% if mission.is_completed %}
+                                <i data-lucide="check" class="h-5 w-5"></i>
+                            {% elif mission.is_locked %}
+                                <i data-lucide="lock" class="h-5 w-5"></i>
+                            {% else %}
+                                <i data-lucide="{{ mission.icon }}" class="h-5 w-5"></i>
+                            {% endif %}
+                        </div>
+                        <span class="badge {% if mission.is_completed %}badge-secondary{% elif mission.is_unlocked %}badge-popular{% else %}badge-outline{% endif %}">
+                            {% if mission.is_completed %}
+                                {% t_either "Completed" "مكتملة" %}
+                            {% elif mission.is_unlocked %}
+                                {% t_either "Unlocked" "مفتوحة" %}
+                            {% else %}
+                                {% t_either "Locked" "مقفلة" %}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="mt-5">
+                        <div class="text-xs font-semibold text-muted-foreground">
+                            {% t_either "Mission" "مهمة" %} {{ mission.index }}
+                        </div>
+                        <h3 class="font-display text-xl font-bold mt-1">
+                            {% if request.LANGUAGE_CODE == "ar" %}{{ mission.title_ar }}{% else %}{{ mission.title_en }}{% endif %}
+                        </h3>
+                        <p class="text-sm text-muted-foreground mt-2 min-h-[2.5rem]">
+                            {% if request.LANGUAGE_CODE == "ar" %}{{ mission.instruction_ar }}{% else %}{{ mission.instruction_en }}{% endif %}
+                        </p>
+                    </div>
+                    <div class="mt-5 flex items-center justify-between gap-3">
+                        <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-secondary">
+                            <i data-lucide="sparkles" class="h-4 w-4"></i>
+                            {{ mission.xp_reward }} XP
+                        </span>
+                        {% if mission.is_unlocked or mission.is_completed %}
+                            <a href="{{ mission.lesson_url }}" class="btn btn-hero btn-sm" data-testid="a0-mission-start">
+                                <i data-lucide="play" class="h-4 w-4"></i>
+                                {% if mission.is_completed %}{% t_either "Review" "راجع" %}{% else %}{% t_either "Start" "ابدأ" %}{% endif %}
+                            </a>
+                        {% else %}
+                            <button type="button" class="btn btn-outline btn-sm" disabled data-testid="a0-mission-locked">
+                                <i data-lucide="lock" class="h-4 w-4"></i>
+                                {% t_either "Soon" "قريباً" %}
+                            </button>
+                        {% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+        {% else %}
         <section class="grid lg:grid-cols-[1.5fr_0.8fr] gap-6 items-start">
             <div class="space-y-4">
                 <div class="flex flex-wrap items-center gap-2">
@@ -107,6 +224,7 @@
                 {% endfor %}
             </div>
         </section>
+        {% endif %}
     </main>
 </div>
 {% endblock %}

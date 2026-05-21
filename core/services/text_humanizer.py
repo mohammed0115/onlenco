@@ -298,6 +298,59 @@ def _drop_unspeakable(text: str) -> str:
     return text
 
 
+_SPEECH_PAREN_HINT_RE = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")
+_SPEECH_UNDERSCORE_RE = re.compile(r"_{1,}")
+_SPEECH_ZERO_WIDTH_RE = re.compile(r"[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]")
+_SPEECH_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_SPEECH_HTML_ENTITY_RE = re.compile(r"&(?:[a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);")
+_SPEECH_PUNCT_WORD_RE = re.compile(
+    r"\b(?:"
+    r"u\s*a|ua|"
+    r"new\s*line|newline|"
+    r"comma|commas|"
+    r"underscore|underscores|"
+    r"dash|dashes|hyphen|hyphens|minus\s+sign|minus|"
+    r"slash|slashes|backslash|back\s+slash|"
+    r"colon|colons|semicolon|semicolons|"
+    r"period|periods|full\s+stop|full\s+stops|question\s+mark|exclamation\s+mark|"
+    r"dot|dots|"
+    r"quote|quotes|quotation|quotations|open\s+quote|close\s+quote|"
+    r"apostrophe|apostrophes|"
+    r"bracket|brackets|open\s+bracket|close\s+bracket|"
+    r"parenthesis|parentheses|open\s+parenthesis|close\s+parenthesis|"
+    r"asterisk|asterisks|star|stars|"
+    r"hash|hashtag|at\s+sign|ampersand|equals|equal\s+sign|plus|plus\s+sign|"
+    r"pipe|vertical\s+bar|tilde|backtick"
+    r")\b",
+    re.IGNORECASE,
+)
+_SPEECH_ODD_SYMBOL_RE = re.compile(
+    r"[#@\$€£¥₹₿^&*+=<>|~`\\/{}\[\]"
+    r"•·…§©®™✓✔✕✖✗✘→←↑↓↔⇒⇐⇔★☆♥♦♣♠■□▪▫▲▼◆◇●○◦°]+"
+)
+
+
+def _strip_speech_artifacts(text: str) -> str:
+    """Remove tokens that TTS engines read as literal noise.
+
+    These show up in generated exercises and AI output as fill-in blanks
+    (``____``), punctuation labels (``comma``), or internal prefixes
+    (``UA``). They are useful metadata on screen, but should never be
+    spoken to the learner.
+    """
+    text = _SPEECH_ZERO_WIDTH_RE.sub("", text)
+    text = _SPEECH_HTML_TAG_RE.sub(" ", text)
+    text = _SPEECH_HTML_ENTITY_RE.sub(" ", text)
+    text = _SPEECH_PAREN_HINT_RE.sub(" ", text)
+    text = _SPEECH_UNDERSCORE_RE.sub(" ", text)
+    text = _SPEECH_PUNCT_WORD_RE.sub(" ", text)
+    text = _SPEECH_ODD_SYMBOL_RE.sub(" ", text)
+    # Remove punctuation that becomes orphaned after stripping labels/symbols.
+    text = re.sub(r"\s+([,.;:!?؟،])", r"\1", text)
+    text = re.sub(r"(^|[\s])[,.;:!?؟،]+(?=\s|$)", " ", text)
+    return text
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -391,6 +444,7 @@ def humanize_text(
         # tutor reply may reasonably contain `**bold**` or backticks.
         out = _strip_markdown(out)
         out = _drop_unspeakable(out)
+        out = _strip_speech_artifacts(out)
         out = _percent_for_speech(out, language)
         out = _cefr_for_speech(out, language)
 

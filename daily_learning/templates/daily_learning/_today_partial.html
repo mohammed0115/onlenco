@@ -7,14 +7,21 @@ require its parent template to also load daily_journey.css.
 {% endcomment %}
 {% if today_plan %}
 <link rel="stylesheet" href="{% static 'css/daily_journey.css' %}">
-<div class="card p-6 gradient-hero border-0 shadow-elegant">
+<div class="card p-6 {% if today_plan.cefr_level == 'A0' %}bg-gradient-soft{% else %}gradient-hero border-0{% endif %} shadow-elegant"
+     data-testid="{% if today_plan.cefr_level == 'A0' %}a0-today-plan-card{% else %}today-plan-card{% endif %}">
     <div class="flex items-start justify-between gap-4 flex-wrap">
         <div class="min-w-0">
             <span class="badge badge-popular mb-2">
                 {% t_either "Today's plan" "خطة اليوم" %}
                 {% if today_plan.cefr_level %} · {{ today_plan.cefr_level }}{% endif %}
             </span>
-            <h2 class="font-display text-2xl md:text-3xl font-bold mb-1">{{ today_plan.title }}</h2>
+            <h2 class="font-display text-2xl md:text-3xl font-bold mb-1">
+                {% if today_plan.cefr_level == "A0" %}
+                    {% t_either "A small mission from zero" "مهمة صغيرة من الصفر" %}
+                {% else %}
+                    {{ today_plan.title }}
+                {% endif %}
+            </h2>
             {% if today_plan.description %}
                 <p class="text-sm opacity-90">{{ today_plan.description }}</p>
             {% endif %}

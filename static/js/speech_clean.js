@@ -15,11 +15,26 @@
     if (!text) return '';
     let out = String(text);
 
+    // 0. Remove invisible direction/control characters and pasted HTML.
+    out = out.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
+    out = out.replace(/<[^>]+>/g, ' ');
+    out = out.replace(/&(?:[a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);/g, ' ');
+
     // 1. Underscore-runs (`___` / `_____`) used as fill-in-the-blank
-    //    placeholders. TTS otherwise says "blank blank blank". Replace
-    //    with a short pause marker (TTS engines render "..." as a pause).
-    out = out.replace(/_{2,}/g, ' ... ');
-    out = out.replace(/\b_\b/g, ' ... ');
+    //    placeholders. Remove them entirely; users do not want TTS to
+    //    read "underscore", "blank", or a literal pause marker.
+    out = out.replace(/_+/g, ' ');
+
+    // 1b. Literal labels for punctuation/technical markers. AI output can
+    //     contain "comma" or "UA" as metadata; spoken audio should not.
+    out = out.replace(
+      /\b(?:u\s*a|ua|new\s*line|newline|comma|commas|underscore|underscores|dash|dashes|hyphen|hyphens|minus\s+sign|minus|slash|slashes|backslash|back\s+slash|colon|colons|semicolon|semicolons|period|periods|full\s+stop|full\s+stops|question\s+mark|exclamation\s+mark|dot|dots|quote|quotes|quotation|quotations|open\s+quote|close\s+quote|apostrophe|apostrophes|bracket|brackets|open\s+bracket|close\s+bracket|parenthesis|parentheses|open\s+parenthesis|close\s+parenthesis|asterisk|asterisks|star|stars|hash|hashtag|at\s+sign|ampersand|equals|equal\s+sign|plus|plus\s+sign|pipe|vertical\s+bar|tilde|backtick)\b/gi,
+      ' '
+    );
+
+    // 1c. Decorative/math/code symbols that TTS engines often read aloud.
+    //     Keep normal sentence punctuation (.,!?،؟) because it helps pacing.
+    out = out.replace(/[#@\$€£¥₹₿^&*+=<>|~`\\\/{}\[\]•·…§©®™✓✔✕✖✗✘→←↑↓↔⇒⇐⇔★☆♥♦♣♠■□▪▫▲▼◆◇●○◦°]+/g, ' ');
 
     // 2. Parenthetical hints ("(not/like)", "(forget)") are reader-scaffolding,
     //    not meant to be spoken. Drop them entirely.
@@ -41,11 +56,11 @@
     out = out.replace(/(?:^|[\s\-_]+)(?:blank|null|none|undefined)(?:[\s\-_]+(?:blank|null|none|undefined))*/gi, ' ');
 
     // 7. snake_case → spaces, camelCase → spaces.
-    out = out.replace(/_+/g, ' ');
     out = out.replace(/(?<=[a-z0-9])([A-Z])/g, ' $1');
 
     // 8. Collapse whitespace + keep punctuation a TTS engine can pause on.
     out = out.replace(/\s+([.,!?؟،])/g, '$1');
+    out = out.replace(/(^|[\s])[,.;:!?؟،]+(?=\s|$)/g, ' ');
     out = out.replace(/\s+/g, ' ').trim();
 
     return out;

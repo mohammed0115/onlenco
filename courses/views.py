@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts.decorators import subscription_required
 
 from .models import CourseLessonProgress
+from .services.a0_world import build_a0_world, is_a0_course
 from .services.student_flow import (
     can_access_course,
     ensure_course_enrollment,
@@ -23,12 +24,19 @@ def course_detail(request, pk):
     has_access = can_access_course(request.user, course)
     enrollment = ensure_course_enrollment(request.user, course) if has_access else None
     lessons = list(published_lesson_queryset().filter(course=course))
+    is_a0_world = is_a0_course(course)
+    a0_world = (
+        build_a0_world(course=course, lessons=lessons, user=request.user, has_access=has_access)
+        if is_a0_world else None
+    )
 
     return render(request, "courses/detail.html", {
         "course": course,
         "lessons": lessons,
         "has_access": has_access,
         "enrollment": enrollment,
+        "is_a0_world": is_a0_world,
+        "a0_world": a0_world,
     })
 
 

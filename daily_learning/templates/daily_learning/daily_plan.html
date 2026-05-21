@@ -26,6 +26,31 @@
         </div>
 
         {% if plan %}
+        {% if plan.cefr_level == "A0" %}
+        <section class="card p-5 bg-gradient-soft" data-testid="a0-daily-journey">
+            <div class="flex items-start gap-3">
+                <div class="h-11 w-11 rounded-xl bg-primary text-primary-foreground grid place-items-center shrink-0">
+                    <i data-lucide="footprints" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <h2 class="font-display text-xl font-bold">
+                        {% t_either "Your zero-start journey today" "رحلة البداية من الصفر اليوم" %}
+                    </h2>
+                    <p class="text-sm text-muted-foreground mt-1">
+                        {% t_either "Each screen is tiny: one word, one picture or sound, one short sentence, speaking, then one simple question." "كل شاشة صغيرة: كلمة، صورة أو صوت، جملة قصيرة، تحدث، ثم سؤال بسيط." %}
+                    </p>
+                    <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-semibold">
+                        <span class="a0-micro-step"><i data-lucide="text-cursor-input" class="h-4 w-4"></i>{% t_either "Word" "كلمة" %}</span>
+                        <span class="a0-micro-step"><i data-lucide="image" class="h-4 w-4"></i>{% t_either "Picture" "صورة" %}</span>
+                        <span class="a0-micro-step"><i data-lucide="volume-2" class="h-4 w-4"></i>{% t_either "Sound" "صوت" %}</span>
+                        <span class="a0-micro-step"><i data-lucide="message-square" class="h-4 w-4"></i>{% t_either "Short sentence" "جملة قصيرة" %}</span>
+                        <span class="a0-micro-step"><i data-lucide="mic" class="h-4 w-4"></i>{% t_either "Speak" "تحدث" %}</span>
+                        <span class="a0-micro-step"><i data-lucide="circle-help" class="h-4 w-4"></i>{% t_either "Simple question" "سؤال بسيط" %}</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        {% endif %}
         {% comment %}
           Journey path — replaces the flat-bar stepper. Each circle
           is a step; data-stepper-dot is preserved so the existing JS
@@ -37,7 +62,7 @@
                  data-stepper-dot="{{ forloop.counter0 }}"
                  data-item-type="{{ item.item_type }}"
                  data-state="{% if forloop.first %}current{% else %}upcoming{% endif %}"
-                 title="{{ item.get_item_type_display }}">
+                 title="{% if plan.cefr_level == 'A0' %}{% if item.item_type == 'vocabulary' %}{% t_either 'Word' 'كلمة' %}{% elif item.item_type == 'grammar_tip' %}{% t_either 'Short sentence' 'جملة قصيرة' %}{% elif item.item_type == 'listening' %}{% t_either 'Sound' 'صوت' %}{% elif item.item_type == 'speaking' %}{% t_either 'Speak' 'تحدث' %}{% elif item.item_type == 'quiz' %}{% t_either 'Simple question' 'سؤال بسيط' %}{% elif item.item_type == 'motivation' %}{% t_either 'Great work' 'عمل رائع' %}{% else %}{% t_either 'Step' 'خطوة' %}{% endif %}{% else %}{{ item.get_item_type_display }}{% endif %}">
                 <span class="dl-journey-node-icon">{{ forloop.counter }}</span>
             </div>
             {% endfor %}
@@ -62,8 +87,21 @@
                 <span class="dl-celebrate" aria-hidden="true"></span>
                 <div class="dl-step-type">
                     <span>{{ forloop.counter }}</span>
-                    <span>· {{ item.get_item_type_display }}</span>
-                    {% if item.skill %}<span class="opacity-70">· {{ item.get_skill_display }}</span>{% endif %}
+                    {% if plan.cefr_level == "A0" %}
+                        <span>·
+                            {% if item.item_type == "vocabulary" %}{% t_either "Word" "كلمة" %}
+                            {% elif item.item_type == "grammar_tip" %}{% t_either "Short sentence" "جملة قصيرة" %}
+                            {% elif item.item_type == "listening" %}{% t_either "Sound" "صوت" %}
+                            {% elif item.item_type == "speaking" %}{% t_either "Speak" "تحدث" %}
+                            {% elif item.item_type == "quiz" %}{% t_either "Simple question" "سؤال بسيط" %}
+                            {% elif item.item_type == "motivation" %}{% t_either "Great work" "عمل رائع" %}
+                            {% elif item.item_type == "writing" %}{% t_either "Write" "اكتب" %}
+                            {% else %}{% t_either "Step" "خطوة" %}{% endif %}
+                        </span>
+                    {% else %}
+                        <span>· {{ item.get_item_type_display }}</span>
+                        {% if item.skill %}<span class="opacity-70">· {{ item.get_skill_display }}</span>{% endif %}
+                    {% endif %}
                 </div>
                 <h3 class="font-display font-semibold text-lg mb-3">{{ item.title }}</h3>
 
@@ -221,6 +259,7 @@
     out = out.replace(/\d{2,}/g, '');
     out = out.replace(/[–—\-]+\s*$/gm, '');
     out = out.replace(/\s+[–—\-]+\s*\n/g, '\n');
+    if (window.onlencoSpeechClean) out = window.onlencoSpeechClean(out, 'en');
     out = out.replace(/[ \t]+/g, ' ').trim();
     return out;
   };

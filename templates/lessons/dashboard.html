@@ -85,6 +85,39 @@
         </div>
         {% endif %}
 
+        {% if a0_dashboard_world %}
+        <a href="{% url 'courses:course_detail' learning_plan.recommended_course.pk %}"
+           class="card p-7 block transition-smooth hover:shadow-elegant hover:-translate-y-1"
+           style="background: linear-gradient(135deg, #dbeafe 0%, #d1fae5 100%);"
+           data-testid="beginner-a0-dashboard">
+            <div class="grid lg:grid-cols-[1fr_auto] gap-5 items-center">
+                <div>
+                    <span class="badge badge-popular mb-3">{% t_either "A0 World" "عالم A0" %}</span>
+                    <h2 class="font-display text-2xl md:text-3xl font-bold mb-2">
+                        {% if request.LANGUAGE_CODE == "ar" %}{{ a0_dashboard_world.message_ar }}{% else %}{{ a0_dashboard_world.message_en }}{% endif %}
+                    </h2>
+                    <p class="text-sm text-muted-foreground max-w-2xl">
+                        {% t_either "Start with tiny missions: word, picture, sound, short sentence, speaking, and one simple question." "ابدأ بمهمات صغيرة: كلمة، صورة، صوت، جملة قصيرة، تحدث، وسؤال بسيط." %}
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap lg:justify-end">
+                    {% for mission in a0_dashboard_world.missions|slice:":4" %}
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold {% if mission.is_completed %}bg-secondary text-secondary-foreground{% elif mission.is_unlocked %}bg-primary text-primary-foreground{% else %}bg-white/70 text-muted-foreground border border-border{% endif %}">
+                        {% if mission.is_completed %}
+                            <i data-lucide="check" class="h-3.5 w-3.5"></i>
+                        {% elif mission.is_unlocked %}
+                            <i data-lucide="play" class="h-3.5 w-3.5"></i>
+                        {% else %}
+                            <i data-lucide="lock" class="h-3.5 w-3.5"></i>
+                        {% endif %}
+                        {% if request.LANGUAGE_CODE == "ar" %}{{ mission.title_ar }}{% else %}{{ mission.title_en }}{% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </a>
+        {% endif %}
+
         {% comment %}
         Daily learning plan — sits above the course hero so it's the
         first thing students see. Renders a card when a plan exists

@@ -152,6 +152,37 @@ class SpeechModeTests(TestCase):
     def test_safety_none_input_returns_empty(self):
         self.assertEqual(humanize_for_speech(None), "")
 
+    def test_fill_blank_and_punctuation_labels_not_spoken(self):
+        cleaned = humanize_for_speech("She ____ (not/like) spicy food comma")
+        self.assertNotIn("_", cleaned)
+        self.assertNotIn("not/like", cleaned)
+        self.assertNotIn("comma", cleaned.lower())
+        self.assertIn("She", cleaned)
+        self.assertIn("spicy food", cleaned)
+
+    def test_ua_marker_not_spoken(self):
+        cleaned = humanize_for_speech("UA user_answer comma ____ is missing")
+        self.assertNotRegex(cleaned.lower(), r"\bua\b")
+        self.assertNotIn("comma", cleaned.lower())
+        self.assertNotIn("_", cleaned)
+
+    def test_real_word_uae_is_preserved(self):
+        cleaned = humanize_for_speech("The UAE is a country")
+        self.assertIn("UAE", cleaned)
+
+    def test_odd_symbols_are_removed_from_speech(self):
+        cleaned = humanize_for_speech(
+            "Hello @@@ ### *** <b>world</b> &nbsp; → ✓ star slash backslash"
+        )
+        for fragment in ["@", "#", "*", "<b>", "&nbsp;", "→", "✓", "star", "slash", "backslash"]:
+            self.assertNotIn(fragment, cleaned)
+        self.assertIn("Hello", cleaned)
+        self.assertIn("world", cleaned)
+
+    def test_normal_sentence_punctuation_is_preserved(self):
+        cleaned = humanize_for_speech("Don't stop, please!")
+        self.assertEqual(cleaned, "Don't stop, please!")
+
 
 class PayloadIntegrationTests(TestCase):
     """Real-world snippets mined from notification + motivation payloads."""

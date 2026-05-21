@@ -138,6 +138,23 @@ def dashboard(request):
         import logging
         logging.getLogger(__name__).exception("Dashboard course lookup failed")
 
+    a0_dashboard_world = None
+    try:
+        from courses.services.a0_world import build_a0_world, is_a0_course
+        from courses.services.student_flow import published_lesson_queryset
+        recommended_course = learning_plan.get("recommended_course") if learning_plan else None
+        if is_a0_course(recommended_course):
+            a0_lessons = list(published_lesson_queryset().filter(course=recommended_course))
+            a0_dashboard_world = build_a0_world(
+                course=recommended_course,
+                lessons=a0_lessons,
+                user=request.user,
+                has_access=bool(learning_plan.get("has_access")),
+            )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Dashboard A0 world lookup failed")
+
     # Surface today's DailyLearningPlan. Always go through the generator
     # — it's idempotent on (user, date) AND will auto-regenerate when
     # the existing plan's CEFR level no longer matches the user's
@@ -182,6 +199,7 @@ def dashboard(request):
         "learning_summary": learning_summary,
         "motivation": motivation_widget,
         "today_plan": today_plan,
+        "a0_dashboard_world": a0_dashboard_world,
     })
 
 

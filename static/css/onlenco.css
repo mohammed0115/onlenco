@@ -369,3 +369,98 @@ textarea { min-height: 90px; resize: vertical; }
   color: hsl(var(--foreground));
 }
 .input { /* same as the generic input above; explicit class for clarity */ }
+
+/* A0 World — beginner journey experience. */
+.a0-world-hero {
+  position: relative;
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 12% 18%, hsl(var(--accent) / 0.22), transparent 28%),
+    radial-gradient(circle at 86% 12%, hsl(var(--secondary) / 0.16), transparent 32%),
+    linear-gradient(135deg, hsl(214 100% 98%) 0%, hsl(151 81% 97%) 100%);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  box-shadow: var(--shadow-elegant);
+}
+.a0-world-hero::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: -4rem;
+  bottom: -4.5rem;
+  width: 17rem;
+  height: 17rem;
+  border-radius: 999px;
+  background: hsl(var(--primary) / 0.08);
+}
+.a0-micro-step {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.8rem;
+  background: hsl(var(--card) / 0.82);
+  padding: 0.7rem 0.8rem;
+  color: hsl(var(--foreground));
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-soft);
+}
+.a0-micro-step [data-lucide] {
+  color: hsl(var(--primary));
+  flex: 0 0 auto;
+}
+.a0-progress-panel {
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  background: hsl(var(--card) / 0.9);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-soft);
+}
+.a0-mission-map {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+.a0-mission-card {
+  position: relative;
+  min-height: 15.5rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  background: hsl(var(--card));
+  padding: 1.1rem;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.2s var(--transition-smooth), box-shadow 0.2s var(--transition-smooth);
+}
+.a0-mission-card[data-state="unlocked"] {
+  border-color: hsl(var(--primary) / 0.35);
+}
+.a0-mission-card[data-state="completed"] {
+  border-color: hsl(var(--secondary) / 0.45);
+  background: linear-gradient(180deg, hsl(151 81% 98%) 0%, hsl(var(--card)) 78%);
+}
+.a0-mission-card[data-state="locked"] {
+  background: hsl(var(--muted) / 0.55);
+  color: hsl(var(--muted-foreground));
+}
+.a0-mission-card[data-state="unlocked"]:hover,
+.a0-mission-card[data-state="completed"]:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-elegant);
+}
+.a0-mission-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.9rem;
+  display: grid;
+  place-items: center;
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+}
+.a0-mission-icon[data-state="completed"] {
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+.a0-mission-icon[data-state="locked"] {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}

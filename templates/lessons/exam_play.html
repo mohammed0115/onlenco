@@ -94,7 +94,7 @@
 </div>
 
 <script id="exercises-data" type="application/json">{{ exercises_json|safe }}</script>
-<script src="{% static 'js/speech_clean.js' %}"></script>
+<script src="{% static 'js/speech_clean.js' %}?v=tts-clean-20260521"></script>
 <script>
 (function () {
   const data = JSON.parse(document.getElementById('exercises-data').textContent || '[]');
