@@ -9,10 +9,10 @@
   <link rel="icon" href="{% static 'favicon.ico' %}">
   <link rel="apple-touch-icon" href="{% static 'img/onlenco-logo.png' %}">
 
-  {# Plus Jakarta Sans (UI), Fraunces (display), Cairo (Arabic) #}
+  {# Inter (Latin UI), Cairo (Arabic UI) — matched to the Figma design. #}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   {% comment %}
     Tailwind via Play CDN — keeps the project Node-free.
@@ -40,6 +40,9 @@
             muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
             accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
             destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+            success: 'hsl(var(--success))',
+            warning: 'hsl(var(--warning))',
+            info: 'hsl(var(--info))',
             border: 'hsl(var(--border))',
             input: 'hsl(var(--input))',
             ring: 'hsl(var(--ring))',
@@ -50,8 +53,8 @@
             sm: 'calc(var(--radius) - 4px)',
           },
           fontFamily: {
-            sans:    ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-            display: ['Fraunces', 'Georgia', 'serif'],
+            sans:    ['Inter', 'Cairo', 'system-ui', 'sans-serif'],
+            display: ['Inter', 'Cairo', 'system-ui', 'sans-serif'],
           },
         }
       }
@@ -70,9 +73,9 @@
                             overrides last.
     Phase 3 of the UI unification. See Docs/design-tokens-audit.md.
   {% endcomment %}
-  <link rel="stylesheet" href="{% static 'css/onlenco-tokens.css' %}">
-  <link rel="stylesheet" href="{% static 'css/onlenco-components.css' %}">
-  <link rel="stylesheet" href="{% static 'css/onlenco.css' %}">
+  <link rel="stylesheet" href="{% static 'css/onlenco-tokens.css' %}?v=figma-20260521">
+  <link rel="stylesheet" href="{% static 'css/onlenco-components.css' %}?v=figma-20260521">
+  <link rel="stylesheet" href="{% static 'css/onlenco.css' %}?v=figma-20260521">
 
   {# Lucide icons #}
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>

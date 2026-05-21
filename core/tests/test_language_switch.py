@@ -39,3 +39,17 @@ class LanguageSwitchTests(TestCase):
         ctx = site_context(request=None)
         self.assertEqual(ctx["dir"], "ltr")
         self.assertEqual(ctx["lang"], "en")
+
+    def test_home_renders_arabic_rtl(self):
+        self.client.get(reverse("set_language"), {"lang": "ar"})
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'dir="rtl"')
+        self.assertContains(response, "تعلم الإنجليزية بذكاء مع")
+        self.assertContains(response, "لماذا Onlenco؟")
+
+    def test_home_renders_english_ltr(self):
+        self.client.get(reverse("set_language"), {"lang": "en"})
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, 'dir="ltr"')
+        self.assertContains(response, "Learn English smarter with")
+        self.assertContains(response, "Why Onlenco?")

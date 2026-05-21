@@ -51,7 +51,7 @@
         <tr>
           <td>{{ payment.user.profile.full_name|default:payment.user.email|default:payment.user.username }}</td>
           <td>{% if payment.plan == "monthly" %}{% if lang == "ar" %}شهري{% else %}Monthly{% endif %}{% elif payment.plan == "quarterly" %}{% if lang == "ar" %}ثلاثة أشهر{% else %}3 Months{% endif %}{% else %}{{ payment.plan }}{% endif %}</td>
-          <td><span dir="ltr">{{ payment.amount_sdg }}</span> {% if lang == "ar" %}جنيه{% else %}SDG{% endif %}</td>
+          <td><span dir="ltr">{{ payment.amount_sdg }} SDG</span></td>
           <td>
             <span class="badge {% if payment.status == 'approved' %}badge-green{% elif payment.status == 'rejected' %}badge-red{% else %}badge-yellow{% endif %}">
               {% if payment.status == "pending" %}{% if lang == "ar" %}قيد الانتظار{% else %}Pending{% endif %}

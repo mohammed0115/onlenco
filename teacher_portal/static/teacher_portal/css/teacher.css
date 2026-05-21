@@ -15,8 +15,8 @@
 }
 
 body {
-  background: var(--tp-bg);
-  color: var(--tp-text);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
 .teacher-shell {
@@ -439,3 +439,205 @@ code {
   text-decoration: none;
 }
 .teacher-pagination a:hover { text-decoration: underline; }
+
+/* Figma Make refresh: clean LMS work surface with the Onlenco blue/green brand. */
+.teacher-shell {
+  grid-template-columns: 16rem minmax(0, 1fr);
+  background: hsl(var(--background));
+}
+
+.teacher-sidebar {
+  padding: 24px 16px;
+  background: hsl(var(--card));
+  border-inline-end: 1px solid hsl(var(--border));
+}
+
+.teacher-brand {
+  gap: 12px;
+  margin-bottom: 28px;
+  padding: 0 8px;
+}
+
+.teacher-brand-name {
+  display: inline-block;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 1.18rem;
+  line-height: 1;
+}
+
+.teacher-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--gradient-primary, var(--gradient-hero));
+  box-shadow: 0 14px 30px -18px hsl(var(--primary) / .85);
+}
+
+.teacher-nav {
+  gap: 8px;
+}
+
+.teacher-nav a {
+  min-height: 42px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: hsl(var(--muted-foreground));
+  font-weight: 700;
+}
+
+.teacher-nav a:hover {
+  background: hsl(var(--primary) / .08);
+  color: hsl(var(--primary));
+}
+
+.teacher-nav a.active {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 12px 24px -18px hsl(var(--primary) / .85);
+}
+
+.teacher-topbar {
+  min-height: 84px;
+  padding: 20px 32px;
+  background: rgb(248 250 252 / .9);
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.teacher-topbar h1 {
+  font-size: 1.5rem;
+  color: hsl(var(--foreground));
+}
+
+.teacher-topbar p {
+  color: hsl(var(--muted-foreground));
+}
+
+.teacher-content {
+  padding: 32px;
+  gap: 24px;
+}
+
+.teacher-btn,
+.quick-actions a,
+.quick-actions button,
+.row-actions a,
+.row-actions button,
+.teacher-link {
+  min-height: 40px;
+  border-radius: 10px;
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: var(--shadow-xs);
+}
+
+.teacher-btn:hover,
+.row-actions a:hover,
+.row-actions button:hover,
+.teacher-link:hover {
+  background: hsl(var(--muted));
+}
+
+.teacher-btn-primary,
+.quick-actions a:hover,
+.quick-actions button:hover {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.teacher-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.teacher-metrics > div,
+.teacher-panel,
+.teacher-filters,
+.teacher-form {
+  border-radius: 12px;
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-sm);
+}
+
+.teacher-metrics > div {
+  min-height: 116px;
+  padding: 20px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.teacher-metrics strong {
+  font-size: 2rem;
+  color: hsl(var(--foreground));
+}
+
+.teacher-metrics span,
+.muted {
+  color: hsl(var(--muted-foreground));
+}
+
+.teacher-panel,
+.teacher-filters,
+.teacher-form {
+  padding: 20px;
+}
+
+.panel-heading h2 {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.teacher-table th {
+  background: hsl(var(--muted) / .72);
+  color: hsl(var(--muted-foreground));
+}
+
+.teacher-table tr:hover td {
+  background: hsl(var(--muted) / .35);
+}
+
+.teacher-form input,
+.teacher-form select,
+.teacher-form textarea,
+.teacher-filters input,
+.teacher-filters select {
+  min-height: 42px;
+  border-radius: 10px;
+  border-color: hsl(var(--border));
+  background: hsl(210 40% 97%);
+}
+
+.status-pill {
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.status-published { background: hsl(var(--secondary) / .14); color: hsl(163 94% 24%); }
+.status-draft { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+.status-pending_review { background: hsl(var(--accent) / .22); color: hsl(32 95% 32%); }
+.status-rejected { background: hsl(var(--destructive) / .12); color: hsl(0 74% 42%); }
+.status-archived { background: hsl(var(--border)); color: hsl(var(--muted-foreground)); }
+
+@media (max-width: 980px) {
+  .teacher-shell {
+    grid-template-columns: 1fr;
+  }
+  .teacher-content {
+    padding: 20px;
+  }
+  .teacher-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .teacher-metrics {
+    grid-template-columns: 1fr;
+  }
+}

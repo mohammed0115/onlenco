@@ -2,16 +2,16 @@
 {% load static %}
 
 {% block extra_head %}
-  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher.css' %}">
+  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher.css' %}?v=figma-20260521">
 {% endblock %}
 
 {% block body %}
 <div class="teacher-shell">
   <aside class="teacher-sidebar">
     <a class="teacher-brand" href="{% url 'teacher_portal:dashboard' %}">
-      <span class="teacher-logo">O</span>
+      <span class="teacher-logo"><i data-lucide="brain" class="h-5 w-5"></i></span>
       <span>
-        <strong>{% if lang == "ar" %}بوابة أستاذ Onlenco{% else %}Onlenco Teacher Portal{% endif %}</strong>
+        <strong class="teacher-brand-name">Onlenco</strong>
         <small>{% if lang == "ar" %}الكورسات والطلاب{% else %}Courses and students{% endif %}</small>
       </span>
     </a>
@@ -44,6 +44,7 @@
             {% if lang == "ar" %}وضع الطالب{% else %}Student Mode{% endif %}
           </a>
         {% endif %}
+        {% include "_lang_toggle.html" %}
         <a class="teacher-btn teacher-btn-primary" href="{% url 'teacher_portal:course_create' %}">
           <i data-lucide="plus" class="h-4 w-4"></i>
           {% if lang == "ar" %}إنشاء كورس{% else %}Create Course{% endif %}
@@ -60,4 +61,3 @@
 {% block extra_scripts %}
   <script src="{% static 'teacher_portal/js/teacher.js' %}"></script>
 {% endblock %}
-

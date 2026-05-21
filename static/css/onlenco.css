@@ -6,47 +6,51 @@
  */
 
 :root {
-  --background: 36 38% 97%;
-  --foreground: 178 45% 10%;
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
 
   --card: 0 0% 100%;
-  --card-foreground: 178 45% 10%;
+  --card-foreground: 222 47% 11%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 178 45% 10%;
+  --popover-foreground: 222 47% 11%;
 
-  /* Deep teal — Nile depth */
-  --primary: 178 65% 18%;
-  --primary-foreground: 36 38% 97%;
-  --primary-glow: 178 55% 35%;
+  --primary: 221 83% 53%;
+  --primary-foreground: 0 0% 100%;
+  --primary-glow: 213 94% 68%;
 
-  /* Warm amber — Sudanese sunset */
-  --secondary: 28 85% 58%;
-  --secondary-foreground: 178 45% 10%;
+  --secondary: 160 84% 39%;
+  --secondary-foreground: 0 0% 100%;
 
-  --muted: 36 25% 92%;
-  --muted-foreground: 178 15% 38%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
 
-  --accent: 14 80% 60%;
-  --accent-foreground: 36 38% 97%;
+  --accent: 43 96% 56%;
+  --accent-foreground: 222 47% 11%;
 
-  --destructive: 0 75% 50%;
+  --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 36 20% 88%;
-  --input: 36 20% 90%;
-  --ring: 178 65% 18%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 221 83% 53%;
 
-  --radius: 1rem;
+  --success: 160 84% 39%;
+  --warning: 43 96% 56%;
+  --info: 217 91% 60%;
 
-  --gradient-hero: linear-gradient(135deg, hsl(178 65% 18%) 0%, hsl(178 55% 28%) 50%, hsl(28 75% 45%) 100%);
-  --gradient-sunset: linear-gradient(135deg, hsl(28 85% 58%) 0%, hsl(14 80% 60%) 100%);
-  --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(36 30% 97%) 100%);
-  --gradient-text: linear-gradient(135deg, hsl(178 65% 18%), hsl(28 80% 45%));
+  --radius: 0.75rem;
 
-  --shadow-soft: 0 2px 8px -2px hsl(178 65% 18% / 0.08);
-  --shadow-elegant: 0 20px 50px -20px hsl(178 65% 18% / 0.25);
-  --shadow-glow: 0 0 60px hsl(28 85% 58% / 0.35);
+  --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+  --gradient-primary: var(--gradient-hero);
+  --gradient-sunset: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(38 92% 50%) 100%);
+  --gradient-soft: linear-gradient(135deg, hsl(214 100% 97%) 0%, hsl(151 81% 96%) 100%);
+  --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(var(--background)) 100%);
+  --gradient-text: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+
+  --shadow-soft: 0 4px 14px -8px hsl(var(--foreground) / 0.16);
+  --shadow-elegant: 0 20px 40px -24px hsl(var(--primary) / 0.35);
+  --shadow-glow: 0 0 60px hsl(var(--secondary) / 0.24);
 
   --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -56,23 +60,24 @@ html { scroll-behavior: smooth; }
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Inter', 'Cairo', system-ui, sans-serif;
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
 }
 
-[dir="rtl"] body { font-family: 'Cairo', system-ui, sans-serif; }
-[dir="rtl"] .font-display { font-family: 'Cairo', serif; font-weight: 700; }
+[dir="rtl"] body { font-family: 'Cairo', 'Inter', system-ui, sans-serif; }
+[dir="rtl"] .font-display { font-family: 'Cairo', 'Inter', system-ui, sans-serif; font-weight: 700; }
 
 .font-display {
-  font-family: 'Fraunces', Georgia, serif;
-  letter-spacing: -0.02em;
+  font-family: 'Inter', 'Cairo', system-ui, sans-serif;
+  letter-spacing: 0;
 }
 
 /* Gradient utilities */
 .gradient-hero   { background: var(--gradient-hero); }
 .gradient-sunset { background: var(--gradient-sunset); }
 .gradient-card   { background: var(--gradient-card); }
+.bg-gradient-soft { background: var(--gradient-soft); }
 
 .text-gradient {
   background: var(--gradient-text);
@@ -81,11 +86,63 @@ body {
   color: transparent;
 }
 
+.feature-icon {
+  height: 3rem;
+  width: 3rem;
+  border-radius: 0.875rem;
+  display: grid;
+  place-items: center;
+}
+.feature-icon-1 { background: hsl(var(--primary)); }
+.feature-icon-2 { background: hsl(var(--secondary)); }
+.feature-icon-3 { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
+.feature-icon-4 { background: hsl(var(--info, 217 91% 60%)); }
+.feature-icon-5 { background: hsl(var(--warning, 43 96% 56%)); color: hsl(var(--accent-foreground)); }
+.feature-icon-6 { background: hsl(var(--destructive)); }
+.feature-icon-3 [data-lucide],
+.feature-icon-5 [data-lucide] { color: hsl(var(--accent-foreground)); }
+.feature-icon-soft-1 { background: hsl(var(--primary) / 0.10); color: hsl(var(--primary)); }
+.feature-icon-soft-2 { background: hsl(var(--secondary) / 0.10); color: hsl(var(--secondary)); }
+.feature-icon-soft-3 { background: hsl(var(--accent) / 0.16); color: hsl(38 92% 42%); }
+.feature-icon-soft-4 { background: hsl(var(--info) / 0.10); color: hsl(var(--info)); }
+.feature-icon-soft-5 { background: hsl(var(--warning) / 0.16); color: hsl(38 92% 42%); }
+.feature-icon-soft-6 { background: hsl(var(--destructive) / 0.10); color: hsl(var(--destructive)); }
+
 .shadow-soft    { box-shadow: var(--shadow-soft); }
 .shadow-elegant { box-shadow: var(--shadow-elegant); }
 .shadow-glow    { box-shadow: var(--shadow-glow); }
 
 .transition-smooth { transition: all 0.3s var(--transition-smooth); }
+
+/* Shared brand lockup from the Figma Make design. */
+.onlenco-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: hsl(var(--foreground));
+  text-decoration: none;
+  font-weight: 800;
+}
+.onlenco-brand-mark {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  display: inline-grid;
+  place-items: center;
+  color: #ffffff;
+  background: var(--gradient-primary, var(--gradient-hero));
+  box-shadow: 0 12px 26px -16px hsl(var(--primary) / 0.75);
+  flex: 0 0 auto;
+}
+.onlenco-brand-text {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1;
+}
 
 /* Flip directional icons in RTL. */
 [dir="rtl"] .rtl-flip { transform: scaleX(-1); }
@@ -149,7 +206,7 @@ select, textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: hsl(var(--ring));
-  box-shadow: 0 0 0 3px hsl(178 65% 18% / 0.1);
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15);
 }
 input[type="file"] { padding: 0.4rem; cursor: pointer; }
 textarea { min-height: 90px; resize: vertical; }

@@ -54,6 +54,7 @@ urlpatterns = [
     # in a custom view yet.
     path("django-admin/", admin.site.urls),
     path("admin/", include("platform_admin.urls")),
+    path("control/", include(("platform_admin.urls", "platform_admin_control"), namespace="platform_admin_control")),
     path("teacher/", include("teacher_portal.urls")),
     path("set-language/", set_language, name="set_language"),
 

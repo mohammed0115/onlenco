@@ -29,53 +29,51 @@
    *    Tailwind's `hsl(var(--primary))` pattern.
    * ============================================================ */
 
-  /* Brand teal — "Nile depth" */
-  --brand-teal-50:  178 60% 95%;
-  --brand-teal-100: 178 55% 88%;
-  --brand-teal-200: 178 50% 78%;
-  --brand-teal-300: 178 50% 60%;
-  --brand-teal-400: 178 55% 45%;
-  --brand-teal-500: 178 60% 28%;
-  --brand-teal-600: 178 65% 22%;
-  --brand-teal-700: 178 65% 18%;   /* canonical brand teal */
-  --brand-teal-800: 178 70% 13%;
-  --brand-teal-900: 178 70% 10%;
+  /* Figma Make palette compatibility aliases.
+     The historical names stay in place because existing CSS consumes
+     them; their values now map to the Onlenco blue/green system. */
+  --brand-teal-50:  214 100% 97%;
+  --brand-teal-100: 214 95% 93%;
+  --brand-teal-200: 213 97% 87%;
+  --brand-teal-300: 212 96% 78%;
+  --brand-teal-400: 213 94% 68%;
+  --brand-teal-500: 217 91% 60%;
+  --brand-teal-600: 221 83% 53%;   /* #2563EB */
+  --brand-teal-700: 224 76% 48%;
+  --brand-teal-800: 226 71% 40%;
+  --brand-teal-900: 224 64% 33%;
 
-  /* Brand amber — "Sudanese sunset" */
-  --brand-amber-50:  28 90% 96%;
-  --brand-amber-100: 28 88% 90%;
-  --brand-amber-200: 28 85% 80%;
-  --brand-amber-300: 28 85% 70%;
-  --brand-amber-400: 28 85% 64%;
-  --brand-amber-500: 28 85% 58%;   /* canonical brand amber */
-  --brand-amber-600: 28 80% 50%;
-  --brand-amber-700: 28 75% 45%;
-  --brand-amber-800: 14 80% 40%;
-  --brand-amber-900: 14 80% 30%;
+  --brand-amber-50:  151 81% 96%;
+  --brand-amber-100: 149 80% 90%;
+  --brand-amber-200: 152 76% 80%;
+  --brand-amber-300: 156 72% 67%;
+  --brand-amber-400: 158 64% 52%;
+  --brand-amber-500: 160 84% 39%;  /* #10B981 */
+  --brand-amber-600: 161 94% 30%;
+  --brand-amber-700: 163 94% 24%;
+  --brand-amber-800: 163 88% 20%;
+  --brand-amber-900: 164 86% 16%;
 
-  /* Neutral warm — body/surface scale.
-     Tinted toward the teal/amber palette so the UI feels cohesive
-     instead of generic slate. */
-  --warm-50:  36 38% 97%;          /* page bg cream */
-  --warm-100: 36 30% 95%;
-  --warm-200: 36 25% 92%;          /* muted bg */
-  --warm-300: 36 20% 88%;          /* border */
-  --warm-400: 36 20% 75%;
-  --warm-500: 178 15% 55%;
-  --warm-600: 178 15% 38%;         /* muted-foreground */
-  --warm-700: 178 25% 22%;
-  --warm-800: 178 35% 15%;
-  --warm-900: 178 45% 10%;         /* body text */
+  --warm-50:  210 40% 98%;         /* #F8FAFC */
+  --warm-100: 210 40% 96%;         /* #F1F5F9 */
+  --warm-200: 214 32% 91%;         /* #E2E8F0 */
+  --warm-300: 213 27% 84%;
+  --warm-400: 215 20% 65%;
+  --warm-500: 215 16% 47%;         /* #64748B */
+  --warm-600: 215 19% 35%;
+  --warm-700: 215 25% 27%;
+  --warm-800: 217 33% 17%;
+  --warm-900: 222 47% 11%;         /* #0F172A */
 
   /* Status colours */
-  --status-success-500: 158 65% 38%;
-  --status-success-100: 158 65% 92%;
-  --status-warning-500: 38 90% 50%;
-  --status-warning-100: 38 90% 92%;
-  --status-danger-500:  0 75% 50%;
-  --status-danger-100:  0 75% 95%;
-  --status-info-500:    210 75% 50%;
-  --status-info-100:    210 75% 95%;
+  --status-success-500: 160 84% 39%;
+  --status-success-100: 152 76% 94%;
+  --status-warning-500: 43 96% 56%;
+  --status-warning-100: 48 96% 89%;
+  --status-danger-500:  0 84% 60%;
+  --status-danger-100:  0 86% 97%;
+  --status-info-500:    217 91% 60%;
+  --status-info-100:    214 100% 97%;
 
 
   /* ============================================================
@@ -88,26 +86,26 @@
    *    will remove the duplicate :root in onlenco.css.
    * ============================================================ */
 
-  --background:          var(--warm-50);                /* was: 36 38% 97% */
-  --foreground:          var(--warm-900);               /* was: 178 45% 10% */
+  --background:          var(--warm-50);
+  --foreground:          var(--warm-900);
 
   --card:                0 0% 100%;
   --card-foreground:     var(--warm-900);
   --popover:             0 0% 100%;
   --popover-foreground:  var(--warm-900);
 
-  --primary:             var(--brand-teal-700);         /* was: 178 65% 18% */
-  --primary-foreground:  var(--warm-50);
-  --primary-glow:        178 55% 35%;
+  --primary:             var(--brand-teal-600);
+  --primary-foreground:  0 0% 100%;
+  --primary-glow:        var(--brand-teal-400);
 
-  --secondary:           var(--brand-amber-500);        /* was: 28 85% 58% */
-  --secondary-foreground: var(--warm-900);
+  --secondary:           var(--brand-amber-500);
+  --secondary-foreground: 0 0% 100%;
 
   --muted:               var(--warm-200);
   --muted-foreground:    var(--warm-600);
 
-  --accent:              14 80% 60%;
-  --accent-foreground:   var(--warm-50);
+  --accent:              43 96% 56%;
+  --accent-foreground:   var(--warm-900);
 
   --destructive:         var(--status-danger-500);
   --destructive-foreground: 0 0% 100%;
@@ -121,9 +119,9 @@
   --info:                var(--status-info-500);
   --info-foreground:     0 0% 100%;
 
-  --border:              var(--warm-300);
-  --input:               36 20% 90%;
-  --ring:                var(--brand-teal-700);
+  --border:              var(--warm-200);
+  --input:               var(--warm-200);
+  --ring:                var(--brand-teal-600);
 
 
   /* ============================================================
@@ -156,10 +154,10 @@
 
   --radius-none: 0;
   --radius-sm:   6px;
-  --radius-md:   12px;
-  --radius-lg:   16px;    /* = --radius */
-  --radius-xl:   20px;
-  --radius-2xl:  28px;
+  --radius-md:   10px;
+  --radius-lg:   12px;    /* = --radius */
+  --radius-xl:   16px;
+  --radius-2xl:  24px;
   --radius-pill: 9999px;
   --radius-full: 50%;
 
@@ -171,9 +169,9 @@
    *    7-step scale + weight + leading.
    * ============================================================ */
 
-  --font-sans:    'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-arabic:  'Cairo', system-ui, sans-serif;
+  --font-sans:    'Inter', 'Cairo', system-ui, sans-serif;
+  --font-display: 'Inter', 'Cairo', system-ui, sans-serif;
+  --font-arabic:  'Cairo', 'Inter', system-ui, sans-serif;
   --font-mono:    ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --text-xs:    12px;
@@ -208,10 +206,10 @@
   --shadow-none: none;
   --shadow-xs:   0 1px 2px hsl(var(--warm-900) / .04);
   --shadow-sm:   0 1px 3px hsl(var(--warm-900) / .06), 0 1px 2px hsl(var(--warm-900) / .04);
-  --shadow-md:   0 2px 8px -2px hsl(var(--warm-900) / .08);
-  --shadow-lg:   0 20px 50px -20px hsl(var(--warm-900) / .25);
-  --shadow-xl:   0 25px 60px -20px hsl(var(--warm-900) / .35);
-  --shadow-2xl:  0 35px 80px -25px hsl(var(--warm-900) / .45);
+  --shadow-md:   0 4px 14px -8px hsl(var(--warm-900) / .16);
+  --shadow-lg:   0 20px 40px -24px hsl(var(--brand-teal-600) / .35);
+  --shadow-xl:   0 28px 60px -28px hsl(var(--brand-teal-600) / .35);
+  --shadow-2xl:  0 35px 80px -32px hsl(var(--warm-900) / .38);
 
   /* Legacy aliases — existing onlenco.css names. */
   --shadow-soft:    var(--shadow-md);
@@ -226,10 +224,12 @@
    *    reach for them too instead of inventing their own.
    * ============================================================ */
 
-  --gradient-hero:   linear-gradient(135deg, hsl(var(--brand-teal-700)) 0%, hsl(var(--brand-teal-500)) 50%, hsl(var(--brand-amber-700)) 100%);
-  --gradient-sunset: linear-gradient(135deg, hsl(var(--brand-amber-500)) 0%, hsl(var(--accent)) 100%);
-  --gradient-card:   linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(var(--warm-100)) 100%);
-  --gradient-text:   linear-gradient(135deg, hsl(var(--brand-teal-700)), hsl(var(--brand-amber-700)));
+  --gradient-hero:   linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+  --gradient-primary: var(--gradient-hero);
+  --gradient-sunset: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(38 92% 50%) 100%);
+  --gradient-soft:   linear-gradient(135deg, hsl(var(--brand-teal-50)) 0%, hsl(var(--brand-amber-50)) 100%);
+  --gradient-card:   linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(var(--warm-50)) 100%);
+  --gradient-text:   linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
 
 
   /* ============================================================

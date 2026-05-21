@@ -4,30 +4,32 @@
 {% block title %}{% if mode == "signup" %}{% t "auth.signup" %}{% else %}{% t "auth.signin" %}{% endif %} — Onlenco{% endblock %}
 
 {% block body %}
-<div class="min-h-screen flex">
+<div class="min-h-screen flex flex-col p-6 md:p-8" style="background:linear-gradient(135deg,hsl(var(--primary) / 0.06),hsl(var(--secondary) / 0.08))">
+    <div class="flex items-center justify-between w-full max-w-6xl mx-auto">
+        <a href="{% url 'home' %}" class="onlenco-brand" aria-label="Onlenco">
+            <span class="onlenco-brand-mark"><i data-lucide="brain" class="h-5 w-5"></i></span>
+            <span class="onlenco-brand-text">Onlenco</span>
+        </a>
+        {% include "_lang_toggle.html" %}
+    </div>
 
-    <div class="flex-1 flex flex-col p-8 md:p-12">
-        <div class="flex items-center justify-between">
-            <a href="{% url 'home' %}" class="flex items-center gap-2 font-display text-xl font-bold" aria-label="Onlenco">
-                <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco"
-                     class="h-9 w-auto object-contain" width="36" height="36">
-            </a>
-            {% include "_lang_toggle.html" %}
-        </div>
-
-        <div class="flex-1 flex items-center justify-center">
-            <div class="card gradient-card shadow-elegant w-full max-w-md p-8">
+    <div class="flex-1 flex items-center justify-center py-10">
+        <div class="w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="mx-auto mb-4 onlenco-brand-mark" style="width:3rem;height:3rem"><i data-lucide="graduation-cap" class="h-6 w-6"></i></div>
                 <h1 class="font-display text-3xl font-bold mb-2">
                     {% if mode == "signup" %}{% t "auth.signup" %}{% else %}{% t "auth.signin" %}{% endif %}
                 </h1>
-                <p class="text-muted-foreground text-sm mb-6">
+                <p class="text-muted-foreground text-sm">
                     {% if mode == "signup" %}
                         {% t_either "Start with a free placement test." "ابدأ باختبار تحديد المستوى المجاني." %}
                     {% else %}
                         {% t_either "Continue your English journey." "تابع رحلتك في تعلم الإنجليزية." %}
                     {% endif %}
                 </p>
+            </div>
 
+            <div class="card gradient-card shadow-elegant w-full p-8">
                 <form method="post" class="space-y-4" novalidate>
                     {% csrf_token %}
                     <input type="hidden" name="mode" value="{{ mode }}">
@@ -114,19 +116,5 @@
             </div>
         </div>
     </div>
-
-    <div class="hidden lg:block flex-1 gradient-hero relative overflow-hidden">
-        <div class="absolute inset-0 flex items-center justify-center p-12">
-            <div class="text-primary-foreground max-w-md">
-                <h2 class="font-display text-5xl font-bold mb-4 leading-tight">
-                    {% t_either "Your AI English coach awaits." "مدربك الذكي في انتظارك." %}
-                </h2>
-                <p class="text-lg" style="opacity:0.9">
-                    {% t_either "Personalized lessons, voice practice, and weekly live clubs — all in one place." "دروس مخصصة، تدريب صوتي، ونوادي أسبوعية حية — في مكان واحد." %}
-                </p>
-            </div>
-        </div>
-    </div>
-
 </div>
 {% endblock %}

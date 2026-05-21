@@ -388,11 +388,178 @@
 .control-btn:hover { background: #e2e8f0; }
 
 .control-btn-primary {
-  background: hsl(178 65% 18%);
+  background: hsl(var(--primary));
   color: #fff;
-  border-color: hsl(178 65% 18%);
+  border-color: hsl(var(--primary));
 }
 .control-btn-primary:hover {
-  background: hsl(178 65% 24%);
+  background: hsl(224 76% 48%);
   color: #fff;
+}
+
+/* Figma Make refresh: Onlenco Control Center with right/left aware sidebar. */
+.control-shell {
+  --cc-primary: hsl(var(--primary));
+  --cc-secondary: hsl(var(--secondary));
+  --cc-accent: hsl(var(--accent));
+  --cc-bg: hsl(var(--background));
+  --cc-surface: hsl(var(--card));
+  --cc-text: hsl(var(--foreground));
+  --cc-muted: hsl(var(--muted-foreground));
+  --cc-border: hsl(var(--border));
+}
+
+.control-layout {
+  grid-template-columns: 16rem minmax(0, 1fr);
+}
+
+.control-sidebar {
+  padding: 24px 16px;
+  background: hsl(var(--card));
+  border-inline-end: 1px solid hsl(var(--border));
+}
+
+.control-brand {
+  gap: 12px;
+  padding: 0 8px 26px;
+}
+
+.control-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--gradient-primary, var(--gradient-hero));
+  box-shadow: 0 14px 30px -18px hsl(var(--primary) / .85);
+}
+
+.control-brand-name {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 800;
+  font-size: 1.18rem;
+  line-height: 1;
+}
+
+.control-nav {
+  gap: 8px;
+}
+
+.control-nav a {
+  min-height: 42px;
+  border-radius: 10px;
+  color: hsl(var(--muted-foreground));
+}
+
+.control-nav a:hover {
+  background: hsl(var(--primary) / .08);
+  color: hsl(var(--primary));
+}
+
+.control-nav a.active {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 12px 24px -18px hsl(var(--primary) / .85);
+}
+
+.control-topbar {
+  min-height: 84px;
+  padding: 20px 32px;
+  background: rgb(248 250 252 / .9);
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.control-content {
+  padding: 32px;
+}
+
+.control-title {
+  color: hsl(var(--foreground));
+  font-size: 1.55rem;
+}
+
+.control-subtitle,
+.metric-label,
+.muted {
+  color: hsl(var(--muted-foreground));
+}
+
+.control-card,
+.control-panel {
+  border-radius: 12px;
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-sm);
+}
+
+.control-card {
+  padding: 20px;
+}
+
+.metric-card {
+  min-height: 128px;
+}
+
+.metric-icon {
+  border-radius: 12px;
+  background: hsl(var(--primary) / .1);
+  color: hsl(var(--primary));
+}
+
+.metric-value {
+  color: hsl(var(--foreground));
+  font-size: 2rem;
+}
+
+.filters input,
+.filters select,
+.control-search input {
+  min-height: 42px;
+  border-radius: 10px;
+  border-color: hsl(var(--border));
+  background: hsl(210 40% 97%);
+}
+
+.control-table th {
+  background: hsl(var(--muted) / .72);
+  color: hsl(var(--muted-foreground));
+}
+
+.control-table tr:hover td {
+  background: hsl(var(--muted) / .35);
+}
+
+.btn-control,
+.control-btn {
+  min-height: 40px;
+  border-radius: 10px;
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-weight: 800;
+  box-shadow: var(--shadow-xs);
+}
+
+.btn-primary,
+.control-btn-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}
+.btn-success { background: hsl(var(--secondary)); border-color: hsl(var(--secondary)); color: #fff; }
+.btn-warning { background: hsl(var(--accent)); border-color: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
+.btn-danger { background: hsl(var(--destructive)); border-color: hsl(var(--destructive)); color: #fff; }
+
+.badge-green { color: hsl(163 94% 24%); background: hsl(var(--secondary) / .14); border-color: hsl(var(--secondary) / .25); }
+.badge-blue { color: hsl(var(--primary)); background: hsl(var(--primary) / .1); border-color: hsl(var(--primary) / .22); }
+.badge-yellow { color: hsl(32 95% 32%); background: hsl(var(--accent) / .22); border-color: hsl(var(--accent) / .36); }
+.badge-red { color: hsl(0 74% 42%); background: hsl(var(--destructive) / .12); border-color: hsl(var(--destructive) / .24); }
+
+@media (max-width: 860px) {
+  .control-content,
+  .control-topbar,
+  .control-sidebar {
+    padding: 20px;
+  }
 }

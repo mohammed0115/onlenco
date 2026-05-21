@@ -47,8 +47,8 @@
   box-shadow: var(--shadow-sm);
 }
 .btn-primary:hover {
-  background: hsl(var(--brand-teal-600));
-  border-color: hsl(var(--brand-teal-600));
+  background: hsl(var(--brand-teal-700));
+  border-color: hsl(var(--brand-teal-700));
   box-shadow: var(--shadow-md);
 }
 .btn-primary:active {

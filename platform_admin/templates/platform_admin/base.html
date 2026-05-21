@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_head %}
-  <link rel="stylesheet" href="{% static 'platform_admin/css/control.css' %}">
+  <link rel="stylesheet" href="{% static 'platform_admin/css/control.css' %}?v=figma-20260521">
 {% endblock %}
 
 {% block body %}
@@ -10,9 +10,9 @@
   <div class="control-layout">
     <aside class="control-sidebar">
       <div class="control-brand">
-        <div class="control-logo">O</div>
+        <div class="control-logo"><i data-lucide="brain" class="h-5 w-5"></i></div>
         <div>
-          <div>{% if lang == "ar" %}لوحة إدارة Onlenco{% else %}Onlenco Control Center{% endif %}</div>
+          <div class="control-brand-name">Onlenco</div>
           <div class="control-subtitle">Platform Management</div>
         </div>
       </div>
@@ -43,6 +43,7 @@
               <span>{% if lang == "ar" %}لوحة الأستاذ{% else %}Teacher Portal{% endif %}</span>
             </a>
           {% endif %}
+          {% include "_lang_toggle.html" %}
           <form class="control-search" method="get">
             <input type="search" name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث{% else %}Search{% endif %}">
           </form>

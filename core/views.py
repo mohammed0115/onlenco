@@ -51,4 +51,15 @@ def set_language(request):
         request.user.profile.save(update_fields=["preferred_language"])
 
     next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or reverse("home")
-    return HttpResponseRedirect(next_url)
+    response = HttpResponseRedirect(next_url)
+    response.set_cookie(
+        settings.LANGUAGE_COOKIE_NAME,
+        lang,
+        max_age=getattr(settings, "LANGUAGE_COOKIE_AGE", None),
+        path=getattr(settings, "LANGUAGE_COOKIE_PATH", "/"),
+        domain=getattr(settings, "LANGUAGE_COOKIE_DOMAIN", None),
+        secure=getattr(settings, "LANGUAGE_COOKIE_SECURE", False),
+        httponly=getattr(settings, "LANGUAGE_COOKIE_HTTPONLY", False),
+        samesite=getattr(settings, "LANGUAGE_COOKIE_SAMESITE", "Lax"),
+    )
+    return response
