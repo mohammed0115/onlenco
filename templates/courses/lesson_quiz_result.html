@@ -72,4 +72,11 @@
         </div>
     </main>
 </div>
+{% if passed %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.onlencoCelebrate) window.onlencoCelebrate("confetti");
+  });
+</script>
+{% endif %}
 {% endblock %}

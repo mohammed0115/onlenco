@@ -10,12 +10,72 @@ from accounts.decorators import subscription_required
 
 from .models import CourseLessonProgress
 from .services.a0_world import build_a0_world, is_a0_course
+from .services.lesson_gate import annotate_lesson_states, can_open_lesson
 from .services.student_flow import (
     can_access_course,
     ensure_course_enrollment,
     published_course_queryset,
     published_lesson_queryset,
 )
+
+
+def _drip_gate(request, course, lesson):
+    """Return a redirect response when ``lesson`` is still drip-locked
+    for the requesting student, else ``None``.
+
+    Course access (subscription) is assumed already verified by the
+    caller — this guards only the sequential daily unlock so a locked
+    lesson cannot be reached via a hand-typed URL or a crafted POST.
+    """
+    if can_open_lesson(course=course, lesson=lesson, user=request.user, has_access=True):
+        return None
+    messages.info(request, _(
+        "This lesson is still locked. Finish the previous lesson first — "
+        "the next one opens a day later."
+    ))
+    return redirect("courses:course_detail", pk=course.pk)
+
+
+def _notify_teacher_low_performance(course, student, lesson, score):
+    """Flag a struggling student to the course's teacher when they fail
+    a lesson quiz — deduped to one notice per (teacher, student) per day
+    so a teacher isn't spammed. Best-effort; never blocks the response.
+    """
+    teacher = getattr(course, "teacher", None)
+    if teacher is None or teacher.id == student.id:
+        return
+    try:
+        from datetime import timedelta
+
+        from notifications import constants as notif_constants
+        from notifications.models import NotificationEvent
+        from teacher_portal.services.notification_service import create_teacher_notification
+
+        since = timezone.now() - timedelta(hours=24)
+        recent = NotificationEvent.objects.filter(
+            user=teacher,
+            event_type=notif_constants.TEACHER_STUDENT_LOW_PERFORMANCE,
+            created_at__gte=since,
+        )
+        for event in recent:
+            if (event.payload or {}).get("student_id") == student.id:
+                return  # already flagged this student today
+        create_teacher_notification(
+            teacher=teacher,
+            actor=student,
+            event_type=notif_constants.TEACHER_STUDENT_LOW_PERFORMANCE,
+            payload={
+                "student_id": student.id,
+                "lesson_id": lesson.id,
+                "lesson_title": lesson.title,
+                "score": score,
+            },
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "low-performance teacher notice failed", exc_info=True,
+        )
 
 
 @login_required
@@ -29,10 +89,31 @@ def course_detail(request, pk):
         build_a0_world(course=course, lessons=lessons, user=request.user, has_access=has_access)
         if is_a0_world else None
     )
+    # Non-A0 courses: sequential daily-drip state per lesson. A0 courses
+    # carry their unlock state inside `a0_world` instead.
+    lesson_rows = (
+        None if is_a0_world else
+        annotate_lesson_states(
+            course=course, lessons=lessons,
+            user=request.user, has_access=has_access,
+        )
+    )
+    # Roadmap progress — how far the student is along the course.
+    lesson_progress = None
+    if lesson_rows is not None:
+        total = len(lesson_rows)
+        done = sum(1 for r in lesson_rows if r["is_completed"])
+        lesson_progress = {
+            "done": done,
+            "total": total,
+            "pct": round(done * 100 / total) if total else 0,
+        }
 
     return render(request, "courses/detail.html", {
         "course": course,
         "lessons": lessons,
+        "lesson_rows": lesson_rows,
+        "lesson_progress": lesson_progress,
         "has_access": has_access,
         "enrollment": enrollment,
         "is_a0_world": is_a0_world,
@@ -51,6 +132,9 @@ def course_lesson_detail(request, course_pk, lesson_pk):
         published_lesson_queryset().filter(course=course),
         pk=lesson_pk,
     )
+    drip_redirect = _drip_gate(request, course, lesson)
+    if drip_redirect:
+        return drip_redirect
     progress, _created = CourseLessonProgress.objects.get_or_create(
         user=request.user, lesson=lesson,
     )
@@ -87,6 +171,9 @@ def mark_lesson_complete(request, course_pk, lesson_pk):
         published_lesson_queryset().filter(course=course),
         pk=lesson_pk,
     )
+    drip_redirect = _drip_gate(request, course, lesson)
+    if drip_redirect:
+        return drip_redirect
     progress, _created = CourseLessonProgress.objects.get_or_create(
         user=request.user, lesson=lesson,
     )
@@ -122,6 +209,9 @@ def lesson_quiz_attempt(request, course_pk, lesson_pk):
         published_lesson_queryset().filter(course=course),
         pk=lesson_pk,
     )
+    drip_redirect = _drip_gate(request, course, lesson)
+    if drip_redirect:
+        return drip_redirect
     try:
         quiz = lesson.quiz
     except Exception:
@@ -161,6 +251,9 @@ def lesson_quiz_attempt(request, course_pk, lesson_pk):
     if progress.is_complete and not progress.completed_at:
         progress.completed_at = timezone.now()
     progress.save()
+
+    if progress.quiz_passed is False:
+        _notify_teacher_low_performance(course, request.user, lesson, score)
 
     personalised_exercises = []
     try:

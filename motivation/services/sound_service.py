@@ -147,6 +147,53 @@ def _level_up_rewards(user, since) -> Iterable[dict]:
     }]
 
 
+def _level_improved_rewards(user, since) -> Iterable[dict]:
+    """Surface a CEFR level-up (e.g. the A0 → A1 graduation) as a
+    celebratory reward.
+
+    The A0 progression service fires a ``LEVEL_IMPROVED`` notification
+    when a learner graduates — but graduation is neither an achievement
+    nor a UserXP level tick, so it would otherwise pass silently. We
+    read those notification rows so the milestone gets a confetti
+    toast like every other big win.
+    """
+    sound = _sound_for("level_up")
+    try:
+        from notifications import constants as Nc
+        from notifications.models import NotificationEvent
+        rows = (
+            NotificationEvent.objects
+            .filter(user=user, event_type=Nc.LEVEL_IMPROVED, created_at__gte=since)
+            .order_by("-created_at")
+        )
+    except Exception:
+        return []
+    out = []
+    for row in rows:
+        payload = row.payload or {}
+        to_level = payload.get("to_level") or ""
+        out.append({
+            "event_code": "level_up",
+            "message_en": (
+                f"You graduated to level {to_level}!" if to_level
+                else "You reached a new level!"
+            ),
+            "message_ar": (
+                f"تخرّجت إلى المستوى {to_level}!" if to_level
+                else "وصلت إلى مستوى جديد!"
+            ),
+            "audio_src": sound.effective_audio_src if sound else "",
+            # Graduation is a marquee moment — always a confetti burst.
+            "animation": "confetti",
+            "xp_callout_en": "",
+            "xp_callout_ar": "",
+            "earned_at": row.created_at.isoformat(),
+            "id": f"levelup-{row.pk}",
+            "payload": {"to_level": to_level},
+        })
+    return out
+
+
 def recent_rewards_for(user, *, window_seconds: int = DEFAULT_WINDOW_SECONDS) -> list[dict]:
     """Rewards earned in the last ``window_seconds`` seconds.
 
@@ -161,6 +208,7 @@ def recent_rewards_for(user, *, window_seconds: int = DEFAULT_WINDOW_SECONDS) ->
     rewards.extend(_achievement_rewards(user, since))
     rewards.extend(_badge_rewards(user, since))
     rewards.extend(_level_up_rewards(user, since))
+    rewards.extend(_level_improved_rewards(user, since))
     if not _sounds_enabled_for(user):
         # User opted out of audio — keep the toast text + animation,
         # strip the audio so the JS plays nothing.

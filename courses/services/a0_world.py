@@ -10,9 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from django.urls import reverse
-
-from courses.models import Course, CourseLessonProgress, Lesson
+from courses.models import Course, Lesson
+from courses.services.lesson_gate import annotate_lesson_states
 
 
 @dataclass(frozen=True)
@@ -136,35 +135,24 @@ def build_a0_world(
     user,
     has_access: bool,
 ) -> dict:
-    """Return the A0 mission-map state for a student and course."""
+    """Return the A0 mission-map state for a student and course.
+
+    Unlock state comes from the shared ``annotate_lesson_states`` gate,
+    so the A0 mission map and every other course obey the exact same
+    sequential daily-drip rule (and the server-side guard agrees).
+    """
     lesson_list = list(lessons)
-    lesson_ids = [lesson.id for lesson in lesson_list if lesson.id]
-    progress_by_lesson = {
-        progress.lesson_id: progress
-        for progress in CourseLessonProgress.objects.filter(
-            user=user,
-            lesson_id__in=lesson_ids,
-        ).select_related("lesson")
-    }
+    states = annotate_lesson_states(
+        course=course, lessons=lesson_list, user=user, has_access=has_access,
+    )
 
     missions = []
-    previous_completed = True
     completed_count = 0
     for index, template in enumerate(A0_MISSION_TEMPLATES):
-        lesson = lesson_list[index] if index < len(lesson_list) else None
-        progress = progress_by_lesson.get(lesson.id) if lesson else None
-        completed = bool(progress and (progress.completed_at or progress.is_complete))
-        if completed:
+        row = states[index] if index < len(states) else None
+        state = row["state"] if row else "locked"
+        if state == "completed":
             completed_count += 1
-
-        unlocked = bool(has_access and lesson and (index == 0 or previous_completed))
-        can_open = bool(has_access and lesson and (completed or unlocked))
-        if completed:
-            state = "completed"
-        elif unlocked:
-            state = "unlocked"
-        else:
-            state = "locked"
 
         missions.append({
             "index": index + 1,
@@ -175,17 +163,14 @@ def build_a0_world(
             "instruction_en": template.instruction_en,
             "icon": template.icon,
             "xp_reward": template.xp_reward,
-            "lesson": lesson,
-            "lesson_url": (
-                reverse("courses:lesson_detail", args=[course.pk, lesson.pk])
-                if can_open else ""
-            ),
+            "lesson": row["lesson"] if row else None,
+            "lesson_url": row["lesson_url"] if row else "",
+            "available_on": row["available_on"] if row else None,
             "state": state,
             "is_locked": state == "locked",
             "is_unlocked": state == "unlocked",
             "is_completed": state == "completed",
         })
-        previous_completed = completed
 
     return {
         "title_ar": "عالم A0",

@@ -92,4 +92,37 @@ def reject(*, content_object, reviewed_by, notes: str = "") -> ContentReviewLog:
         description=f"Rejected '{content_object}'",
         metadata={"object_id": content_object.id, "notes": notes[:200]},
     )
+    _notify_author_on_reject(content_object, notes)
     return log
+
+
+def _notify_author_on_reject(content_object, notes: str) -> None:
+    """Tell a teacher their lesson needs revision.
+
+    Course rejections are notified separately by the course-review
+    service, so this fires only for lessons (whose rejection had no
+    teacher-facing notification at all). Best-effort — a notification
+    failure must never block the rejection itself.
+    """
+    if content_object._meta.model_name != "lesson":
+        return
+    teacher = getattr(content_object, "created_by", None)
+    if teacher is None:
+        return
+    try:
+        from notifications import constants as C
+        from teacher_portal.services.notification_service import create_teacher_notification
+        create_teacher_notification(
+            teacher=teacher,
+            event_type=C.TEACHER_CONTENT_NEEDS_REVISION,
+            payload={
+                "lesson_id": content_object.id,
+                "lesson_title": getattr(content_object, "title", ""),
+                "notes": notes,
+            },
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "review_workflow: teacher revision notice failed", exc_info=True,
+        )

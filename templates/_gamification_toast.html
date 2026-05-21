@@ -1,16 +1,30 @@
 {% comment %}
-Sprint 5 — Gamification audio + toast.
+Gamification audio + celebration toast.
 
 Included in base.html for authenticated users. Polls the recent-rewards
-endpoint on page load + on window focus and plays each reward exactly
-once per session (deduped by ``id``). Honours the user's
+endpoint on page load + on window focus and celebrates each reward
+exactly once per session (deduped by ``id``). Honours the user's
 sound_effects_enabled flag server-side (audio_src is empty when muted).
+
+Each reward carries an ``animation`` (confetti / sparkle / trophy /
+flame / rocket / none). ``window.onlencoCelebrate(animation)`` is also
+exposed so any page (e.g. a passed quiz result) can fire the same
+celebration.
 {% endcomment %}
 {% if request.user.is_authenticated %}
-<div id="gamiToastWrap" aria-live="polite" aria-atomic="true"
-     style="position:fixed;top:80px;{% if dir == 'rtl' %}left{% else %}right{% endif %}:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
+<div id="gamiToastWrap" class="gami-wrap" aria-live="polite" aria-atomic="true"></div>
 
 <style>
+.gami-wrap {
+  position: fixed;
+  top: 80px;
+  inset-inline-end: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
 .gami-toast {
   background: #fff;
   border: 1px solid hsl(var(--border));
@@ -41,6 +55,45 @@ sound_effects_enabled flag server-side (audio_src is empty when muted).
 .gami-callout {
   font-weight: 700; color: hsl(178 65% 18%); font-size: 13px; margin-top: 3px;
 }
+
+/* --- per-event icon animations --- */
+.gami-anim-trophy  { animation: gami-trophy 0.7s ease-out; }
+.gami-anim-flame   { animation: gami-flame 0.5s ease-in-out 3; }
+.gami-anim-sparkle { animation: gami-sparkle 1s ease-out; }
+@keyframes gami-trophy {
+  0%   { transform: scale(0.5) rotate(-14deg); }
+  55%  { transform: scale(1.2) rotate(10deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes gami-flame {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.16); }
+}
+@keyframes gami-sparkle {
+  0%   { box-shadow: 0 0 0 0 rgba(245, 200, 66, 0.65); }
+  100% { box-shadow: 0 0 0 16px rgba(245, 200, 66, 0); }
+}
+
+/* --- confetti burst --- */
+#gamiConfetti {
+  position: fixed; inset: 0; overflow: hidden;
+  pointer-events: none; z-index: 10000;
+}
+.gami-confetti-piece {
+  position: absolute; top: -14vh;
+  width: 10px; height: 14px; border-radius: 2px;
+  will-change: transform, opacity;
+  animation: gami-confetti-fall linear forwards;
+}
+@keyframes gami-confetti-fall {
+  0%   { transform: translate3d(0, 0, 0) rotateZ(0deg); opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate3d(var(--dx), 125vh, 0) rotateZ(var(--rot)); opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gami-anim-trophy, .gami-anim-flame, .gami-anim-sparkle { animation: none; }
+}
 </style>
 
 <script>
@@ -58,14 +111,59 @@ sound_effects_enabled flag server-side (audio_src is empty when muted).
     streak: "🔥",
     achievement_unlocked: "🏆",
   };
+  var CONFETTI_COLORS = [
+    "#0d9488", "#f59e0b", "#ef4444", "#3b82f6",
+    "#a855f7", "#22c55e", "#ec4899",
+  ];
+  var ICON_ANIM = {
+    sparkle: "gami-anim-sparkle",
+    trophy:  "gami-anim-trophy",
+    flame:   "gami-anim-flame",
+  };
+
+  function reducedMotion() {
+    return window.matchMedia
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function confettiBurst() {
+    if (reducedMotion()) return;
+    var layer = document.createElement("div");
+    layer.id = "gamiConfetti";
+    var pieces = 42;
+    for (var i = 0; i < pieces; i++) {
+      var p = document.createElement("span");
+      p.className = "gami-confetti-piece";
+      var size = 7 + Math.random() * 8;
+      p.style.left = (Math.random() * 100) + "vw";
+      p.style.width = size + "px";
+      p.style.height = (size + Math.random() * 6) + "px";
+      p.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      p.style.setProperty("--dx", (Math.random() * 240 - 120) + "px");
+      p.style.setProperty("--rot", (Math.random() * 720 - 360) + "deg");
+      p.style.animationDuration = (1.6 + Math.random() * 1.1) + "s";
+      p.style.animationDelay = (Math.random() * 0.35) + "s";
+      layer.appendChild(p);
+    }
+    document.body.appendChild(layer);
+    setTimeout(function () { layer.remove(); }, 3200);
+  }
+
+  // Public: any page can fire a celebration (e.g. a passed quiz).
+  window.onlencoCelebrate = function (animation) {
+    if (animation === "confetti" || animation === "rocket") {
+      confettiBurst();
+    }
+  };
 
   function showToast(reward) {
     var msg = (lang === "ar") ? (reward.message_ar || reward.message_en) : (reward.message_en || reward.message_ar);
     var callout = (lang === "ar") ? (reward.xp_callout_ar || "") : (reward.xp_callout_en || "");
     var div = document.createElement("div");
     div.className = "gami-toast";
+    var iconAnim = ICON_ANIM[reward.animation] || "";
     div.innerHTML = ""
-      + '<div class="gami-icon">' + (ICONS[reward.event_code] || "🎉") + '</div>'
+      + '<div class="gami-icon ' + iconAnim + '">' + (ICONS[reward.event_code] || "🎉") + '</div>'
       + '<div>'
       + '<div class="gami-message"></div>'
       + (callout ? '<div class="gami-callout"></div>' : '')
@@ -75,6 +173,8 @@ sound_effects_enabled flag server-side (audio_src is empty when muted).
       div.querySelector(".gami-callout").textContent = callout;
     }
     wrap.appendChild(div);
+    // Big-win animations burst across the screen.
+    window.onlencoCelebrate(reward.animation);
     if (reward.audio_src) {
       try {
         var audio = new Audio(reward.audio_src);

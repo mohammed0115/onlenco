@@ -172,6 +172,14 @@ class Course(models.Model):
     objectives_en = models.TextField(blank=True, verbose_name=_("English objectives"))
     prerequisites = models.TextField(blank=True, verbose_name=_("Prerequisites"))
     is_free = models.BooleanField(default=False, verbose_name=_("Free"))
+    drip_enabled = models.BooleanField(
+        default=True, verbose_name=_("Daily lesson unlock"),
+        help_text=_(
+            "Release one lesson per day: the next lesson unlocks only "
+            "after the previous one is completed and a calendar day has "
+            "passed. Turn off to open every lesson at once."
+        ),
+    )
     is_active = models.BooleanField(default=True, verbose_name=_("Active"))
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,

@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -89,6 +90,23 @@ class A0WorldCoursePageTests(TestCase):
         self.assertEqual(self._mission_state(html, 9), "locked")
 
     def test_completion_unlocks_next_mission(self):
+        # Completed a day ago — the daily-drip gate has elapsed, so the
+        # next mission is now open.
+        CourseLessonProgress.objects.create(
+            user=self.user,
+            lesson=self.lesson_one,
+            video_completed=True,
+            completed_at=timezone.now() - timedelta(days=1),
+        )
+
+        html = self._page()
+
+        self.assertEqual(self._mission_state(html, 1), "completed")
+        self.assertEqual(self._mission_state(html, 2), "unlocked")
+
+    def test_same_day_completion_keeps_next_mission_locked(self):
+        # Daily drip: finishing a lesson today does NOT open the next one
+        # until the following calendar day.
         CourseLessonProgress.objects.create(
             user=self.user,
             lesson=self.lesson_one,
@@ -99,7 +117,7 @@ class A0WorldCoursePageTests(TestCase):
         html = self._page()
 
         self.assertEqual(self._mission_state(html, 1), "completed")
-        self.assertEqual(self._mission_state(html, 2), "unlocked")
+        self.assertEqual(self._mission_state(html, 2), "locked")
 
     def test_a0_page_avoids_complex_grammar_terms(self):
         html = self._page().lower()
