@@ -71,6 +71,25 @@ def reject_payment(request, payment: PaymentSubmission, reason: str):
     )
 
 
+def refund_payment(request, payment: PaymentSubmission, reason: str):
+    """Reverse an approved payment and revoke the subscription it granted."""
+    old_status = payment.status
+    payment.refund(reviewer=request.user, reason=reason)
+    log_action(
+        request,
+        action_type="payment.refund",
+        target_user=payment.user,
+        object_type="PaymentSubmission",
+        object_id=payment.pk,
+        description=f"Refunded payment #{payment.pk}",
+        metadata={
+            "old_status": old_status,
+            "amount_sdg": payment.amount_sdg,
+            "reason": reason[:500],
+        },
+    )
+
+
 def extend_subscription(request, user, days: int):
     profile = user.profile
     now = timezone.now()

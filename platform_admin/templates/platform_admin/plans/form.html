@@ -9,11 +9,11 @@
 {% endblock %}
 
 {% block control_content %}
-<section class="control-card" style="max-width:760px">
+<section class="control-card control-card-narrow">
   <form method="post" class="control-form">
     {% csrf_token %}
     {% if form.non_field_errors %}
-      <div class="control-card" style="background:#fee2e2;border:1px solid #fecaca;margin-bottom:14px;padding:10px 14px">
+      <div class="control-alert control-alert-danger">
         {{ form.non_field_errors }}
       </div>
     {% endif %}
@@ -97,7 +97,7 @@
       </div>
     </div>
 
-    <div style="display:flex;gap:10px;margin-top:18px">
+    <div class="control-actions">
       <button type="submit" class="control-btn control-btn-primary">
         <i data-lucide="save" class="h-4 w-4"></i>
         {% if lang == "ar" %}حفظ{% else %}Save{% endif %}

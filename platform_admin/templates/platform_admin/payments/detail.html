@@ -1,48 +1,128 @@
 {% extends "platform_admin/base.html" %}
 
-{% block control_title %}Payment #{{ payment.pk }}{% endblock %}
-{% block control_subtitle %}{{ payment.user.email|default:payment.user.username }} · {{ payment.plan }} · {{ payment.amount_sdg }} SDG{% endblock %}
+{% block control_title %}{% if lang == "ar" %}دفعة{% else %}Payment{% endif %} #{{ payment.pk }}{% endblock %}
+{% block control_subtitle %}{{ payment.user.email|default:payment.user.username }} · {{ payment.amount_sdg }} SDG{% endblock %}
 
 {% block control_content %}
 <div class="detail-grid">
   <div class="stack">
     <section class="control-card">
-      <h2 class="font-semibold mb-3">Payment detail</h2>
+      <h2 class="font-semibold mb-3">{% if lang == "ar" %}تفاصيل الدفعة{% else %}Payment detail{% endif %}</h2>
       <table class="control-table">
         <tbody>
-          <tr><td>Student</td><td>{{ payment.user.profile.full_name|default:payment.user.email|default:payment.user.username }}</td></tr>
-          <tr><td>Plan</td><td>{{ payment.plan }}</td></tr>
-          <tr><td>Method</td><td>{{ payment.method }}</td></tr>
-          <tr><td>Reference</td><td>{{ payment.transaction_reference|default:"-" }}</td></tr>
-          <tr><td>Amount</td><td>{{ payment.amount_sdg }} SDG</td></tr>
-          <tr><td>Status</td><td><span class="badge">{{ payment.status }}</span></td></tr>
-          <tr><td>Student notes</td><td>{{ payment.admin_note|default:"-" }}</td></tr>
-          <tr><td>Reviewed by</td><td>{% if payment.reviewed_by %}{{ payment.reviewed_by.email|default:payment.reviewed_by.username }}{% else %}-{% endif %}</td></tr>
-          <tr><td>Proof</td><td><a class="btn-control" href="{% url 'platform_admin:payment_proof' payment.pk %}"><i data-lucide="download" class="h-4 w-4"></i> Download safely</a></td></tr>
+          <tr>
+            <td>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</td>
+            <td>{{ payment.user.profile.full_name|default:payment.user.email|default:payment.user.username }}</td>
+          </tr>
+          <tr>
+            <td>{% if lang == "ar" %}الخطة{% else %}Plan{% endif %}</td>
+            <td>
+              {% if payment.plan == "monthly" %}{% if lang == "ar" %}شهري{% else %}Monthly{% endif %}
+              {% elif payment.plan == "quarterly" %}{% if lang == "ar" %}ربع سنوي{% else %}Quarterly{% endif %}
+              {% else %}{{ payment.plan }}{% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td>{% if lang == "ar" %}وسيلة الدفع{% else %}Method{% endif %}</td>
+            <td>{{ payment.method }}</td>
+          </tr>
+          <tr>
+            <td>{% if lang == "ar" %}الرقم المرجعي{% else %}Reference{% endif %}</td>
+            <td>{{ payment.transaction_reference|default:"-" }}</td>
+          </tr>
+          <tr>
+            <td>{% if lang == "ar" %}المبلغ{% else %}Amount{% endif %}</td>
+            <td>{{ payment.amount_sdg }} SDG</td>
+          </tr>
+          <tr>
+            <td>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</td>
+            <td>
+              <span class="badge">
+                {% if payment.status == "pending" %}{% if lang == "ar" %}قيد المراجعة{% else %}Pending{% endif %}
+                {% elif payment.status == "needs_review" %}{% if lang == "ar" %}بحاجة لمراجعة{% else %}Needs review{% endif %}
+                {% elif payment.status == "approved" %}{% if lang == "ar" %}مقبولة{% else %}Approved{% endif %}
+                {% elif payment.status == "rejected" %}{% if lang == "ar" %}مرفوضة{% else %}Rejected{% endif %}
+                {% elif payment.status == "refunded" %}{% if lang == "ar" %}مُستردّة{% else %}Refunded{% endif %}
+                {% else %}{{ payment.status }}{% endif %}
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td>{% if lang == "ar" %}ملاحظات{% else %}Notes{% endif %}</td>
+            <td>{{ payment.admin_note|default:"-" }}</td>
+          </tr>
+          <tr>
+            <td>{% if lang == "ar" %}راجعها{% else %}Reviewed by{% endif %}</td>
+            <td>{% if payment.reviewed_by %}{{ payment.reviewed_by.email|default:payment.reviewed_by.username }}{% else %}-{% endif %}</td>
+          </tr>
+          <tr>
+            <td>{% if lang == "ar" %}إثبات الدفع{% else %}Proof{% endif %}</td>
+            <td>
+              <a class="btn-control" href="{% url 'platform_admin:payment_proof' payment.pk %}">
+                <i data-lucide="download" class="h-4 w-4"></i>
+                {% if lang == "ar" %}تنزيل آمن{% else %}Download safely{% endif %}
+              </a>
+            </td>
+          </tr>
         </tbody>
       </table>
     </section>
   </div>
   <aside class="stack">
+    {% if payment.status == "pending" or payment.status == "needs_review" %}
     <form class="action-box" method="post" action="{% url 'platform_admin:payment_action' payment.pk 'approve' %}">
       {% csrf_token %}
-      <button class="btn-control btn-success" type="submit"><i data-lucide="check" class="h-4 w-4"></i> Approve payment</button>
+      <button class="btn-control btn-success" type="submit">
+        <i data-lucide="check" class="h-4 w-4"></i>
+        {% if lang == "ar" %}قبول الدفعة{% else %}Approve payment{% endif %}
+      </button>
     </form>
     <form class="action-box" method="post" action="{% url 'platform_admin:payment_action' payment.pk 'reject' %}">
       {% csrf_token %}
-      <strong>Reject payment</strong>
+      <strong>{% if lang == "ar" %}رفض الدفعة{% else %}Reject payment{% endif %}</strong>
       {{ reject_form.reason }}
-      <button class="btn-control btn-danger" type="submit"><i data-lucide="x" class="h-4 w-4"></i> Reject</button>
+      <button class="btn-control btn-danger" type="submit">
+        <i data-lucide="x" class="h-4 w-4"></i>
+        {% if lang == "ar" %}رفض{% else %}Reject{% endif %}
+      </button>
     </form>
+    {% endif %}
+    {% if payment.status == "approved" %}
+    <form class="action-box" method="post" action="{% url 'platform_admin:payment_action' payment.pk 'refund' %}"
+          onsubmit="return confirm('{% if lang == "ar" %}استرداد هذه الدفعة وإنهاء الاشتراك؟{% else %}Refund this payment and revoke the subscription?{% endif %}');">
+      {% csrf_token %}
+      <strong>{% if lang == "ar" %}استرداد الدفعة{% else %}Refund payment{% endif %}</strong>
+      {{ refund_form.reason }}
+      <button class="btn-control btn-danger" type="submit">
+        <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+        {% if lang == "ar" %}استرداد{% else %}Refund{% endif %}
+      </button>
+    </form>
+    {% endif %}
+    {% if payment.status == "refunded" %}
+    <div class="action-box">
+      <strong>{% if lang == "ar" %}تم الاسترداد{% else %}Refunded{% endif %}</strong>
+      <p class="muted">
+        {% if payment.refunded_at %}<span dir="ltr">{{ payment.refunded_at|date:"Y-m-d H:i" }}</span>{% endif %}
+        {% if payment.refund_reason %}— {{ payment.refund_reason }}{% endif %}
+      </p>
+    </div>
+    {% endif %}
     <form class="action-box" method="post" action="{% url 'platform_admin:payment_action' payment.pk 'extend-subscription' %}">
       {% csrf_token %}
-      <strong>Extend subscription</strong>
+      <strong>{% if lang == "ar" %}تمديد الاشتراك{% else %}Extend subscription{% endif %}</strong>
       {{ extend_form.days }}
-      <button class="btn-control btn-primary" type="submit"><i data-lucide="calendar-plus" class="h-4 w-4"></i> Extend</button>
+      <button class="btn-control btn-primary" type="submit">
+        <i data-lucide="calendar-plus" class="h-4 w-4"></i>
+        {% if lang == "ar" %}تمديد{% else %}Extend{% endif %}
+      </button>
     </form>
     <form class="action-box" method="post" action="{% url 'platform_admin:payment_action' payment.pk 'expire-subscription' %}">
       {% csrf_token %}
-      <button class="btn-control btn-warning" type="submit"><i data-lucide="calendar-x" class="h-4 w-4"></i> Expire subscription</button>
+      <button class="btn-control btn-warning" type="submit">
+        <i data-lucide="calendar-x" class="h-4 w-4"></i>
+        {% if lang == "ar" %}إنهاء الاشتراك{% else %}Expire subscription{% endif %}
+      </button>
     </form>
   </aside>
 </div>

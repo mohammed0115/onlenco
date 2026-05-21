@@ -4,7 +4,7 @@
 {% block control_subtitle %}{% if lang == "ar" %}إدارة خطط الاشتراك ودقائق AI Tutor اليومية والأسعار.{% else %}Manage subscription plans, daily AI Tutor minutes, and pricing.{% endif %}{% endblock %}
 
 {% block control_content %}
-<div style="margin-bottom:14px;display:flex;justify-content:flex-end">
+<div class="control-toolbar-end">
   <a class="control-btn control-btn-primary" href="{% url 'platform_admin:plan_create' %}">
     <i data-lucide="plus" class="h-4 w-4"></i>
     {% if lang == "ar" %}إضافة خطة{% else %}Add Plan{% endif %}
@@ -13,7 +13,7 @@
 
 {% if messages %}
   {% for m in messages %}
-    <div class="control-card" style="margin-bottom:10px;padding:10px 14px;background:#dcfce7;border:1px solid #86efac">{{ m }}</div>
+    <div class="control-alert control-alert-success">{{ m }}</div>
   {% endfor %}
 {% endif %}
 
@@ -43,11 +43,11 @@
               <span class="badge">{% if lang == "ar" %}موقوفة{% else %}inactive{% endif %}</span>
             {% endif %}
           </td>
-          <td style="display:flex;gap:8px">
+          <td class="row-actions">
             <a class="control-link" href="{% url 'platform_admin:plan_edit' plan.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
-            <form method="post" action="{% url 'platform_admin:plan_delete' plan.pk %}" onsubmit="return confirm('{% if lang == "ar" %}حذف هذه الخطة؟{% else %}Delete this plan?{% endif %}');" style="display:inline">
+            <form method="post" action="{% url 'platform_admin:plan_delete' plan.pk %}" onsubmit="return confirm('{% if lang == "ar" %}حذف هذه الخطة؟{% else %}Delete this plan?{% endif %}');">
               {% csrf_token %}
-              <button type="submit" class="link-danger" style="background:none;border:none;cursor:pointer;color:#d92d20">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+              <button type="submit" class="btn-link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
             </form>
           </td>
         </tr>

@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 
 from courses.models import Course, Lesson, LessonResource
-from payments.models import PaymentSubmission
+from payments.models import PaymentMethodAccount, PaymentSubmission
 from placement.models import PlacementQuestion
 from platform_admin.models import RISK_STATUS_CHOICES
 from subscriptions.models import SubscriptionPlan
@@ -66,6 +66,24 @@ class ExtendSubscriptionForm(forms.Form):
 
 class PaymentRejectForm(forms.Form):
     reason = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), max_length=1000)
+
+
+class PaymentRefundForm(forms.Form):
+    reason = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), max_length=1000)
+
+
+class PaymentMethodAccountForm(forms.ModelForm):
+    """Create / edit the bank or wallet account a student transfers to."""
+
+    class Meta:
+        model = PaymentMethodAccount
+        fields = [
+            "method", "label", "account_number", "account_holder",
+            "instructions", "is_active", "sort_order",
+        ]
+        widgets = {
+            "instructions": forms.Textarea(attrs={"rows": 3}),
+        }
 
 
 class CourseRejectForm(forms.Form):

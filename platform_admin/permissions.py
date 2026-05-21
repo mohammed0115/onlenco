@@ -253,6 +253,7 @@ def nav_items_for(user) -> list[dict]:
         (CAP_COURSES_VIEW, "Courses", "الكورسات", "book-open", "platform_admin:courses"),
         (CAP_PAYMENTS_VIEW, "Payments", "المدفوعات", "wallet", "platform_admin:payments"),
         (CAP_PLANS_VIEW, "Plans", "الخطط", "package", "platform_admin:plans"),
+        (CAP_PLANS_VIEW, "Payment Methods", "حسابات الدفع", "credit-card", "platform_admin:payment_methods"),
         (CAP_SETTINGS_VIEW, "Voices & Avatars", "الأصوات والصور", "mic", "platform_admin:voices"),
         # Placement question bank — full CRUD inside the Control Center.
         (CAP_SETTINGS_MANAGE, "Placement Questions", "أسئلة تحديد المستوى", "list-tree", "platform_admin:placement_questions"),

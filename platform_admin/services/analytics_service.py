@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from django.db.models import Avg, Count, Sum
+from django.db.models.functions import TruncMonth
+from django.utils import timezone
 
 from accounts.models import Profile
 from courses.models import Course, CourseEnrollment
@@ -46,13 +48,62 @@ def engagement_analytics() -> dict:
     return {"daily_plans": plans}
 
 
+def _monthly_revenue(qs, months: int = 6) -> list[dict]:
+    """Approved-payment revenue for the last ``months`` calendar months,
+    oldest first. Empty months are filled in so the chart axis is stable.
+    """
+    today = timezone.localdate()
+    buckets: list[tuple[int, int]] = []
+    y, m = today.year, today.month
+    for _ in range(months):
+        buckets.append((y, m))
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    buckets.reverse()
+
+    rows = (
+        qs.filter(status="approved", reviewed_at__isnull=False)
+        .annotate(month=TruncMonth("reviewed_at"))
+        .values("month")
+        .annotate(total=Sum("amount_sdg"))
+    )
+    by_month = {
+        (r["month"].year, r["month"].month): int(r["total"] or 0)
+        for r in rows if r["month"]
+    }
+    series = [
+        {"label": f"{yy}-{mm:02d}", "total": by_month.get((yy, mm), 0)}
+        for (yy, mm) in buckets
+    ]
+    peak = max((s["total"] for s in series), default=0) or 1
+    for s in series:
+        s["pct"] = round(s["total"] * 100 / peak)
+    return series
+
+
 def financial_analytics() -> dict:
     qs = PaymentSubmission.objects.all()
+    approved = qs.filter(status="approved")
+    by_method = list(
+        approved.values("method")
+        .annotate(total=Sum("amount_sdg"), count=Count("id"))
+        .order_by("-total")
+    )
+    by_plan = list(
+        approved.values("plan")
+        .annotate(total=Sum("amount_sdg"), count=Count("id"))
+        .order_by("-total")
+    )
     return {
-        "revenue": qs.filter(status="approved").aggregate(total=Sum("amount_sdg"))["total"] or 0,
+        "revenue": approved.aggregate(total=Sum("amount_sdg"))["total"] or 0,
         "pending": qs.filter(status__in=["pending", "needs_review"]).count(),
-        "approved": qs.filter(status="approved").count(),
+        "approved": approved.count(),
+        "refunded": qs.filter(status="refunded").count(),
         "expired_subscriptions": Profile.objects.filter(subscription_status="expired").count(),
+        "monthly": _monthly_revenue(qs),
+        "by_method": by_method,
+        "by_plan": by_plan,
     }
 
 

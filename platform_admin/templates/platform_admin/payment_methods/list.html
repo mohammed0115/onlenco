@@ -1,0 +1,68 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}حسابات الدفع{% else %}Payment Methods{% endif %}{% endblock %}
+{% block control_subtitle %}
+  {% if lang == "ar" %}حسابات البنوك والمحافظ التي يحوّل إليها الطلاب المدفوعات.
+  {% else %}Bank and wallet accounts students transfer payments to.{% endif %}
+{% endblock %}
+
+{% block control_content %}
+<div class="control-toolbar-end">
+  <a class="control-btn control-btn-primary" href="{% url 'platform_admin:payment_method_create' %}">
+    <i data-lucide="plus" class="h-4 w-4"></i>
+    {% if lang == "ar" %}إضافة حساب{% else %}Add account{% endif %}
+  </a>
+</div>
+
+{% if messages %}
+  {% for m in messages %}
+    <div class="control-alert control-alert-success">{{ m }}</div>
+  {% endfor %}
+{% endif %}
+
+<section class="control-card">
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الوسيلة{% else %}Method{% endif %}</th>
+      <th>{% if lang == "ar" %}الاسم{% else %}Label{% endif %}</th>
+      <th>{% if lang == "ar" %}رقم الحساب{% else %}Account number{% endif %}</th>
+      <th>{% if lang == "ar" %}صاحب الحساب{% else %}Account holder{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for account in accounts %}
+        <tr>
+          <td>{{ account.get_method_display }}</td>
+          <td>{{ account.label }}</td>
+          <td><span dir="ltr">{{ account.account_number }}</span></td>
+          <td>{{ account.account_holder }}</td>
+          <td>
+            {% if account.is_active %}
+              <span class="badge badge-green">{% if lang == "ar" %}مفعّل{% else %}active{% endif %}</span>
+            {% else %}
+              <span class="badge">{% if lang == "ar" %}موقوف{% else %}inactive{% endif %}</span>
+            {% endif %}
+          </td>
+          <td class="row-actions">
+            <a class="control-link" href="{% url 'platform_admin:payment_method_edit' account.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
+            <form method="post" action="{% url 'platform_admin:payment_method_action' account.pk 'toggle' %}">
+              {% csrf_token %}
+              <button type="submit" class="btn-link">
+                {% if account.is_active %}{% if lang == "ar" %}إيقاف{% else %}Disable{% endif %}{% else %}{% if lang == "ar" %}تفعيل{% else %}Enable{% endif %}{% endif %}
+              </button>
+            </form>
+            <form method="post" action="{% url 'platform_admin:payment_method_action' account.pk 'delete' %}"
+                  onsubmit="return confirm('{% if lang == "ar" %}حذف هذا الحساب؟{% else %}Delete this account?{% endif %}');">
+              {% csrf_token %}
+              <button type="submit" class="btn-link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">{% if lang == "ar" %}لا توجد حسابات بعد.{% else %}No accounts yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

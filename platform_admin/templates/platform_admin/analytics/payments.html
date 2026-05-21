@@ -1,13 +1,107 @@
 {% extends "platform_admin/base.html" %}
 
-{% block control_title %}Financial Analytics{% endblock %}
-{% block control_subtitle %}Revenue, pending payments, approved payments, and expired subscriptions.{% endblock %}
+{% block control_title %}{% if lang == "ar" %}التحليلات المالية{% else %}Financial Analytics{% endif %}{% endblock %}
+{% block control_subtitle %}
+  {% if lang == "ar" %}الإيراد، اتجاهه الشهري، وتوزيعه حسب وسيلة الدفع والخطة.
+  {% else %}Revenue, its monthly trend, and the breakdown by payment method and plan.{% endif %}
+{% endblock %}
 
 {% block control_content %}
-<div class="control-grid metrics-grid">
-  <div class="control-card"><div class="metric-value">{{ financial.revenue }}</div><div class="muted">Revenue</div></div>
-  <div class="control-card"><div class="metric-value">{{ financial.pending }}</div><div class="muted">Pending</div></div>
-  <div class="control-card"><div class="metric-value">{{ financial.approved }}</div><div class="muted">Approved</div></div>
-  <div class="control-card"><div class="metric-value">{{ financial.expired_subscriptions }}</div><div class="muted">Expired subscriptions</div></div>
+<style>
+  .fin-chart {
+    display: flex; align-items: stretch; gap: 10px;
+    height: 200px; padding: 14px 4px 0;
+  }
+  .fin-col { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .fin-track { flex: 1; display: flex; align-items: flex-end; }
+  .fin-bar {
+    width: 100%; min-height: 3px; border-radius: 6px 6px 0 0;
+    background: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--primary) / .55));
+  }
+  .fin-val { font-size: 11px; font-weight: 800; text-align: center; }
+  .fin-lbl { font-size: 11px; color: var(--tp-muted, #6b7280); text-align: center; }
+</style>
+
+<div class="control-grid metrics-grid" style="margin-bottom:18px">
+  <div class="control-card">
+    <div class="metric-value">{{ financial.revenue }}</div>
+    <div class="muted">{% if lang == "ar" %}الإيراد (SDG){% else %}Revenue (SDG){% endif %}</div>
+  </div>
+  <div class="control-card">
+    <div class="metric-value">{{ financial.pending }}</div>
+    <div class="muted">{% if lang == "ar" %}قيد المراجعة{% else %}Pending{% endif %}</div>
+  </div>
+  <div class="control-card">
+    <div class="metric-value">{{ financial.approved }}</div>
+    <div class="muted">{% if lang == "ar" %}مقبولة{% else %}Approved{% endif %}</div>
+  </div>
+  <div class="control-card">
+    <div class="metric-value">{{ financial.refunded }}</div>
+    <div class="muted">{% if lang == "ar" %}مُستردّة{% else %}Refunded{% endif %}</div>
+  </div>
+  <div class="control-card">
+    <div class="metric-value">{{ financial.expired_subscriptions }}</div>
+    <div class="muted">{% if lang == "ar" %}اشتراكات منتهية{% else %}Expired subscriptions{% endif %}</div>
+  </div>
+</div>
+
+<section class="control-card" style="margin-bottom:18px">
+  <h2 class="font-semibold mb-3">{% if lang == "ar" %}اتجاه الإيراد — آخر 6 أشهر{% else %}Revenue trend — last 6 months{% endif %}</h2>
+  <div class="fin-chart">
+    {% for m in financial.monthly %}
+      <div class="fin-col">
+        <div class="fin-val">{{ m.total }}</div>
+        <div class="fin-track">
+          <div class="fin-bar" style="height:{{ m.pct }}%" title="{{ m.label }}: {{ m.total }} SDG"></div>
+        </div>
+        <div class="fin-lbl" dir="ltr">{{ m.label }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="control-grid two-grid">
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">{% if lang == "ar" %}الإيراد حسب وسيلة الدفع{% else %}Revenue by payment method{% endif %}</h2>
+    <table class="control-table">
+      <thead><tr>
+        <th>{% if lang == "ar" %}الوسيلة{% else %}Method{% endif %}</th>
+        <th>{% if lang == "ar" %}عدد{% else %}Count{% endif %}</th>
+        <th>{% if lang == "ar" %}الإيراد (SDG){% else %}Revenue (SDG){% endif %}</th>
+      </tr></thead>
+      <tbody>
+        {% for row in financial.by_method %}
+          <tr><td>{{ row.method }}</td><td>{{ row.count }}</td><td>{{ row.total }}</td></tr>
+        {% empty %}
+          <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد بيانات.{% else %}No data yet.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="control-card">
+    <h2 class="font-semibold mb-3">{% if lang == "ar" %}الإيراد حسب الخطة{% else %}Revenue by plan{% endif %}</h2>
+    <table class="control-table">
+      <thead><tr>
+        <th>{% if lang == "ar" %}الخطة{% else %}Plan{% endif %}</th>
+        <th>{% if lang == "ar" %}عدد{% else %}Count{% endif %}</th>
+        <th>{% if lang == "ar" %}الإيراد (SDG){% else %}Revenue (SDG){% endif %}</th>
+      </tr></thead>
+      <tbody>
+        {% for row in financial.by_plan %}
+          <tr>
+            <td>
+              {% if row.plan == "monthly" %}{% if lang == "ar" %}شهري{% else %}Monthly{% endif %}
+              {% elif row.plan == "quarterly" %}{% if lang == "ar" %}ربع سنوي{% else %}Quarterly{% endif %}
+              {% else %}{{ row.plan }}{% endif %}
+            </td>
+            <td>{{ row.count }}</td><td>{{ row.total }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد بيانات.{% else %}No data yet.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
 </div>
 {% endblock %}

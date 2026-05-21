@@ -563,3 +563,42 @@
     padding: 20px;
   }
 }
+
+/* --- layout helpers — replace per-element inline styles --- */
+.control-toolbar-end {
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+.control-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+.control-card-narrow { max-width: 760px; }
+
+/* inline message banners */
+.control-alert {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+.control-alert-success { background: #dcfce7; border-color: #86efac; color: #166534; }
+.control-alert-danger  { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
+
+/* table action cell — wrapper forms collapse so buttons align as a row */
+.row-actions { display: flex; gap: 8px; align-items: center; }
+.row-actions form { display: contents; }
+.btn-link,
+.btn-link-danger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+.btn-link { color: inherit; }
+.btn-link-danger { color: #d92d20; }
+.btn-link:hover,
+.btn-link-danger:hover { text-decoration: underline; }

@@ -5,7 +5,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
-from django.http import FileResponse, Http404, HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -22,6 +22,8 @@ from .forms import (
     CourseRejectForm,
     ExtendSubscriptionForm,
     LessonEditorForm,
+    PaymentMethodAccountForm,
+    PaymentRefundForm,
     PaymentRejectForm,
     PlacementQuestionForm,
     RegisterTeacherForm,
@@ -499,7 +501,13 @@ def payment_detail(request, pk):
     return _render(
         request,
         "platform_admin/payments/detail.html",
-        {"payment": payment, "reject_form": PaymentRejectForm(), "extend_form": ExtendSubscriptionForm(), "section": "payments"},
+        {
+            "payment": payment,
+            "reject_form": PaymentRejectForm(),
+            "refund_form": PaymentRefundForm(),
+            "extend_form": ExtendSubscriptionForm(),
+            "section": "payments",
+        },
     )
 
 
@@ -527,6 +535,16 @@ def payment_action(request, pk, action):
     elif action == "expire-subscription":
         payment_review_service.expire_subscription(request, payment.user)
         messages.warning(request, "Subscription expired.")
+    elif action == "refund":
+        if payment.status != "approved":
+            messages.error(request, "Only an approved payment can be refunded.")
+            return redirect("platform_admin:payment_detail", pk=payment.pk)
+        form = PaymentRefundForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "A refund reason is required.")
+            return redirect("platform_admin:payment_detail", pk=payment.pk)
+        payment_review_service.refund_payment(request, payment, form.cleaned_data["reason"])
+        messages.warning(request, "Payment refunded and subscription revoked.")
     else:
         raise Http404("Unknown action")
     return redirect("platform_admin:payment_detail", pk=payment.pk)
@@ -545,6 +563,37 @@ def payment_proof(request, pk):
         )
     except FileNotFoundError:
         raise Http404("Payment proof not found")
+
+
+@control_permission_required(perms.CAP_PAYMENTS_VIEW)
+def payments_export(request):
+    """Stream the current (filtered) payment list as a CSV download —
+    a transaction record for finance reconciliation."""
+    import csv
+
+    qs = payment_review_service.payment_queryset(request.GET)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="onlenco-payments.csv"'
+    # UTF-8 BOM so Excel renders Arabic student names correctly.
+    response.write("﻿")
+    writer = csv.writer(response)
+    writer.writerow([
+        "ID", "Student", "Email", "Plan", "Method", "Amount SDG",
+        "Status", "Reference", "Submitted", "Reviewed", "Reviewed by",
+    ])
+    for p in qs.iterator():
+        profile = getattr(p.user, "profile", None)
+        writer.writerow([
+            p.pk,
+            getattr(profile, "full_name", "") or "",
+            p.user.email or p.user.username,
+            p.plan, p.method, p.amount_sdg, p.status,
+            p.transaction_reference,
+            p.submitted_at.strftime("%Y-%m-%d %H:%M") if p.submitted_at else "",
+            p.reviewed_at.strftime("%Y-%m-%d %H:%M") if p.reviewed_at else "",
+            (p.reviewed_by.email or p.reviewed_by.username) if p.reviewed_by else "",
+        ])
+    return response
 
 
 @control_permission_required(perms.CAP_AI_VIEW)
@@ -1104,3 +1153,92 @@ def placement_question_action(request, pk, action):
     else:
         raise Http404("Unknown action")
     return redirect("platform_admin:placement_questions")
+
+
+# ---------------------------------------------------------------------------
+# Payment method accounts — bank/wallet details students transfer to.
+# Moved into the Control Center so finance admins manage them without
+# leaving for Django admin.
+# ---------------------------------------------------------------------------
+
+@control_permission_required(perms.CAP_PLANS_VIEW)
+def payment_methods(request):
+    from payments.models import PaymentMethodAccount
+    accounts = PaymentMethodAccount.objects.all().order_by("sort_order", "method")
+    return _render(request, "platform_admin/payment_methods/list.html", {
+        "accounts": accounts, "section": "payment_methods",
+    })
+
+
+@control_permission_required(perms.CAP_PLANS_MANAGE)
+def payment_method_create(request):
+    from platform_admin.services.audit_log_service import log_action
+    if request.method == "POST":
+        form = PaymentMethodAccountForm(request.POST)
+        if form.is_valid():
+            obj = form.save()
+            log_action(
+                request, action_type="payment_method.create",
+                object_type="PaymentMethodAccount", object_id=obj.pk,
+                description=f"Created payment method '{obj.label}'",
+            )
+            messages.success(request, f"Payment method '{obj.label}' created.")
+            return redirect("platform_admin:payment_methods")
+    else:
+        form = PaymentMethodAccountForm()
+    return _render(request, "platform_admin/payment_methods/form.html", {
+        "form": form, "account": None, "section": "payment_methods",
+    })
+
+
+@control_permission_required(perms.CAP_PLANS_MANAGE)
+def payment_method_edit(request, pk):
+    from payments.models import PaymentMethodAccount
+    from platform_admin.services.audit_log_service import log_action
+    account = get_object_or_404(PaymentMethodAccount, pk=pk)
+    if request.method == "POST":
+        form = PaymentMethodAccountForm(request.POST, instance=account)
+        if form.is_valid():
+            obj = form.save()
+            log_action(
+                request, action_type="payment_method.update",
+                object_type="PaymentMethodAccount", object_id=obj.pk,
+                description=f"Updated payment method '{obj.label}'",
+            )
+            messages.success(request, f"Payment method '{obj.label}' saved.")
+            return redirect("platform_admin:payment_methods")
+    else:
+        form = PaymentMethodAccountForm(instance=account)
+    return _render(request, "platform_admin/payment_methods/form.html", {
+        "form": form, "account": account, "section": "payment_methods",
+    })
+
+
+@require_POST
+@control_permission_required(perms.CAP_PLANS_MANAGE)
+def payment_method_action(request, pk, action):
+    """POST-only: toggle-active or delete a payment method account."""
+    from payments.models import PaymentMethodAccount
+    from platform_admin.services.audit_log_service import log_action
+    account = get_object_or_404(PaymentMethodAccount, pk=pk)
+    if action == "toggle":
+        account.is_active = not account.is_active
+        account.save(update_fields=["is_active", "updated_at"])
+        log_action(
+            request, action_type="payment_method.toggle",
+            object_type="PaymentMethodAccount", object_id=account.pk,
+            description=f"{'Activated' if account.is_active else 'Deactivated'} '{account.label}'",
+        )
+        messages.success(request, f"Payment method '{account.label}' updated.")
+    elif action == "delete":
+        label = account.label
+        account.delete()
+        log_action(
+            request, action_type="payment_method.delete",
+            object_type="PaymentMethodAccount", object_id=pk,
+            description=f"Deleted payment method '{label}'",
+        )
+        messages.success(request, f"Payment method '{label}' deleted.")
+    else:
+        raise Http404("Unknown action")
+    return redirect("platform_admin:payment_methods")

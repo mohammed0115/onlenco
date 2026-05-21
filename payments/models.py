@@ -36,6 +36,7 @@ PAYMENT_STATUSES = [
     ("needs_review", "Needs admin review"),
     ("approved",     "Approved"),
     ("rejected",     "Rejected"),
+    ("refunded",     "Refunded"),
 ]
 
 
@@ -112,6 +113,15 @@ class PaymentSubmission(models.Model):
     reviewed_at = models.DateTimeField(blank=True, null=True)
     submitted_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Refund trail — set when an approved payment is reversed.
+    refunded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="refunded_payments",
+    )
+    refunded_at = models.DateTimeField(blank=True, null=True)
+    refund_reason = models.TextField(blank=True)
 
     class Meta:
         verbose_name = _("Payment submission")
@@ -225,3 +235,26 @@ class PaymentSubmission(models.Model):
         except Exception:
             import logging
             logging.getLogger(__name__).exception("notify reject failed")
+
+    def refund(self, reviewer, reason=""):
+        """Reverse an approved payment: mark it refunded and revoke the
+        subscription access it granted.
+
+        Used when money is returned to the student — a duplicate
+        payment, an admin error, or a cancellation. The refund trail
+        (who / when / why) is stored on the row for the audit record.
+        """
+        now = timezone.now()
+        self.status = "refunded"
+        self.refunded_by = reviewer
+        self.refunded_at = now
+        self.refund_reason = reason
+        self.save(update_fields=[
+            "status", "refunded_by", "refunded_at", "refund_reason",
+        ])
+
+        # Money returned → end the subscription this payment unlocked.
+        profile = self.user.profile
+        profile.subscription_status = "expired"
+        profile.subscription_expires_at = now
+        profile.save(update_fields=["subscription_status", "subscription_expires_at"])
