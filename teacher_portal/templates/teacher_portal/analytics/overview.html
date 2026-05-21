@@ -1,26 +1,117 @@
 {% extends "teacher_portal/base.html" %}
 
 {% block teacher_title %}{% if lang == "ar" %}تحليلات المعلم{% else %}Teacher Analytics{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}أداء كورساتك وطلابك في لمحة.{% else %}Your courses and students at a glance.{% endif %}{% endblock %}
 
 {% block teacher_content %}
+<style>
+  .tp-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+  .tp-weakness {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px;
+    background: #fef3c7; color: #92400e;
+    font-size: .85rem; font-weight: 700;
+  }
+  .tp-weakness b { font-weight: 800; }
+</style>
+
+{# ---- metric tiles ---- #}
 <section class="teacher-metrics">
-  <div><strong>{{ completion_rate }}%</strong><span>Course completion</span></div>
-  <div><strong>{{ quiz_average }}%</strong><span>Average quiz score</span></div>
-  <div><strong>{{ inactive_students }}</strong><span>Inactive students</span></div>
-  <div><strong>{{ assignment_submissions }}</strong><span>Assignment submissions</span></div>
+  <div>
+    <strong>{{ completion_rate }}%</strong>
+    <span>{% if lang == "ar" %}نسبة إكمال الدروس{% else %}Course completion{% endif %}</span>
+  </div>
+  <div>
+    <strong>{{ quiz_average }}%</strong>
+    <span>{% if lang == "ar" %}متوسط درجات الاختبارات{% else %}Average quiz score{% endif %}</span>
+  </div>
+  <div>
+    <strong>{{ inactive_students }}</strong>
+    <span>{% if lang == "ar" %}طلاب غير نشطين{% else %}Inactive students{% endif %}</span>
+  </div>
+  <div>
+    <strong>{{ assignment_submissions }}</strong>
+    <span>{% if lang == "ar" %}تسليمات الواجبات{% else %}Assignment submissions{% endif %}</span>
+  </div>
 </section>
+
+{# ---- common weaknesses ---- #}
 <section class="teacher-panel">
-  <div class="panel-heading"><h2>Most difficult lessons</h2></div>
+  <div class="panel-heading">
+    <h2>{% if lang == "ar" %}أكثر المهارات ضعفًا{% else %}Common weaknesses{% endif %}</h2>
+  </div>
+  {% if common_weaknesses %}
+    <div class="tp-chips">
+      {% for w in common_weaknesses %}
+        <span class="tp-weakness">
+          {% if w.skill == "reading" %}{% if lang == "ar" %}قراءة{% else %}Reading{% endif %}
+          {% elif w.skill == "writing" %}{% if lang == "ar" %}كتابة{% else %}Writing{% endif %}
+          {% elif w.skill == "listening" %}{% if lang == "ar" %}استماع{% else %}Listening{% endif %}
+          {% elif w.skill == "speaking" %}{% if lang == "ar" %}تحدّث{% else %}Speaking{% endif %}
+          {% elif w.skill == "grammar" %}{% if lang == "ar" %}قواعد{% else %}Grammar{% endif %}
+          {% elif w.skill == "vocabulary" %}{% if lang == "ar" %}مفردات{% else %}Vocabulary{% endif %}
+          {% elif w.skill == "mixed" %}{% if lang == "ar" %}متنوّع{% else %}Mixed{% endif %}
+          {% else %}{{ w.skill }}{% endif %}
+          <b>· {{ w.count }}</b>
+        </span>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">{% if lang == "ar" %}لا توجد بيانات اختبارات كافية بعد.{% else %}Not enough quiz data yet.{% endif %}</p>
+  {% endif %}
+</section>
+
+{# ---- most difficult lessons ---- #}
+<section class="teacher-panel">
+  <div class="panel-heading">
+    <h2>{% if lang == "ar" %}أصعب الدروس{% else %}Most difficult lessons{% endif %}</h2>
+  </div>
   <table class="teacher-table">
-    <thead><tr><th>Lesson</th><th>Course</th><th>Average score</th></tr></thead>
+    <thead>
+      <tr>
+        <th>{% if lang == "ar" %}الدرس{% else %}Lesson{% endif %}</th>
+        <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
+        <th>{% if lang == "ar" %}متوسط الدرجة{% else %}Average score{% endif %}</th>
+      </tr>
+    </thead>
     <tbody>
       {% for lesson in difficult_lessons %}
-        <tr><td>{{ lesson.title }}</td><td>{{ lesson.course.title }}</td><td>{{ lesson.avg_score|floatformat:1|default:"-" }}</td></tr>
+        <tr>
+          <td>{{ lesson.title }}</td>
+          <td>{{ lesson.course.title }}</td>
+          <td>{{ lesson.avg_score|floatformat:1 }}%</td>
+        </tr>
       {% empty %}
-        <tr><td colspan="3" class="muted">No quiz data yet.</td></tr>
+        <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد بيانات اختبارات بعد.{% else %}No quiz data yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{# ---- courses overview ---- #}
+<section class="teacher-panel">
+  <div class="panel-heading">
+    <h2>{% if lang == "ar" %}نظرة عامة على الكورسات{% else %}Courses overview{% endif %}</h2>
+  </div>
+  <table class="teacher-table">
+    <thead>
+      <tr>
+        <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
+        <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+        <th>{% if lang == "ar" %}عدد المسجّلين{% else %}Enrolled students{% endif %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for course in course_rows %}
+        <tr>
+          <td>{{ course.title }}</td>
+          <td><span class="status-pill status-{{ course.status }}">{{ course.get_status_display }}</span></td>
+          <td>{{ course.enrolled_count }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد كورسات بعد.{% else %}No courses yet.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 {% endblock %}
-

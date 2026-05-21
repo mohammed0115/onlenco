@@ -349,4 +349,6 @@ class TeacherUiAnalyticsTests(TeacherPortalTestMixin):
         self.client.force_login(self.teacher)
         response = self.client.get("/teacher/notifications/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, C.TEACHER_CONTENT_NEEDS_REVISION)
+        # The page shows a human-readable title, not the raw event key.
+        self.assertContains(response, "Content needs revision")
+        self.assertNotContains(response, C.TEACHER_CONTENT_NEEDS_REVISION)

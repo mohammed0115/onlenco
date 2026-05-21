@@ -8,10 +8,10 @@
   <input name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث في عناوين الدروس{% else %}Search lesson titles{% endif %}">
   <select name="status">
     <option value="">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</option>
-    <option value="draft" {% if filters.status == "draft" %}selected{% endif %}>draft</option>
-    <option value="pending_review" {% if filters.status == "pending_review" %}selected{% endif %}>pending_review</option>
-    <option value="published" {% if filters.status == "published" %}selected{% endif %}>published</option>
-    <option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>rejected</option>
+    <option value="draft" {% if filters.status == "draft" %}selected{% endif %}>{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}</option>
+    <option value="pending_review" {% if filters.status == "pending_review" %}selected{% endif %}>{% if lang == "ar" %}قيد المراجعة{% else %}Pending review{% endif %}</option>
+    <option value="published" {% if filters.status == "published" %}selected{% endif %}>{% if lang == "ar" %}منشور{% else %}Published{% endif %}</option>
+    <option value="rejected" {% if filters.status == "rejected" %}selected{% endif %}>{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}</option>
   </select>
   <select name="course">
     <option value="">{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</option>
@@ -39,7 +39,15 @@
           <td>{{ lesson.order }}</td>
           <td>{{ lesson.title_ar|default:lesson.title }}</td>
           <td>{{ lesson.skill|default:lesson.lesson_type }}</td>
-          <td><span class="status-pill status-{{ lesson.status }}">{{ lesson.status }}</span></td>
+          <td>
+            <span class="status-pill status-{{ lesson.status }}">
+              {% if lesson.status == "draft" %}{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}
+              {% elif lesson.status == "pending_review" %}{% if lang == "ar" %}قيد المراجعة{% else %}Pending review{% endif %}
+              {% elif lesson.status == "published" %}{% if lang == "ar" %}منشور{% else %}Published{% endif %}
+              {% elif lesson.status == "rejected" %}{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}
+              {% else %}{{ lesson.status }}{% endif %}
+            </span>
+          </td>
           <td class="row-actions">
             {% if lesson.status == "draft" or lesson.status == "rejected" %}
               <a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>

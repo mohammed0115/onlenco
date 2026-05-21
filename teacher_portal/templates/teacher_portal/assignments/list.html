@@ -22,13 +22,20 @@
         <tr>
           <td>{{ assignment.title_ar|default:assignment.title_en }}</td>
           <td>{{ assignment.course.title_ar|default:assignment.course.title }}</td>
-          <td>{{ assignment.assignment_type }}</td>
+          <td>
+            {% if assignment.assignment_type == "writing" %}{% if lang == "ar" %}كتابة{% else %}Writing{% endif %}
+            {% elif assignment.assignment_type == "speaking" %}{% if lang == "ar" %}تحدّث{% else %}Speaking{% endif %}
+            {% elif assignment.assignment_type == "quiz" %}{% if lang == "ar" %}اختبار{% else %}Quiz{% endif %}
+            {% elif assignment.assignment_type == "reading" %}{% if lang == "ar" %}قراءة{% else %}Reading{% endif %}
+            {% elif assignment.assignment_type == "custom" %}{% if lang == "ar" %}مخصّص{% else %}Custom{% endif %}
+            {% else %}{{ assignment.assignment_type }}{% endif %}
+          </td>
           <td>{{ assignment.due_date|date:"Y-m-d H:i"|default:"-" }}</td>
           <td>{{ assignment.xp_reward }}</td>
           <td>{{ assignment.submissions.count }}</td>
           <td class="row-actions">
             <a href="{% url 'teacher_portal:assignment_detail' assignment.pk %}">{% if lang == "ar" %}فتح{% else %}Open{% endif %}</a>
-            <form method="post" action="{% url 'teacher_portal:assignment_delete' assignment.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الواجب؟{% else %}Delete this assignment?{% endif %}');" style="display:inline">
+            <form method="post" action="{% url 'teacher_portal:assignment_delete' assignment.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الواجب؟{% else %}Delete this assignment?{% endif %}');">
               {% csrf_token %}<button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
             </form>
           </td>

@@ -1,15 +1,145 @@
 {% extends "teacher_portal/base.html" %}
+{% load static %}
 
-{% block teacher_title %}{% if course %}{% if lang == "ar" %}تعديل كورس{% else %}Edit Course{% endif %}{% else %}{% if lang == "ar" %}إنشاء كورس{% else %}Create Course{% endif %}{% endif %}{% endblock %}
+{% block extra_head %}{{ block.super }}
+  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher_forms.css' %}?v=20260521">
+{% endblock %}
+
+{% block teacher_title %}
+  {% if course %}{% if lang == "ar" %}تعديل كورس{% else %}Edit Course{% endif %}
+  {% else %}{% if lang == "ar" %}إنشاء كورس{% else %}Create Course{% endif %}{% endif %}
+{% endblock %}
 
 {% block teacher_content %}
-<form class="teacher-form" method="post" enctype="multipart/form-data">
+<form class="teacher-form tp-form" method="post" enctype="multipart/form-data" novalidate>
   {% csrf_token %}
-  {{ form.as_p }}
+
+  {% if form.non_field_errors %}
+    <div class="tp-form-errors">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  {# ============ 1 · Course info ============ #}
+  <section class="tp-card">
+    <header>
+      <span class="tp-step">1</span>
+      <h3>{% if lang == "ar" %}معلومات الكورس{% else %}Course info{% endif %}</h3>
+    </header>
+    <div class="tp-grid tp-grid-2">
+      <div class="tp-fld">
+        <label for="{{ form.title_ar.id_for_label }}">{% if lang == "ar" %}العنوان (عربي){% else %}Title (Arabic){% endif %}</label>
+        {{ form.title_ar }}
+        {% if form.title_ar.errors %}<small class="tp-err">{{ form.title_ar.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.title_en.id_for_label }}">{% if lang == "ar" %}العنوان (إنجليزي){% else %}Title (English){% endif %}</label>
+        {{ form.title_en }}
+        {% if form.title_en.errors %}<small class="tp-err">{{ form.title_en.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.level.id_for_label }}">{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</label>
+        {{ form.level }}
+        {% if form.level.errors %}<small class="tp-err">{{ form.level.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.language.id_for_label }}">{% if lang == "ar" %}لغة الكورس{% else %}Language{% endif %}</label>
+        {{ form.language }}
+        {% if form.language.errors %}<small class="tp-err">{{ form.language.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.estimated_duration_hours.id_for_label }}">{% if lang == "ar" %}المدة المتوقعة (ساعات){% else %}Estimated duration (hours){% endif %}</label>
+        {{ form.estimated_duration_hours }}
+        {% if form.estimated_duration_hours.errors %}<small class="tp-err">{{ form.estimated_duration_hours.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld tp-check">
+        {{ form.is_free }}
+        <label for="{{ form.is_free.id_for_label }}">{% if lang == "ar" %}كورس مجاني{% else %}Free course{% endif %}</label>
+        {% if form.is_free.errors %}<small class="tp-err">{{ form.is_free.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld tp-check tp-col-2">
+        {{ form.drip_enabled }}
+        <label for="{{ form.drip_enabled.id_for_label }}">
+          {% if lang == "ar" %}فتح درس واحد كل يوم (قفل تسلسلي){% else %}Unlock one lesson per day (sequential){% endif %}
+        </label>
+        {% if form.drip_enabled.errors %}<small class="tp-err">{{ form.drip_enabled.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# ============ 2 · Description & objectives ============ #}
+  <section class="tp-card">
+    <header>
+      <span class="tp-step">2</span>
+      <h3>{% if lang == "ar" %}الوصف والأهداف{% else %}Description & objectives{% endif %}</h3>
+    </header>
+    <div class="tp-grid tp-grid-2">
+      <div class="tp-fld">
+        <label for="{{ form.description_ar.id_for_label }}">{% if lang == "ar" %}الوصف (عربي){% else %}Description (Arabic){% endif %}</label>
+        {{ form.description_ar }}
+        {% if form.description_ar.errors %}<small class="tp-err">{{ form.description_ar.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.description_en.id_for_label }}">{% if lang == "ar" %}الوصف (إنجليزي){% else %}Description (English){% endif %}</label>
+        {{ form.description_en }}
+        {% if form.description_en.errors %}<small class="tp-err">{{ form.description_en.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.objectives_ar.id_for_label }}">{% if lang == "ar" %}الأهداف (عربي){% else %}Objectives (Arabic){% endif %}</label>
+        {{ form.objectives_ar }}
+        {% if form.objectives_ar.errors %}<small class="tp-err">{{ form.objectives_ar.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.objectives_en.id_for_label }}">{% if lang == "ar" %}الأهداف (إنجليزي){% else %}Objectives (English){% endif %}</label>
+        {{ form.objectives_en }}
+        {% if form.objectives_en.errors %}<small class="tp-err">{{ form.objectives_en.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# ============ 3 · Media ============ #}
+  <section class="tp-card">
+    <header>
+      <span class="tp-step">3</span>
+      <h3>{% if lang == "ar" %}الوسائط{% else %}Media{% endif %}</h3>
+      <span class="tp-hint">{% if lang == "ar" %}صورة الغلاف وفيديو تعريفي للكورس.{% else %}Cover image and an intro video.{% endif %}</span>
+    </header>
+
+    {% if course and course.cover_image %}
+      <div class="tp-current-media">
+        <strong>{% if lang == "ar" %}الغلاف الحالي{% else %}Current cover{% endif %}</strong>
+        <img src="{{ course.cover_image.url }}" alt="">
+      </div>
+    {% endif %}
+    {% if course and course.intro_video %}
+      <div class="tp-current-media">
+        <strong>{% if lang == "ar" %}الفيديو التعريفي الحالي{% else %}Current intro video{% endif %}</strong>
+        <video controls preload="none" src="{{ course.intro_video.url }}"></video>
+      </div>
+    {% endif %}
+
+    <div class="tp-grid tp-grid-2">
+      <div class="tp-fld">
+        <label for="{{ form.cover_image.id_for_label }}">{% if lang == "ar" %}صورة الغلاف{% else %}Cover image{% endif %}</label>
+        {{ form.cover_image }}
+        {% if form.cover_image.errors %}<small class="tp-err">{{ form.cover_image.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.intro_video.id_for_label }}">{% if lang == "ar" %}الفيديو التعريفي{% else %}Intro video{% endif %}</label>
+        {{ form.intro_video }}
+        <small class="tp-help">
+          {% if lang == "ar" %}صيغ مقبولة: mp4 أو webm أو m4v.{% else %}Accepted: .mp4, .webm or .m4v.{% endif %}
+        </small>
+        {% if form.intro_video.errors %}<small class="tp-err">{{ form.intro_video.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+  </section>
+
   <div class="form-actions">
-    <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="save"></i>{% if lang == "ar" %}حفظ{% else %}Save{% endif %}</button>
-    <a class="teacher-btn" href="{% url 'teacher_portal:courses' %}">{% if lang == "ar" %}رجوع{% else %}Back{% endif %}</a>
+    <button class="teacher-btn teacher-btn-primary" type="submit">
+      <i data-lucide="save"></i>{% if lang == "ar" %}حفظ الكورس{% else %}Save course{% endif %}
+    </button>
+    <a class="teacher-btn" href="{% url 'teacher_portal:courses' %}">
+      {% if lang == "ar" %}رجوع{% else %}Back{% endif %}
+    </a>
   </div>
 </form>
 {% endblock %}
-

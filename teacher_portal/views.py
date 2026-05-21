@@ -33,6 +33,7 @@ from .services import (
     course_service,
     dashboard_service,
     lesson_service,
+    notification_service,
     quiz_service,
     student_service,
 )
@@ -529,6 +530,7 @@ TEACHER_NOTIFICATION_EVENT_TYPES = [
     notification_constants.TEACHER_ASSIGNMENT_SUBMITTED,
     notification_constants.TEACHER_STUDENT_LOW_PERFORMANCE,
     notification_constants.TEACHER_CONTENT_NEEDS_REVISION,
+    notification_constants.TEACHER_DAILY_DIGEST,
 ]
 
 
@@ -539,7 +541,8 @@ def notifications(request):
         .filter(user=request.user, event_type__in=TEACHER_NOTIFICATION_EVENT_TYPES)
         .order_by("-created_at")[:50]
     )
-    return _render(request, "teacher_portal/notifications/list.html", "notifications", {"events": events})
+    rows = [notification_service.describe_teacher_event(e) for e in events]
+    return _render(request, "teacher_portal/notifications/list.html", "notifications", {"rows": rows})
 
 
 @teacher_required

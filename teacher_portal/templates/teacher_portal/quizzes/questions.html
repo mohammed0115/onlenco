@@ -4,7 +4,7 @@
 
 {% block teacher_content %}
 <div class="toolbar-line">
-  <form method="post" action="{% url 'teacher_portal:quiz_delete' quiz.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف الاختبار وجميع أسئلته؟{% else %}Delete the quiz and all its questions?{% endif %}');" style="display:inline">
+  <form method="post" action="{% url 'teacher_portal:quiz_delete' quiz.pk %}" onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف الاختبار وجميع أسئلته؟{% else %}Delete the quiz and all its questions?{% endif %}');">
     {% csrf_token %}<button type="submit" class="teacher-btn link-danger">{% if lang == "ar" %}حذف الاختبار{% else %}Delete quiz{% endif %}</button>
   </form>
 </div>
@@ -28,7 +28,7 @@
             <td>{{ question.points }}</td>
             <td class="row-actions">
               <a href="{% url 'teacher_portal:question_edit' question.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
-              <form method="post" action="{% url 'teacher_portal:question_delete' question.pk %}" onsubmit="return confirm('{% if lang == "ar" %}حذف هذا السؤال؟{% else %}Delete this question?{% endif %}');" style="display:inline">
+              <form method="post" action="{% url 'teacher_portal:question_delete' question.pk %}" onsubmit="return confirm('{% if lang == "ar" %}حذف هذا السؤال؟{% else %}Delete this question?{% endif %}');">
                 {% csrf_token %}<button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
               </form>
             </td>

@@ -641,3 +641,44 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- list-page polish — replaces per-element inline styles --- */
+/* Action wrapper forms (delete / archive / submit) collapse so their
+   button lines up as a flex item beside the sibling links/buttons. */
+.row-actions form,
+.toolbar-line form { display: contents; }
+
+/* Inline sort form inside a list toolbar (label + select on one line). */
+.toolbar-line .tp-sort-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.toolbar-line .tp-sort-form label { font-size: 13px; }
+
+/* --- teacher notifications list --- */
+.tp-notif-list { display: grid; }
+.tp-notif {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--tp-border);
+}
+.tp-notif:last-child { border-bottom: 0; }
+.tp-notif-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--tp-surface);
+  border: 1px solid var(--tp-border);
+  color: var(--tp-primary);
+}
+.tp-notif-body { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.tp-notif-body strong { font-size: .92rem; }
+.tp-notif-detail { font-size: 13px; color: var(--tp-muted); }
+.tp-notif-time { font-size: 12px; color: var(--tp-muted); }
+.tp-notif-empty { padding: 18px 4px; color: var(--tp-muted); }

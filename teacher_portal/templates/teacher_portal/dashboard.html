@@ -13,6 +13,9 @@
   <div><strong>{{ metrics.quiz_average }}%</strong><span>{% if lang == "ar" %}متوسط الاختبارات{% else %}Quiz Average{% endif %}</span></div>
   <div><strong>{{ metrics.completion_rate }}%</strong><span>{% if lang == "ar" %}إكمال الدروس{% else %}Completion Rate{% endif %}</span></div>
   <div><strong>{{ metrics.assignments_submitted }}</strong><span>{% if lang == "ar" %}واجبات مرسلة{% else %}Submissions{% endif %}</span></div>
+  <div><strong>{{ metrics.rejected }}</strong><span>{% if lang == "ar" %}كورسات مرفوضة{% else %}Rejected Courses{% endif %}</span></div>
+  <div><strong>{{ metrics.active_students }}</strong><span>{% if lang == "ar" %}نشطون اليوم{% else %}Active Today{% endif %}</span></div>
+  <div><strong>{{ metrics.delayed_students }}</strong><span>{% if lang == "ar" %}طلاب متعثّرون{% else %}Students Behind{% endif %}</span></div>
 </section>
 
 <div class="teacher-grid two">
@@ -55,6 +58,39 @@
         </tr>
       {% empty %}
         <tr><td colspan="4" class="muted">{% if lang == "ar" %}لا توجد كورسات بعد.{% else %}No courses yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="teacher-panel">
+  <div class="panel-heading">
+    <h2>{% if lang == "ar" %}آخر التسليمات{% else %}Recent Submissions{% endif %}</h2>
+  </div>
+  <table class="teacher-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
+      <th>{% if lang == "ar" %}الواجب{% else %}Assignment{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for s in recent_submissions %}
+        <tr>
+          <td>{{ s.student.profile.full_name|default:s.student.email }}</td>
+          <td>{{ s.assignment.title_ar|default:s.assignment.title_en }}</td>
+          <td>
+            <span class="status-pill status-{{ s.status }}">
+              {% if s.status == "submitted" %}{% if lang == "ar" %}مُسلَّم{% else %}Submitted{% endif %}
+              {% elif s.status == "reviewed" %}{% if lang == "ar" %}تمت المراجعة{% else %}Reviewed{% endif %}
+              {% elif s.status == "needs_revision" %}{% if lang == "ar" %}يحتاج تعديلًا{% else %}Needs revision{% endif %}
+              {% else %}{{ s.status }}{% endif %}
+            </span>
+          </td>
+          <td><a class="teacher-link" href="{% url 'teacher_portal:submission_review' s.pk %}">{% if lang == "ar" %}مراجعة{% else %}Review{% endif %}</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="muted">{% if lang == "ar" %}لا توجد تسليمات بعد.{% else %}No submissions yet.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

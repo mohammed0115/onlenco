@@ -8,8 +8,8 @@
     <i data-lucide="plus"></i>
     {% if lang == "ar" %}إضافة درس{% else %}Add Lesson{% endif %}
   </a>
-  <form method="get" style="display:inline-flex;gap:8px;align-items:center;margin-inline-start:12px">
-    <label class="muted" style="font-size:13px">{% if lang == "ar" %}ترتيب:{% else %}Sort:{% endif %}</label>
+  <form method="get" class="tp-sort-form">
+    <label class="muted">{% if lang == "ar" %}ترتيب:{% else %}Sort:{% endif %}</label>
     <select name="sort" onchange="this.form.submit()">
       <option value="order"     {% if sort_param == "order" %}selected{% endif %}>{% if lang == "ar" %}حسب الترتيب{% else %}By order{% endif %}</option>
       <option value="-order"    {% if sort_param == "-order" %}selected{% endif %}>{% if lang == "ar" %}الترتيب عكسياً{% else %}Reverse order{% endif %}</option>
@@ -69,7 +69,6 @@
             <span class="status-pill status-{{ lesson.status }}">
               {% if lesson.status == "draft" %}{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}
               {% elif lesson.status == "pending_review" %}{% if lang == "ar" %}قيد المراجعة{% else %}Pending review{% endif %}
-              {% elif lesson.status == "approved" %}{% if lang == "ar" %}معتمد{% else %}Approved{% endif %}
               {% elif lesson.status == "published" %}{% if lang == "ar" %}منشور{% else %}Published{% endif %}
               {% elif lesson.status == "rejected" %}{% if lang == "ar" %}مرفوض{% else %}Rejected{% endif %}
               {% else %}{{ lesson.status }}{% endif %}
@@ -81,13 +80,12 @@
             <a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}">{% if lang == "ar" %}الاختبار{% else %}Quiz{% endif %}</a>
             {% if lesson.status == "draft" or lesson.status == "rejected" %}
               <a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
-              <form method="post" action="{% url 'teacher_portal:lesson_submit_review' lesson.pk %}" style="display:inline">
+              <form method="post" action="{% url 'teacher_portal:lesson_submit_review' lesson.pk %}">
                 {% csrf_token %}
                 <button type="submit">{% if lang == "ar" %}إرسال للمراجعة{% else %}Submit{% endif %}</button>
               </form>
               <form method="post" action="{% url 'teacher_portal:lesson_delete' lesson.pk %}"
-                    onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الدرس؟{% else %}Delete this lesson?{% endif %}');"
-                    style="display:inline">
+                    onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الدرس؟{% else %}Delete this lesson?{% endif %}');">
                 {% csrf_token %}
                 <button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
               </form>

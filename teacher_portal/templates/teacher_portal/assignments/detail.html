@@ -1,27 +1,49 @@
 {% extends "teacher_portal/base.html" %}
 
 {% block teacher_title %}{{ assignment.title_ar|default:assignment.title_en }}{% endblock %}
-{% block teacher_subtitle %}{{ assignment.course.title }} · {{ assignment.assignment_type }}{% endblock %}
+{% block teacher_subtitle %}
+  {{ assignment.course.title }} ·
+  {% if assignment.assignment_type == "writing" %}{% if lang == "ar" %}كتابة{% else %}Writing{% endif %}
+  {% elif assignment.assignment_type == "speaking" %}{% if lang == "ar" %}تحدّث{% else %}Speaking{% endif %}
+  {% elif assignment.assignment_type == "quiz" %}{% if lang == "ar" %}اختبار{% else %}Quiz{% endif %}
+  {% elif assignment.assignment_type == "reading" %}{% if lang == "ar" %}قراءة{% else %}Reading{% endif %}
+  {% elif assignment.assignment_type == "custom" %}{% if lang == "ar" %}مخصّص{% else %}Custom{% endif %}
+  {% else %}{{ assignment.assignment_type }}{% endif %}
+{% endblock %}
 
 {% block teacher_content %}
 <section class="teacher-panel">
-  <div class="panel-heading"><h2>Submissions</h2></div>
+  <div class="panel-heading"><h2>{% if lang == "ar" %}التسليمات{% else %}Submissions{% endif %}</h2></div>
   <table class="teacher-table">
-    <thead><tr><th>Student</th><th>Status</th><th>Score</th><th>Submitted</th><th></th></tr></thead>
+    <thead>
+      <tr>
+        <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
+        <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+        <th>{% if lang == "ar" %}الدرجة{% else %}Score{% endif %}</th>
+        <th>{% if lang == "ar" %}تاريخ التسليم{% else %}Submitted{% endif %}</th>
+        <th></th>
+      </tr>
+    </thead>
     <tbody>
       {% for submission in submissions %}
         <tr>
           <td>{{ submission.student.profile.full_name|default:submission.student.email }}</td>
-          <td>{{ submission.status }}</td>
+          <td>
+            <span class="status-pill status-{{ submission.status }}">
+              {% if submission.status == "submitted" %}{% if lang == "ar" %}مُسلَّم{% else %}Submitted{% endif %}
+              {% elif submission.status == "reviewed" %}{% if lang == "ar" %}تمت المراجعة{% else %}Reviewed{% endif %}
+              {% elif submission.status == "needs_revision" %}{% if lang == "ar" %}يحتاج تعديلًا{% else %}Needs revision{% endif %}
+              {% else %}{{ submission.status }}{% endif %}
+            </span>
+          </td>
           <td>{{ submission.score|default:"-" }}</td>
-          <td>{{ submission.submitted_at|date:"Y-m-d H:i" }}</td>
-          <td><a href="{% url 'teacher_portal:submission_review' submission.pk %}">Review</a></td>
+          <td><span dir="ltr">{{ submission.submitted_at|date:"Y-m-d H:i" }}</span></td>
+          <td><a href="{% url 'teacher_portal:submission_review' submission.pk %}">{% if lang == "ar" %}مراجعة{% else %}Review{% endif %}</a></td>
         </tr>
       {% empty %}
-        <tr><td colspan="5" class="muted">No submissions yet.</td></tr>
+        <tr><td colspan="5" class="muted">{% if lang == "ar" %}لا توجد تسليمات بعد.{% else %}No submissions yet.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 {% endblock %}
-

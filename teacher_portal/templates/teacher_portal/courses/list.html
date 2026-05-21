@@ -117,15 +117,13 @@ The `class="sort-active"` styling tells the user the current order.
             {% if course.status == "draft" or course.status == "rejected" %}
               <a href="{% url 'teacher_portal:course_edit' course.pk %}">{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
               <form method="post" action="{% url 'teacher_portal:course_delete' course.pk %}"
-                    onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الكورس نهائياً؟{% else %}Delete this course permanently?{% endif %}');"
-                    style="display:inline">
+                    onsubmit="return confirm('{% if lang == "ar" %}هل تريد حذف هذا الكورس نهائياً؟{% else %}Delete this course permanently?{% endif %}');">
                 {% csrf_token %}
                 <button type="submit" class="link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
               </form>
             {% elif course.status == "published" %}
               <form method="post" action="{% url 'teacher_portal:course_archive' course.pk %}"
-                    onsubmit="return confirm('{% if lang == "ar" %}أرشفة الكورس تخفيه عن الطلاب — هل أنت متأكد؟{% else %}Archiving hides this course from students. Continue?{% endif %}');"
-                    style="display:inline">
+                    onsubmit="return confirm('{% if lang == "ar" %}أرشفة الكورس تخفيه عن الطلاب — هل أنت متأكد؟{% else %}Archiving hides this course from students. Continue?{% endif %}');">
                 {% csrf_token %}
                 <button type="submit" class="link-danger">{% if lang == "ar" %}أرشفة{% else %}Archive{% endif %}</button>
               </form>

@@ -1,0 +1,113 @@
+/* teacher_forms.css — shared layout for the teacher portal create/edit
+ * forms (lessons, courses). Card-sectioned, responsive, RTL-safe.
+ * Reuses .teacher-form input styling from teacher.css; this file only
+ * adds the section/grid scaffolding. */
+
+.teacher-form.tp-form {
+  display: grid;
+  gap: 16px;
+  max-width: 880px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* --- section card --- */
+.tp-card {
+  border: 1px solid var(--tp-border);
+  border-radius: 12px;
+  background: var(--tp-surface);
+  padding: 18px 20px;
+}
+.tp-card > header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--tp-border);
+}
+.tp-card > header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+.tp-card > header .tp-step {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--tp-primary, #0d9488);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.tp-card > header .tp-hint {
+  font-size: 13px;
+  color: var(--tp-muted, #6b7280);
+}
+
+/* --- field grid --- */
+.tp-grid { display: grid; gap: 14px; }
+.tp-grid-2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 640px) {
+  .tp-grid-2 { grid-template-columns: 1fr; }
+}
+.tp-fld { display: grid; gap: 6px; }
+.tp-fld.tp-col-2 { grid-column: 1 / -1; }
+.tp-fld label {
+  font-weight: 700;
+  font-size: .86rem;
+  color: var(--tp-text);
+}
+.tp-fld small.tp-help {
+  font-size: 12px;
+  color: var(--tp-muted, #6b7280);
+}
+.tp-fld small.tp-err {
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* checkbox row — keep the box beside its label */
+.tp-fld.tp-check {
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+  gap: 8px;
+}
+.tp-fld.tp-check input { width: auto; }
+
+/* --- current media preview (edit mode) --- */
+.tp-current-media {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  border: 1px dashed var(--tp-border);
+  border-radius: 10px;
+}
+.tp-current-media strong { font-size: .82rem; }
+.tp-current-media video,
+.tp-current-media img {
+  width: 100%;
+  max-height: 240px;
+  border-radius: 8px;
+  background: #000;
+  object-fit: contain;
+}
+
+/* --- form-level error banner --- */
+.tp-form-errors {
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: .9rem;
+}

@@ -1,19 +1,33 @@
 {% extends "teacher_portal/base.html" %}
 
 {% block teacher_title %}{% if lang == "ar" %}إشعارات المعلم{% else %}Teacher Notifications{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}آخر التحديثات على كورساتك وطلابك.{% else %}Recent updates on your courses and students.{% endif %}{% endblock %}
 
 {% block teacher_content %}
 <section class="teacher-panel">
-  <table class="teacher-table">
-    <thead><tr><th>Event</th><th>Status</th><th>Payload</th><th>Created</th></tr></thead>
-    <tbody>
-      {% for event in events %}
-        <tr><td>{{ event.event_type }}</td><td>{{ event.status }}</td><td><code>{{ event.payload }}</code></td><td>{{ event.created_at|date:"Y-m-d H:i" }}</td></tr>
-      {% empty %}
-        <tr><td colspan="4" class="muted">No notifications.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="tp-notif-list">
+    {% for row in rows %}
+      <div class="tp-notif">
+        <span class="tp-notif-icon"><i data-lucide="{{ row.icon }}" class="h-4 w-4"></i></span>
+        <div class="tp-notif-body">
+          <strong>
+            {% if lang == "ar" %}{{ row.title_ar|default:row.title_en }}{% else %}{{ row.title_en }}{% endif %}
+          </strong>
+          {% if lang == "ar" and row.detail_ar %}<span class="tp-notif-detail">{{ row.detail_ar }}</span>
+          {% elif row.detail_en %}<span class="tp-notif-detail">{{ row.detail_en }}</span>{% endif %}
+          <span class="tp-notif-time" dir="ltr">{{ row.created_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        {% if row.url %}
+          <a class="teacher-link" href="{{ row.url }}">
+            {% if lang == "ar" %}عرض{% else %}View{% endif %}
+          </a>
+        {% endif %}
+      </div>
+    {% empty %}
+      <div class="tp-notif-empty">
+        {% if lang == "ar" %}لا توجد إشعارات بعد.{% else %}No notifications yet.{% endif %}
+      </div>
+    {% endfor %}
+  </div>
 </section>
 {% endblock %}
-

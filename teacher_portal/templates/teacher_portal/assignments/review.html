@@ -1,15 +1,25 @@
 {% extends "teacher_portal/base.html" %}
 
-{% block teacher_title %}Review Submission{% endblock %}
+{% block teacher_title %}{% if lang == "ar" %}مراجعة تسليم{% else %}Review Submission{% endif %}{% endblock %}
 
 {% block teacher_content %}
 <section class="teacher-panel">
-  <p>{{ submission.text_answer|linebreaksbr }}</p>
+  <div class="panel-heading">
+    <h2>{% if lang == "ar" %}إجابة الطالب{% else %}Student's answer{% endif %}</h2>
+  </div>
+  {% if submission.text_answer %}
+    <p>{{ submission.text_answer|linebreaksbr }}</p>
+  {% else %}
+    <p class="muted">{% if lang == "ar" %}لا توجد إجابة نصية.{% else %}No text answer.{% endif %}</p>
+  {% endif %}
 </section>
 <form class="teacher-form" method="post">
   {% csrf_token %}
   {{ form.as_p }}
-  <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="check"></i>Save review</button>
+  <div class="form-actions">
+    <button class="teacher-btn teacher-btn-primary" type="submit">
+      <i data-lucide="check"></i>{% if lang == "ar" %}حفظ المراجعة{% else %}Save review{% endif %}
+    </button>
+  </div>
 </form>
 {% endblock %}
-

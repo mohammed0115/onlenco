@@ -48,6 +48,7 @@ class TeacherCourseForm(forms.ModelForm):
             "intro_video",
             "estimated_duration_hours",
             "is_free",
+            "drip_enabled",
         ]
         widgets = {
             "description_ar": forms.Textarea(attrs={"rows": 4}),

@@ -1,16 +1,185 @@
 {% extends "teacher_portal/base.html" %}
+{% load static %}
 
-{% block teacher_title %}{% if lesson %}Edit Lesson{% else %}Add Lesson{% endif %}{% endblock %}
+{% block extra_head %}{{ block.super }}
+  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher_forms.css' %}?v=20260521">
+{% endblock %}
+
+{% block teacher_title %}
+  {% if lesson %}{% if lang == "ar" %}تعديل درس{% else %}Edit Lesson{% endif %}
+  {% else %}{% if lang == "ar" %}إضافة درس{% else %}Add Lesson{% endif %}{% endif %}
+{% endblock %}
 {% block teacher_subtitle %}{{ course.title }}{% endblock %}
 
 {% block teacher_content %}
-<form class="teacher-form" method="post" enctype="multipart/form-data">
+<form class="teacher-form tp-form" method="post" enctype="multipart/form-data" novalidate>
   {% csrf_token %}
-  {{ form.as_p }}
+
+  {% if form.non_field_errors %}
+    <div class="tp-form-errors">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  {# ============ 1 · Lesson info ============ #}
+  <section class="tp-card">
+    <header>
+      <span class="tp-step">1</span>
+      <h3>{% if lang == "ar" %}معلومات الدرس{% else %}Lesson info{% endif %}</h3>
+    </header>
+    <div class="tp-grid tp-grid-2">
+      <div class="tp-fld">
+        <label for="{{ form.title_ar.id_for_label }}">{% if lang == "ar" %}العنوان (عربي){% else %}Title (Arabic){% endif %}</label>
+        {{ form.title_ar }}
+        {% if form.title_ar.errors %}<small class="tp-err">{{ form.title_ar.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.title_en.id_for_label }}">{% if lang == "ar" %}العنوان (إنجليزي){% else %}Title (English){% endif %}</label>
+        {{ form.title_en }}
+        {% if form.title_en.errors %}<small class="tp-err">{{ form.title_en.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.order.id_for_label }}">{% if lang == "ar" %}الترتيب{% else %}Order{% endif %}</label>
+        {{ form.order }}
+        {% if form.order.errors %}<small class="tp-err">{{ form.order.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.lesson_type.id_for_label }}">{% if lang == "ar" %}نوع الدرس{% else %}Lesson type{% endif %}</label>
+        {{ form.lesson_type }}
+        {% if form.lesson_type.errors %}<small class="tp-err">{{ form.lesson_type.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.cefr_level.id_for_label }}">{% if lang == "ar" %}المستوى (CEFR){% else %}CEFR level{% endif %}</label>
+        {{ form.cefr_level }}
+        {% if form.cefr_level.errors %}<small class="tp-err">{{ form.cefr_level.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.skill.id_for_label }}">{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</label>
+        {{ form.skill }}
+        {% if form.skill.errors %}<small class="tp-err">{{ form.skill.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.grammar_topic.id_for_label }}">{% if lang == "ar" %}موضوع القواعد{% else %}Grammar topic{% endif %}</label>
+        {{ form.grammar_topic }}
+        {% if form.grammar_topic.errors %}<small class="tp-err">{{ form.grammar_topic.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.vocabulary_topic.id_for_label }}">{% if lang == "ar" %}موضوع المفردات{% else %}Vocabulary topic{% endif %}</label>
+        {{ form.vocabulary_topic }}
+        {% if form.vocabulary_topic.errors %}<small class="tp-err">{{ form.vocabulary_topic.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.duration_minutes.id_for_label }}">{% if lang == "ar" %}المدة (دقائق){% else %}Duration (minutes){% endif %}</label>
+        {{ form.duration_minutes }}
+        {% if form.duration_minutes.errors %}<small class="tp-err">{{ form.duration_minutes.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# ============ 2 · Content ============ #}
+  <section class="tp-card">
+    <header>
+      <span class="tp-step">2</span>
+      <h3>{% if lang == "ar" %}المحتوى{% else %}Content{% endif %}</h3>
+    </header>
+    <div class="tp-grid tp-grid-2">
+      <div class="tp-fld">
+        <label for="{{ form.content_ar.id_for_label }}">{% if lang == "ar" %}المحتوى (عربي){% else %}Content (Arabic){% endif %}</label>
+        {{ form.content_ar }}
+        {% if form.content_ar.errors %}<small class="tp-err">{{ form.content_ar.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.content_en.id_for_label }}">{% if lang == "ar" %}المحتوى (إنجليزي){% else %}Content (English){% endif %}</label>
+        {{ form.content_en }}
+        {% if form.content_en.errors %}<small class="tp-err">{{ form.content_en.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld tp-col-2">
+        <label for="{{ form.transcript.id_for_label }}">{% if lang == "ar" %}النص المكتوب (Transcript){% else %}Transcript{% endif %}</label>
+        {{ form.transcript }}
+        {% if form.transcript.errors %}<small class="tp-err">{{ form.transcript.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# ============ 3 · Media ============ #}
+  <section class="tp-card">
+    <header>
+      <span class="tp-step">3</span>
+      <h3>{% if lang == "ar" %}الوسائط{% else %}Media{% endif %}</h3>
+      <span class="tp-hint">
+        {% if lang == "ar" %}ارفع ملفًا أو الصق رابطًا — الملف المرفوع له الأولوية.
+        {% else %}Upload a file or paste a link — the uploaded file takes priority.{% endif %}
+      </span>
+    </header>
+
+    {% if lesson and lesson.video_file %}
+      <div class="tp-current-media">
+        <strong>{% if lang == "ar" %}الفيديو الحالي{% else %}Current video{% endif %}</strong>
+        <video controls preload="none" src="{{ lesson.video_file.url }}"></video>
+      </div>
+    {% elif lesson and lesson.video_url %}
+      <div class="tp-current-media">
+        <strong>{% if lang == "ar" %}رابط الفيديو الحالي{% else %}Current video link{% endif %}</strong>
+        <a href="{{ lesson.video_url }}" target="_blank" rel="noopener" dir="ltr">{{ lesson.video_url }}</a>
+      </div>
+    {% endif %}
+
+    <div class="tp-grid">
+      <div class="tp-fld">
+        <label for="{{ form.video_file.id_for_label }}">{% if lang == "ar" %}ملف الفيديو{% else %}Video file{% endif %}</label>
+        {{ form.video_file }}
+        <small class="tp-help">
+          {% if lang == "ar" %}صيغ مقبولة: mp4 أو webm أو m4v.{% else %}Accepted: .mp4, .webm or .m4v.{% endif %}
+        </small>
+        {% if form.video_file.errors %}<small class="tp-err">{{ form.video_file.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.video_url.id_for_label }}">{% if lang == "ar" %}رابط الفيديو{% else %}Video URL{% endif %}</label>
+        {{ form.video_url }}
+        <small class="tp-help">
+          {% if lang == "ar" %}رابط يوتيوب أو فيميو أو رابط mp4 مباشر.{% else %}YouTube, Vimeo, or a direct .mp4/.webm link.{% endif %}
+        </small>
+        {% if form.video_url.errors %}<small class="tp-err">{{ form.video_url.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.audio_file.id_for_label }}">{% if lang == "ar" %}ملف الصوت{% else %}Audio file{% endif %}</label>
+        {{ form.audio_file }}
+        {% if form.audio_file.errors %}<small class="tp-err">{{ form.audio_file.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.pdf_file.id_for_label }}">{% if lang == "ar" %}ملف PDF{% else %}PDF file{% endif %}</label>
+        {{ form.pdf_file }}
+        {% if form.pdf_file.errors %}<small class="tp-err">{{ form.pdf_file.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# ============ 4 · Worksheet ============ #}
+  <section class="tp-card">
+    <header>
+      <span class="tp-step">4</span>
+      <h3>{% if lang == "ar" %}ورقة عمل{% else %}Worksheet{% endif %}</h3>
+      <span class="tp-hint">{% if lang == "ar" %}اختياري{% else %}Optional{% endif %}</span>
+    </header>
+    <div class="tp-grid tp-grid-2">
+      <div class="tp-fld">
+        <label for="{{ form.worksheet_title.id_for_label }}">{% if lang == "ar" %}عنوان ورقة العمل{% else %}Worksheet title{% endif %}</label>
+        {{ form.worksheet_title }}
+        {% if form.worksheet_title.errors %}<small class="tp-err">{{ form.worksheet_title.errors|join:" " }}</small>{% endif %}
+      </div>
+      <div class="tp-fld">
+        <label for="{{ form.worksheet_file.id_for_label }}">{% if lang == "ar" %}ملف ورقة العمل{% else %}Worksheet file{% endif %}</label>
+        {{ form.worksheet_file }}
+        {% if form.worksheet_file.errors %}<small class="tp-err">{{ form.worksheet_file.errors|join:" " }}</small>{% endif %}
+      </div>
+    </div>
+  </section>
+
   <div class="form-actions">
-    <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="save"></i>Save</button>
-    <a class="teacher-btn" href="{% url 'teacher_portal:lessons' course.pk %}">Back</a>
+    <button class="teacher-btn teacher-btn-primary" type="submit">
+      <i data-lucide="save"></i>{% if lang == "ar" %}حفظ الدرس{% else %}Save lesson{% endif %}
+    </button>
+    <a class="teacher-btn" href="{% url 'teacher_portal:lessons' course.pk %}">
+      {% if lang == "ar" %}رجوع{% else %}Back{% endif %}
+    </a>
   </div>
 </form>
 {% endblock %}
-
