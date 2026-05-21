@@ -1,0 +1,15 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}اشتقنا لك 💚{% else %}We missed you 💚{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبًا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    {% if payload.inactive_days %}مرّت {{ payload.inactive_days }} أيام منذ آخر درس لك. {% endif %}لا بأس — حضّرنا لك خطة عودة قصيرة. درس واحد بسيط يكفي لتعود للمسار.
+  {% else %}
+    {% if payload.inactive_days %}It's been {{ payload.inactive_days }} days since your last lesson. {% endif %}No worries — we made you a short comeback plan. One easy lesson is all it takes to restart.
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">
+  {% if lang == "ar" %}ابدأ خطة العودة{% else %}{{ cta_label|default:"Start your comeback plan" }}{% endif %}
+</a></p>
+{% endblock %}

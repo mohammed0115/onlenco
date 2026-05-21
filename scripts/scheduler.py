@@ -93,6 +93,16 @@ def fire(now) -> None:
         # Real students normally verify within minutes.
         _run("prune_unverified_users")
 
+    if hh == 6 and mm == 0:
+        # Morning nudge — today's daily-plan reminder email to every
+        # active student (plan-ready / comeback / streak variant).
+        _run("send_daily_learning_reminders", all_active=True)
+
+    if hh == 6 and mm == 30:
+        # Per-teacher daily digest of pending work (submissions to
+        # review, content awaiting revision).
+        _run("send_teacher_digests")
+
     if weekday == 0 and hh == 9 and mm == 0:
         _run("run_motivation_engine", weekly=True)
 

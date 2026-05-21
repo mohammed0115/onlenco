@@ -241,40 +241,31 @@
   const isA0 = (planLevel === "A0");
 
   // ----- Voice (browser TTS) helpers -----
-  // Strip:
-  //   1. Arabic / Hebrew / RTL glyphs (en-US engine reads them as
-  //      codepoints — "zero six two C …").
-  //   2. Standalone digit runs (an engine reading "1000" letter-by-letter
-  //      sounds like "one zero zero zero", or worse with the rate
-  //      controlled — produces the "you 000000" the user reported).
-  //   3. Leftover dashes after Arabic / digit removal.
-  const cleanForTTS = (s) => {
+  // Daily content is read by an English voice, so we pre-strip two things
+  // the shared sanitiser intentionally leaves alone:
+  //   1. Arabic / Hebrew / RTL glyphs — an en-US engine reads them as
+  //      codepoints ("zero six two C …").
+  //   2. Standalone digit runs — read digit-by-digit they sound like
+  //      "one zero zero zero" (the "you 000000" bug).
+  // Everything else (underscores, "UA", blanks, technical keys, symbols)
+  // is handled centrally by onlencoSpeak() in static/js/speech_clean.js.
+  const preStripForEnglishVoice = (s) => {
     if (!s) return '';
-    let out = s.replace(
-      /[֐-׿؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]+/g,
-      ''
-    );
-    // Drop runs of 2+ digits — they sound like noise when the engine
-    // reads them digit-by-digit and rarely add learning value.
-    out = out.replace(/\d{2,}/g, '');
-    out = out.replace(/[–—\-]+\s*$/gm, '');
-    out = out.replace(/\s+[–—\-]+\s*\n/g, '\n');
-    if (window.onlencoSpeechClean) out = window.onlencoSpeechClean(out, 'en');
-    out = out.replace(/[ \t]+/g, ' ').trim();
-    return out;
+    return String(s)
+      .replace(/[֐-׿؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]+/g, '')
+      .replace(/\d{2,}/g, '')
+      .replace(/[–—\-]+\s*$/gm, '')
+      .replace(/[ \t]+/g, ' ')
+      .trim();
   };
 
   const speak = (text, opts = {}) => {
-    const clean = cleanForTTS(text);
-    // Refuse to speak if the cleaned text is suspiciously short or all
-    // punctuation — that's the symptom that produces surprise "0 0 0".
-    if (!clean || clean.length < 2 || !/[a-zA-Z]/.test(clean)) return;
-    if (!('speechSynthesis' in window)) return;
-    const u = new SpeechSynthesisUtterance(clean);
-    u.lang = opts.lang || 'en-US';
-    u.rate = opts.rate || (isA0 ? 0.75 : 0.9);   // A0 = slower
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
+    // Route every utterance through the shared sanitiser. If it failed to
+    // load we stay SILENT rather than read raw "_ / UA / underscore".
+    if (typeof window.onlencoSpeak !== 'function') return;
+    window.onlencoSpeak(preStripForEnglishVoice(text), {
+      rate: opts.rate || (isA0 ? 0.75 : 0.9),   // A0 = slower
+    });
   };
   document.querySelectorAll('[data-tts]').forEach((btn) => {
     btn.addEventListener('click', () => speak(btn.getAttribute('data-tts')));
@@ -344,6 +335,19 @@
     if (finish) {
       finish.addEventListener('click', async () => {
         await markItemComplete(step);
+        // Finishing early is allowed, but must be intentional — confirm
+        // when steps are still pending so a half-done day isn't locked
+        // in by an accidental tap.
+        const done = steps.filter(
+          (s) => s.getAttribute('data-completed') === '1'
+        ).length;
+        if (done < steps.length) {
+          const ar = document.documentElement.lang === 'ar';
+          const msg = ar
+            ? ('أنجزت ' + done + ' من ' + steps.length + ' خطوات. هل تنهي اليوم الآن؟')
+            : ('You completed ' + done + ' of ' + steps.length + ' steps. End today now?');
+          if (!window.confirm(msg)) return;
+        }
         await finishPlan();
       });
     }

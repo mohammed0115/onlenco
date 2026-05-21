@@ -1,0 +1,22 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}خطة اليوم جاهزة 🌅{% else %}Your daily plan is ready 🌅{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبًا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    خطة تعلّمك لهذا اليوم جاهزة. عشر دقائق فقط تكفي لتبقى على المسار.
+  {% else %}
+    Today's learning plan is ready. Just 10 minutes is enough to stay on track.
+  {% endif %}
+</p>
+{% if payload.estimated_minutes %}
+  <p>
+    <span style="display:inline-block;padding:6px 12px;border-radius:9999px;background:#eef2ff;color:#0f4cf2;font-weight:600;">
+      {% if lang == "ar" %}≈ {{ payload.estimated_minutes }} دقيقة{% else %}≈ {{ payload.estimated_minutes }} min{% endif %}
+    </span>
+  </p>
+{% endif %}
+<p><a href="{{ cta_url }}" class="cta">
+  {% if lang == "ar" %}ابدأ خطة اليوم{% else %}{{ cta_label|default:"Start today's plan" }}{% endif %}
+</a></p>
+{% endblock %}

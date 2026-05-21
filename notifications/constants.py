@@ -39,6 +39,7 @@ TEACHER_COURSE_REJECTED = "teacher_course_rejected"
 TEACHER_ASSIGNMENT_SUBMITTED = "teacher_assignment_submitted"
 TEACHER_STUDENT_LOW_PERFORMANCE = "teacher_student_low_performance"
 TEACHER_CONTENT_NEEDS_REVISION = "teacher_content_needs_revision"
+TEACHER_DAILY_DIGEST = "teacher_daily_digest"
 
 # Motivation engine events (delivered to students)
 MOTIVATION_MESSAGE_GENERATED = "motivation_message_generated"
@@ -86,6 +87,7 @@ ALL_TEACHER_EVENTS = [
     TEACHER_ASSIGNMENT_SUBMITTED,
     TEACHER_STUDENT_LOW_PERFORMANCE,
     TEACHER_CONTENT_NEEDS_REVISION,
+    TEACHER_DAILY_DIGEST,
 ]
 
 ALL_MOTIVATION_EVENTS = [
@@ -232,6 +234,7 @@ DEFAULT_SUBJECTS = {
     TEACHER_ASSIGNMENT_SUBMITTED: "A student submitted an assignment",
     TEACHER_STUDENT_LOW_PERFORMANCE: "A student needs support",
     TEACHER_CONTENT_NEEDS_REVISION: "Content needs revision",
+    TEACHER_DAILY_DIGEST: "Your Onlenco teaching summary",
     MOTIVATION_MESSAGE_GENERATED: "Onlenco — keep going",
     ACHIEVEMENT_UNLOCKED: "Achievement unlocked!",
     BADGE_EARNED: "You earned a new badge",
@@ -273,6 +276,7 @@ SUBJECTS_AR = {
     TEACHER_ASSIGNMENT_SUBMITTED: "قام طالب جديد بإرسال واجب",
     TEACHER_STUDENT_LOW_PERFORMANCE: "يوجد طالب يحتاج إلى متابعة في كورسك",
     TEACHER_CONTENT_NEEDS_REVISION: "يوجد محتوى يحتاج إلى تعديل",
+    TEACHER_DAILY_DIGEST: "ملخّص يومك التدريسي في Onlenco",
 }
 
 # Map event_type → template filename (relative to templates/notifications/emails/)
@@ -292,6 +296,9 @@ TEMPLATE_NAMES = {
     PAYMENT_APPROVED: "payment_approved.html",
     PAYMENT_REJECTED: "payment_rejected.html",
     INACTIVE_STUDENT_REMINDER: "inactive_student_reminder.html",
+    DAILY_PLAN_READY: "daily_plan_ready.html",
+    DAILY_PLAN_COMEBACK: "daily_plan_comeback.html",
+    DAILY_PLAN_STREAK_REMINDER: "daily_plan_streak_reminder.html",
     MOTIVATION_MESSAGE_GENERATED: "motivation_message.html",
     ACHIEVEMENT_UNLOCKED: "achievement_unlocked.html",
     BADGE_EARNED: "badge_earned.html",

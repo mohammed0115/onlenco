@@ -1,0 +1,22 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}لا تكسر سلسلتك 🔥{% else %}Keep your streak alive 🔥{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحبًا {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    أنت في سلسلة {{ payload.streak_days }} يومًا متتاليًا — إنجاز رائع! أكمل درس اليوم وحافظ على الشعلة مشتعلة.
+  {% else %}
+    You're on a {{ payload.streak_days }}-day streak — fantastic work! Finish today's lesson and keep the fire going.
+  {% endif %}
+</p>
+{% if payload.streak_days %}
+  <p>
+    <span style="display:inline-block;padding:6px 12px;border-radius:9999px;background:#fff7ed;color:#c2410c;font-weight:600;">
+      🔥 {{ payload.streak_days }} {% if lang == "ar" %}يوم{% else %}days{% endif %}
+    </span>
+  </p>
+{% endif %}
+<p><a href="{{ cta_url }}" class="cta">
+  {% if lang == "ar" %}واصل السلسلة{% else %}{{ cta_label|default:"Continue your streak" }}{% endif %}
+</a></p>
+{% endblock %}
