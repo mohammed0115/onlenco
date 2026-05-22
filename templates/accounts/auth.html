@@ -7,7 +7,7 @@
 <div class="min-h-screen flex flex-col p-6 md:p-8" style="background:linear-gradient(135deg,hsl(var(--primary) / 0.06),hsl(var(--secondary) / 0.08))">
     <div class="flex items-center justify-between w-full max-w-6xl mx-auto">
         <a href="{% url 'home' %}" class="onlenco-brand" aria-label="Onlenco">
-            <span class="onlenco-brand-mark"><i data-lucide="brain" class="h-5 w-5"></i></span>
+            <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco" class="onlenco-brand-logo">
             <span class="onlenco-brand-text">Onlenco</span>
         </a>
         {% include "_lang_toggle.html" %}
@@ -16,7 +16,8 @@
     <div class="flex-1 flex items-center justify-center py-10">
         <div class="w-full max-w-md">
             <div class="text-center mb-6">
-                <div class="mx-auto mb-4 onlenco-brand-mark" style="width:3rem;height:3rem"><i data-lucide="graduation-cap" class="h-6 w-6"></i></div>
+                <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco" class="mx-auto mb-4" style="width:4rem;height:4rem;object-fit:contain">
+
                 <h1 class="font-display text-3xl font-bold mb-2">
                     {% if mode == "signup" %}{% t "auth.signup" %}{% else %}{% t "auth.signin" %}{% endif %}
                 </h1>
