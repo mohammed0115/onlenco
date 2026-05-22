@@ -602,3 +602,104 @@
 .btn-link-danger { color: #d92d20; }
 .btn-link:hover,
 .btn-link-danger:hover { text-decoration: underline; }
+
+/* Sortable table headers — admin list views */
+.control-table th .sort-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.control-table th .sort-link:hover { text-decoration: underline; }
+.control-table th .sort-link.is-active { font-weight: 700; }
+.control-table th .sort-arrow { font-size: 0.78em; line-height: 1; }
+.control-table th .sort-arrow-idle { opacity: 0.35; }
+
+/* ---- Course detail page ---- */
+.info-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 24px;
+  margin: 14px 0 0;
+}
+.info-list.info-list-stack { grid-template-columns: 1fr; gap: 10px; }
+.info-list > div { display: flex; flex-direction: column; gap: 3px; }
+.info-list dt { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.info-list dd { margin: 0; font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); }
+
+.callout {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  background: hsl(var(--warning) / 0.12);
+  border: 1px solid hsl(var(--warning) / 0.35);
+}
+
+.progress-row { display: flex; align-items: center; gap: 10px; }
+.progress {
+  flex: 1;
+  min-width: 80px;
+  max-width: 160px;
+  height: 8px;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  overflow: hidden;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: hsl(var(--primary));
+}
+.progress-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  min-width: 34px;
+}
+
+.action-stack { display: grid; gap: 10px; }
+.action-stack input,
+.action-stack textarea,
+.action-stack select {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  padding: 8px 10px;
+  font: inherit;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+.action-stack textarea { min-height: 72px; resize: vertical; }
+
+.btn-control.w-full { width: 100%; justify-content: center; }
+
+.course-status-card { display: grid; gap: 12px; }
+.status-pill { font-size: 14px; font-weight: 700; padding: 7px 16px; }
+
+/* Vertical column for the course-detail two-pane layout. (`.stack` is
+   defined twice elsewhere with conflicting rules, so detail pages use
+   this dedicated class instead.) */
+.detail-col {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* 3-up metrics row (4-up `.metrics-grid` is defined separately). */
+.metrics-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Smaller metric value for word/text values (vs. large numeric ones). */
+.metric-value-sm { font-size: 1.25rem; text-transform: capitalize; }
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}

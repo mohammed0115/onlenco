@@ -1,10 +1,19 @@
 {% load i18n_dict static %}
 <header class="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
     <div class="container flex h-16 items-center justify-between">
-        <a href="{% url 'home' %}" class="onlenco-brand" aria-label="Onlenco">
-            <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco" class="onlenco-brand-logo">
+        <a href="{% url 'home' %}" class="onlenco-brand" aria-label="Onlenco Academy">
+            <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco Academy" class="onlenco-brand-logo">
             <span class="onlenco-brand-text">Onlenco</span>
         </a>
+
+        {% comment %} Marketing nav — internal links to the public SEO pages. {% endcomment %}
+        <nav class="hidden lg:flex items-center gap-6 text-sm font-medium" aria-label="{% t_either 'Primary' 'رئيسية' %}">
+            <a href="{% url 'seo_ai_english_tutor' %}" class="text-muted-foreground hover:text-foreground transition-smooth">{% t_either "AI tutor" "المعلّم الذكي" %}</a>
+            <a href="{% url 'seo_english_for_beginners' %}" class="text-muted-foreground hover:text-foreground transition-smooth">{% t_either "Beginners" "للمبتدئين" %}</a>
+            <a href="{% url 'seo_english_speaking_practice' %}" class="text-muted-foreground hover:text-foreground transition-smooth">{% t_either "Speaking" "المحادثة" %}</a>
+            <a href="{% url 'seo_placement_test' %}" class="text-muted-foreground hover:text-foreground transition-smooth">{% t_either "Placement test" "تحديد المستوى" %}</a>
+            <a href="{% url 'seo_pricing' %}" class="text-muted-foreground hover:text-foreground transition-smooth">{% t "nav.pricing" %}</a>
+        </nav>
 
         <div class="flex items-center gap-2">
             {% include "_lang_toggle.html" %}

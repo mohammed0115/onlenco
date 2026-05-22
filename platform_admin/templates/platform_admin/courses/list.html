@@ -47,13 +47,48 @@
   <table class="control-table">
     <thead>
       <tr>
-        <th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th>
-        <th>{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</th>
-        <th>{% if lang == "ar" %}المعلّم{% else %}Teacher{% endif %}</th>
-        <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
-        <th>{% if lang == "ar" %}الدروس{% else %}Lessons{% endif %}</th>
-        <th>{% if lang == "ar" %}الطلاب{% else %}Students{% endif %}</th>
-        <th>{% if lang == "ar" %}آخر تحديث{% else %}Updated{% endif %}</th>
+        <th>
+          <a class="sort-link{% if sort_cols.title.active %} is-active{% endif %}" href="{% querystring sort=sort_cols.title.param page=None %}">
+            <span>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</span>
+            <span class="sort-arrow{% if not sort_cols.title.active %} sort-arrow-idle{% endif %}">{% if sort_cols.title.active %}{% if sort_cols.title.desc %}▾{% else %}▴{% endif %}{% else %}↕{% endif %}</span>
+          </a>
+        </th>
+        <th>
+          <a class="sort-link{% if sort_cols.level.active %} is-active{% endif %}" href="{% querystring sort=sort_cols.level.param page=None %}">
+            <span>{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</span>
+            <span class="sort-arrow{% if not sort_cols.level.active %} sort-arrow-idle{% endif %}">{% if sort_cols.level.active %}{% if sort_cols.level.desc %}▾{% else %}▴{% endif %}{% else %}↕{% endif %}</span>
+          </a>
+        </th>
+        <th>
+          <a class="sort-link{% if sort_cols.teacher.active %} is-active{% endif %}" href="{% querystring sort=sort_cols.teacher.param page=None %}">
+            <span>{% if lang == "ar" %}المعلّم{% else %}Teacher{% endif %}</span>
+            <span class="sort-arrow{% if not sort_cols.teacher.active %} sort-arrow-idle{% endif %}">{% if sort_cols.teacher.active %}{% if sort_cols.teacher.desc %}▾{% else %}▴{% endif %}{% else %}↕{% endif %}</span>
+          </a>
+        </th>
+        <th>
+          <a class="sort-link{% if sort_cols.status.active %} is-active{% endif %}" href="{% querystring sort=sort_cols.status.param page=None %}">
+            <span>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</span>
+            <span class="sort-arrow{% if not sort_cols.status.active %} sort-arrow-idle{% endif %}">{% if sort_cols.status.active %}{% if sort_cols.status.desc %}▾{% else %}▴{% endif %}{% else %}↕{% endif %}</span>
+          </a>
+        </th>
+        <th>
+          <a class="sort-link{% if sort_cols.lessons.active %} is-active{% endif %}" href="{% querystring sort=sort_cols.lessons.param page=None %}">
+            <span>{% if lang == "ar" %}الدروس{% else %}Lessons{% endif %}</span>
+            <span class="sort-arrow{% if not sort_cols.lessons.active %} sort-arrow-idle{% endif %}">{% if sort_cols.lessons.active %}{% if sort_cols.lessons.desc %}▾{% else %}▴{% endif %}{% else %}↕{% endif %}</span>
+          </a>
+        </th>
+        <th>
+          <a class="sort-link{% if sort_cols.students.active %} is-active{% endif %}" href="{% querystring sort=sort_cols.students.param page=None %}">
+            <span>{% if lang == "ar" %}الطلاب{% else %}Students{% endif %}</span>
+            <span class="sort-arrow{% if not sort_cols.students.active %} sort-arrow-idle{% endif %}">{% if sort_cols.students.active %}{% if sort_cols.students.desc %}▾{% else %}▴{% endif %}{% else %}↕{% endif %}</span>
+          </a>
+        </th>
+        <th>
+          <a class="sort-link{% if sort_cols.updated.active %} is-active{% endif %}" href="{% querystring sort=sort_cols.updated.param page=None %}">
+            <span>{% if lang == "ar" %}آخر تحديث{% else %}Updated{% endif %}</span>
+            <span class="sort-arrow{% if not sort_cols.updated.active %} sort-arrow-idle{% endif %}">{% if sort_cols.updated.active %}{% if sort_cols.updated.desc %}▾{% else %}▴{% endif %}{% else %}↕{% endif %}</span>
+          </a>
+        </th>
         <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
       </tr>
     </thead>

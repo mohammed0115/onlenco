@@ -149,7 +149,7 @@
                         <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{{ plan.ai_tutor_daily_minutes }} {% t_either "min AI tutor / day" "دقيقة معلّم ذكي / يوم" %}</span></li>
                         {% endif %}
                         {% if plan.library_audio_daily_minutes %}
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{{ plan.library_audio_daily_minutes }} {% t_either "min library audio / day" "دقيقة استماع للمكتبة / يوم" %}</span></li>
+                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{{ plan.library_audio_daily_minutes }} {% t_either "min library listening, reading & watching / day" "دقيقة استماع وقراءة ومشاهدة للمكتبة / يوم" %}</span></li>
                         {% endif %}
                         <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "All lessons and quizzes" "جميع الدروس والاختبارات" %}</span></li>
                         <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "Personalized daily plan" "خطة تعلم يومية مخصصة" %}</span></li>
@@ -171,17 +171,6 @@
         </div>
     </section>
 
-    <footer class="border-t border-border bg-card py-12">
-        <div class="container">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                <a href="{% url 'home' %}" class="onlenco-brand" aria-label="Onlenco">
-                    <span class="onlenco-brand-mark" style="width:2rem;height:2rem"><i data-lucide="brain" class="h-4 w-4"></i></span>
-                    <span class="onlenco-brand-text" style="font-size:1.125rem">Onlenco</span>
-                </a>
-                <p class="text-sm text-muted-foreground">{% t_either "© 2026 Onlenco. All rights reserved." "© 2026 Onlenco. جميع الحقوق محفوظة." %}</p>
-                <span class="text-sm text-muted-foreground">{% t_either "Arabic / English" "عربي / English" %}</span>
-            </div>
-        </div>
-    </footer>
+    {% include "_seo_footer.html" %}
 </div>
 {% endblock %}

@@ -682,3 +682,32 @@ code {
 .tp-notif-detail { font-size: 13px; color: var(--tp-muted); }
 .tp-notif-time { font-size: 12px; color: var(--tp-muted); }
 .tp-notif-empty { padding: 18px 4px; color: var(--tp-muted); }
+
+/* Inline action links inside lesson/quiz table rows. (`.row-actions`
+   and `.quick-actions` stack vertically — wrong for a table cell.) */
+.lesson-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+.lesson-row-actions form { display: inline; margin: 0; }
+.lesson-row-actions a,
+.lesson-row-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--tp-primary);
+  text-decoration: none;
+}
+.lesson-row-actions a:hover,
+.lesson-row-actions button:hover { text-decoration: underline; }
+.lesson-row-actions .link-danger { color: #d92d20; }
+.lesson-row-actions svg { width: 14px; height: 14px; }

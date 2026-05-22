@@ -12,7 +12,12 @@ from .forms import SignUpForm, EmailLoginForm
 from . import onboarding as onboarding_lib
 
 
-SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR = 5
+# Backstop against automated signup floods; tunable via settings/env.
+# Generous by default — Sudanese users frequently share one public IP
+# behind carrier-grade NAT, so a low cap would block real signups.
+SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR = getattr(
+    settings, "SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR", 30
+)
 
 
 def _client_ip(request) -> str:
@@ -47,11 +52,18 @@ def _signup_rate_exceeded(request) -> bool:
 
 
 def _hcaptcha_verify(request) -> bool:
-    """If HCAPTCHA_SECRET is set, require a valid hCaptcha token.
-    Returns True when verified OR when hCaptcha is disabled (no secret)."""
+    """Verify the hCaptcha token when hCaptcha is fully configured.
+
+    hCaptcha is "on" only when BOTH keys are present: the site key
+    renders the widget, the secret verifies the token. If either is
+    missing the widget can't produce a token, so demanding one would
+    reject every signup — a missing key therefore means "disabled".
+    Returns True when verified OR when hCaptcha is not (fully) enabled.
+    """
+    site_key = (getattr(settings, "HCAPTCHA_SITE_KEY", "") or "").strip()
     secret = (getattr(settings, "HCAPTCHA_SECRET", "") or "").strip()
-    if not secret:
-        return True   # feature disabled
+    if not (site_key and secret):
+        return True   # feature disabled or misconfigured — never block signups
     token = (request.POST.get("h-captcha-response") or "").strip()
     if not token:
         return False
@@ -97,6 +109,64 @@ def _request_language(request) -> str:
     return "ar"
 
 
+def _dispatch_signup_emails(user) -> None:
+    """Send the verification OTP + signup notifications in a background
+    thread so slow SMTP delivery never blocks the signup response.
+
+    Inline delivery used to freeze the signup request for 30s+ (and
+    could hang indefinitely on an unreachable mail host), so users gave
+    up before the page returned. This is best-effort: any failure is
+    logged and swallowed — the account already exists and the user can
+    request a fresh code from the verify-email page.
+    """
+    import logging
+    import threading
+
+    user_pk = user.pk
+
+    def _work():
+        from django.contrib.auth import get_user_model
+        from django.db import connections
+        log = logging.getLogger(__name__)
+        try:
+            u = get_user_model().objects.filter(pk=user_pk).first()
+            if u is None:
+                return
+            try:
+                from notifications.services import issue_verification_token
+                issue_verification_token(u)
+            except Exception:
+                log.exception("signup emails: issue verification token failed")
+            try:
+                from notifications import constants as C
+                from notifications.services import NotificationService
+                notifier = NotificationService()
+                notifier.trigger(
+                    C.USER_REGISTERED,
+                    user=u,
+                    payload={"cta_url": "/placement/", "cta_label": "Start placement test"},
+                )
+                notifier.notify_admins(
+                    C.NEW_STUDENT_REGISTERED,
+                    payload={
+                        "username": u.username,
+                        "email": u.email,
+                        "joined_at": u.date_joined.isoformat() if getattr(u, "date_joined", None) else "",
+                        "cta_url": "/admin/auth/user/",
+                    },
+                )
+            except Exception:
+                log.exception("signup emails: notifications failed")
+        finally:
+            # Release this thread's DB connection — it is not managed
+            # by the request/response cycle.
+            connections.close_all()
+
+    threading.Thread(
+        target=_work, name=f"signup-emails-{user_pk}", daemon=True
+    ).start()
+
+
 @require_http_methods(["GET", "POST"])
 def auth_view(request):
     """Combined sign-in / sign-up page. The mode is controlled by either
@@ -128,10 +198,17 @@ def auth_view(request):
                     "HCAPTCHA_SITE_KEY": getattr(settings, "HCAPTCHA_SITE_KEY", "") or "",
                 })
             signup_form = SignUpForm(request.POST)
-            captcha_ok = signup_form.is_valid() and _hcaptcha_verify(request)
-            if signup_form.is_valid() and not captcha_ok:
+            if not signup_form.is_valid():
+                # Field errors render inline next to each input; this
+                # toast is the at-a-glance signal so an invalid signup
+                # is never a silent no-op the user can't diagnose.
+                messages.error(
+                    request,
+                    "We couldn't create your account. Please review the form and try again.",
+                )
+            elif not _hcaptcha_verify(request):
                 messages.error(request, "Please complete the CAPTCHA challenge and try again.")
-            if captcha_ok:
+            else:
                 user = signup_form.save()
 
                 # Persist the active request language onto the profile +
@@ -152,51 +229,32 @@ def auth_view(request):
                     import logging
                     logging.getLogger(__name__).exception("set signup language failed")
 
-                # Issue the 6-digit OTP + send the verification email.
-                # Without this, /auth/verify-email/ shows "we sent a code"
-                # but no token exists and no email ever goes out.
-                try:
-                    from notifications.services import issue_verification_token
-                    issue_verification_token(user)
-                except Exception:
-                    import logging
-                    logging.getLogger(__name__).exception("issue verification token on signup failed")
+                # Issue the OTP + fire signup notifications OFF-THREAD.
+                # SMTP delivery is slow and can hang on an unreachable
+                # mail host; sending it inline used to freeze the signup
+                # request so users abandoned it before it completed.
+                _dispatch_signup_emails(user)
 
-                # Notifications (best-effort, never blocks)
-                try:
-                    from notifications import constants as C
-                    from notifications.services import NotificationService
-                    notifier = NotificationService()
-                    notifier.trigger(
-                        C.USER_REGISTERED,
-                        user=user,
-                        payload={"cta_url": "/placement/", "cta_label": "Start placement test"},
-                    )
-                    notifier.notify_admins(
-                        C.NEW_STUDENT_REGISTERED,
-                        payload={
-                            "username": user.username,
-                            "email": user.email,
-                            "joined_at": user.date_joined.isoformat() if getattr(user, "date_joined", None) else "",
-                            "cta_url": "/admin/auth/user/",
-                        },
-                    )
-                except Exception:
-                    import logging
-                    logging.getLogger(__name__).exception("notify on signup view failed")
-                # Authenticate properly so the session is bound
-                user = authenticate(
+                # Authenticate properly so the session is bound.
+                auth_user = authenticate(
                     request,
                     username=signup_form.cleaned_data["email"],
                     password=signup_form.cleaned_data["password"],
                 )
-                if user is not None:
-                    login(request, user)
+                if auth_user is not None:
+                    login(request, auth_user)
                     messages.success(
                         request,
                         "Account created. We sent a 6-digit code to your email.",
                     )
                     return redirect("verify_email_otp")
+                # Account was created but auto-login failed — never leave
+                # the user on a silent page; send them to sign in.
+                messages.success(
+                    request,
+                    "Your account was created. Please sign in to continue.",
+                )
+                return redirect("auth")
         else:
             signin_form = EmailLoginForm(request, data=request.POST)
             if signin_form.is_valid():

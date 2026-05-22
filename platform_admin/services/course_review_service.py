@@ -32,7 +32,55 @@ def course_queryset_for(user, params=None):
     teacher_id = (params.get("teacher") or "").strip()
     if teacher_id.isdigit():
         qs = qs.filter(teacher_id=int(teacher_id))
-    return qs.order_by("-updated_at", "-created_at")
+    return _apply_course_sort(qs, params)
+
+
+# Sortable columns on the admin course list. Maps the public sort key
+# (used in the ?sort= URL param) to the ORM field — a whitelist, so an
+# arbitrary ?sort= value can never reach order_by().
+COURSE_SORT_FIELDS = {
+    "title": "title",
+    "level": "level__code",
+    "teacher": "teacher__email",
+    "status": "status",
+    "lessons": "lessons_count",
+    "students": "students_count",
+    "updated": "updated_at",
+}
+
+
+def _apply_course_sort(qs, params):
+    """Order ``qs`` by the whitelisted ``?sort=`` key (a leading '-' = desc).
+
+    Falls back to most-recently-updated when the key is missing or not
+    recognised. ``-created_at`` is always appended as a stable tiebreaker.
+    """
+    sort = (params.get("sort") or "").strip()
+    key = sort[1:] if sort.startswith("-") else sort
+    field = COURSE_SORT_FIELDS.get(key)
+    if not field:
+        return qs.order_by("-updated_at", "-created_at")
+    prefix = "-" if sort.startswith("-") else ""
+    return qs.order_by(f"{prefix}{field}", "-created_at")
+
+
+def course_sort_headers(params):
+    """Per-column sort metadata for the course-list table header.
+
+    Returns ``{key: {"param", "active", "desc"}}`` where ``param`` is the
+    value to feed the next ``?sort=`` (clicking an ascending column flips
+    it to descending), ``active`` marks the current sort column, and
+    ``desc`` says the current sort is descending.
+    """
+    current = (params.get("sort") or "").strip()
+    headers = {}
+    for key in COURSE_SORT_FIELDS:
+        headers[key] = {
+            "param": f"-{key}" if current == key else key,
+            "active": current in (key, f"-{key}"),
+            "desc": current == f"-{key}",
+        }
+    return headers
 
 
 def pending_review_queryset_for(user):

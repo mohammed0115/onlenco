@@ -121,8 +121,8 @@ _COURSE_SORT_KEYS = {
     # surprise.
     "title":      "title",
     "-title":     "-title",
-    "level":      "level__sort_order",
-    "-level":     "-level__sort_order",
+    "level":      "level__order",
+    "-level":     "-level__order",
     "status":     "status",
     "-status":    "-status",
     "lessons":    "lessons_count",
@@ -183,13 +183,19 @@ def courses_list(request):
 @teacher_required
 def course_detail(request, pk):
     course = get_object_or_404(teacher_perms.teacher_course_queryset(request.user).select_related("level", "teacher"), pk=pk)
+    # Tag each lesson with whether this teacher may edit/delete it, so the
+    # template only offers the actions the lesson views would actually
+    # allow (draft/rejected own lessons) instead of buttons that 403.
+    lessons = list(course.lessons.order_by("order", "id"))
+    for lesson in lessons:
+        lesson.can_edit = teacher_perms.teacher_can_edit_lesson(request.user, lesson)
     return _render(
         request,
         "teacher_portal/courses/detail.html",
         "courses",
         {
             "course": course,
-            "lessons": course.lessons.order_by("order", "id"),
+            "lessons": lessons,
             "can_edit": teacher_perms.teacher_can_edit_course(request.user, course),
         },
     )

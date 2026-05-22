@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sitemaps",
     "rest_framework",
     "rest_framework.authtoken",
     "drf_spectacular",
@@ -142,6 +143,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
+    "core.middleware.QueryStringLanguageMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -225,6 +227,10 @@ USE_TZ = True
 STATIC_URL = env_get("DJANGO_STATIC_URL", "/static/")
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Public canonical origin — used for canonical URLs, sitemap, robots.txt,
+# Open Graph and JSON-LD. Override per environment via the SITE_URL env var.
+SITE_URL = env_get("SITE_URL", "https://onlenco.academy").rstrip("/")
 # Use the non-manifest variant: whitenoise still gzip/brotli-compresses, but
 # we don't depend on `staticfiles.json` existing post-collectstatic. Switch
 # back to CompressedManifestStaticFilesStorage when you want hashed filenames
@@ -290,7 +296,11 @@ EMAIL_PORT = int(env_get("EMAIL_PORT", "25"))
 EMAIL_HOST_USER = env_get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = env_get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
-DEFAULT_FROM_EMAIL = env_get("DEFAULT_FROM_EMAIL", "Onlenco <info@onlenco.com>")
+# Hard cap on every SMTP socket operation. Without this an unreachable
+# or slow mail server makes Django's email send hang indefinitely —
+# which previously froze the whole signup request behind it.
+EMAIL_TIMEOUT = int(env_get("EMAIL_TIMEOUT", "10"))
+DEFAULT_FROM_EMAIL = env_get("DEFAULT_FROM_EMAIL", "Onlenco <contact@onlenco.academy>")
 # Friendly display name used by EmailService when DEFAULT_FROM_EMAIL is bare.
 EMAIL_BRAND_NAME = env_get("EMAIL_BRAND_NAME", "Onlenco")
 # Force every outbound email to a single language regardless of per-user
@@ -310,6 +320,11 @@ ONLENCO_BASE_URL = env_get("ONLENCO_BASE_URL", "")
 # Site key is public (rendered in HTML); secret is server-side only.
 HCAPTCHA_SITE_KEY = env_get("HCAPTCHA_SITE_KEY", "")
 HCAPTCHA_SECRET = env_get("HCAPTCHA_SECRET", "")
+# Max signup POSTs accepted per client IP per hour — a backstop against
+# automated signup floods. Kept generous: many real users in Sudan
+# share one public IP via carrier-grade NAT, so a low cap (the old
+# value was 5) wrongly blocked legitimate signups.
+SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR = int(env_get("SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR", "30"))
 
 LOGGING = {
     "version": 1,

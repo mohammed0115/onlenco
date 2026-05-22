@@ -45,10 +45,21 @@
           <td>{{ lesson.lesson_type }}</td>
           <td><span class="status-pill status-{{ lesson.status }}">{{ lesson.status }}</span></td>
           <td>{{ lesson.video_file|yesno:"video," }} {{ lesson.audio_file|yesno:"audio," }} {{ lesson.pdf_file|yesno:"pdf," }}</td>
-          <td><a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}">Quiz</a></td>
+          <td>
+            <div class="lesson-row-actions">
+              <a href="{% url 'teacher_portal:lesson_quiz' lesson.pk %}"><i data-lucide="list-checks"></i>{% if lang == "ar" %}الاختبار{% else %}Quiz{% endif %}</a>
+              {% if lesson.can_edit %}
+                <a href="{% url 'teacher_portal:lesson_edit' lesson.pk %}"><i data-lucide="pencil"></i>{% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a>
+                <form method="post" action="{% url 'teacher_portal:lesson_delete' lesson.pk %}" onsubmit="return confirm('{% if lang == "ar" %}حذف هذا الدرس؟{% else %}Delete this lesson?{% endif %}');">
+                  {% csrf_token %}
+                  <button type="submit" class="link-danger"><i data-lucide="trash-2"></i>{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+                </form>
+              {% endif %}
+            </div>
+          </td>
         </tr>
       {% empty %}
-        <tr><td colspan="6" class="muted">No lessons yet.</td></tr>
+        <tr><td colspan="6" class="muted">{% if lang == "ar" %}لا توجد دروس بعد.{% else %}No lessons yet.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

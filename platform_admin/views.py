@@ -394,7 +394,12 @@ def courses_list(request):
     return _render(
         request,
         "platform_admin/courses/list.html",
-        {"page_obj": page, "filters": request.GET, "section": "courses"},
+        {
+            "page_obj": page,
+            "filters": request.GET,
+            "section": "courses",
+            "sort_cols": course_review_service.course_sort_headers(request.GET),
+        },
     )
 
 

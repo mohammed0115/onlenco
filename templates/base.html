@@ -3,8 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Onlenco — AI English coach{% endblock %}</title>
-  <meta name="description" content="AI-powered English learning, built for Sudanese learners.">
+  {% comment %}
+    SEO head. `seo_title` / `seo_description` come from the
+    site_context processor (sensible bilingual defaults) and are
+    overridden per page by the view's render context. Templates may
+    still override {% block title %} directly for non-indexed pages.
+  {% endcomment %}
+  <title>{% block title %}{{ seo_title }}{% endblock %}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <meta name="robots" content="index, follow">
+  <meta name="googlebot" content="index, follow">
+  <meta name="author" content="Onlenco Academy">
+
+  {# Canonical + hreflang. Language is cookie-based, so each language #}
+  {# is given a stable crawlable URL via ?hl=ar / ?hl=en. #}
+  <link rel="canonical" href="{{ canonical_url }}">
+  <link rel="alternate" hreflang="ar" href="{{ hreflang_ar }}">
+  <link rel="alternate" hreflang="en" href="{{ hreflang_en }}">
+  <link rel="alternate" hreflang="x-default" href="{{ hreflang_default }}">
+
+  {# Open Graph #}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Onlenco Academy">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:locale" content="{{ og_locale }}">
+  <meta property="og:image" content="{{ SITE_URL }}{% static 'img/landing-hero.png' %}">
+
+  {# Twitter card #}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ seo_title }}">
+  <meta name="twitter:description" content="{{ seo_description }}">
+  <meta name="twitter:image" content="{{ SITE_URL }}{% static 'img/landing-hero.png' %}">
+
   {# Favicon = the Onlenco logo; the ?v= query busts the sticky favicon cache. #}
   <link rel="icon" type="image/png" href="{% static 'img/onlenco-logo.png' %}?v=20260522">
   <link rel="apple-touch-icon" href="{% static 'img/onlenco-logo.png' %}?v=20260522">
@@ -80,6 +112,37 @@
   {# Lucide icons #}
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="{% static 'js/speech_clean.js' %}?v=tts-glossary-20260521"></script>
+
+  {% comment %}
+    JSON-LD structured data — Organization + WebSite. Helps search
+    engines understand the brand ("Onlenco Academy") and the site.
+    Page-specific structured data (e.g. FAQPage) goes in extra_jsonld.
+  {% endcomment %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Onlenco Academy",
+    "alternateName": "Onlenco",
+    "url": "{{ SITE_URL }}/",
+    "logo": "{{ SITE_URL }}{% static 'img/onlenco-logo.png' %}",
+    "description": "AI-powered English learning platform for Sudanese students — placement test, AI tutor, speaking practice and a personalised daily plan in Arabic and English.",
+    "areaServed": { "@type": "Country", "name": "Sudan" },
+    "knowsLanguage": ["ar", "en"]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Onlenco Academy",
+    "alternateName": "Onlenco",
+    "url": "{{ SITE_URL }}/",
+    "description": "AI English learning platform — تعلم اللغة الإنجليزية بالذكاء الاصطناعي.",
+    "inLanguage": ["ar", "en"]
+  }
+  </script>
+  {% block extra_jsonld %}{% endblock %}
 
   {% block extra_head %}{% endblock %}
 </head>

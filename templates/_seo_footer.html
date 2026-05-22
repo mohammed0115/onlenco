@@ -1,0 +1,40 @@
+{% load i18n_dict static %}
+{% comment %}
+  Site footer with internal links to every public page — gives crawlers
+  a clear link path to all indexable URLs and helps visitors navigate.
+{% endcomment %}
+<footer class="border-t border-border bg-card">
+    <div class="container py-12 grid gap-8 md:grid-cols-4">
+        <div class="md:col-span-2">
+            <a href="{% url 'home' %}" class="onlenco-brand" aria-label="Onlenco Academy">
+                <img src="{% static 'img/onlenco-logo.png' %}" alt="Onlenco Academy"
+                     class="h-9 w-auto object-contain" width="36" height="36">
+                <span class="onlenco-brand-text">Onlenco Academy</span>
+            </a>
+            <p class="text-sm text-muted-foreground max-w-sm mt-3">
+                {% t_either "AI-powered English learning, built for Sudanese students." "تعلّم الإنجليزية بالذكاء الاصطناعي، مصمّم للطلاب السودانيين." %}
+            </p>
+        </div>
+        <div>
+            <h2 class="font-semibold mb-3 text-sm">{% t_either "Learn" "تعلّم" %}</h2>
+            <ul class="space-y-2 text-sm text-muted-foreground">
+                <li><a href="{% url 'seo_ai_english_tutor' %}" class="hover:text-foreground transition-smooth">{% t_either "AI English tutor" "معلّم إنجليزي بالذكاء الاصطناعي" %}</a></li>
+                <li><a href="{% url 'seo_english_for_beginners' %}" class="hover:text-foreground transition-smooth">{% t_either "English for beginners" "الإنجليزية للمبتدئين" %}</a></li>
+                <li><a href="{% url 'seo_english_speaking_practice' %}" class="hover:text-foreground transition-smooth">{% t_either "English speaking practice" "تدريب المحادثة" %}</a></li>
+                <li><a href="{% url 'seo_placement_test' %}" class="hover:text-foreground transition-smooth">{% t_either "English placement test" "اختبار تحديد المستوى" %}</a></li>
+            </ul>
+        </div>
+        <div>
+            <h2 class="font-semibold mb-3 text-sm">{% t_either "Onlenco" "Onlenco" %}</h2>
+            <ul class="space-y-2 text-sm text-muted-foreground">
+                <li><a href="{% url 'seo_pricing' %}" class="hover:text-foreground transition-smooth">{% t_either "Pricing & plans" "الأسعار والخطط" %}</a></li>
+                <li><a href="{% url 'home' %}" class="hover:text-foreground transition-smooth">{% t_either "Home" "الرئيسية" %}</a></li>
+                <li><a href="{% url 'auth' %}?mode=signup" class="hover:text-foreground transition-smooth">{% t_either "Create account" "إنشاء حساب" %}</a></li>
+                <li>Khartoum, Sudan 🇸🇩</li>
+            </ul>
+        </div>
+    </div>
+    <div class="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
+        © {% now "Y" %} Onlenco Academy. {% t_either "All rights reserved." "جميع الحقوق محفوظة." %}
+    </div>
+</footer>

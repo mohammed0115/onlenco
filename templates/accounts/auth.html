@@ -36,22 +36,12 @@
                     <input type="hidden" name="mode" value="{{ mode }}">
 
                     {% if mode == "signup" %}
-                        {% comment %}
-                          Anti-bot honeypot — hidden via CSS. Real users
-                          leave it empty; bots that fill every field will
-                          trip it and we silently reject the submission.
-                        {% endcomment %}
-                        <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden">
-                            <label for="id_website">Website (leave empty)</label>
-                            <input type="text" id="id_website" name="website" tabindex="-1" autocomplete="off" value="">
+                        {% comment %} Surface any form-level errors so signup never fails silently. {% endcomment %}
+                        {% if signup_form.non_field_errors %}
+                        <div class="rounded-md border border-destructive/40 bg-destructive/10 p-3" role="alert">
+                            {% for err in signup_form.non_field_errors %}<p class="text-sm text-destructive">{{ err }}</p>{% endfor %}
                         </div>
-                        {% comment %}
-                          Page-load timestamp — set by inline JS so bots
-                          that submit instantly get rejected. Falls back
-                          to no-op when JS is disabled.
-                        {% endcomment %}
-                        <input type="hidden" name="form_started_at" id="id_form_started_at" value="">
-                        <script>document.getElementById('id_form_started_at').value = Math.floor(Date.now()/1000);</script>
+                        {% endif %}
                         <div>
                             <label class="label" for="id_full_name">{% t "auth.name" %}</label>
                             <input class="input" type="text" id="id_full_name" name="full_name"
@@ -89,6 +79,9 @@
                             <label class="label" for="id_password">{% t "auth.password" %}</label>
                             <input class="input" type="password" id="id_password" name="password"
                                    required>
+                            <div class="text-end mt-1.5">
+                                <a href="{% url 'password_reset' %}" class="text-xs text-primary hover:underline">{% t_either "Forgot your password?" "نسيت كلمة المرور؟" %}</a>
+                            </div>
                         </div>
                     {% endif %}
 

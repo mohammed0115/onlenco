@@ -47,17 +47,20 @@ def teacher_detail_context(teacher) -> dict:
         .distinct()
     )
     lessons = Lesson.objects.filter(Q(course__teacher=teacher) | Q(created_by=teacher)).select_related("course")[:50]
-    enrollments = CourseEnrollment.objects.filter(course__in=courses).select_related("user", "course")[:100]
+    enrollment_qs = CourseEnrollment.objects.filter(course__in=courses).select_related("user", "course")
+    # The distinct student count must be taken BEFORE slicing — Django
+    # rejects .values(...).distinct() on an already-sliced queryset.
+    student_count = enrollment_qs.values("user_id").distinct().count()
     return {
         "teacher": teacher,
         "courses": courses,
         "lessons": lessons,
-        "enrollments": enrollments,
+        "enrollments": enrollment_qs[:100],
         "stats": {
             "courses": courses.count(),
             "published": courses.filter(status="published").count(),
             "pending": courses.filter(status="pending_review").count(),
-            "students": enrollments.values("user_id").distinct().count(),
+            "students": student_count,
         },
     }
 

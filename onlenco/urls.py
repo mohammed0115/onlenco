@@ -2,11 +2,18 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.admin.forms import AdminAuthenticationForm
+from django.contrib.sitemaps.views import sitemap
 from django.urls import include, path
 from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
-from core.views import set_language
+from core.sitemaps import StaticViewSitemap
+from core.views import robots_txt, set_language
+
+
+# Sitemap sections — one entry; the static-pages sitemap covers every
+# public, crawlable URL on the site.
+sitemaps = {"static": StaticViewSitemap}
 
 
 # --- Brand the admin site as "Onlenco" ---
@@ -57,6 +64,15 @@ urlpatterns = [
     path("control/", include(("platform_admin.urls", "platform_admin_control"), namespace="platform_admin_control")),
     path("teacher/", include("teacher_portal.urls")),
     path("set-language/", set_language, name="set_language"),
+
+    # SEO crawl endpoints — served at the site root.
+    path("robots.txt", robots_txt, name="robots_txt"),
+    path(
+        "sitemap.xml",
+        sitemap,
+        {"sitemaps": sitemaps},
+        name="django.contrib.sitemaps.views.sitemap",
+    ),
 
     path("", include("core.urls")),
     path("auth/", include("accounts.urls")),

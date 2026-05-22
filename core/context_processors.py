@@ -1,6 +1,30 @@
+from django.conf import settings
 from django.utils import translation
 
 from .translations import DICT
+
+
+# Default <title> / meta-description per language. Views may override
+# either by passing `seo_title` / `seo_description` in the render context
+# (a context value pushed after the processor wins).
+_SEO_DEFAULT_TITLE = {
+    "en": "Onlenco Academy — AI English Learning Platform for Sudan",
+    "ar": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+}
+_SEO_DEFAULT_DESCRIPTION = {
+    "en": (
+        "Onlenco Academy is an AI-powered English learning platform built "
+        "for Sudanese students: a smart placement test, an AI conversation "
+        "tutor, speaking practice and a personalised daily plan — in Arabic "
+        "and English."
+    ),
+    "ar": (
+        "أكاديمية Onlenco منصة لتعلّم اللغة الإنجليزية بالذكاء الاصطناعي "
+        "مصمّمة للطلاب السودانيين: اختبار تحديد مستوى ذكي، معلّم محادثة "
+        "بالذكاء الاصطناعي، تدريب على المحادثة، وخطة يومية مخصّصة — "
+        "بالعربية والإنجليزية."
+    ),
+}
 
 
 def site_context(request):
@@ -31,6 +55,31 @@ def site_context(request):
         "can_access_teacher_portal": _can_access_teacher_portal(request),
         "show_student_mode": _show_student_mode(request),
         "primary_role_label": _primary_role_label(request, lang),
+        **_seo_context(request, lang),
+    }
+
+
+def _seo_context(request, lang: str) -> dict:
+    """Canonical URL, hreflang alternates and SEO defaults.
+
+    The site switches language by cookie (no `/ar/` `/en/` URL prefixes),
+    so each language is given a stable, crawlable URL via `?hl=ar` /
+    `?hl=en`. Every page therefore self-canonicalises *including* its
+    `?hl=` parameter so the hreflang cluster is internally consistent.
+    """
+    site_url = getattr(settings, "SITE_URL", "").rstrip("/")
+    base = f"{site_url}{request.path}"
+    hl = (request.GET.get("hl") or "").strip().lower()
+    canonical = f"{base}?hl={hl}" if hl in ("ar", "en") else base
+    return {
+        "SITE_URL": site_url,
+        "canonical_url": canonical,
+        "hreflang_default": base,
+        "hreflang_ar": f"{base}?hl=ar",
+        "hreflang_en": f"{base}?hl=en",
+        "og_locale": "ar_AR" if lang == "ar" else "en_US",
+        "seo_title": _SEO_DEFAULT_TITLE[lang],
+        "seo_description": _SEO_DEFAULT_DESCRIPTION[lang],
     }
 
 
