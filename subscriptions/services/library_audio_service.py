@@ -70,6 +70,15 @@ def start_session(user, *, chapter_id: int, chapter_title: str = "", voice_profi
     """Open a listening session. Raises LibraryQuotaExhausted / LibraryConcurrentSessionExists."""
     if quota_service.get_remaining_library_seconds(user) <= 0:
         raise LibraryQuotaExhausted("No library audio seconds available today.")
+    # Force-close any earlier in-progress session for this user before
+    # opening a new one. A session left open (tab closed / navigated away
+    # without calling /audio/finish/) would otherwise trip the partial
+    # unique constraint and block every future "Listen" with a 409.
+    # Mirrors the AI-tutor session policy (one active session, prior ones
+    # force-cancelled with zero deduction).
+    LibraryAudioSession.objects.filter(
+        user=user, status="in_progress",
+    ).update(status="cancelled", ended_at=timezone.now())
     try:
         return LibraryAudioSession.objects.create(
             user=user,

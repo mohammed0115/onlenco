@@ -135,10 +135,18 @@ class LibraryAudioServiceTests(TestCase):
         self.assertEqual(session.chapter_id, 7)
         self.assertEqual(session.chapter_title, "Ch1")
 
-    def test_concurrent_session_blocked(self):
-        library_audio_service.start_session(self.user, chapter_id=1)
-        with self.assertRaises(library_audio_service.LibraryConcurrentSessionExists):
-            library_audio_service.start_session(self.user, chapter_id=2)
+    def test_concurrent_session_supersedes_prior(self):
+        # An abandoned in-progress session must not block a new listen —
+        # the new session opens and the stale one is force-cancelled.
+        from subscriptions.models import LibraryAudioSession
+        first = library_audio_service.start_session(self.user, chapter_id=1)
+        second = library_audio_service.start_session(self.user, chapter_id=2)
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertEqual(LibraryAudioSession.objects.get(pk=first.pk).status, "cancelled")
+        self.assertEqual(
+            LibraryAudioSession.objects.filter(user=self.user, status="in_progress").count(),
+            1,
+        )
 
     def test_quota_exhausted_blocks_start(self):
         # Drain the library bucket (basic plan: 30 min = 1800s).
@@ -216,10 +224,13 @@ class LibraryAudioEndpointsTests(TestCase):
         self.assertEqual(response.status_code, 402)
         self.assertEqual(response.json()["error"], "limit_reached")
 
-    def test_audio_start_409_on_concurrent(self):
-        self.client.post(reverse("library_audio_start", args=[self.chapter.pk]))
-        response = self.client.post(reverse("library_audio_start", args=[self.chapter.pk]))
-        self.assertEqual(response.status_code, 409)
+    def test_audio_start_supersedes_prior_session(self):
+        # A second "Listen" succeeds — the abandoned session is cancelled,
+        # not left to block every future listen with a 409.
+        first = self.client.post(reverse("library_audio_start", args=[self.chapter.pk]))
+        self.assertEqual(first.status_code, 200)
+        second = self.client.post(reverse("library_audio_start", args=[self.chapter.pk]))
+        self.assertEqual(second.status_code, 200)
 
     def test_audio_finish_deducts(self):
         start = self.client.post(reverse("library_audio_start", args=[self.chapter.pk])).json()
