@@ -324,6 +324,7 @@ else
         seed_course_levels
         seed_learning_core
         seed_achievements
+        seed_game_sounds
         seed_dictionary
         seed_books
         seed_exam_blueprints
