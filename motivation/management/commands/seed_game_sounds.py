@@ -9,6 +9,7 @@ Control Center. Safe to run on every deploy.
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
+from django.templatetags.static import static
 
 from motivation.models import GameEventSound
 
@@ -63,8 +64,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         created = updated = 0
         for sound in SOUNDS:
+            defaults = dict(sound)
+            # Ship a bundled default sound file (static/audio/game/<code>.wav).
+            # `audio_url` stays empty so an admin can still override with a
+            # hosted URL from the Control Center — it wins in effective_audio_src.
+            defaults["fallback_audio_path"] = static(f"audio/game/{sound['code']}.wav")
             _, was_created = GameEventSound.objects.update_or_create(
-                code=sound["code"], defaults=sound,
+                code=sound["code"], defaults=defaults,
             )
             created += int(was_created)
             updated += int(not was_created)
