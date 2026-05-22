@@ -49,6 +49,13 @@
           <i data-lucide="plus" class="h-4 w-4"></i>
           {% if lang == "ar" %}إنشاء كورس{% else %}Create Course{% endif %}
         </a>
+        <form action="{% url 'logout' %}" method="post" class="inline-flex">
+          {% csrf_token %}
+          <button type="submit" class="teacher-btn">
+            <i data-lucide="log-out" class="h-4 w-4"></i>
+            {% if lang == "ar" %}تسجيل الخروج{% else %}Sign out{% endif %}
+          </button>
+        </form>
       </div>
     </header>
     <main class="teacher-content">

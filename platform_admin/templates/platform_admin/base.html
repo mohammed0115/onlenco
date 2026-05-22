@@ -47,6 +47,13 @@
           <form class="control-search" method="get">
             <input type="search" name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}بحث{% else %}Search{% endif %}">
           </form>
+          <form action="{% url 'logout' %}" method="post" class="inline-flex">
+            {% csrf_token %}
+            <button type="submit" class="control-btn">
+              <i data-lucide="log-out" class="h-4 w-4"></i>
+              <span>{% if lang == "ar" %}تسجيل الخروج{% else %}Sign out{% endif %}</span>
+            </button>
+          </form>
         </div>
       </header>
       <main class="control-content">

@@ -94,7 +94,8 @@
       </div>
     </section>
 
-    {# --- Learning state --- #}
+    {# --- Learning state — students only; teachers/admins have no CEFR level --- #}
+    {% if not can_access_control_center and not can_access_teacher_portal %}
     <section class="profile-card">
       <h2 class="font-display text-lg font-semibold mb-3">
         {% t_either "Learning level" "مستوى التعلم" %}
@@ -160,6 +161,7 @@
         {% endif %}
       </div>
     </section>
+    {% endif %}
 
     {# --- Language preference --- #}
     <section class="profile-card">
