@@ -73,6 +73,10 @@ class SubscriptionPlan(models.Model):
         default=False,
         help_text=_("If true, this plan is awarded once per user and never renews."),
     )
+    is_featured = models.BooleanField(
+        default=False,
+        help_text=_("Highlight this plan as 'most popular' on the public pricing page."),
+    )
     sort_order = models.PositiveIntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)

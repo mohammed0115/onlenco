@@ -217,7 +217,7 @@ class SubscriptionPlanForm(forms.ModelForm):
             "description_en", "description_ar",
             "price_sdg", "currency", "billing_cycle",
             "ai_tutor_daily_minutes", "library_audio_daily_minutes",
-            "is_active", "is_free_trial", "sort_order",
+            "is_active", "is_free_trial", "is_featured", "sort_order",
         ]
         widgets = {
             "description_en": forms.Textarea(attrs={"rows": 2}),

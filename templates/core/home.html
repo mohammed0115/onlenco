@@ -24,37 +24,9 @@
             </div>
 
             <div class="relative animate-fade-up" style="animation-delay:0.2s">
-                <div class="bg-gradient-soft rounded-3xl p-8 border border-border">
-                    <div class="grid grid-cols-2 gap-4">
-                        <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=300&h=300&fit=crop"
-                             alt="Students learning"
-                             class="rounded-2xl w-full h-full object-cover shadow-xl">
-                        <div class="space-y-4">
-                            <div class="bg-card rounded-2xl p-4 border border-border shadow-lg">
-                                <div class="flex items-center gap-3">
-                                    <div class="size-12 rounded-full overflow-hidden border-2 border-primary/20">
-                                        <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=faces"
-                                             alt="AI Teacher"
-                                             class="size-full object-cover">
-                                    </div>
-                                    <div class="flex-1">
-                                        <p class="font-medium text-sm">{% t_either "AI Teacher" "المعلم الذكي" %}</p>
-                                        <div class="flex items-center gap-1">
-                                            <div class="size-2 bg-success rounded-full"></div>
-                                            <span class="text-xs text-success">{% t_either "Online" "متصل" %}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-muted/50 rounded-lg p-2 text-xs mt-3">
-                                    {% t_either "Hello! How can I help you today?" "مرحبًا! كيف يمكنني مساعدتك اليوم؟" %}
-                                </div>
-                            </div>
-                            <img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=300&h=200&fit=crop"
-                                 alt="Learning progress"
-                                 class="rounded-2xl w-full h-auto object-cover shadow-xl">
-                        </div>
-                    </div>
-                </div>
+                <img src="{% static 'img/landing-hero.png' %}"
+                     alt="{% t_either 'AI-powered English learning with Onlenco' 'تعلّم الإنجليزية بالذكاء الاصطناعي مع Onlenco' %}"
+                     class="w-full h-auto rounded-3xl shadow-elegant">
             </div>
         </div>
     </section>
@@ -66,8 +38,7 @@
                 <div class="text-4xl mb-2" aria-hidden="true">🇸🇩</div>
                 <h2 class="text-3xl font-bold mb-3">{% t_either "Made for Sudan" "صُمّم للسودان" %}</h2>
                 <p class="text-muted-foreground">
-                    {% t_either "Onlenco speaks your language and fits how Sudan learns and pays — from your first English word to fluent conversation."
-                                "أونلينكو يتحدّث لغتك ويناسب طريقة السودان في التعلّم والدفع — من أول كلمة إنجليزية حتى المحادثة بطلاقة." %}
+                    {% t_either "Onlenco speaks your language and fits how Sudan learns and pays — from your first English word to fluent conversation." "أونلينكو يتحدّث لغتك ويناسب طريقة السودان في التعلّم والدفع — من أول كلمة إنجليزية حتى المحادثة بطلاقة." %}
                 </p>
             </div>
             <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -151,47 +122,44 @@
     <section id="pricing" class="py-20">
         <div class="container">
             <h2 class="text-3xl font-bold text-center mb-12">{% t_either "Subscriptions" "الاشتراكات" %}</h2>
-            <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-
-                <div class="card p-6 relative">
+            {% comment %}
+            Pricing is data-driven: every card below is a SubscriptionPlan
+            row. Admins edit prices / names / the featured flag from the
+            Control Center → Plans. Nothing here is hardcoded.
+            {% endcomment %}
+            {% if plans %}
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                {% for plan in plans %}
+                <div class="card p-6 relative flex flex-col{% if plan.is_featured %} border-2 border-primary{% endif %}">
+                    {% if plan.is_featured %}
+                        <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-medium">{% t "price.popular" %}</div>
+                    {% endif %}
                     <div class="mb-4">
-                        <h3 class="font-semibold">{% t "price.month" %}</h3>
-                        <p class="text-sm text-muted-foreground mt-1">{% t_either "Full access for one month" "الوصول الكامل لمدة شهر واحد" %}</p>
+                        <h3 class="font-semibold">{% if request.LANGUAGE_CODE == "ar" %}{{ plan.name_ar|default:plan.name_en }}{% else %}{{ plan.name_en }}{% endif %}</h3>
+                        {% if plan.description_en or plan.description_ar %}
+                            <p class="text-sm text-muted-foreground mt-1">{% if request.LANGUAGE_CODE == "ar" %}{{ plan.description_ar|default:plan.description_en }}{% else %}{{ plan.description_en }}{% endif %}</p>
+                        {% endif %}
                     </div>
                     <div class="mb-6">
-                        <span class="text-4xl font-bold">30,000</span>
-                        <span class="text-muted-foreground"> SDG/{% t_either "month" "شهر" %}</span>
+                        <span class="text-4xl font-bold">{{ plan.price_sdg }}</span>
+                        <span class="text-muted-foreground"> {{ plan.currency }}/{% if plan.billing_cycle == "quarterly" %}{% t_either "3 months" "3 أشهر" %}{% else %}{% t_either "month" "شهر" %}{% endif %}</span>
                     </div>
-                    <ul class="space-y-3 mb-6">
+                    <ul class="space-y-3 mb-6 flex-1">
+                        {% if plan.ai_tutor_daily_minutes %}
+                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{{ plan.ai_tutor_daily_minutes }} {% t_either "min AI tutor / day" "دقيقة معلّم ذكي / يوم" %}</span></li>
+                        {% endif %}
+                        {% if plan.library_audio_daily_minutes %}
+                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{{ plan.library_audio_daily_minutes }} {% t_either "min library audio / day" "دقيقة استماع للمكتبة / يوم" %}</span></li>
+                        {% endif %}
                         <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "All lessons and quizzes" "جميع الدروس والاختبارات" %}</span></li>
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "Unlimited AI tutor" "المعلم الذكي غير محدود" %}</span></li>
                         <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "Personalized daily plan" "خطة تعلم يومية مخصصة" %}</span></li>
                         <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "Detailed progress reports" "تقارير تقدم مفصلة" %}</span></li>
                     </ul>
-                    <a href="{% url 'auth' %}?mode=signup" class="btn btn-hero w-full">{% t_either "Choose plan" "اختر الخطة" %}</a>
+                    <a href="{% url 'auth' %}?mode=signup" class="btn btn-hero w-full mt-auto">{% t_either "Choose plan" "اختر الخطة" %}</a>
                 </div>
-
-                <div class="card p-6 relative border-2 border-primary">
-                    <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-medium">{% t "price.popular" %}</div>
-                    <div class="mb-4">
-                        <h3 class="font-semibold">{% t_either "Three months" "ثلاثة أشهر" %}</h3>
-                        <p class="text-sm text-muted-foreground mt-1">{% t_either "Best value - save money" "أفضل قيمة - وفر المال" %}</p>
-                    </div>
-                    <div class="mb-6">
-                        <span class="text-4xl font-bold">50,000</span>
-                        <span class="text-muted-foreground"> SDG/3 {% t_either "months" "أشهر" %}</span>
-                    </div>
-                    <ul class="space-y-3 mb-6">
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "All lessons and quizzes" "جميع الدروس والاختبارات" %}</span></li>
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "Unlimited AI tutor" "المعلم الذكي غير محدود" %}</span></li>
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "Personalized daily plan" "خطة تعلم يومية مخصصة" %}</span></li>
-                        <li class="flex items-center gap-2"><i data-lucide="check" class="h-5 w-5 text-success"></i><span>{% t_either "Detailed progress reports" "تقارير تقدم مفصلة" %}</span></li>
-                        <li class="flex items-center gap-2 text-primary font-medium"><i data-lucide="check" class="h-5 w-5 text-primary"></i><span>{% t_either "Save 40,000 SDG" "وفر 40,000 SDG" %}</span></li>
-                    </ul>
-                    <a href="{% url 'auth' %}?mode=signup" class="btn btn-hero w-full">{% t_either "Choose plan" "اختر الخطة" %}</a>
-                </div>
-
+                {% endfor %}
             </div>
+            {% endif %}
         </div>
     </section>
 

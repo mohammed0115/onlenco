@@ -143,6 +143,14 @@ body {
   font-size: 1.25rem;
   line-height: 1;
 }
+/* Brand logo image — the real Onlenco mark, shown at a readable size
+   (not the tiny icon box). */
+.onlenco-brand-logo {
+  width: 3rem;
+  height: 3rem;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
 
 /* Flip directional icons in RTL. */
 [dir="rtl"] .rtl-flip { transform: scaleX(-1); }
