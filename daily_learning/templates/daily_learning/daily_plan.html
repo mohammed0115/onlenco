@@ -129,7 +129,7 @@
                 {% if item.item_type == "listening" or item.item_type == "speaking" or item.item_type == "vocabulary" or item.item_type == "grammar_tip" %}
                 {% if item.content_text %}
                     <button type="button"
-                            data-tts="{{ item.content_text|escapejs }}"
+                            data-tts="{{ item.content_text }}"
                             class="btn btn-outline w-full mb-3 text-base"
                             title="{% t_either 'Play with voice' 'استمع بالصوت' %}">
                         🔊 {% t_either "Listen" "استمع" %}
@@ -146,7 +146,7 @@
                         {% t_either "Type the word." "اكتب الكلمة." %}
                     </p>
                     <input type="text" data-writing-input="{{ item.id }}"
-                           data-writing-target="{{ item.correct_answer|escapejs }}"
+                           data-writing-target="{{ item.correct_answer }}"
                            autocomplete="off" autocapitalize="off" spellcheck="false"
                            class="w-full px-3 py-2 rounded border border-border text-base"
                            placeholder="{{ item.correct_answer }}">
@@ -156,7 +156,7 @@
                         {% t_either "Tap each word in the correct order." "اضغط كل كلمة بالترتيب الصحيح." %}
                     </p>
                     <div class="flex flex-wrap gap-2" data-word-order="{{ item.id }}"
-                         data-word-order-target="{{ item.correct_answer|escapejs }}">
+                         data-word-order-target="{{ item.correct_answer }}">
                         {% for opt in item.options %}
                         <button type="button"
                                 data-word="{{ opt }}"
@@ -172,7 +172,7 @@
                     <p data-word-order-feedback="{{ item.id }}" class="text-xs mt-1"></p>
                 {% elif item.options %}
                     <div class="space-y-2" data-quiz-options="{{ item.id }}"
-                         data-quiz-target="{{ item.correct_answer|escapejs }}">
+                         data-quiz-target="{{ item.correct_answer }}">
                         {% for opt in item.options %}
                         <button type="button"
                                 data-option="{{ opt }}"
