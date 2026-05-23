@@ -68,8 +68,13 @@ def _seo_context(request, lang: str) -> dict:
     `?hl=` parameter so the hreflang cluster is internally consistent.
     """
     site_url = getattr(settings, "SITE_URL", "").rstrip("/")
-    base = f"{site_url}{request.path}"
-    hl = (request.GET.get("hl") or "").strip().lower()
+    # Older tests (and any non-HTTP caller) hand us ``request=None``; treat
+    # that as "root URL, no hl param" so the processor still returns the
+    # full SEO context dict without exploding.
+    path = getattr(request, "path", "/") if request is not None else "/"
+    get_params = getattr(request, "GET", {}) if request is not None else {}
+    base = f"{site_url}{path}"
+    hl = (get_params.get("hl") or "").strip().lower() if hasattr(get_params, "get") else ""
     canonical = f"{base}?hl={hl}" if hl in ("ar", "en") else base
     return {
         "SITE_URL": site_url,

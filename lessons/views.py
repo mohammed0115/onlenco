@@ -550,6 +550,9 @@ def exam_play(request, assessment_id):
     # second layer of defence.
     import json
     from core.services.text_humanizer import humanize_for_speech
+    # Escape ``</`` so an exercise containing a literal ``</script>`` can
+    # never break out of the surrounding <script type="application/json">
+    # tag. (Mirrors the same defence in exams.views.take_exam.)
     exercises_payload = json.dumps([
         {
             "id": ex.id,
@@ -564,7 +567,7 @@ def exam_play(request, assessment_id):
             "metadata": ex.metadata or {},
         }
         for ex in exercises
-    ])
+    ]).replace("</", "<\\/")
 
     return render(request, "lessons/exam_play.html", {
         "assessment": assessment,

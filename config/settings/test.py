@@ -18,9 +18,12 @@ ALLOWED_HOSTS = ["testserver", "localhost", "127.0.0.1"]
 CSRF_TRUSTED_ORIGINS = ["http://testserver", "http://localhost", "http://127.0.0.1"]
 
 # Disable django-axes in tests: client.login() does not pass a request and
-# AxesStandaloneBackend rejects backend authentication without one.
+# AxesStandaloneBackend rejects backend authentication without one. We
+# keep the backend listed (axes.W003 expects it to be present) but the
+# `AXES_ENABLED = False` flag makes it a no-op for tests.
 AXES_ENABLED = False
 AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 

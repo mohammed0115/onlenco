@@ -32,8 +32,11 @@ class VoiceCatalogSeedTests(TestCase):
         non_ga = provider_ids - REALTIME_GA_VOICES
         self.assertFalse(non_ga, f"Non-GA voices in DB: {non_ga}")
 
-    def test_four_avatars_seeded(self):
-        self.assertEqual(AvatarProfile.objects.filter(is_active=True).count(), 4)
+    def test_five_avatars_seeded(self):
+        # Migration 0006 seeded 4 avatars; 0010 added "Hassabu" as a 5th
+        # active avatar. Update this count whenever a new avatar seed
+        # migration ships.
+        self.assertEqual(AvatarProfile.objects.filter(is_active=True).count(), 5)
 
 
 class ResolveDefaultsTests(TestCase):

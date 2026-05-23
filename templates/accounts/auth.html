@@ -63,7 +63,7 @@
                         <div>
                             <label class="label" for="id_password">{% t "auth.password" %}</label>
                             <input class="input" type="password" id="id_password" name="password"
-                                   minlength="6" maxlength="100" required>
+                                   minlength="8" maxlength="100" required>
                             {% for err in signup_form.password.errors %}
                                 <p class="text-xs text-destructive mt-1">{{ err }}</p>
                             {% endfor %}

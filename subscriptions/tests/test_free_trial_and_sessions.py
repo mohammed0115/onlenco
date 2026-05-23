@@ -206,3 +206,69 @@ class DailyResetWithSubscriptionTests(TestCase):
         quota_service.consume_free_trial_seconds(user, 300)
         # "Tomorrow" doesn't restore trial.
         self.assertEqual(quota_service.get_free_trial_remaining_seconds(user), 0)
+
+
+class FreeMinutesMVPContractTests(TestCase):
+    """Canonical names from the MVP checklist for the 5-free-minute rule.
+
+    These pin the *contract* (rather than the implementation detail) so
+    later grep ``grep -r 'test_new_student_gets_5_free_minutes_once'``
+    locates the guarantee.
+    """
+
+    def test_new_student_gets_5_free_minutes_once(self):
+        user = _make_user("free1@example.com")
+        trial = quota_service.get_or_create_free_trial(user)
+        # 5 minutes exactly.
+        self.assertEqual(trial.free_seconds_granted, 5 * 60)
+        # Idempotent: re-fetching does NOT grant a second trial.
+        again = quota_service.get_or_create_free_trial(user)
+        self.assertEqual(again.pk, trial.pk)
+        self.assertEqual(again.free_seconds_granted, 5 * 60)
+
+    def test_free_minutes_are_deducted(self):
+        user = _make_user("free2@example.com")
+        quota_service.get_or_create_free_trial(user)
+        remaining = quota_service.consume_free_trial_seconds(user, 60)
+        self.assertEqual(remaining, 240)
+        remaining = quota_service.consume_free_trial_seconds(user, 120)
+        self.assertEqual(remaining, 120)
+
+    def test_tutor_locked_after_free_minutes_finish(self):
+        user = _make_user("free3@example.com")
+        # Burn the full trial.
+        quota_service.consume_free_trial_seconds(user, 5 * 60)
+        # With no subscription and no trial, the AI Tutor is locked.
+        seconds, source = quota_service.effective_ai_tutor_remaining(user)
+        self.assertEqual(seconds, 0)
+        self.assertEqual(source, "none")
+        self.assertFalse(quota_service.can_user_start_ai_tutor_now(user))
+
+    def test_subscription_unlocks_tutor_after_free_trial(self):
+        user = _make_user("free4@example.com")
+        # Trial fully consumed.
+        quota_service.consume_free_trial_seconds(user, 5 * 60)
+        seconds, _src = quota_service.effective_ai_tutor_remaining(user)
+        self.assertEqual(seconds, 0)
+        # Admin grants a paid plan.
+        plan = SubscriptionPlan.objects.get(code="basic_10m")
+        subscription_service.activate_subscription(
+            user=user, plan=plan, duration_days=30,
+        )
+        seconds_after, source_after = quota_service.effective_ai_tutor_remaining(user)
+        self.assertEqual(seconds_after, 10 * 60)
+        self.assertEqual(source_after, "subscription")
+        self.assertTrue(quota_service.can_user_start_ai_tutor_now(user))
+
+    def test_quota_does_not_double_count_free_and_paid_minutes(self):
+        """When a paying user still has trial seconds left, the effective
+        remaining MUST be the subscription-only allowance, not the sum."""
+        user = _make_user("free5@example.com")
+        # Untouched trial (300s) + active paid subscription (600s).
+        plan = SubscriptionPlan.objects.get(code="basic_10m")
+        subscription_service.activate_subscription(
+            user=user, plan=plan, duration_days=30,
+        )
+        seconds, source = quota_service.effective_ai_tutor_remaining(user)
+        self.assertEqual(source, "subscription")
+        self.assertEqual(seconds, 10 * 60)  # NOT 600 + 300.

@@ -113,6 +113,17 @@ def expire_subscription(request, user):
     profile.subscription_status = "expired"
     profile.subscription_expires_at = timezone.now()
     profile.save(update_fields=["subscription_status", "subscription_expires_at"])
+    # Keep the new-style UserSubscription row in lock-step with the
+    # legacy profile flag so AI-Tutor / library quota stop granting
+    # minutes the moment the admin clicks "Expire subscription".
+    try:
+        from subscriptions.services import subscription_service
+        subscription_service.revoke_subscriptions_for_user(user)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "expire_subscription: revoke_subscriptions_for_user failed for user %s", user.pk,
+        )
     log_action(
         request,
         action_type="subscription.expire",

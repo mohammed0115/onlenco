@@ -24,7 +24,7 @@ class SignUpForm(forms.Form):
 
     full_name = forms.CharField(max_length=100, required=True)
     email = forms.EmailField(max_length=255, required=True)
-    password = forms.CharField(min_length=6, max_length=100, widget=forms.PasswordInput)
+    password = forms.CharField(min_length=8, max_length=100, widget=forms.PasswordInput)
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

@@ -141,6 +141,11 @@ class PaymentSubmission(models.Model):
         legacy approve — we want admins to still ship the payment even
         if the plan mapping is mis-configured.
         """
+        # Idempotency guard: a second approve() on the same submission
+        # used to extend the subscription by another full cycle, which
+        # gave admins an accidental "click twice = free month".
+        if self.status == "approved":
+            return
         now = timezone.now()
         days = PLAN_DETAILS[self.plan]["duration_days"]
 
@@ -258,3 +263,15 @@ class PaymentSubmission(models.Model):
         profile.subscription_status = "expired"
         profile.subscription_expires_at = now
         profile.save(update_fields=["subscription_status", "subscription_expires_at"])
+
+        # Also expire the new-style UserSubscription this payment unlocked
+        # so active_plan_for() and the AI-Tutor quota check no longer
+        # treat the refunded user as a paying customer.
+        try:
+            from subscriptions.services import subscription_service
+            subscription_service.revoke_subscription_for_payment(self)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "PaymentSubmission.refund: revoke_subscription_for_payment failed for %s", self.pk,
+            )

@@ -15,6 +15,38 @@ def _require_subscription(request):
     return redirect("subscribe")
 
 
+def _require_ai_tutor_quota(request, *, is_placement_call: bool = False):
+    """Gate for the AI Tutor *voice-call* entry pages.
+
+    Mirrors the API rule in ``tutor.api.views.voice_call_session`` — a
+    student is allowed in if they have ANY remaining seconds, whether
+    they come from a paid subscription OR the 5-minute free trial. The
+    legacy ``_require_subscription`` checked ``profile.is_subscribed``
+    only, which locked free-trial students out of a page that the API
+    would otherwise let them call.
+
+    ``is_placement_call=True`` is set by the caller once it has verified
+    the ``placement_attempt`` belongs to this user and conversation —
+    placement onboarding is paywall-exempt by design.
+    """
+    if is_placement_call:
+        return None
+    try:
+        from subscriptions.services.quota_service import can_user_start_ai_tutor_now
+        if can_user_start_ai_tutor_now(request.user):
+            return None
+    except Exception:
+        # If the subscriptions layer raises, fall back to the legacy
+        # check so we never *accidentally* expose a paywalled feature.
+        if getattr(getattr(request.user, "profile", None), "is_subscribed", False):
+            return None
+    messages.warning(
+        request,
+        "Your AI Tutor minutes are exhausted. Subscribe to continue.",
+    )
+    return redirect("subscribe")
+
+
 @login_required
 def conversation_list(request):
     locked = _require_subscription(request)
@@ -170,10 +202,9 @@ def voice_call_page(request, pk):
             voice_conversation_id=pk,
         ).exists()
 
-    if not is_placement_call:
-        locked = _require_subscription(request)
-        if locked:
-            return locked
+    locked = _require_ai_tutor_quota(request, is_placement_call=is_placement_call)
+    if locked:
+        return locked
     conv = get_object_or_404(TutorConversation, pk=pk, user=request.user)
     from tutor.services.realtime_session import daily_minute_cap_remaining
     # Pull the user's avatar + voice preference (Sprint 3) so the page
@@ -226,7 +257,7 @@ def voice_call_quick(request):
     and go straight to the voice-call page. Lets the dashboard card
     read 'Voice call' without needing the user to first open a chat.
     """
-    locked = _require_subscription(request)
+    locked = _require_ai_tutor_quota(request)
     if locked:
         return locked
     # Reuse the most recent conversation if one exists; otherwise create
@@ -240,6 +271,23 @@ def voice_call_quick(request):
     if conv is None:
         conv = TutorConversation.objects.create(user=request.user)
     return redirect("tutor_voice_call", pk=conv.pk)
+
+
+@login_required
+@require_POST
+def delete_my_conversations(request):
+    """Privacy: let a signed-in user wipe their AI Tutor conversation
+    history. Deletes every ``TutorConversation`` (and cascades to
+    ``TutorMessage``) owned by ``request.user``. Always allowed —
+    even when the subscription has expired — because GDPR/CCPA-style
+    "delete my data" is a right that survives churn.
+    """
+    deleted, _detail = TutorConversation.objects.filter(user=request.user).delete()
+    messages.success(
+        request,
+        f"Deleted your AI Tutor conversations ({deleted} record(s)).",
+    )
+    return redirect("profile")
 
 
 @login_required

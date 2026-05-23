@@ -102,3 +102,36 @@ def expire_overdue_subscriptions() -> int:
         status="active",
         end_date__lte=now,
     ).update(status="expired", updated_at=now)
+
+
+def revoke_subscription_for_payment(payment) -> int:
+    """Mark any active ``UserSubscription`` linked to ``payment`` as expired.
+
+    Called from ``PaymentSubmission.refund()``: the legacy refund only
+    flipped ``profile.subscription_status`` to "expired", which left the
+    new-style ``UserSubscription`` row active — so ``active_plan_for``
+    (and therefore ``effective_ai_tutor_remaining``) kept granting the
+    refunded user paid minutes. This closes that gap.
+
+    Returns the number of rows expired.
+    """
+    if payment is None:
+        return 0
+    now = timezone.now()
+    return UserSubscription.objects.filter(
+        payment=payment, status="active",
+    ).update(status="expired", end_date=now, updated_at=now)
+
+
+def revoke_subscriptions_for_user(user) -> int:
+    """Expire every active ``UserSubscription`` row this user holds.
+
+    Used by the admin "Expire subscription" action so the legacy
+    profile-level expiry and the new-style row stay in lock-step.
+    """
+    if user is None:
+        return 0
+    now = timezone.now()
+    return UserSubscription.objects.filter(
+        user=user, status="active",
+    ).update(status="expired", end_date=now, updated_at=now)

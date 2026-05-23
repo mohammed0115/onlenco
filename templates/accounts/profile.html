@@ -296,6 +296,21 @@
       </div>
     </section>
     {% endif %}
+
+    {# Privacy: data-deletion control. AI Tutor conversations are stored in the DB to give the tutor context across sessions; this lets a user wipe them at will. #}
+    <section class="card p-5 mb-5">
+      <h2 class="font-semibold mb-2">{% t_either "Privacy" "الخصوصية" %}</h2>
+      <p class="text-sm text-muted-foreground mb-3">
+        {% t_either "Your AI Tutor conversations are kept so the tutor can remember your context. You can wipe them at any time — older conversations are also purged automatically." "نحتفظ بمحادثاتك مع المعلّم الذكي حتى يتذكّر سياقك. يمكنك حذفها في أي وقت — كما تُحذف المحادثات القديمة تلقائياً." %}
+      </p>
+      <form method="post" action="{% url 'tutor_delete_my_conversations' %}"
+            onsubmit="return confirm('{% t_either "Delete all your AI Tutor conversations? This cannot be undone." "حذف كل محادثاتك مع المعلّم الذكي؟ لا يمكن التراجع." %}');">
+        {% csrf_token %}
+        <button type="submit" class="text-sm font-semibold text-destructive hover:underline">
+          {% t_either "Delete my AI Tutor conversations" "احذف محادثاتي مع المعلّم الذكي" %}
+        </button>
+      </form>
+    </section>
   </main>
 </div>
 <script>if (window.lucide) lucide.createIcons();</script>
