@@ -13,10 +13,10 @@ urlpatterns = [
     path("onboarding/placement/", views.onboarding_placement, name="onboarding_placement"),
     path("profile/", views.profile_view, name="profile"),
     path("change-password/", views.change_password, name="change_password"),
-    # Password reset (Django's built-in flow + our email template)
+    # Password reset (Django's built-in flow + our email template + IP throttle)
     path(
         "password-reset/",
-        auth_views.PasswordResetView.as_view(
+        views.ThrottledPasswordResetView.as_view(
             template_name="accounts/password_reset_form.html",
             email_template_name="notifications/emails/password_reset.html",
             subject_template_name="accounts/password_reset_subject.txt",

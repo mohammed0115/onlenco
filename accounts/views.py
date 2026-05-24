@@ -35,10 +35,39 @@ def _client_ip(request) -> str:
 
 def _signup_rate_exceeded(request) -> bool:
     """Returns True if this IP has hit its hourly signup cap."""
+    return _rate_exceeded(
+        request,
+        bucket="signup_rate",
+        limit=SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR,
+    )
+
+
+PASSWORD_RESET_RATE_LIMIT_PER_IP_PER_HOUR = getattr(
+    settings, "PASSWORD_RESET_RATE_LIMIT_PER_IP_PER_HOUR", 10
+)
+
+
+def _password_reset_rate_exceeded(request) -> bool:
+    """Throttle password-reset POSTs by IP.
+
+    The Django default has no rate limit, which lets an attacker spam
+    the system with reset emails for arbitrary addresses (cheap for
+    them, expensive for our SMTP + annoying for real users). 10 / hour
+    / IP is plenty for legitimate use.
+    """
+    return _rate_exceeded(
+        request,
+        bucket="pwreset_rate",
+        limit=PASSWORD_RESET_RATE_LIMIT_PER_IP_PER_HOUR,
+    )
+
+
+def _rate_exceeded(request, *, bucket: str, limit: int) -> bool:
+    """Per-IP per-hour counter. Returns True when the IP is over the limit."""
     ip = _client_ip(request)
-    key = f"signup_rate:{ip}"
+    key = f"{bucket}:{ip}"
     n = cache.get(key, 0)
-    if n >= SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR:
+    if n >= limit:
         return True
     # Set with a 1-hour TTL on first hit; subsequent hits just inc.
     if n == 0:
@@ -272,8 +301,11 @@ def auth_view(request):
 
 
 @login_required
-@require_http_methods(["GET", "POST"])
+@require_POST
 def logout_view(request):
+    # POST-only: GET-logout is a CSRF vector — a hostile site embedding
+    # <img src="/auth/logout/"> would silently sign the user out. Every
+    # logout button in our templates already uses <form method="post">.
     logout(request)
     return redirect("home")
 
@@ -493,3 +525,32 @@ def change_password(request):
     else:
         form = PasswordChangeForm(request.user)
     return render(request, "accounts/change_password.html", {"form": form, "forced": forced})
+
+
+# ---------------------------------------------------------------------------
+# Throttled password-reset view
+# ---------------------------------------------------------------------------
+
+from django.contrib.auth import views as auth_views  # noqa: E402 — late import
+
+
+class ThrottledPasswordResetView(auth_views.PasswordResetView):
+    """Django's PasswordResetView with a per-IP hourly throttle.
+
+    The plain view will happily send reset emails for any address the
+    attacker provides — that's a cheap spam vector (and a tiny user-
+    enumeration nuisance via timing). ``_password_reset_rate_exceeded``
+    caps how many POSTs one IP can fire per hour; over the limit, we
+    show a friendly message and bounce back to the form instead of
+    quietly mailing.
+    """
+
+    def post(self, request, *args, **kwargs):
+        if _password_reset_rate_exceeded(request):
+            messages.warning(
+                request,
+                "Too many password-reset attempts from your network. "
+                "Please try again in an hour.",
+            )
+            return redirect("password_reset")
+        return super().post(request, *args, **kwargs)

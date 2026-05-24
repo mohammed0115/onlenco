@@ -27,6 +27,10 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      # Read-only access to the same uploads volume gunicorn writes
+      # to — so Caddy can serve /media/* directly (Django doesn't
+      # serve MEDIA when DEBUG=False).
+      - media_data:/srv/media:ro
     environment:
       ACME_EMAIL: ${ACME_EMAIL:-admin@onlenco.academy}
     depends_on:

@@ -54,5 +54,6 @@ ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["gunicorn", "onlenco.wsgi:application", \
      "--bind", "0.0.0.0:8000", \
      "--workers", "3", \
+     "--timeout", "180", \
      "--access-logfile", "-", \
      "--error-logfile", "-"]

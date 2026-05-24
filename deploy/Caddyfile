@@ -23,6 +23,26 @@ onlenco.academy, www.onlenco.academy {
     # Strip cookies on static asset responses (defense in depth)
     header @static -Set-Cookie
 
+    # Serve user-uploaded media directly from the shared volume.
+    # Django's MEDIA_URL is only wired into urls.py when DEBUG=True, so
+    # in production we MUST serve /media/* from Caddy — otherwise every
+    # uploaded lesson audio / video / pdf returns 404 to students.
+    # The `media_data` volume is mounted read-only on this service in
+    # docker-compose.deploy.yml.
+    handle_path /media/* {
+        root * /srv/media
+        file_server
+        # Reasonable cache for user uploads (browser revalidates daily).
+        header Cache-Control "public, max-age=86400"
+    }
+
+    # Cap incoming bodies so a hostile client can't stream 50 GB at us.
+    # 500 MB is comfortably above any realistic lesson video upload but
+    # well below "indefinite". Adjust if curricula grow larger files.
+    request_body {
+        max_size 500MB
+    }
+
     reverse_proxy web:8000 {
         # `header_up` keys go INSIDE the reverse_proxy block in Caddy v2.
         # The proxy hints Django expects when SECURE_PROXY_SSL_HEADER is on.

@@ -51,3 +51,59 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = False  # CSRF must be readable by JS for some flows
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# --- Cookie SameSite ------------------------------------------------------
+# Django 4.0+ defaults to "Lax", but pinning explicitly removes any
+# ambiguity and survives upstream-default changes.
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
+# --- Content-Security-Policy ---------------------------------------------
+# Tight enough to block injected <script>, loose enough to allow our
+# current CDN dependencies. To debug a CSP violation in production
+# without breaking the page, flip CSP_REPORT_ONLY=1 via env.
+CSP_POLICY = " ".join([
+    "default-src 'self';",
+    # Tailwind Play CDN, Lucide icons, and the inline tailwind.config
+    # need 'unsafe-inline'. The allow-list stays narrow to known hosts.
+    "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://js.hcaptcha.com https://*.hcaptcha.com;",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
+    "font-src 'self' data: https://fonts.gstatic.com;",
+    # `data:` for inline avatars / icons; `blob:` for media-recorder; https for OG images.
+    "img-src 'self' data: blob: https:;",
+    # OpenAI Realtime + hCaptcha + same-origin XHR.
+    "connect-src 'self' https://api.openai.com https://*.openai.com wss://*.openai.com https://hcaptcha.com https://*.hcaptcha.com;",
+    # Tutor playback + library audio.
+    "media-src 'self' blob: data: https:;",
+    # Embedded videos / hCaptcha.
+    "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://hcaptcha.com https://*.hcaptcha.com;",
+    "object-src 'none';",
+    "base-uri 'self';",
+    "form-action 'self';",
+    "frame-ancestors 'none';",
+])
+CSP_REPORT_ONLY = env_bool("DJANGO_CSP_REPORT_ONLY", False)
+
+# --- Permissions-Policy ---------------------------------------------------
+# Deny third-party use of sensitive APIs by default. Same-origin Tutor
+# pages still get mic + camera because we whitelist 'self'.
+PERMISSIONS_POLICY = ", ".join([
+    "accelerometer=()",
+    "autoplay=(self)",
+    "camera=(self)",
+    "display-capture=()",
+    "encrypted-media=(self)",
+    "geolocation=()",
+    "gyroscope=()",
+    "magnetometer=()",
+    "microphone=(self)",
+    "midi=()",
+    "payment=()",
+    "picture-in-picture=(self)",
+    "usb=()",
+    "xr-spatial-tracking=()",
+])
+
+# Isolate this origin from cross-origin window references so a malicious
+# popup can't tamper with the tutor page.
+CROSS_ORIGIN_OPENER_POLICY = "same-origin"
