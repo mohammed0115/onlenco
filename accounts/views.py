@@ -13,10 +13,14 @@ from . import onboarding as onboarding_lib
 
 
 # Backstop against automated signup floods; tunable via settings/env.
-# Generous by default — Sudanese users frequently share one public IP
-# behind carrier-grade NAT, so a low cap would block real signups.
+# Kept loose-ish because Sudanese users frequently share one public IP
+# behind carrier-grade NAT — a too-low cap would block a classroom or
+# household signing up together. 10/hr/IP is the floor we'll allow:
+# tight enough to throttle a single-IP bot, loose enough to survive a
+# real signup burst from a shared NAT. Rotating-IP botnets are out of
+# scope for this limit and must be handled by hCaptcha (already wired).
 SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR = getattr(
-    settings, "SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR", 30
+    settings, "SIGNUP_RATE_LIMIT_PER_IP_PER_HOUR", 10
 )
 
 
