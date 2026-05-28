@@ -4,112 +4,241 @@
 {% block title %}{{ lesson.title }} — Onlenco{% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-muted/20">
+<div class="min-h-screen bg-muted/20" data-lesson-id="{{ lesson.pk }}">
     {% include "_app_header.html" %}
 
-    <main class="container py-10 space-y-8">
+    <main class="container py-10 space-y-6 onlenco-lesson">
+        {# Breadcrumb back to course #}
         <a href="{% url 'courses:course_detail' course.pk %}" class="btn btn-outline btn-sm">
             <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
             {{ course.title }}
         </a>
 
-        <section class="space-y-4">
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="badge badge-secondary">{{ course.level.code }}</span>
-                <span class="badge badge-outline">{{ lesson.get_lesson_type_display }}</span>
-                {% if lesson.duration_minutes %}
-                    <span class="badge badge-outline">{{ lesson.duration_minutes }} {% t_either "min" "د" %}</span>
+        {# 1. Lesson Header — number / title / cefr / time / progress #}
+        <header class="onlenco-lesson__header" data-section="header">
+            <div class="flex flex-wrap items-center gap-2 text-sm">
+                <span class="badge badge-secondary">{% t_either "Unit" "وحدة" %} {{ lesson.order|stringformat:"02d" }}</span>
+                <span class="badge badge-outline">{{ course.level.code }}</span>
+                {% if lesson.cefr_level %}<span class="badge badge-outline">{{ lesson.cefr_level }}</span>{% endif %}
+                {% if lesson.duration_minutes %}<span class="badge badge-outline">⏱ {{ lesson.duration_minutes }} {% t_either "min" "دقيقة" %}</span>{% endif %}
+                {% if progress.completed_at %}
+                    <span class="badge badge-secondary">✓ {% t_either "Completed" "مكتمل" %}</span>
                 {% endif %}
             </div>
-            <h1 class="font-display text-4xl font-bold">{{ lesson.title }}</h1>
+            <h1 class="font-display text-3xl md:text-4xl font-bold mt-2">{{ lesson.title }}</h1>
+            {% if lesson.title_ar and lesson.title_ar != lesson.title %}
+                <p class="text-muted-foreground text-lg mt-1" dir="rtl">{{ lesson.title_ar }}</p>
+            {% endif %}
+        </header>
+
+        {# 2. Learning Points — 3 chips (Language / Vocab / Skill) #}
+        {% if lesson.grammar_topic or lesson.vocabulary_topic or lesson.skill %}
+        <section class="onlenco-lesson__chips grid grid-cols-1 md:grid-cols-3 gap-3" data-section="learning-points">
+            {% if lesson.grammar_topic %}
+            <div class="card p-4 onlenco-chip onlenco-chip--blue">
+                <div class="text-xs font-semibold uppercase tracking-wide text-onlenco-blue-700">⚙ {% t_either "New language" "لغة جديدة" %}</div>
+                <div class="mt-1 font-medium" dir="ltr">{{ lesson.grammar_topic }}</div>
+            </div>
+            {% endif %}
+            {% if lesson.vocabulary_topic %}
+            <div class="card p-4 onlenco-chip onlenco-chip--green">
+                <div class="text-xs font-semibold uppercase tracking-wide text-onlenco-green-700">Aa {% t_either "Vocabulary" "مفردات" %}</div>
+                <div class="mt-1 font-medium text-sm" dir="ltr">{{ lesson.vocabulary_topic|truncatewords:14 }}</div>
+            </div>
+            {% endif %}
+            {% if lesson.skill %}
+            <div class="card p-4 onlenco-chip onlenco-chip--yellow">
+                <div class="text-xs font-semibold uppercase tracking-wide text-onlenco-yellow-700">🧩 {% t_either "New skill" "مهارة جديدة" %}</div>
+                <div class="mt-1 font-medium">{{ lesson.get_skill_display }}</div>
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {# 3. Visual Lesson Card — image with fallback #}
+        {% with cover=lesson.media.all|dictsort:"sort_order"|first %}
+        <section class="card overflow-hidden onlenco-lesson__visual" data-section="visual">
+            {% if cover and cover.file %}
+                <img src="{{ cover.file.url }}" alt="{{ cover.alt_text|default:lesson.title }}" class="w-full aspect-video object-cover">
+            {% else %}
+                <div class="aspect-video flex items-center justify-center bg-gradient-to-br from-onlenco-blue-100 to-onlenco-green-100" data-fallback="visual">
+                    <div class="text-center px-4">
+                        <i data-lucide="book-open" class="h-12 w-12 mx-auto text-onlenco-blue-600 opacity-70"></i>
+                        <p class="mt-3 text-sm text-muted-foreground">{% t_either "Visual coming soon — keep reading below." "الرسم قادم قريبًا — تابع القراءة." %}</p>
+                    </div>
+                </div>
+            {% endif %}
+        </section>
+        {% endwith %}
+
+        {# Optional video — preserves the legacy single-FK media path. #}
+        {% if video %}
+        <section class="card overflow-hidden">
+            {% if video.kind == "youtube" or video.kind == "vimeo" %}
+                <div class="aspect-video bg-black"><iframe src="{{ video.embed_url }}" class="w-full h-full" title="{{ lesson.title }}" allowfullscreen></iframe></div>
+            {% elif video.kind == "file" or video.kind == "direct" %}
+                <video class="w-full aspect-video bg-black" controls preload="metadata"><source src="{{ video.url }}"></video>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {# 4–8. Key Language / Examples / Mini Dialogue / Practice — all carried in content_html from P04 seed. #}
+        {% if lesson.content_html %}
+        <section class="card p-6 onlenco-lesson__content" data-section="content">
+            <div class="prose max-w-none" dir="ltr">{{ lesson.content_html|safe_html }}</div>
+        </section>
+        {% endif %}
+
+        {# Arabic explanation block — only when AR is the active language. #}
+        {% if lang == "ar" and lesson.content_ar %}
+        <section class="card p-6 onlenco-lesson__content-ar" data-section="content-ar" dir="rtl">
+            <div class="prose max-w-none">{{ lesson.content_ar|safe_html }}</div>
+        </section>
+        {% endif %}
+
+        {# 9. Listening — audio scripts placeholder or real player. #}
+        {% with audio_scripts=lesson.audio_scripts.all %}
+        {% if lesson.audio_file or audio_scripts %}
+        <section class="card p-6 onlenco-lesson__listening" data-section="listening">
+            <h2 class="font-display text-xl font-bold mb-3">🎧 {% t_either "Listening" "الاستماع" %}</h2>
+            {% if lesson.audio_file %}
+                <audio class="w-full" controls src="{{ lesson.audio_file.url }}"></audio>
+            {% else %}
+                {% for script in audio_scripts %}
+                    {% if script.generated_audio %}
+                        <div class="mb-3">
+                            <div class="text-xs uppercase tracking-wide text-muted-foreground mb-1">{{ script.get_script_type_display }}</div>
+                            <audio class="w-full" controls src="{{ script.generated_audio.url }}"></audio>
+                        </div>
+                    {% else %}
+                        <div class="mb-3 p-3 rounded-lg bg-onlenco-yellow-100 border border-onlenco-yellow-300 text-sm" data-fallback="audio-pending">
+                            <span class="font-semibold">⏳ {{ script.get_script_type_display }}:</span>
+                            {% t_either "audio pending generation" "الصوت قيد التحضير" %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </section>
+        {% endif %}
+        {% endwith %}
+
+        {# 10. Speaking Practice — AI Tutor CTA. #}
+        <section class="card p-6 onlenco-lesson__speaking" data-section="speaking">
+            <h2 class="font-display text-xl font-bold mb-2">💬 {% t_either "Speaking Practice" "تمرين المحادثة" %}</h2>
+            <p class="text-sm text-muted-foreground mb-4">{% t_either "Practice this lesson with the AI tutor in a 2-minute voice call." "تدرّب على هذا الدرس مع المعلم الذكي في مكالمة صوتية لمدة دقيقتين." %}</p>
+            <a href="/tutor/?lesson={{ lesson.pk }}" class="btn btn-hero" data-action="ai-tutor">
+                <i data-lucide="mic" class="h-4 w-4"></i>
+                {% t_either "Practice with AI Tutor" "تدرّب مع المعلم الذكي" %}
+            </a>
         </section>
 
-        {% if video %}
-            <section class="card overflow-hidden">
-                {% if video.kind == "youtube" or video.kind == "vimeo" %}
-                    <div class="aspect-video bg-black">
-                        <iframe src="{{ video.embed_url }}" class="w-full h-full" title="{{ lesson.title }}" allowfullscreen></iframe>
-                    </div>
-                {% elif video.kind == "file" or video.kind == "direct" %}
-                    <video class="w-full aspect-video bg-black" controls preload="metadata">
-                        <source src="{{ video.url }}">
-                    </video>
-                {% endif %}
-            </section>
+        {# 11. Quiz CTA. #}
+        {% if quiz %}
+        <section class="card p-6 onlenco-lesson__quiz flex flex-wrap items-center justify-between gap-4" data-section="quiz">
+            <div>
+                <h2 class="font-display text-xl font-bold">✓ {% t_either "End-of-unit Quiz" "اختبار نهاية الوحدة" %}</h2>
+                <p class="text-sm text-muted-foreground mt-1">{% t_either "Test what you learned. Pass to mark this unit complete." "اختبر ما تعلّمته. اجتز لإتمام الوحدة." %}</p>
+            </div>
+            <a href="{% url 'courses:lesson_quiz_attempt' course.pk lesson.pk %}" class="btn btn-hero" data-action="start-quiz">
+                {% t_either "Start Quiz" "ابدأ الاختبار" %}
+            </a>
+        </section>
         {% endif %}
 
-        {% if lesson.audio_file %}
-            <section class="card p-5">
-                <audio class="w-full" controls src="{{ lesson.audio_file.url }}"></audio>
-            </section>
+        {# 12. Checklist — student self-checks. #}
+        {% with checklist=lesson.checklist_items.all %}
+        {% if checklist %}
+        <section class="card p-6 onlenco-lesson__checklist" data-section="checklist">
+            <h2 class="font-display text-xl font-bold mb-4">📋 {% t_either "I can…" "أستطيع…" %}</h2>
+            <ul class="space-y-2">
+                {% for item in checklist %}
+                <li class="flex items-start gap-3">
+                    <input type="checkbox" class="mt-1" data-checklist-item="{{ item.pk }}">
+                    <span>{% if lang == "ar" and item.text_ar %}{{ item.text_ar }}{% else %}{{ item.text_en }}{% endif %}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
         {% endif %}
+        {% endwith %}
 
-        {% if lesson.content_html %}
-            <section class="card p-6">
-                <div class="prose max-w-none">{{ lesson.content_html|safe_html }}</div>
-            </section>
-        {% endif %}
-
-        {% if lesson.transcript %}
-            <section class="card p-6">
-                <h2 class="font-display text-xl font-bold mb-3">{% t_either "Transcript" "النص" %}</h2>
-                <div class="prose max-w-none text-sm text-muted-foreground">{{ lesson.transcript|linebreaks }}</div>
-            </section>
-        {% endif %}
-
+        {# 13. Lesson completion + Next unit CTA. #}
         <section class="card p-6 flex flex-wrap items-center justify-between gap-4">
             <div class="text-sm">
                 {% if progress.completed_at %}
                     <span class="badge badge-secondary">{% t_either "Lesson completed" "اكتمل الدرس" %} ✓</span>
                 {% elif progress.video_completed %}
-                    <span class="badge badge-outline">{% t_either "Video watched" "تمت المشاهدة" %}</span>
+                    <span class="badge badge-outline">{% t_either "Marked watched" "تمت المتابعة" %}</span>
                 {% else %}
-                    <span class="text-muted-foreground">{% t_either "Not yet watched" "لم تتم المشاهدة بعد" %}</span>
+                    <span class="text-muted-foreground">{% t_either "Mark this lesson when done." "ضع علامة عند الانتهاء." %}</span>
                 {% endif %}
             </div>
             <div class="flex gap-3 flex-wrap">
                 {% if not progress.video_completed %}
                 <form method="post" action="{% url 'courses:mark_lesson_complete' course.pk lesson.pk %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-secondary">
-                        {% t_either "Mark as watched" "وضع علامة كتمت المشاهدة" %}
+                    <button type="submit" class="btn btn-secondary" data-action="mark-complete">
+                        {% t_either "Mark as completed" "وضع علامة كاكتمل" %}
                     </button>
                 </form>
                 {% endif %}
-                {% if quiz %}
-                <a href="{% url 'courses:lesson_quiz_attempt' course.pk lesson.pk %}" class="btn btn-hero">
-                    {% t_either "Take quiz" "ابدأ الاختبار" %}
+                {% if next_lesson %}
+                <a href="{% url 'courses:lesson_detail' course.pk next_lesson.pk %}" class="btn btn-outline" data-action="next-unit">
+                    {% t_either "Next unit" "الوحدة التالية" %} →
                 </a>
                 {% endif %}
             </div>
         </section>
 
+        {# Resources (PDF, attachments) — kept for backward compatibility. #}
         {% if lesson.pdf_file or lesson.resources.all %}
-            <section class="card p-6">
-                <h2 class="font-display text-xl font-bold mb-4">{% t_either "Resources" "المرفقات" %}</h2>
-                <div class="space-y-3">
-                    {% if lesson.pdf_file %}
-                        <a href="{{ lesson.pdf_file.url }}" class="btn btn-outline" target="_blank" rel="noopener">
-                            <i data-lucide="file-text" class="h-4 w-4"></i>
-                            {% t_either "Open PDF" "فتح الملف" %}
+        <section class="card p-6">
+            <h2 class="font-display text-xl font-bold mb-4">{% t_either "Resources" "المرفقات" %}</h2>
+            <div class="space-y-3">
+                {% if lesson.pdf_file %}
+                    <a href="{{ lesson.pdf_file.url }}" class="btn btn-outline" target="_blank" rel="noopener">
+                        <i data-lucide="file-text" class="h-4 w-4"></i>
+                        {% t_either "Open PDF" "فتح الملف" %}
+                    </a>
+                {% endif %}
+                {% for resource in lesson.resources.all %}
+                    {% if resource.file %}
+                        <a href="{{ resource.file.url }}" class="btn btn-outline" target="_blank" rel="noopener">
+                            <i data-lucide="paperclip" class="h-4 w-4"></i>{{ resource.title }}
+                        </a>
+                    {% elif resource.url %}
+                        <a href="{{ resource.url }}" class="btn btn-outline" target="_blank" rel="noopener">
+                            <i data-lucide="external-link" class="h-4 w-4"></i>{{ resource.title }}
                         </a>
                     {% endif %}
-                    {% for resource in lesson.resources.all %}
-                        {% if resource.file %}
-                            <a href="{{ resource.file.url }}" class="btn btn-outline" target="_blank" rel="noopener">
-                                <i data-lucide="paperclip" class="h-4 w-4"></i>
-                                {{ resource.title }}
-                            </a>
-                        {% elif resource.url %}
-                            <a href="{{ resource.url }}" class="btn btn-outline" target="_blank" rel="noopener">
-                                <i data-lucide="external-link" class="h-4 w-4"></i>
-                                {{ resource.title }}
-                            </a>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </section>
+                {% endfor %}
+            </div>
+        </section>
         {% endif %}
     </main>
 </div>
+
+<style>
+/* Onlenco brand tokens used by this page. Scoped to .onlenco-lesson so we
+   don't leak elsewhere. The Tailwind classes above carry layout; these
+   tokens give the brand colour identity (per Method Spec §3). */
+.onlenco-lesson { --onlenco-primary:#2563EB; --onlenco-blue-100:#DBEAFE; --onlenco-blue-600:#2563EB; --onlenco-blue-700:#1D4ED8; --onlenco-green-100:#DCFCE7; --onlenco-green-700:#15803D; --onlenco-yellow-100:#FEF9C3; --onlenco-yellow-300:#FDE68A; --onlenco-yellow-700:#A16207; --onlenco-orange-100:#FFEDD5; }
+.onlenco-lesson .bg-onlenco-blue-100   { background-color: var(--onlenco-blue-100); }
+.onlenco-lesson .bg-onlenco-green-100  { background-color: var(--onlenco-green-100); }
+.onlenco-lesson .bg-onlenco-yellow-100 { background-color: var(--onlenco-yellow-100); }
+.onlenco-lesson .border-onlenco-yellow-300 { border-color: var(--onlenco-yellow-300); }
+.onlenco-lesson .text-onlenco-blue-600 { color: var(--onlenco-blue-600); }
+.onlenco-lesson .text-onlenco-blue-700 { color: var(--onlenco-blue-700); }
+.onlenco-lesson .text-onlenco-green-700 { color: var(--onlenco-green-700); }
+.onlenco-lesson .text-onlenco-yellow-700 { color: var(--onlenco-yellow-700); }
+.onlenco-lesson .from-onlenco-blue-100 { --tw-gradient-from: var(--onlenco-blue-100); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent); }
+.onlenco-lesson .to-onlenco-green-100  { --tw-gradient-to: var(--onlenco-green-100); }
+.onlenco-chip { border-left: 4px solid currentColor; }
+.onlenco-chip--blue   { color: var(--onlenco-blue-700);   background-color: var(--onlenco-blue-100); }
+.onlenco-chip--green  { color: var(--onlenco-green-700);  background-color: var(--onlenco-green-100); }
+.onlenco-chip--yellow { color: var(--onlenco-yellow-700); background-color: var(--onlenco-yellow-100); }
+/* Keep English example sentences LTR even inside an RTL page. */
+[dir="rtl"] .onlenco-lesson__content { direction: ltr; text-align: left; }
+[dir="rtl"] .onlenco-lesson__content [lang="ar"] { direction: rtl; text-align: right; }
+</style>
 {% endblock %}

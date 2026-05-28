@@ -145,6 +145,15 @@ def course_lesson_detail(request, course_pk, lesson_pk):
     except Exception:
         quiz = None
 
+    # Next-unit CTA on the lesson page links to the next ordered Lesson in
+    # the same course. Falls back to None when this is the last lesson.
+    next_lesson = (
+        published_lesson_queryset()
+        .filter(course=course, order__gt=lesson.order)
+        .order_by("order")
+        .first()
+    )
+
     return render(request, "courses/lesson_detail.html", {
         "course": course,
         "lesson": lesson,
@@ -152,6 +161,7 @@ def course_lesson_detail(request, course_pk, lesson_pk):
         "video": lesson.get_video_embed(),
         "progress": progress,
         "quiz": quiz,
+        "next_lesson": next_lesson,
     })
 
 

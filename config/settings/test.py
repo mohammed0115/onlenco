@@ -31,3 +31,10 @@ AUTHENTICATION_BACKENDS = [
 # UserWeakness side-effects are observable inside the test transaction
 # (background threads can't see the in-progress test DB rollback).
 TUTOR_HOOKS_SYNC = True
+
+# hCaptcha: must be off in tests. When BOTH keys are present, the
+# signup view enforces a CAPTCHA token in the POST body — tests don't
+# carry one, so signup-related tests would falsely fail. Explicitly
+# clearing both keys here keeps `_hcaptcha_verify` short-circuited.
+HCAPTCHA_SITE_KEY = ""
+HCAPTCHA_SECRET = ""

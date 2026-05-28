@@ -18,10 +18,14 @@
 
     <div class="control-grid two-grid">
       <div>
-        <label for="{{ form.code.id_for_label }}">{% if lang == "ar" %}الرمز{% else %}Code{% endif %}</label>
-        {{ form.code }}
-        {% if form.code.errors %}<small class="error-text">{{ form.code.errors|join:" " }}</small>{% endif %}
-        <small class="muted">{% if lang == "ar" %}معرّف ثابت، مثل sp.intro.001 — لا يظهر للطالب.{% else %}Stable id, e.g. sp.intro.001 — never shown to the student.{% endif %}</small>
+        <label>{% if lang == "ar" %}الرمز{% else %}Code{% endif %}</label>
+        {% if question %}
+          <input type="text" value="{{ question.code }}" readonly disabled style="background:#f3f4f6;color:#374151">
+          <small class="muted">{% if lang == "ar" %}يُولَّد تلقائياً ولا يمكن تعديله.{% else %}Auto-generated, not editable.{% endif %}</small>
+        {% else %}
+          <input type="text" value="{% if lang == 'ar' %}سيُولَّد تلقائياً بعد الحفظ{% else %}Auto-generated after save{% endif %}" readonly disabled style="background:#f3f4f6;color:#9ca3af;font-style:italic">
+          <small class="muted">{% if lang == "ar" %}يُبنى من النوع + الموضوع، مثل sp.intro.001.{% else %}Built from type + topic, e.g. sp.intro.001.{% endif %}</small>
+        {% endif %}
       </div>
       <div>
         <label for="{{ form.is_active.id_for_label }}">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</label>

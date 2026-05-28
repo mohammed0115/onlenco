@@ -1,13 +1,24 @@
 {% extends "platform_admin/base.html" %}
 
-{% block control_title %}{% if lesson %}Edit lesson{% else %}New video lesson{% endif %}{% endblock %}
-{% block control_subtitle %}{{ course.title }} · video lesson with optional worksheet upload{% endblock %}
+{% block control_title %}{% if lesson %}{% if lang == "ar" %}تعديل الدرس{% else %}Edit lesson{% endif %}{% else %}{% if lang == "ar" %}درس جديد{% else %}New lesson{% endif %}{% endif %}{% endblock %}
+{% block control_subtitle %}{{ course.title }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://unpkg.com/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<style>
+  .lesson-editor-content { background:#fff; border-radius:8px; }
+  .lesson-editor-content .ql-toolbar { border-radius:8px 8px 0 0; }
+  .lesson-editor-content .ql-container { border-radius:0 0 8px 8px; min-height:200px; font-size:15px; }
+  .lesson-editor-content .ql-editor { min-height:200px; direction:ltr; text-align:left; }
+  .lesson-editor-hidden { display:none; }
+</style>
+{% endblock %}
 
 {% block control_content %}
 <form class="control-card stack" method="post" enctype="multipart/form-data">
   {% csrf_token %}
   {% if form.errors %}
-    <div class="badge badge-red">Please fix the highlighted fields.</div>
+    <div class="badge badge-red">{% if lang == "ar" %}يرجى تصحيح الحقول المظللة.{% else %}Please fix the highlighted fields.{% endif %}</div>
   {% endif %}
   <div class="form-grid">
     <div>{{ form.title.label_tag }}{{ form.title }}{{ form.title.errors }}</div>
@@ -26,13 +37,53 @@
     <div>{{ form.worksheet_title.label_tag }}{{ form.worksheet_title }}{{ form.worksheet_title.errors }}</div>
     <div>{{ form.duration_minutes.label_tag }}{{ form.duration_minutes }}{{ form.duration_minutes.errors }}</div>
     <div>{{ form.status.label_tag }}{{ form.status }}{{ form.status.errors }}</div>
-    <div class="span-2">{{ form.content_html.label_tag }}{{ form.content_html }}{{ form.content_html.errors }}</div>
+
+    <div class="span-2">
+      <label>{% if lang == "ar" %}المحتوى{% else %}Content{% endif %}:</label>
+      <div id="lesson-content-editor" class="lesson-editor-content"></div>
+      <div class="lesson-editor-hidden">{{ form.content_html }}</div>
+      {{ form.content_html.errors }}
+    </div>
+
     <div class="span-2">{{ form.transcript.label_tag }}{{ form.transcript }}{{ form.transcript.errors }}</div>
-    <label>{{ form.is_active }} Active</label>
+    <label>{{ form.is_active }} {% if lang == "ar" %}مفعّل{% else %}Active{% endif %}</label>
   </div>
   <div class="filters">
-    <button class="btn-control btn-primary" type="submit"><i data-lucide="save" class="h-4 w-4"></i> Save lesson</button>
-    <a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}">Cancel</a>
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="save" class="h-4 w-4"></i> {% if lang == "ar" %}حفظ الدرس{% else %}Save lesson{% endif %}</button>
+    <a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}">{% if lang == "ar" %}إلغاء{% else %}Cancel{% endif %}</a>
   </div>
 </form>
+
+<script src="https://unpkg.com/quill@2.0.2/dist/quill.js"></script>
+<script>
+  (function () {
+    var textarea = document.getElementById("{{ form.content_html.id_for_label }}");
+    var holder = document.getElementById("lesson-content-editor");
+    if (!textarea || !holder) return;
+
+    var quill = new Quill(holder, {
+      theme: "snow",
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, false] }],
+          ["bold", "italic", "underline"],
+          [{ list: "ordered" }, { list: "bullet" }],
+          ["link", "blockquote", "code-block"],
+          ["clean"],
+        ],
+      },
+    });
+
+    if (textarea.value) {
+      quill.clipboard.dangerouslyPasteHTML(textarea.value);
+    }
+    quill.on("text-change", function () {
+      textarea.value = quill.getSemanticHTML();
+    });
+
+    textarea.form.addEventListener("submit", function () {
+      textarea.value = quill.getSemanticHTML();
+    });
+  })();
+</script>
 {% endblock %}

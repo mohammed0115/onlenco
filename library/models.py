@@ -35,6 +35,10 @@ class Book(models.Model):
     published_at = models.DateField(blank=True, null=True)
     is_published = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    code = models.CharField(
+        max_length=50, unique=True, blank=True, db_index=True,
+        verbose_name=_("Auto code"),
+    )
 
     class Meta:
         ordering = ["-published_at", "title"]
@@ -43,6 +47,20 @@ class Book(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.level})"
+
+    def save(self, *args, **kwargs):
+        if not self.code and self.level:
+            from courses.services.code_generator import (
+                generate_book_code, next_book_sequence,
+            )
+            existing = (
+                Book.objects.filter(level=self.level)
+                .exclude(pk=self.pk)
+                .values_list("code", flat=True)
+            )
+            seq = next_book_sequence(existing)
+            self.code = generate_book_code(self.level, seq)
+        super().save(*args, **kwargs)
 
     def clean(self):
         super().clean()
@@ -75,6 +93,10 @@ class Chapter(models.Model):
         help_text=_("Approximate audio length for filtering / listing."),
     )
     sort_order = models.PositiveSmallIntegerField(default=0)
+    code = models.CharField(
+        max_length=60, unique=True, blank=True, db_index=True,
+        verbose_name=_("Auto code"),
+    )
 
     class Meta:
         ordering = ["sort_order", "id"]
@@ -83,6 +105,12 @@ class Chapter(models.Model):
 
     def __str__(self):
         return f"{self.book.title} — Chapter {self.sort_order}: {self.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.code and self.book_id and self.book.code:
+            from courses.services.code_generator import generate_chapter_code
+            self.code = generate_chapter_code(self.book.code, self.sort_order)
+        super().save(*args, **kwargs)
 
     @property
     def has_audio(self) -> bool:

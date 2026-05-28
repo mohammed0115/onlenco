@@ -86,8 +86,12 @@ class PlacementQuestion(models.Model):
     """
 
     code = models.CharField(
-        max_length=80, unique=True, db_index=True,
-        help_text=_("Stable identifier — used by the seeder for idempotency."),
+        max_length=80, unique=True, db_index=True, blank=True,
+        help_text=_(
+            "Auto-generated stable identifier (e.g. wr.intro.001). "
+            "Leave blank — the system assigns the next free sequence "
+            "from the question_type + topic on save."
+        ),
     )
     question_text = models.TextField(verbose_name=_("Question (English)"))
     question_text_ar = models.TextField(
@@ -148,6 +152,19 @@ class PlacementQuestion(models.Model):
 
     def __str__(self):
         return f"[{self.code}] {self.question_text[:60]}"
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            from placement.services.code_generator import (
+                code_prefix, generate_question_code,
+                next_question_sequence, topic_slug,
+            )
+            prefix = code_prefix(self.question_type)
+            slug = topic_slug(self.topic)
+            existing = PlacementQuestion.objects.values_list("code", flat=True)
+            seq = next_question_sequence(existing, prefix, slug)
+            self.code = generate_question_code(self.question_type, slug, seq)
+        super().save(*args, **kwargs)
 
     def text_for(self, language: str) -> str:
         """Return the question in the requested language with EN fallback."""

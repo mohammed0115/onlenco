@@ -134,6 +134,14 @@ class Course(models.Model):
         max_length=200, blank=True, verbose_name=_("English title"),
     )
     slug = models.SlugField(max_length=220, unique=True, verbose_name=_("Slug"))
+    # Stable, human-readable identifier auto-generated on first save —
+    # e.g. ``ONL-A1-COURSE-001``. Used for admin search, exports, and
+    # cross-app references. Never changes after creation (unlike slug
+    # or title which may be edited).
+    code = models.CharField(
+        max_length=50, unique=True, blank=True, db_index=True,
+        verbose_name=_("Auto code"),
+    )
     description = models.TextField(blank=True, verbose_name=_("Description"))
     description_ar = models.TextField(blank=True, verbose_name=_("Arabic description"))
     description_en = models.TextField(blank=True, verbose_name=_("English description"))
@@ -210,6 +218,22 @@ class Course(models.Model):
         verbose_name = _("Course")
         verbose_name_plural = _("Courses")
 
+    def save(self, *args, **kwargs):
+        # Auto-assign code on first save. Never re-generate, so the
+        # identifier stays stable even if level / title change.
+        if not self.code and self.level_id:
+            from courses.services.code_generator import (
+                generate_course_code, next_course_sequence,
+            )
+            existing = (
+                Course.objects.filter(level=self.level)
+                .exclude(pk=self.pk)
+                .values_list("code", flat=True)
+            )
+            seq = next_course_sequence(existing)
+            self.code = generate_course_code(self.level.code, seq)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.title
 
@@ -242,6 +266,10 @@ class CourseUnit(models.Model):
     order = models.PositiveSmallIntegerField(default=0, verbose_name=_("Order"))
     is_active = models.BooleanField(default=True, db_index=True, verbose_name=_("Active"))
     is_published = models.BooleanField(default=False, db_index=True, verbose_name=_("Published"))
+    code = models.CharField(
+        max_length=50, unique=True, blank=True, db_index=True,
+        verbose_name=_("Auto code"),
+    )
 
     class Meta:
         ordering = ["course", "order", "id"]
@@ -250,6 +278,17 @@ class CourseUnit(models.Model):
 
     def __str__(self):
         return f"{self.course.title} — {self.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.code and self.course_id:
+            from courses.services.code_generator import (
+                generate_unit_code, parse_course_sequence,
+            )
+            course_seq = parse_course_sequence(self.course.code)
+            self.code = generate_unit_code(
+                self.course.level.code, course_seq, self.order,
+            )
+        super().save(*args, **kwargs)
 
     @property
     def lesson_count(self) -> int:
@@ -332,6 +371,10 @@ class Lesson(models.Model):
     content_html = models.TextField(blank=True, verbose_name=_("Content"))
     content_ar = models.TextField(blank=True, verbose_name=_("Arabic content"))
     content_en = models.TextField(blank=True, verbose_name=_("English content"))
+    code = models.CharField(
+        max_length=50, unique=True, blank=True, db_index=True,
+        verbose_name=_("Auto code"),
+    )
     transcript = models.TextField(blank=True, verbose_name=_("Transcript"))
     duration_minutes = models.PositiveSmallIntegerField(
         default=0, verbose_name=_("Duration (minutes)"),
@@ -369,6 +412,32 @@ class Lesson(models.Model):
 
     def __str__(self):
         return f"{self.course.title} — {self.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.code and self.course_id:
+            from courses.services.code_generator import (
+                fallback_lesson_code, generate_lesson_code,
+                parse_course_sequence,
+            )
+            level_code = self.course.level.code if self.course.level_id else ""
+            if self.unit_id and self.unit and self.course.code:
+                course_seq = parse_course_sequence(self.course.code)
+                self.code = generate_lesson_code(
+                    level_code, course_seq, self.unit.order, self.order,
+                )
+            elif self.pk:
+                # Standalone lesson (no unit yet) — pk-anchored fallback
+                # keeps the unique constraint satisfied. Re-saving after
+                # a unit is attached does NOT re-generate.
+                self.code = fallback_lesson_code(self.pk, level_code)
+        super().save(*args, **kwargs)
+        # If the code couldn't be set BEFORE save (no pk yet, no unit),
+        # set it now and save once more.
+        if not self.code:
+            from courses.services.code_generator import fallback_lesson_code
+            level_code = self.course.level.code if self.course.level_id else ""
+            self.code = fallback_lesson_code(self.pk, level_code)
+            super().save(update_fields=["code"])
 
     def clean(self):
         super().clean()
@@ -477,6 +546,10 @@ class LessonQuiz(models.Model):
         help_text=_("0 = no limit"),
     )
     is_active = models.BooleanField(default=True, verbose_name=_("Active"))
+    code = models.CharField(
+        max_length=60, unique=True, blank=True, db_index=True,
+        verbose_name=_("Auto code"),
+    )
 
     class Meta:
         verbose_name = _("Lesson quiz")
@@ -484,6 +557,22 @@ class LessonQuiz(models.Model):
 
     def __str__(self):
         return f"Quiz: {self.lesson.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.code and self.lesson_id and self.lesson.code:
+            from courses.services.code_generator import generate_quiz_code
+            self.code = generate_quiz_code(self.lesson.code)
+        super().save(*args, **kwargs)
+        # Quiz created before the lesson got its code? Re-anchor once
+        # the lesson code is available.
+        if not self.code and self.lesson_id and self.lesson.code:
+            from courses.services.code_generator import generate_quiz_code
+            self.code = generate_quiz_code(self.lesson.code)
+            super().save(update_fields=["code"])
+        elif not self.code and self.pk:
+            from courses.services.code_generator import fallback_quiz_code
+            self.code = fallback_quiz_code(self.pk)
+            super().save(update_fields=["code"])
 
 
 # ---------------------------------------------------------------------------
@@ -723,3 +812,475 @@ class CourseLessonProgress(models.Model):
         if not getattr(self.lesson, "quiz", None):
             return True
         return bool(self.quiz_passed)
+
+
+# ---------------------------------------------------------------------------
+# 12. LessonMedia, QuestionMedia, LessonChecklist, LessonAudioScript,
+#     LessonImagePrompt — additive multi-media surface for the Beginner
+#     pack (Prompt 02). Every field is optional so existing lessons keep
+#     rendering unchanged when no rows exist; a lesson page must work
+#     whether or not these tables hold data for it.
+# ---------------------------------------------------------------------------
+
+LESSON_MEDIA_TYPE_CHOICES = [
+    ("image",    _("Image")),
+    ("audio",    _("Audio")),
+    ("video",    _("Video")),
+    ("document", _("Document")),
+]
+
+LESSON_MEDIA_LANGUAGE_CHOICES = [
+    ("",   _("Universal / language-neutral")),
+    ("en", _("English")),
+    ("ar", _("Arabic")),
+]
+
+
+class LessonMedia(models.Model):
+    """Additional media attached to a Lesson — more than one image / audio /
+    video / pdf per lesson, each with its own caption and language tag.
+
+    The legacy single-FK media fields on `Lesson` (`video_file`, `audio_file`,
+    `pdf_file`) are kept as-is for the "one canonical media per lesson"
+    case. `LessonMedia` is the multi-row extension used by the Beginner
+    pack — e.g. five vocabulary tile images per lesson, each linked to its
+    own pronunciation clip.
+    """
+
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name="media",
+        verbose_name=_("Lesson"),
+    )
+    media_type = models.CharField(
+        max_length=10, choices=LESSON_MEDIA_TYPE_CHOICES, db_index=True,
+        verbose_name=_("Media type"),
+    )
+    title = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Title (English)"),
+    )
+    title_ar = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Title (Arabic)"),
+    )
+    file = models.FileField(
+        upload_to="lessons/media/%Y/%m/", blank=True, null=True,
+        verbose_name=_("File"),
+        help_text=_("Optional. An empty row is treated as a placeholder."),
+    )
+    external_url = models.URLField(
+        blank=True, max_length=500, verbose_name=_("External URL"),
+    )
+    language = models.CharField(
+        max_length=2, choices=LESSON_MEDIA_LANGUAGE_CHOICES,
+        blank=True, default="", verbose_name=_("Language"),
+    )
+    alt_text = models.CharField(
+        max_length=300, blank=True, verbose_name=_("Alt text"),
+    )
+    transcript = models.TextField(
+        blank=True, verbose_name=_("Transcript"),
+    )
+    duration_seconds = models.PositiveIntegerField(
+        default=0, verbose_name=_("Duration (seconds)"),
+    )
+    sort_order = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_("Sort order"),
+    )
+    is_active = models.BooleanField(
+        default=True, verbose_name=_("Active"),
+    )
+    generated_by_ai = models.BooleanField(
+        default=False, verbose_name=_("Generated by AI"),
+    )
+    generation_prompt = models.TextField(
+        blank=True, verbose_name=_("Generation prompt"),
+        help_text=_("Prompt text used when AI-generated. Empty for uploads."),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["lesson", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["lesson", "media_type"]),
+            models.Index(fields=["lesson", "sort_order"]),
+            models.Index(fields=["is_active"]),
+        ]
+        verbose_name = _("Lesson media")
+        verbose_name_plural = _("Lesson media")
+
+    def __str__(self):
+        label = self.title or self.alt_text or f"{self.media_type}#{self.pk}"
+        return f"{self.lesson_id} · {label}"
+
+
+QUESTION_MEDIA_TYPE_CHOICES = [
+    ("image", _("Image")),
+    ("audio", _("Audio")),
+    ("video", _("Video")),
+]
+
+
+class QuestionMedia(models.Model):
+    """Optional media attached to a `LessonQuestion` — image cue for a
+    vocab match, audio prompt for a listening question, etc."""
+
+    question = models.ForeignKey(
+        LessonQuestion, on_delete=models.CASCADE, related_name="media",
+        verbose_name=_("Question"),
+    )
+    media_type = models.CharField(
+        max_length=10, choices=QUESTION_MEDIA_TYPE_CHOICES, db_index=True,
+        verbose_name=_("Media type"),
+    )
+    file = models.FileField(
+        upload_to="lessons/questions/%Y/%m/", blank=True, null=True,
+        verbose_name=_("File"),
+    )
+    external_url = models.URLField(
+        blank=True, max_length=500, verbose_name=_("External URL"),
+    )
+    alt_text = models.CharField(
+        max_length=300, blank=True, verbose_name=_("Alt text"),
+    )
+    transcript = models.TextField(
+        blank=True, verbose_name=_("Transcript"),
+    )
+    language = models.CharField(
+        max_length=2, choices=LESSON_MEDIA_LANGUAGE_CHOICES,
+        blank=True, default="", verbose_name=_("Language"),
+    )
+    sort_order = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_("Sort order"),
+    )
+    is_active = models.BooleanField(
+        default=True, verbose_name=_("Active"),
+    )
+    generation_prompt = models.TextField(
+        blank=True, verbose_name=_("Generation prompt"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["question", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["question", "media_type"]),
+        ]
+        verbose_name = _("Question media")
+        verbose_name_plural = _("Question media")
+
+    def __str__(self):
+        return f"Q{self.question_id} · {self.media_type}#{self.pk}"
+
+
+class LessonChecklist(models.Model):
+    """Bilingual checklist items shown at the end of a Lesson. Renders the
+    "can-do" statements students tick off (e.g. "I can introduce myself"
+    / "أستطيع التعريف بنفسي")."""
+
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name="checklist_items",
+        verbose_name=_("Lesson"),
+    )
+    text_en = models.CharField(
+        max_length=300, verbose_name=_("Text (English)"),
+    )
+    text_ar = models.CharField(
+        max_length=300, blank=True, verbose_name=_("Text (Arabic)"),
+        help_text=_("Optional — falls back to English if blank."),
+    )
+    sort_order = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_("Sort order"),
+    )
+    is_active = models.BooleanField(
+        default=True, verbose_name=_("Active"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["lesson", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["lesson", "sort_order"]),
+        ]
+        verbose_name = _("Lesson checklist item")
+        verbose_name_plural = _("Lesson checklist items")
+
+    def __str__(self):
+        return f"{self.lesson_id} · {self.text_en[:40]}"
+
+    def text_for(self, language: str) -> str:
+        """Localised getter — Arabic when requested and present, else English."""
+        if (language or "").lower().startswith("ar") and self.text_ar.strip():
+            return self.text_ar
+        return self.text_en
+
+
+LESSON_AUDIO_SCRIPT_TYPE_CHOICES = [
+    ("intro",      _("Intro")),
+    ("vocabulary", _("Vocabulary")),
+    ("examples",   _("Examples")),
+    ("dialogue",   _("Dialogue")),
+    ("listening",  _("Listening")),
+    ("quiz",       _("Quiz")),
+    ("speaking",   _("Speaking")),
+]
+
+LESSON_AUDIO_VOICE_STYLE_CHOICES = [
+    ("friendly_teacher", _("Friendly teacher")),
+    ("slow_beginner",    _("Slow beginner")),
+    ("dialogue",         _("Dialogue (two voices)")),
+]
+
+
+class LessonAudioScript(models.Model):
+    """TTS source script for a Lesson. One row per script_type — feeds the
+    batch audio generator (Prompt 08). Holds both the raw text and the
+    eventually-generated audio file so re-runs are idempotent."""
+
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name="audio_scripts",
+        verbose_name=_("Lesson"),
+    )
+    script_type = models.CharField(
+        max_length=20, choices=LESSON_AUDIO_SCRIPT_TYPE_CHOICES,
+        db_index=True, verbose_name=_("Script type"),
+    )
+    script_text = models.TextField(
+        verbose_name=_("Script text"),
+        help_text=_("The English copy to be spoken. Use SSML where helpful."),
+    )
+    voice_style = models.CharField(
+        max_length=20, choices=LESSON_AUDIO_VOICE_STYLE_CHOICES,
+        default="friendly_teacher", verbose_name=_("Voice style"),
+    )
+    accent = models.CharField(
+        max_length=20, default="american", verbose_name=_("Accent"),
+        help_text=_("General American by default. Other values reserved for future."),
+    )
+    generated_audio = models.FileField(
+        upload_to="lessons/audio_scripts/%Y/%m/", blank=True, null=True,
+        validators=[validate_audio], verbose_name=_("Generated audio"),
+    )
+    is_generated = models.BooleanField(
+        default=False, verbose_name=_("Generated"),
+    )
+    sort_order = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_("Sort order"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["lesson", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["lesson", "script_type"]),
+            models.Index(fields=["is_generated"]),
+        ]
+        verbose_name = _("Lesson audio script")
+        verbose_name_plural = _("Lesson audio scripts")
+
+    def __str__(self):
+        return f"{self.lesson_id} · {self.script_type}#{self.pk}"
+
+
+LESSON_IMAGE_PROMPT_TYPE_CHOICES = [
+    ("cover",      _("Cover")),
+    ("vocabulary", _("Vocabulary")),
+    ("grammar",    _("Grammar")),
+    ("quiz",       _("Quiz")),
+]
+
+
+class LessonImagePrompt(models.Model):
+    """Image-generation prompt for a Lesson. One row per prompt_type — feeds
+    the batch image generator (Prompt 07). Stores both the text prompt and
+    the eventually-generated image so re-runs are idempotent."""
+
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name="image_prompts",
+        verbose_name=_("Lesson"),
+    )
+    prompt_type = models.CharField(
+        max_length=20, choices=LESSON_IMAGE_PROMPT_TYPE_CHOICES,
+        db_index=True, verbose_name=_("Prompt type"),
+    )
+    prompt = models.TextField(
+        verbose_name=_("Prompt"),
+        help_text=_("Free-text image generation prompt — keep style guide rules in mind."),
+    )
+    generated_image = models.ImageField(
+        upload_to="lessons/image_prompts/%Y/%m/", blank=True, null=True,
+        validators=[validate_image], verbose_name=_("Generated image"),
+    )
+    is_generated = models.BooleanField(
+        default=False, verbose_name=_("Generated"),
+    )
+    sort_order = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_("Sort order"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["lesson", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["lesson", "prompt_type"]),
+            models.Index(fields=["is_generated"]),
+        ]
+        verbose_name = _("Lesson image prompt")
+        verbose_name_plural = _("Lesson image prompts")
+
+    def __str__(self):
+        return f"{self.lesson_id} · {self.prompt_type}#{self.pk}"
+
+
+# ---------------------------------------------------------------------------
+# 13. CourseReview + CourseReviewQuestion + CourseReviewAttempt (Prompt 10)
+# ---------------------------------------------------------------------------
+
+REVIEW_QUESTION_SKILL_CHOICES = [
+    ("vocabulary", _("Vocabulary")),
+    ("grammar",    _("Grammar")),
+    ("reading",    _("Reading")),
+    ("listening",  _("Listening")),
+    ("speaking",   _("Speaking")),
+    ("writing",    _("Writing")),
+]
+
+
+class CourseReview(models.Model):
+    """Cluster-end review for a Course (Beginner: 6 of these — one after
+    each 6-unit-ish cluster).
+
+    Unlocks for a student only when *every* required Lesson (from
+    `start_unit_number` to `end_unit_number` inclusive) is marked
+    `CourseLessonProgress.completed_at IS NOT NULL`.
+    """
+
+    course = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name="reviews",
+        verbose_name=_("Course"),
+    )
+    title = models.CharField(max_length=200, verbose_name=_("Title"))
+    title_ar = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Title (Arabic)"),
+    )
+    start_unit_number = models.PositiveSmallIntegerField(
+        verbose_name=_("Start unit number"),
+    )
+    end_unit_number = models.PositiveSmallIntegerField(
+        verbose_name=_("End unit number"),
+    )
+    instructions = models.TextField(
+        blank=True, verbose_name=_("Instructions (English)"),
+    )
+    instructions_ar = models.TextField(
+        blank=True, verbose_name=_("Instructions (Arabic)"),
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["course", "start_unit_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["course", "start_unit_number", "end_unit_number"],
+                name="course_review_unique_range",
+            ),
+        ]
+        verbose_name = _("Course review")
+        verbose_name_plural = _("Course reviews")
+
+    def __str__(self):
+        return f"{self.title} (U{self.start_unit_number}-U{self.end_unit_number})"
+
+    def is_unlocked_for(self, user) -> bool:
+        """True when every unit in the range has been completed by `user`."""
+        required = Lesson.objects.filter(
+            course=self.course,
+            order__gte=self.start_unit_number,
+            order__lte=self.end_unit_number,
+            is_active=True,
+        )
+        required_ids = list(required.values_list("id", flat=True))
+        if not required_ids:
+            return False
+        done = CourseLessonProgress.objects.filter(
+            user=user, lesson_id__in=required_ids,
+            completed_at__isnull=False,
+        ).count()
+        return done >= len(required_ids)
+
+
+class CourseReviewQuestion(models.Model):
+    """One question in a CourseReview."""
+
+    review = models.ForeignKey(
+        CourseReview, on_delete=models.CASCADE, related_name="questions",
+        verbose_name=_("Review"),
+    )
+    question_type = models.CharField(
+        max_length=20, choices=QUESTION_TYPE_CHOICES,
+        verbose_name=_("Question type"),
+    )
+    question_text = models.TextField(verbose_name=_("Question text"))
+    question_text_ar = models.TextField(
+        blank=True, verbose_name=_("Question text (Arabic)"),
+    )
+    options = models.JSONField(default=list, blank=True)
+    correct_answer = models.TextField(blank=True)
+    explanation = models.TextField(blank=True)
+    explanation_ar = models.TextField(blank=True)
+    skill = models.CharField(
+        max_length=20, choices=REVIEW_QUESTION_SKILL_CHOICES,
+        default="vocabulary", verbose_name=_("Skill"),
+    )
+    points = models.PositiveSmallIntegerField(default=1)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["review", "order", "id"]
+        indexes = [
+            models.Index(fields=["review", "skill"]),
+        ]
+        verbose_name = _("Course review question")
+        verbose_name_plural = _("Course review questions")
+
+    def __str__(self):
+        return f"{self.review_id} · Q{self.order} ({self.skill})"
+
+
+class CourseReviewAttempt(models.Model):
+    """One student's attempt at a CourseReview."""
+
+    review = models.ForeignKey(
+        CourseReview, on_delete=models.CASCADE, related_name="attempts",
+        verbose_name=_("Review"),
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="course_review_attempts", verbose_name=_("Student"),
+    )
+    score = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name=_("Score (%)"),
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    feedback = models.TextField(blank=True, verbose_name=_("Feedback"))
+    feedback_ar = models.TextField(
+        blank=True, verbose_name=_("Feedback (Arabic)"),
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["student", "review"]),
+            models.Index(fields=["review", "-completed_at"]),
+        ]
+        verbose_name = _("Course review attempt")
+        verbose_name_plural = _("Course review attempts")
+
+    def __str__(self):
+        return f"Attempt #{self.pk} · review={self.review_id} student={self.student_id}"

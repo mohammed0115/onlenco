@@ -67,7 +67,7 @@ CSP_POLICY = " ".join([
     # Tailwind Play CDN, Lucide icons, and the inline tailwind.config
     # need 'unsafe-inline'. The allow-list stays narrow to known hosts.
     "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://js.hcaptcha.com https://*.hcaptcha.com;",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;",
     "font-src 'self' data: https://fonts.gstatic.com;",
     # `data:` for inline avatars / icons; `blob:` for media-recorder; https for OG images.
     "img-src 'self' data: blob: https:;",
