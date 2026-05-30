@@ -1,0 +1,16 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--sound-word">
+    {% include "courses/challenge/components/audio_button.html" with audio_url=question_metadata.audio_url audio_script=question_metadata.audio_script %}
+    {% if question_metadata.options %}
+    <div class="onlenco-qr__pills">
+        {% for opt in question_metadata.options %}
+        <label class="onlenco-qr__pill">
+            <input type="radio" name="answer" value="{{ opt.id }}" required>
+            <span dir="ltr">{{ opt.text }}</span>
+        </label>
+        {% endfor %}
+    </div>
+    {% else %}
+    {% include "courses/challenge/components/empty_state.html" %}
+    {% endif %}
+</div>

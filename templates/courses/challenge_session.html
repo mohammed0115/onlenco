@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{{ lesson.title }} — Challenge — Onlenco{% endblock %}
+
+{% block body %}
+<div class="onlenco-ch-page" data-onlenco-challenge>
+    {% include "_app_header.html" %}
+
+    <main class="onlenco-ch-main">
+
+        {% include "courses/challenge/components/challenge_header.html" %}
+
+        {% if answered %}
+            {% include "courses/challenge/components/feedback_card.html" %}
+        {% else %}
+            <section class="onlenco-ch-card onlenco-anim-in{% if is_placeholder_type %} onlenco-ch-card--placeholder{% endif %}">
+                <div class="onlenco-ch-question">
+                    <div class="onlenco-ch-question__kicker"
+                         aria-label="{% t_either 'Question type' 'نوع السؤال' %}">
+                        {{ question_kicker }}
+                    </div>
+                    <h1 class="onlenco-ch-question__text" dir="ltr">{{ question.question_text }}</h1>
+                    {% if lang == "ar" and question.question_text_ar %}
+                        <p class="onlenco-ch-question__text-ar" dir="rtl">{{ question.question_text_ar }}</p>
+                    {% endif %}
+                </div>
+
+                <form method="post" class="onlenco-ch-answer"
+                      action="{% url 'courses:challenge_answer' course.pk lesson.pk session.pk %}"
+                      data-onlenco-challenge-form>
+                    {% csrf_token %}
+                    <input type="hidden" name="question_id" value="{{ question.pk }}">
+                    <input type="hidden" name="time_spent_seconds" value="0" data-time-spent>
+
+                    {% include question_renderer %}
+
+                    {% include "courses/challenge/components/check_button.html" %}
+                </form>
+            </section>
+        {% endif %}
+    </main>
+</div>
+
+{% include "courses/challenge/components/sfx_hooks.html" %}
+
+<script>
+(function () {
+    // Time-spent capture (best-effort).
+    var startedAt = Date.now();
+    var form = document.querySelector("[data-onlenco-challenge-form]");
+    if (form) {
+        var ts = form.querySelector("[data-time-spent]");
+        form.addEventListener("submit", function () {
+            if (ts) ts.value = Math.round((Date.now() - startedAt) / 1000);
+        });
+    }
+    // Keyboard accessibility: 1–9 picks the Nth radio choice when the
+    // focus is not on a text input.
+    document.addEventListener("keydown", function (e) {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+        var idx = parseInt(e.key, 10);
+        if (!Number.isInteger(idx) || idx < 1) return;
+        var radios = document.querySelectorAll(".onlenco-qr input[type=radio]");
+        if (radios.length && idx <= radios.length) {
+            radios[idx - 1].checked = true;
+            var el = radios[idx - 1].closest(".onlenco-qr__choice, .onlenco-qr__pill, .onlenco-qr__image-card");
+            if (el && el.focus) el.focus();
+        }
+    });
+    // Disable the Check button until the form has any value selected.
+    // Helps the beginner — no "click and nothing happens" feeling.
+    var checkBtn = document.querySelector("[data-check-btn]");
+    if (form && checkBtn) {
+        function hasAnswer() {
+            var radios = form.querySelectorAll("input[type=radio]:checked");
+            if (radios.length) return true;
+            var checks = form.querySelectorAll("input[type=checkbox]:checked");
+            if (checks.length) return true;
+            var texts = form.querySelectorAll("input[type=text], textarea");
+            for (var i = 0; i < texts.length; i++) {
+                if ((texts[i].value || "").trim() !== "") return true;
+            }
+            // Word-bank / match-pairs write JSON into hidden 'answer'.
+            var hidden = form.querySelector("input[type=hidden][name='answer']");
+            if (hidden && hidden.value && hidden.value !== "[]" && hidden.value !== "{}") return true;
+            // Range inputs (frequency_scale).
+            var range = form.querySelector("input[type=range]");
+            if (range) return true;
+            return false;
+        }
+        function refresh() {
+            var ok = hasAnswer();
+            checkBtn.disabled = !ok;
+            checkBtn.classList.toggle("is-armed", ok);
+        }
+        form.addEventListener("input", refresh);
+        form.addEventListener("change", refresh);
+        form.addEventListener("click", refresh);
+        refresh();
+    }
+    // Fire the success/wrong SFX hook from the feedback card if present.
+    var feedback = document.querySelector("[data-feedback-card]");
+    if (feedback) {
+        var ok = feedback.classList.contains("onlenco-ch-card--correct");
+        document.dispatchEvent(new CustomEvent("onlenco:sfx",
+            { detail: { kind: ok ? "correct" : "wrong" } }));
+    }
+    // Phase 7 — wire the "Explain with AI Tutor" button when present.
+    var explainBtn = document.querySelector("[data-ai-explain]");
+    if (explainBtn) {
+        var out = document.querySelector("[data-ai-explain-out]");
+        var csrf = (document.querySelector("input[name=csrfmiddlewaretoken]") || {}).value || "";
+        explainBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            explainBtn.disabled = true;
+            explainBtn.classList.add("is-loading");
+            var url = explainBtn.dataset.aiExplainUrl;
+            fetch(url, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "X-CSRFToken": csrf, "Accept": "application/json" },
+            }).then(function (r) { return r.ok ? r.json() : null; })
+              .then(function (data) {
+                  explainBtn.classList.remove("is-loading");
+                  if (!data) {
+                      explainBtn.disabled = false;
+                      return;
+                  }
+                  out.hidden = false;
+                  out.innerHTML = "";
+                  if (data.explanation_en) {
+                      var en = document.createElement("p");
+                      en.dir = "ltr"; en.textContent = data.explanation_en;
+                      out.appendChild(en);
+                  }
+                  if (data.explanation_ar) {
+                      var ar = document.createElement("p");
+                      ar.dir = "rtl"; ar.textContent = data.explanation_ar;
+                      out.appendChild(ar);
+                  }
+                  if (data.status === "fallback" || data.status === "failed") {
+                      out.classList.add("is-fallback");
+                  }
+              }).catch(function () {
+                  explainBtn.classList.remove("is-loading");
+                  explainBtn.disabled = false;
+              });
+        });
+    }
+})();
+</script>
+
+<style>
+:root {
+  --ch-primary: #2563EB; --ch-primary-soft: #DBEAFE;
+  --ch-success: #22C55E; --ch-success-soft: #DCFCE7;
+  --ch-warning: #F59E0B; --ch-warning-soft: #FEF3C7;
+  --ch-danger:  #EF4444; --ch-danger-soft:  #FEE2E2;
+  --ch-bg: #F8FAFC; --ch-surface: #FFFFFF;
+  --ch-text: #111827; --ch-muted: #6B7280;
+  --ch-border: #E5E7EB;
+}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.onlenco-ch-page { background: var(--ch-bg); min-height: 100vh; }
+.onlenco-ch-main { max-width: 720px; margin: 0 auto; padding: 16px 14px 120px; display: grid; gap: 22px; }
+
+/* ===== Top header ===== */
+.onlenco-ch-header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 6px 0 4px; }
+.onlenco-ch-exit { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ch-surface); border: 1px solid var(--ch-border); color: var(--ch-muted); text-decoration: none; transition: all .15s ease; }
+.onlenco-ch-exit:hover, .onlenco-ch-exit:focus-visible { color: var(--ch-danger); border-color: var(--ch-danger); outline: none; box-shadow: 0 0 0 3px var(--ch-danger-soft); }
+.onlenco-ch-exit i { width: 18px; height: 18px; }
+.onlenco-ch-progress { display: grid; gap: 4px; }
+.onlenco-ch-progress__bar { height: 12px; background: var(--ch-border); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,.04); }
+.onlenco-ch-progress__fill { height: 100%; background: linear-gradient(90deg, var(--ch-primary), #60A5FA); transition: width .35s cubic-bezier(.2,.8,.2,1); border-radius: inherit; }
+.onlenco-ch-progress__label { font-size: 12px; font-weight: 700; color: var(--ch-muted); text-align: center; }
+.onlenco-ch-progress__sep { margin: 0 4px; opacity: .5; }
+.onlenco-ch-stats { display: flex; align-items: center; gap: 12px; }
+.onlenco-ch-hearts { display: inline-flex; gap: 2px; font-size: 18px; color: var(--ch-danger); }
+.onlenco-ch-heart { transition: color .25s ease, transform .25s ease; }
+.onlenco-ch-heart.is-lost { color: var(--ch-border); transform: scale(.85); }
+.onlenco-ch-xp { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--ch-warning-soft); border-radius: 999px; color: #92400E; font-weight: 800; font-size: .92rem; border: 1px solid #FDE68A; }
+.onlenco-ch-xp__bolt { font-size: 1rem; line-height: 1; }
+
+/* ===== Card ===== */
+.onlenco-ch-card { background: var(--ch-surface); border: 1px solid var(--ch-border); border-radius: 22px; padding: 26px 22px; display: grid; gap: 20px; box-shadow: 0 10px 24px rgba(15,23,42,0.05); }
+.onlenco-ch-card--correct { border-color: var(--ch-success); background: linear-gradient(180deg, var(--ch-success-soft), var(--ch-surface)); }
+.onlenco-ch-card--wrong   { border-color: var(--ch-danger);  background: linear-gradient(180deg, var(--ch-danger-soft),  var(--ch-surface)); }
+.onlenco-ch-card--placeholder { border-style: dashed; }
+
+/* ===== Animations ===== */
+@keyframes onlencoIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes onlencoSlideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes onlencoXpPop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes onlencoShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.onlenco-anim-in { animation: onlencoIn .25s ease both; }
+.onlenco-anim-feedback { animation: onlencoSlideUp .3s cubic-bezier(.2,.8,.2,1) both; }
+.onlenco-anim-feedback.onlenco-ch-card--wrong { animation: onlencoSlideUp .3s cubic-bezier(.2,.8,.2,1) both, onlencoShake .35s ease .25s 1; }
+.onlenco-ch-xp-tick { animation: onlencoXpPop .35s ease .12s both; }
+@media (prefers-reduced-motion: reduce) {
+  .onlenco-anim-in, .onlenco-anim-feedback, .onlenco-ch-xp-tick, .onlenco-ch-progress__fill, .onlenco-ch-heart { animation: none !important; transition: none !important; }
+}
+
+/* ===== Question ===== */
+.onlenco-ch-question__kicker { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; color: var(--ch-muted); text-transform: uppercase; }
+.onlenco-ch-question__text { font-family: var(--font-display, inherit); font-size: clamp(1.2rem, 2.5vw, 1.6rem); font-weight: 800; line-height: 1.35; margin: 8px 0 0; color: var(--ch-text); }
+.onlenco-ch-question__text-ar { color: var(--ch-muted); font-size: 0.95rem; margin: 6px 0 0; }
+
+/* ===== Footer (sticky check button on mobile) ===== */
+.onlenco-ch-footer { position: sticky; bottom: 12px; margin-top: 4px; z-index: 5; }
+
+/* ===== Buttons ===== */
+.onlenco-ch-btn { display: inline-flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding: 16px 22px; border-radius: 999px; font-weight: 800; text-decoration: none; border: none; cursor: pointer; font-size: 1rem; font-family: inherit; transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease; }
+.onlenco-ch-btn--primary { background: var(--ch-primary); color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,0.28); }
+.onlenco-ch-btn--primary:hover:not(:disabled), .onlenco-ch-btn--primary:focus-visible:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(37,99,235,0.40); outline: none; }
+.onlenco-ch-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.onlenco-ch-btn.is-armed { box-shadow: 0 8px 20px rgba(37,99,235,0.4), 0 0 0 4px rgba(219,234,254,0.6); }
+.onlenco-ch-btn i { width: 18px; height: 18px; }
+
+/* ===== Feedback ===== */
+.onlenco-ch-result { display: grid; gap: 12px; }
+.onlenco-ch-result__badge { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 999px; font-weight: 800; font-size: 1.05rem; width: max-content; }
+.onlenco-ch-result__badge i { width: 22px; height: 22px; }
+.onlenco-ch-result__badge--ok { background: var(--ch-success); color: #fff; }
+.onlenco-ch-result__badge--ko { background: var(--ch-danger);  color: #fff; }
+.onlenco-ch-result__line { margin: 0; font-weight: 800; color: var(--ch-text); font-size: 1.05rem; display: inline-flex; gap: 6px; align-items: center; }
+.onlenco-ch-result__line--soft { font-weight: 600; color: var(--ch-danger); }
+.onlenco-ch-result__hint { margin: 0; color: #4B5563; font-size: 0.95rem; line-height: 1.5; }
+.onlenco-ch-result__correct { margin: 0; color: var(--ch-text); font-size: 0.95rem; display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.onlenco-ch-result__correct-tag { font-size: 10px; font-weight: 800; color: var(--ch-muted); background: var(--ch-bg); padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+
+/* ===== Phase 7 — AI Tutor inside Challenge ===== */
+.onlenco-ch-result__ai { margin-top: 10px; display: grid; gap: 10px; }
+.onlenco-ch-ai-btn { display: inline-flex; align-items: center; gap: 8px; justify-content: center; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--ch-primary); background: var(--ch-surface); color: var(--ch-primary); font-weight: 700; cursor: pointer; font-family: inherit; font-size: .92rem; transition: all .12s ease; width: max-content; }
+.onlenco-ch-ai-btn:hover:not(:disabled) { background: var(--ch-primary-soft); }
+.onlenco-ch-ai-btn:disabled { opacity: .55; cursor: not-allowed; }
+.onlenco-ch-ai-btn.is-loading::after { content: "..."; margin-inline-start: 4px; }
+.onlenco-ch-ai-btn i { width: 16px; height: 16px; }
+.onlenco-ch-ai-out { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; }
+.onlenco-ch-ai-out p { margin: 0; color: var(--ch-text); font-size: .92rem; line-height: 1.5; }
+.onlenco-ch-ai-out.is-fallback { background: var(--ch-warning-soft); border-color: #FCD34D; }
+
+/* Phase 9.5 — AI Roleplay card */
+.onlenco-qr--ai-roleplay { display: grid; gap: 12px; }
+.onlenco-qr__roleplay-scenario { background: var(--ch-warning-soft); border: 1px dashed #F59E0B; border-radius: 14px; padding: 14px 16px; display: grid; gap: 6px; }
+.onlenco-qr__roleplay-kicker { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #92400E; text-transform: uppercase; letter-spacing: .06em; }
+.onlenco-qr__roleplay-kicker i { width: 14px; height: 14px; }
+.onlenco-qr__roleplay-prompt { margin: 0; font-weight: 700; color: #92400E; line-height: 1.45; }
+.onlenco-qr__roleplay-targets code { background: #FFFFFF; padding: 2px 8px; border-radius: 6px; font-size: .82rem; }
+.onlenco-qr__roleplay-chat { background: #F9FAFB; border: 1px solid var(--ch-border); border-radius: 14px; padding: 12px; max-height: 240px; overflow-y: auto; display: grid; gap: 8px; }
+.onlenco-qr__roleplay-turn { display: grid; grid-template-columns: 36px 1fr; gap: 6px; align-items: start; padding: 8px 10px; background: var(--ch-surface); border: 1px solid var(--ch-border); border-radius: 10px; }
+.onlenco-qr__roleplay-turn strong { font-size: 11px; font-weight: 800; color: var(--ch-muted); text-transform: uppercase; }
+.onlenco-qr__roleplay-turn span { font-size: .95rem; color: var(--ch-text); line-height: 1.4; }
+.onlenco-qr__roleplay-turn--ai { background: #EFF6FF; border-color: #BFDBFE; }
+.onlenco-qr__roleplay-turn--user { background: #DCFCE7; border-color: #BBF7D0; }
+.onlenco-qr__roleplay-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+.onlenco-qr__roleplay-fallback { background: #F9FAFB; border: 1px solid var(--ch-border); border-radius: 14px; padding: 12px; display: grid; gap: 6px; }
+.onlenco-qr__roleplay-fallback em { color: var(--ch-muted); }
+
+/* ===== Question renderers (shared) ===== */
+.onlenco-ch-answer { display: grid; gap: 14px; }
+.onlenco-qr { display: grid; gap: 14px; }
+.onlenco-qr__hint { font-size: 0.9rem; color: var(--ch-muted); margin: 0; }
+.onlenco-qr__hint--muted code { background: #F3F4F6; padding: 2px 6px; border-radius: 6px; font-size: 0.85rem; }
+.onlenco-qr__input { width: 100%; padding: 14px 16px; border: 2px solid var(--ch-border); border-radius: 12px; font-size: 1rem; font-family: inherit; background: var(--ch-surface); transition: border-color .15s ease, box-shadow .15s ease; }
+.onlenco-qr__input:focus { outline: none; border-color: var(--ch-primary); box-shadow: 0 0 0 4px var(--ch-primary-soft); }
+
+/* Tap-choice / shared single-pick choices */
+.onlenco-qr__choices { display: grid; gap: 10px; }
+.onlenco-qr__choice { display: flex; align-items: center; gap: 12px; background: var(--ch-surface); border: 2px solid var(--ch-border); border-radius: 14px; padding: 14px 18px; cursor: pointer; font-size: 1rem; transition: border-color .12s ease, background .12s ease, transform .12s ease; }
+.onlenco-qr__choice:hover { border-color: var(--ch-primary); transform: translateY(-1px); }
+.onlenco-qr__choice input[type=radio] { accent-color: var(--ch-primary); width: 18px; height: 18px; flex: none; }
+.onlenco-qr__choice:has(input:checked) { border-color: var(--ch-primary); background: var(--ch-primary-soft); }
+.onlenco-qr__choice-text-ar { color: var(--ch-muted); font-size: 0.9rem; margin-inline-start: 8px; }
+
+/* Image choice */
+.onlenco-qr__image-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.onlenco-qr__image-card { display: grid; gap: 6px; padding: 10px; border: 2px solid var(--ch-border); border-radius: 18px; cursor: pointer; text-align: center; background: var(--ch-surface); transition: border-color .12s ease, background .12s ease; }
+.onlenco-qr__image-card:has(input:checked) { border-color: var(--ch-primary); background: #EFF6FF; }
+.onlenco-qr__image-card input { display: none; }
+.onlenco-qr__image-frame { aspect-ratio: 1; display: grid; place-items: center; border-radius: 14px; background: #F3F4F6; overflow: hidden; }
+.onlenco-qr__image-frame img { width: 100%; height: 100%; object-fit: cover; }
+.onlenco-qr__image-placeholder { font-size: 32px; opacity: 0.5; }
+.onlenco-qr__image-label { font-weight: 700; }
+.onlenco-qr__image-label-ar { color: var(--ch-muted); font-size: 0.85rem; }
+
+/* Listen + audio + pending */
+.onlenco-qr__audio audio { width: 100%; border-radius: 10px; }
+.onlenco-qr__audio-pending { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--ch-warning-soft); border: 1px dashed #FCD34D; border-radius: 14px; }
+.onlenco-qr__audio-pending-icon { font-size: 26px; }
+.onlenco-qr__audio-pending-text { display: grid; gap: 2px; }
+.onlenco-qr__audio-pending-text strong { color: #92400E; font-weight: 800; font-size: .92rem; }
+.onlenco-qr__audio-pending-text em { color: var(--ch-text); font-style: italic; font-size: .95rem; }
+.onlenco-qr__pills { display: flex; flex-wrap: wrap; gap: 10px; }
+.onlenco-qr__pill { background: var(--ch-surface); border: 2px solid var(--ch-border); border-radius: 999px; padding: 10px 18px; cursor: pointer; font-weight: 700; transition: all .12s ease; }
+.onlenco-qr__pill input { display: none; }
+.onlenco-qr__pill:has(input:checked) { border-color: var(--ch-primary); background: var(--ch-primary-soft); }
+
+/* Hero image */
+.onlenco-qr__hero-image { aspect-ratio: 16/9; border-radius: 18px; overflow: hidden; background: #F3F4F6; display: grid; place-items: center; border: 1px solid var(--ch-border); }
+.onlenco-qr__hero-image img { width: 100%; height: 100%; object-fit: cover; }
+.onlenco-qr__hero-pending { display: grid; place-items: center; gap: 6px; padding: 18px; text-align: center; }
+.onlenco-qr__hero-pending-icon { font-size: 36px; opacity: .55; }
+.onlenco-qr__hero-pending strong { color: #92400E; font-weight: 800; }
+.onlenco-qr__hero-pending em { color: var(--ch-muted); font-style: italic; font-size: .9rem; max-width: 380px; }
+
+/* Mini-story */
+.onlenco-qr__story { background: #F9FAFB; border-radius: 14px; padding: 16px 18px; display: grid; gap: 8px; border: 1px solid var(--ch-border); }
+.onlenco-qr__story p { margin: 0; line-height: 1.6; color: var(--ch-text); }
+
+/* Word bank */
+.onlenco-qr__sentence-tray { min-height: 56px; padding: 12px; border: 2px dashed #C7D2FE; border-radius: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: #EEF2FF; }
+.onlenco-qr__word-bank { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px; }
+.onlenco-qr__word { background: var(--ch-surface); border: 2px solid var(--ch-border); border-radius: 999px; padding: 8px 14px; cursor: pointer; font-weight: 700; font-family: inherit; font-size: 0.95rem; transition: all .12s ease; }
+.onlenco-qr__word:hover:not(:disabled) { border-color: var(--ch-primary); }
+.onlenco-qr__word:disabled { opacity: 0.35; cursor: not-allowed; }
+.onlenco-qr__word-bank-reset { background: transparent; border: none; color: var(--ch-muted); font-weight: 700; cursor: pointer; text-decoration: underline; font-size: .85rem; padding: 4px 8px; font-family: inherit; }
+.onlenco-qr__word-bank-reset:hover { color: var(--ch-danger); }
+
+/* Match pairs */
+.onlenco-qr__match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.onlenco-qr__match-col { display: grid; gap: 10px; }
+.onlenco-qr__match-card { background: var(--ch-surface); border: 2px solid var(--ch-border); border-radius: 14px; padding: 12px 14px; cursor: pointer; font-weight: 700; font-family: inherit; transition: all .12s ease; }
+.onlenco-qr__match-card.is-selected { border-color: var(--ch-primary); background: var(--ch-primary-soft); }
+.onlenco-qr__match-card.is-matched { border-color: var(--ch-success); background: var(--ch-success-soft); opacity: 0.75; }
+.onlenco-qr__match-card.is-wrong { border-color: var(--ch-danger); background: var(--ch-danger-soft); animation: onlencoShake .35s ease 1; }
+.onlenco-qr__match-card:disabled { cursor: default; }
+
+/* Conversation */
+.onlenco-qr__chat { display: grid; gap: 10px; padding: 12px; background: #F9FAFB; border: 1px solid var(--ch-border); border-radius: 14px; }
+.onlenco-qr__bubble { padding: 10px 14px; border-radius: 18px; max-width: 80%; line-height: 1.4; }
+.onlenco-qr__bubble--left { background: var(--ch-surface); border: 1px solid var(--ch-border); justify-self: start; border-bottom-left-radius: 4px; }
+.onlenco-qr__bubble--right { background: var(--ch-primary-soft); justify-self: end; border-bottom-right-radius: 4px; }
+.onlenco-qr__bubble p { margin: 0; }
+.onlenco-qr__speaker { font-size: 11px; font-weight: 800; color: var(--ch-muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 2px; }
+
+/* Frequency scale */
+.onlenco-qr__scale-track { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.onlenco-qr__scale-anchor { font-size: 0.85rem; color: var(--ch-muted); font-weight: 700; }
+.onlenco-qr__scale-range { width: 100%; accent-color: var(--ch-primary); }
+.onlenco-qr__scale-output { font-weight: 800; color: var(--ch-primary); text-align: center; font-size: 1.1rem; }
+
+/* Table builder */
+.onlenco-qr__table-cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); gap: 6px; background: #F9FAFB; padding: 10px; border-radius: 14px; border: 1px solid var(--ch-border); overflow-x: auto; }
+.onlenco-qr__table-col { display: grid; gap: 6px; }
+.onlenco-qr__table-col-head { font-weight: 800; color: var(--ch-primary); background: var(--ch-primary-soft); border: 1px solid #BFDBFE; padding: 6px 8px; border-radius: 8px; text-align: center; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.onlenco-qr__table-col-cell { padding: 8px 10px; background: var(--ch-surface); border: 1px solid var(--ch-border); border-radius: 8px; text-align: center; font-size: 0.95rem; }
+
+/* Mistake correction */
+.onlenco-qr__wrong-line { background: var(--ch-danger-soft); border: 1px solid #FCA5A5; border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.onlenco-qr__wrong-tag { font-size: 10px; font-weight: 800; color: #B91C1C; background: #FCA5A5; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; }
+
+/* Question transform */
+.onlenco-qr__statement { background: #F9FAFB; padding: 12px 14px; border: 1px solid var(--ch-border); border-radius: 12px; font-weight: 700; }
+
+/* Translation source */
+.onlenco-qr__source { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--ch-border); background: #F9FAFB; }
+.onlenco-qr__source p { margin: 6px 0 0; font-weight: 700; font-size: 1.05rem; }
+.onlenco-qr__source-tag { font-size: 10px; font-weight: 800; color: var(--ch-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Speaking placeholder */
+.onlenco-qr__speak-card { background: var(--ch-warning-soft); border: 1px dashed #F59E0B; border-radius: 14px; padding: 18px; display: grid; place-items: center; gap: 10px; text-align: center; }
+.onlenco-qr__speak-mic { font-size: 36px; }
+.onlenco-qr__speak-prompt { font-weight: 800; font-size: 1.1rem; margin: 0; color: #92400E; }
+.onlenco-qr__speak-soon { font-size: 0.78rem; color: #92400E; background: #fff; padding: 2px 10px; border-radius: 999px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.onlenco-qr__self-check { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--ch-surface); border: 2px solid var(--ch-border); border-radius: 12px; cursor: pointer; font-weight: 700; }
+
+/* Empty state */
+.onlenco-qr--empty { padding: 18px; background: #F9FAFB; border: 1px dashed var(--ch-border); border-radius: 14px; text-align: center; }
+.onlenco-qr__empty-icon { font-size: 36px; }
+.onlenco-qr__empty-title { font-size: 1.1rem; font-weight: 800; margin: 0; color: var(--ch-text); }
+.onlenco-qr__empty-hint { font-size: .9rem; color: var(--ch-muted); margin: 0; }
+
+/* Focus rings for keyboard users */
+.onlenco-qr__choice:focus-within, .onlenco-qr__image-card:focus-within, .onlenco-qr__pill:focus-within { outline: none; box-shadow: 0 0 0 4px var(--ch-primary-soft); }
+.onlenco-qr__word:focus-visible, .onlenco-qr__match-card:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--ch-primary-soft); }
+
+/* Mobile */
+@media (max-width: 480px) {
+    .onlenco-ch-main { padding: 12px 10px 120px; }
+    .onlenco-ch-card { padding: 22px 18px; border-radius: 18px; }
+    .onlenco-ch-header { gap: 10px; }
+    .onlenco-qr__image-grid { grid-template-columns: 1fr 1fr; }
+    .onlenco-qr__match-grid { grid-template-columns: 1fr; }
+    .onlenco-qr__bubble { max-width: 92%; }
+}
+</style>
+{% endblock %}

@@ -32,20 +32,40 @@ class Command(BaseCommand):
     help = "Create the 6 cluster reviews for the Onlenco Beginner course."
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--course-slug", default=COURSE_SLUG,
+            help=f"Course slug (default: {COURSE_SLUG}).",
+        )
+        parser.add_argument(
+            "--level", default=None,
+            choices=["A1", "A2", "B1", "B2", "C1", "C2"],
+            help="Use level descriptors instead of A0 UNITS list.",
+        )
         parser.add_argument("--quiet", action="store_true")
 
     @transaction.atomic
     def handle(self, *args, **options):
         quiet = options["quiet"]
+        slug = options["course_slug"]
         try:
-            course = Course.objects.get(slug=COURSE_SLUG)
+            course = Course.objects.get(slug=slug)
         except Course.DoesNotExist:
             self.stderr.write(self.style.ERROR(
                 "Course not found — run seed_onlenco_beginner_48_units first."
             ))
             return
 
-        units_by_n = {u["n"]: u for u in UNITS}
+        # Pick unit-dict source: UNITS for A0, descriptors for any other level.
+        if options["level"]:
+            from courses.services.onlenco_level_descriptors import LEVELS
+            from courses.services.onlenco_level_unit_builder import (
+                build_all_units_for_level,
+            )
+            level_dict = next(lv for lv in LEVELS if lv["code"] == options["level"])
+            unit_source = build_all_units_for_level(level_dict)
+        else:
+            unit_source = UNITS
+        units_by_n = {u["n"]: u for u in unit_source}
 
         total_q = 0
         for tag, title_en, title_ar, start, end in REVIEW_RANGES:

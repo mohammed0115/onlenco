@@ -1,0 +1,7 @@
+{% load i18n_dict %}
+{% comment %}XP earned this session. Inputs: session.xp_earned.{% endcomment %}
+<span class="onlenco-ch-xp" data-xp
+      aria-label="{% t_either 'XP earned' 'نقاط الخبرة' %} {{ session.xp_earned }}">
+    <span class="onlenco-ch-xp__bolt" aria-hidden="true">⚡</span>
+    <span class="onlenco-ch-xp__value" data-xp-value>{{ session.xp_earned }}</span>
+</span>

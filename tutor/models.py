@@ -163,3 +163,149 @@ class AITutorPrompt(models.Model):
     def __str__(self):
         return f"TutorPrompt<{self.cefr_level}> {self.prompt_en[:40]}"
 
+
+# ---------------------------------------------------------------------------
+# Phase 7 — AI Tutor inside Challenges
+# ---------------------------------------------------------------------------
+
+class ChallengeAIInteraction(models.Model):
+    """Audit log for every AI call originated from inside a Challenge.
+
+    Used by guardrails to count per-session / per-day calls, and by the
+    summary view to surface any AI feedback the student already paid
+    tokens for. Never stores raw prompts — only the sanitised
+    `prompt_hash` so we can detect repeats without leaking context.
+    """
+
+    INTERACTION_TYPE_CHOICES = [
+        ("wrong_answer_explanation",  _("Wrong answer explanation")),
+        ("speaking_feedback",         _("Speaking feedback")),
+        ("roleplay",                  _("Roleplay turn")),
+        ("end_advice",                _("End-of-challenge advice")),
+        ("mistake_explanation",       _("Mistake explanation")),
+        ("conversation_enhancement",  _("Conversation reply suggestion")),
+    ]
+
+    STATUS_CHOICES = [
+        ("success",  _("Success")),
+        ("fallback", _("Fallback")),
+        ("failed",   _("Failed")),
+        ("skipped",  _("Skipped")),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="challenge_ai_interactions",
+    )
+    session = models.ForeignKey(
+        "courses.ChallengeSession", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="ai_interactions",
+    )
+    question = models.ForeignKey(
+        "courses.LessonQuestion", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="ai_interactions",
+    )
+    challenge_answer = models.ForeignKey(
+        "courses.ChallengeAnswer", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="ai_interactions",
+    )
+    interaction_type = models.CharField(
+        max_length=32, choices=INTERACTION_TYPE_CHOICES,
+    )
+    prompt_hash = models.CharField(max_length=64, blank=True)
+    response_en = models.TextField(blank=True)
+    response_ar = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default="success",
+    )
+    tokens_used = models.PositiveIntegerField(null=True, blank=True)
+    latency_ms = models.PositiveIntegerField(null=True, blank=True)
+    error_code = models.CharField(max_length=40, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["session", "-created_at"]),
+            models.Index(fields=["interaction_type", "-created_at"]),
+        ]
+        verbose_name = _("Challenge AI interaction")
+        verbose_name_plural = _("Challenge AI interactions")
+
+    def __str__(self):
+        return f"AIInt<{self.user_id}> {self.interaction_type}/{self.status}"
+
+
+class AIShortRoleplaySession(models.Model):
+    """A short, scoped roleplay tied to a specific Challenge question.
+
+    Capped at `max_turns` (default 5). Once `turns_count` reaches it,
+    the runner returns a closing message and refuses further turns.
+    """
+
+    STATUS_CHOICES = [
+        ("active",    _("Active")),
+        ("completed", _("Completed")),
+        ("abandoned", _("Abandoned")),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="ai_roleplay_sessions",
+    )
+    challenge_session = models.ForeignKey(
+        "courses.ChallengeSession", on_delete=models.CASCADE,
+        related_name="ai_roleplay_sessions",
+    )
+    question = models.ForeignKey(
+        "courses.LessonQuestion", on_delete=models.CASCADE,
+        related_name="ai_roleplay_sessions",
+    )
+    status = models.CharField(
+        max_length=12, choices=STATUS_CHOICES, default="active",
+    )
+    turns_count = models.PositiveIntegerField(default=0)
+    max_turns = models.PositiveSmallIntegerField(default=5)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["user", "-started_at"]),
+            models.Index(fields=["challenge_session"]),
+        ]
+        verbose_name = _("AI roleplay session")
+        verbose_name_plural = _("AI roleplay sessions")
+
+    def __str__(self):
+        return (
+            f"Roleplay<{self.user_id}> q={self.question_id} "
+            f"{self.turns_count}/{self.max_turns} {self.status}"
+        )
+
+
+class AIShortRoleplayMessage(models.Model):
+    """One turn inside a short roleplay."""
+
+    SENDER_CHOICES = [("user", _("User")), ("ai", _("AI"))]
+
+    roleplay_session = models.ForeignKey(
+        AIShortRoleplaySession, on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    sender = models.CharField(max_length=6, choices=SENDER_CHOICES)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = _("AI roleplay message")
+        verbose_name_plural = _("AI roleplay messages")
+
+    def __str__(self):
+        return f"{self.sender}: {self.message[:40]}".strip()
+

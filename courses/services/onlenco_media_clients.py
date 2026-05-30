@@ -133,7 +133,7 @@ def generate_audio(text: str, *, voice_style: str = "friendly_teacher",
                 "input": text[:4000],   # API limit 4096
                 "voice": voice,
                 "response_format": "mp3",
-                "speed": 0.95,           # slightly slower for beginner audio
+                "speed": 1.0,            # natural conversational pace
             },
             timeout=60,
         )

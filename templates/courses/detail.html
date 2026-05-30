@@ -130,28 +130,145 @@
             </div>
         </section>
         {% else %}
+        {% with first_lesson=lesson_rows.0.lesson %}
+        <section class="onlenco-course-hero card overflow-hidden" data-cefr="{{ course.level.code }}">
+            <div class="grid lg:grid-cols-[1fr_0.7fr]">
+                {# Left — text content #}
+                <div class="p-6 lg:p-8 space-y-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="badge onlenco-cefr-badge" data-cefr="{{ course.level.code }}">{{ course.level.code }}</span>
+                        <span class="badge badge-outline">{{ course.level.name }}</span>
+                        {% if course.is_free %}
+                            <span class="badge badge-outline">{% t_either "Free" "مجاني" %}</span>
+                        {% else %}
+                            <span class="badge badge-outline">
+                                <i data-lucide="{% if has_access %}unlock{% else %}lock{% endif %}" class="h-3 w-3"></i>
+                                {% if has_access %}{% t_either "Included" "ضمن الاشتراك" %}{% else %}{% t_either "Subscription" "اشتراك" %}{% endif %}
+                            </span>
+                        {% endif %}
+                    </div>
+                    <h1 class="font-display text-3xl md:text-4xl font-bold leading-tight">{% if lang == "ar" and course.title_ar %}{{ course.title_ar }}{% else %}{{ course.title }}{% endif %}</h1>
+                    <p class="text-muted-foreground text-base max-w-2xl">{% if lang == "ar" and course.description_ar %}{{ course.description_ar }}{% else %}{{ course.description|default:"" }}{% endif %}</p>
+                    <div class="flex flex-wrap items-center gap-4 pt-2 text-sm">
+                        <span class="inline-flex items-center gap-1.5"><i data-lucide="book-open" class="h-4 w-4 text-primary"></i>{{ course.published_lessons_count }} {% t_either "lessons" "درس" %}</span>
+                        {% if course.teacher %}<span class="inline-flex items-center gap-1.5"><i data-lucide="user" class="h-4 w-4 text-primary"></i>{{ course.teacher.get_full_name|default:course.teacher.username }}</span>{% endif %}
+                        <span class="inline-flex items-center gap-1.5"><i data-lucide="globe" class="h-4 w-4 text-primary"></i>{% t_either "American English" "إنجليزية أمريكية" %}</span>
+                    </div>
+                </div>
+                {# Right — hero cover image from the first lesson's generated cover #}
+                <div class="relative bg-muted/40 min-h-[220px] lg:min-h-[300px]">
+                    {% with hero_cover=first_lesson.image_prompts.all|dictsort:"sort_order"|first %}
+                    {% if hero_cover and hero_cover.generated_image %}
+                        <img src="{{ hero_cover.generated_image.url }}" alt="{{ course.title }}" class="absolute inset-0 w-full h-full object-cover">
+                    {% else %}
+                        <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-100 to-green-100">
+                            <i data-lucide="book-open" class="h-16 w-16 text-primary/40"></i>
+                        </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </section>
+        {% endwith %}
+
+        {# Pedagogical glance — total time, skill mix, what you'll be able to do. #}
+        {% with total_minutes=0 %}{% endwith %}
+        {% regroup lesson_rows by lesson.skill as lessons_by_skill %}
+        <section class="onlenco-glance">
+            <div class="onlenco-glance__stat">
+                <div class="onlenco-glance__stat-value">{{ lesson_rows|length }}</div>
+                <div class="onlenco-glance__stat-label">{% t_either "Lessons" "الدروس" %}</div>
+            </div>
+            <div class="onlenco-glance__stat">
+                <div class="onlenco-glance__stat-value">~{% widthratio lesson_rows|length 60 25 %}h</div>
+                <div class="onlenco-glance__stat-label">{% t_either "Total time" "الوقت الكلي" %}</div>
+            </div>
+            <div class="onlenco-glance__stat">
+                <div class="onlenco-glance__stat-value">6</div>
+                <div class="onlenco-glance__stat-label">{% t_either "Reviews" "مراجعات" %}</div>
+            </div>
+            <div class="onlenco-glance__stat">
+                <div class="onlenco-glance__stat-value">{{ course.level.code }}</div>
+                <div class="onlenco-glance__stat-label">{% t_either "CEFR level" "مستوى CEFR" %}</div>
+            </div>
+        </section>
+
         <section class="grid lg:grid-cols-[1.5fr_0.8fr] gap-6 items-start">
             <div class="space-y-4">
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="badge badge-secondary">{{ course.level.code }}</span>
-                    {% if course.is_free %}
-                        <span class="badge badge-outline">{% t_either "Free" "مجاني" %}</span>
-                    {% else %}
-                        <span class="badge badge-outline">
-                            <i data-lucide="{% if has_access %}unlock{% else %}lock{% endif %}" class="h-3 w-3"></i>
-                            {% if has_access %}{% t_either "Included" "ضمن الاشتراك" %}{% else %}{% t_either "Subscription" "اشتراك" %}{% endif %}
-                        </span>
-                    {% endif %}
+                {# By the end you'll be able to … — drawn from LessonChecklist rows. #}
+                {% with sample_lessons=lesson_rows|slice:":12" %}
+                {% if sample_lessons %}
+                <div class="card p-6">
+                    <h2 class="font-display text-xl font-bold mb-3">
+                        <i data-lucide="check-circle-2" class="inline h-5 w-5 text-primary"></i>
+                        {% t_either "By the end, you'll be able to…" "في نهاية الكورس، ستكون قادراً على…" %}
+                    </h2>
+                    <ul class="onlenco-can-do">
+                        {% for row in sample_lessons %}
+                            {% for item in row.lesson.checklist_items.all|dictsort:"sort_order"|slice:":1" %}
+                            <li>{% if lang == "ar" and item.text_ar %}{{ item.text_ar }}{% else %}{{ item.text_en }}{% endif %}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
                 </div>
-                <div>
-                    <h1 class="font-display text-4xl font-bold">{{ course.title }}</h1>
-                    {% if course.description %}
-                        <p class="text-muted-foreground mt-3 max-w-3xl">{{ course.description }}</p>
-                    {% endif %}
+                {% endif %}
+                {% endwith %}
+
+                <div class="card p-6">
+                    <h2 class="font-display text-xl font-bold mb-3">{% t_either "What you will learn" "ماذا ستتعلم" %}</h2>
+                    <div class="grid sm:grid-cols-2 gap-2 text-sm">
+                        {% for group in lessons_by_skill %}
+                        <div class="onlenco-skill-row">
+                            {% if group.grouper == "grammar" %}<i data-lucide="settings-2" class="h-4 w-4 text-primary"></i>
+                            {% elif group.grouper == "vocabulary" %}<i data-lucide="text" class="h-4 w-4 text-primary"></i>
+                            {% elif group.grouper == "speaking" %}<i data-lucide="mic" class="h-4 w-4 text-primary"></i>
+                            {% elif group.grouper == "listening" %}<i data-lucide="headphones" class="h-4 w-4 text-primary"></i>
+                            {% elif group.grouper == "reading" %}<i data-lucide="book-open" class="h-4 w-4 text-primary"></i>
+                            {% elif group.grouper == "writing" %}<i data-lucide="pen-line" class="h-4 w-4 text-primary"></i>
+                            {% else %}<i data-lucide="circle-dot" class="h-4 w-4 text-primary"></i>{% endif %}
+                            <span><strong>{{ group.list|length }}</strong> {% t_either "lessons of" "دروس في" %} <em>{% if group.grouper == "grammar" %}{% t_either "Grammar" "القواعد" %}{% elif group.grouper == "vocabulary" %}{% t_either "Vocabulary" "المفردات" %}{% elif group.grouper == "speaking" %}{% t_either "Speaking" "المحادثة" %}{% elif group.grouper == "listening" %}{% t_either "Listening" "الاستماع" %}{% elif group.grouper == "reading" %}{% t_either "Reading" "القراءة" %}{% elif group.grouper == "writing" %}{% t_either "Writing" "الكتابة" %}{% else %}{{ group.grouper }}{% endif %}</em></span>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
+
+                {# Sample audio: first lesson's intro script. Lets students hear American
+                   English before subscribing. preload="none" so it doesn't auto-fetch. #}
+                {% with first_lesson=lesson_rows.0.lesson sample_audio=lesson_rows.0.lesson.audio_scripts.all|dictsort:"sort_order"|first %}
+                {% if sample_audio and sample_audio.generated_audio %}
+                <div class="card p-6 onlenco-sample-audio">
+                    <h2 class="font-display text-xl font-bold mb-2">
+                        <i data-lucide="volume-2" class="inline h-5 w-5 text-primary"></i>
+                        {% t_either "Hear American English" "استمع للإنجليزية الأمريكية" %}
+                    </h2>
+                    <p class="text-sm text-muted-foreground mb-3">{% t_either "A short sample from the first lesson." "عيّنة قصيرة من الدرس الأول." %}</p>
+                    <audio class="w-full" controls preload="none" src="{{ sample_audio.generated_audio.url }}"></audio>
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {# Prerequisites — surface the expected starting level. #}
+                {% if course.level.code != "A0" %}
+                <div class="card p-5 onlenco-prereq">
+                    <h2 class="font-display text-base font-bold mb-1">
+                        <i data-lucide="alert-circle" class="inline h-4 w-4 text-primary"></i>
+                        {% t_either "Before you start" "قبل أن تبدأ" %}
+                    </h2>
+                    <p class="text-sm text-muted-foreground">
+                        {% if course.level.code == "A1" %}{% t_either "Recommended: completed A0 or passed the placement test at A1+." "يُفضّل: إكمال A0 أو اجتياز تحديد المستوى عند A1 فأعلى." %}
+                        {% elif course.level.code == "A2" %}{% t_either "Recommended: completed A1 or passed the placement test at A2+." "يُفضّل: إكمال A1 أو اجتياز تحديد المستوى عند A2 فأعلى." %}
+                        {% elif course.level.code == "B1" %}{% t_either "Recommended: solid A2 fluency or passed the placement test at B1+." "يُفضّل: إتقان A2 أو اجتياز تحديد المستوى عند B1 فأعلى." %}
+                        {% elif course.level.code == "B2" %}{% t_either "Recommended: solid B1 and comfortable holding conversations." "يُفضّل: إتقان B1 والقدرة على إجراء محادثات." %}
+                        {% elif course.level.code == "C1" %}{% t_either "Recommended: B2 fluency or higher — academic / professional context." "يُفضّل: مستوى B2 فأعلى — سياق أكاديمي / مهني." %}
+                        {% elif course.level.code == "C2" %}{% t_either "Recommended: C1 mastery and aiming for native-level nuance." "يُفضّل: إتقان C1 والسعي للوصول لمستوى أهل اللغة." %}
+                        {% endif %}
+                    </p>
+                </div>
+                {% endif %}
+
                 {% if course.learning_objectives %}
                     <div class="card p-5">
-                        <h2 class="font-display text-xl font-bold mb-2">{% t_either "What you will learn" "ماذا ستتعلم" %}</h2>
+                        <h2 class="font-display text-xl font-bold mb-2">{% t_either "Learning outcomes" "مخرجات التعلم" %}</h2>
                         <div class="prose max-w-none text-sm text-muted-foreground">{{ course.learning_objectives|linebreaks }}</div>
                     </div>
                 {% endif %}
@@ -246,65 +363,200 @@
                     </span>
                 {% endif %}
             </div>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="onlenco-lesson-grid">
                 {% for row in lesson_rows %}
+                    {% with lesson=row.lesson cover=row.lesson.image_prompts.all|dictsort:"sort_order"|first %}
                     {% if row.can_open %}
-                        <a href="{{ row.lesson_url }}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                        <a href="{{ row.lesson_url }}" class="onlenco-lesson-card onlenco-lesson-card--{{ row.state }}">
                     {% else %}
-                        <div class="card gradient-card p-6 opacity-60" aria-disabled="true">
+                        <div class="onlenco-lesson-card onlenco-lesson-card--{{ row.state }}" aria-disabled="true">
                     {% endif %}
-                        <div class="flex items-start justify-between mb-3">
-                            <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
-                                {% if row.lesson.skill == "reading" %}<i data-lucide="book-open" class="h-5 w-5 text-primary-foreground"></i>
-                                {% elif row.lesson.skill == "writing" %}<i data-lucide="pen-line" class="h-5 w-5 text-primary-foreground"></i>
-                                {% elif row.lesson.skill == "listening" %}<i data-lucide="headphones" class="h-5 w-5 text-primary-foreground"></i>
-                                {% elif row.lesson.skill == "speaking" %}<i data-lucide="mic" class="h-5 w-5 text-primary-foreground"></i>
-                                {% else %}<i data-lucide="book-open" class="h-5 w-5 text-primary-foreground"></i>{% endif %}
-                            </div>
-                            {% if row.is_completed %}
-                                <span class="badge badge-secondary text-xs">
-                                    <i data-lucide="check" class="h-3 w-3"></i>
-                                    {% t_either "Completed" "مكتمل" %}
-                                </span>
-                            {% elif row.is_unlocked %}
-                                <span class="badge badge-popular text-xs">{% t_either "Available" "متاح" %}</span>
+                        <div class="onlenco-lesson-card__media">
+                            {% if cover and cover.generated_image %}
+                                <img src="{{ cover.generated_image.url }}" alt="{{ lesson.title }}" loading="lazy">
                             {% else %}
-                                <span class="badge badge-outline text-xs">
-                                    <i data-lucide="lock" class="h-3 w-3"></i>
-                                    {% t_either "Locked" "مقفل" %}
-                                </span>
+                                <div class="onlenco-lesson-card__media-fallback">
+                                    {% if lesson.skill == "reading" %}<i data-lucide="book-open"></i>
+                                    {% elif lesson.skill == "writing" %}<i data-lucide="pen-line"></i>
+                                    {% elif lesson.skill == "listening" %}<i data-lucide="headphones"></i>
+                                    {% elif lesson.skill == "speaking" %}<i data-lucide="mic"></i>
+                                    {% else %}<i data-lucide="book-open"></i>{% endif %}
+                                </div>
                             {% endif %}
+                            <span class="onlenco-lesson-card__index">{{ row.index|stringformat:"02d" }}</span>
+                            <span class="onlenco-lesson-card__state-badge">
+                                {% if row.is_completed %}
+                                    <i data-lucide="check"></i> {% t_either "Done" "تم" %}
+                                {% elif row.is_unlocked %}
+                                    {% t_either "Available" "متاح" %}
+                                {% else %}
+                                    <i data-lucide="lock"></i> {% t_either "Locked" "مقفل" %}
+                                {% endif %}
+                            </span>
                         </div>
-                        <div class="text-xs font-semibold text-muted-foreground mb-1">
-                            {% t_either "Lesson" "الدرس" %} {{ row.index }}
-                        </div>
-                        <h3 class="font-display text-lg font-bold mb-1">{{ row.lesson.title }}</h3>
-                        {% if row.lesson.content_html %}
-                            <p class="text-sm text-muted-foreground mb-3">{{ row.lesson.content_html|striptags|truncatewords:18 }}</p>
-                        {% endif %}
-                        <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                            <span>{{ row.lesson.duration_minutes }} {% t_either "min" "د" %}</span>
-                            {% if row.is_locked and has_access %}
-                                <span class="inline-flex items-center gap-1">
-                                    <i data-lucide="lock" class="h-3 w-3"></i>
-                                    {% if row.available_on %}
-                                        {% t_either "Opens" "تُفتح" %}
-                                        <span dir="ltr">{{ row.available_on|date:"Y-m-d" }}</span>
-                                    {% else %}
-                                        {% t_either "Finish the previous lesson" "أكمل الدرس السابق" %}
-                                    {% endif %}
-                                </span>
+                        <div class="onlenco-lesson-card__body">
+                            <h3 class="onlenco-lesson-card__title">{% if lang == "ar" and lesson.title_ar %}{{ lesson.title_ar }}{% else %}{{ lesson.title }}{% endif %}</h3>
+                            {% if lesson.content_html %}
+                                <p class="onlenco-lesson-card__excerpt">{{ lesson.content_html|striptags|truncatewords:14 }}</p>
                             {% endif %}
+                            <div class="onlenco-lesson-card__meta">
+                                <span class="inline-flex items-center gap-1"><i data-lucide="clock-3" class="h-3.5 w-3.5"></i>{{ lesson.duration_minutes }} {% t_either "min" "د" %}</span>
+                                {% if lesson.cefr_level %}<span class="onlenco-lesson-card__cefr">{{ lesson.cefr_level }}</span>{% endif %}
+                                {% if row.is_locked and has_access and row.available_on %}
+                                    <span class="text-xs">{% t_either "Opens" "تُفتح" %} <span dir="ltr">{{ row.available_on|date:"M d" }}</span></span>
+                                {% endif %}
+                            </div>
                         </div>
                     {% if row.can_open %}
                         </a>
                     {% else %}
                         </div>
                     {% endif %}
+                    {% endwith %}
                 {% endfor %}
             </div>
         </section>
         {% endif %}
     </main>
 </div>
+
+{# ===== Course-detail design tokens & components ===== #}
+<style>
+/* CEFR colour palette per cluster (matches Method Spec §0). */
+.onlenco-cefr-badge {
+  background: hsl(var(--primary)); color: #fff;
+  font-weight: 700; letter-spacing: 0.04em;
+  padding: 4px 12px; border-radius: 9999px; font-size: 13px;
+}
+.onlenco-cefr-badge[data-cefr="A0"] { background: #22C55E; }   /* green */
+.onlenco-cefr-badge[data-cefr="A1"] { background: #2563EB; }   /* blue */
+.onlenco-cefr-badge[data-cefr="A2"] { background: #7C3AED; }   /* purple */
+.onlenco-cefr-badge[data-cefr="B1"] { background: #EA580C; }   /* orange */
+.onlenco-cefr-badge[data-cefr="B2"] { background: #DB2777; }   /* pink */
+.onlenco-cefr-badge[data-cefr="C1"] { background: #DC2626; }   /* red */
+.onlenco-cefr-badge[data-cefr="C2"] { background: #0F172A; }   /* near-black */
+
+/* Hero gradient tied to the cluster colour. */
+.onlenco-course-hero { background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted)/.4) 100%); border: 1px solid hsl(var(--border)); }
+.onlenco-course-hero[data-cefr="A0"] { box-shadow: 0 0 0 4px rgb(34 197 94 / .15); }
+.onlenco-course-hero[data-cefr="A1"] { box-shadow: 0 0 0 4px rgb(37 99 235 / .15); }
+.onlenco-course-hero[data-cefr="A2"] { box-shadow: 0 0 0 4px rgb(124 58 237 / .15); }
+.onlenco-course-hero[data-cefr="B1"] { box-shadow: 0 0 0 4px rgb(234 88 12 / .15); }
+.onlenco-course-hero[data-cefr="B2"] { box-shadow: 0 0 0 4px rgb(219 39 119 / .15); }
+.onlenco-course-hero[data-cefr="C1"] { box-shadow: 0 0 0 4px rgb(220 38 38 / .15); }
+.onlenco-course-hero[data-cefr="C2"] { box-shadow: 0 0 0 4px rgb(15 23 42 / .18); }
+
+/* Lesson grid + cards — cover + body, hover lift. */
+.onlenco-lesson-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.onlenco-lesson-card {
+  display: block; background: hsl(var(--card));
+  border: 1px solid hsl(var(--border)); border-radius: 14px;
+  overflow: hidden; text-decoration: none; color: inherit;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.onlenco-lesson-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgb(0 0 0 / .08);
+  border-color: hsl(var(--primary)/.4);
+}
+.onlenco-lesson-card--locked { opacity: 0.6; pointer-events: none; }
+
+.onlenco-lesson-card__media { position: relative; aspect-ratio: 16/9; background: hsl(var(--muted)); overflow: hidden; }
+.onlenco-lesson-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s ease; }
+.onlenco-lesson-card:hover .onlenco-lesson-card__media img { transform: scale(1.04); }
+.onlenco-lesson-card__media-fallback {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: linear-gradient(135deg, hsl(var(--primary)/.12), hsl(var(--secondary)/.15));
+  color: hsl(var(--primary));
+}
+.onlenco-lesson-card__media-fallback i { width: 36px; height: 36px; }
+
+.onlenco-lesson-card__index {
+  position: absolute; top: 10px; inset-inline-start: 10px;
+  background: rgb(255 255 255 / .92); color: #111827;
+  padding: 4px 9px; border-radius: 8px;
+  font-weight: 700; font-size: 13px; letter-spacing: 0.02em;
+  box-shadow: 0 2px 6px rgb(0 0 0 / .12);
+}
+.onlenco-lesson-card__state-badge {
+  position: absolute; top: 10px; inset-inline-end: 10px;
+  background: rgb(255 255 255 / .92); color: #111827;
+  padding: 4px 9px; border-radius: 8px;
+  font-weight: 600; font-size: 12px;
+  display: inline-flex; align-items: center; gap: 4px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / .12);
+}
+.onlenco-lesson-card--completed .onlenco-lesson-card__state-badge { background: #DCFCE7; color: #15803D; }
+.onlenco-lesson-card--locked .onlenco-lesson-card__state-badge    { background: #F3F4F6; color: #6B7280; }
+.onlenco-lesson-card__state-badge i { width: 14px; height: 14px; }
+
+.onlenco-lesson-card__body { padding: 16px 18px 18px; }
+.onlenco-lesson-card__title { font-weight: 700; font-size: 1.05rem; line-height: 1.35; margin-bottom: 6px; color: hsl(var(--foreground)); }
+.onlenco-lesson-card__excerpt { color: hsl(var(--muted-foreground)); font-size: 0.875rem; line-height: 1.45; margin-bottom: 12px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.onlenco-lesson-card__meta {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: hsl(var(--muted-foreground));
+}
+.onlenco-lesson-card__cefr {
+  background: hsl(var(--primary)/.08); color: hsl(var(--primary));
+  font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.05em;
+}
+
+/* Tighter spacing in the RTL UI so the cards align nicely. */
+[dir="rtl"] .onlenco-lesson-card__title,
+[dir="rtl"] .onlenco-lesson-card__excerpt { text-align: right; }
+
+/* Course-at-a-glance stat strip. */
+.onlenco-glance {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.onlenco-glance__stat {
+  background: hsl(var(--card)); border: 1px solid hsl(var(--border));
+  border-radius: 12px; padding: 18px;
+  text-align: center;
+}
+.onlenco-glance__stat-value {
+  font-family: var(--font-display, inherit);
+  font-weight: 800; font-size: 1.85rem; line-height: 1.1;
+  color: hsl(var(--primary));
+}
+.onlenco-glance__stat-label {
+  font-size: 0.78rem; color: hsl(var(--muted-foreground));
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+
+/* Skill list under "What you will learn". */
+.onlenco-skill-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 8px;
+  background: hsl(var(--muted)/.4);
+}
+.onlenco-skill-row em { font-style: normal; font-weight: 600; }
+
+/* Can-do checklist on the course page. */
+.onlenco-can-do { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.onlenco-can-do li {
+  position: relative; padding: 8px 12px 8px 32px;
+  background: hsl(var(--secondary)/.08);
+  border-radius: 8px; font-size: 0.92rem; line-height: 1.4;
+}
+.onlenco-can-do li::before {
+  content: ""; position: absolute; inset-inline-start: 10px; top: 50%;
+  width: 14px; height: 14px;
+  background-color: hsl(var(--secondary));
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath fill-rule='evenodd' d='M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4L8.5 12l6.8-6.7a1 1 0 011.4 0z' clip-rule='evenodd'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath fill-rule='evenodd' d='M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4L8.5 12l6.8-6.7a1 1 0 011.4 0z' clip-rule='evenodd'/%3E%3C/svg%3E") center/contain no-repeat;
+  transform: translateY(-50%);
+}
+[dir="rtl"] .onlenco-can-do li { padding: 8px 32px 8px 12px; }
+
+/* Sample audio + prerequisite cards — softer accent. */
+.onlenco-sample-audio { background: linear-gradient(135deg, hsl(var(--primary)/.05), hsl(var(--secondary)/.05)); }
+.onlenco-prereq { border-left: 4px solid hsl(var(--primary)); background: hsl(var(--primary)/.04); }
+[dir="rtl"] .onlenco-prereq { border-left: none; border-right: 4px solid hsl(var(--primary)); }
+</style>
 {% endblock %}

@@ -1,0 +1,14 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--tap-choice">
+    <div class="onlenco-qr__choices">
+        {% for opt in question_metadata.options %}
+        <label class="onlenco-qr__choice">
+            <input type="radio" name="answer" value="{{ opt.id }}" required>
+            <span class="onlenco-qr__choice-text" dir="ltr">{{ opt.text }}</span>
+            {% if opt.text_ar %}<span class="onlenco-qr__choice-text-ar" dir="rtl">{{ opt.text_ar }}</span>{% endif %}
+        </label>
+        {% empty %}
+        <p class="onlenco-qr__hint">{% t_either "No options configured." "لا توجد خيارات." %}</p>
+        {% endfor %}
+    </div>
+</div>

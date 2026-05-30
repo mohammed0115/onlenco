@@ -239,7 +239,10 @@ class StudentCourseFlowTests(TestCase):
         response = self.client.get(reverse("courses:lesson_detail", args=[course.pk, lesson.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Welcome to the lesson.")
+        # Lesson launcher renders the title + "Start the lesson" CTA in
+        # the hero (replaced inline content_html in the new design).
+        self.assertContains(response, lesson.title)
+        self.assertContains(response, "onlenco-cta-start")
         self.assertTrue(CourseEnrollment.objects.filter(user=self.user, course=course).exists())
 
     def test_teacher_cannot_publish_without_academic_admin_permission(self):

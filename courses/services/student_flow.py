@@ -35,7 +35,27 @@ def current_level_for_user(user) -> str:
 
 
 def visible_level_codes_for_user(user) -> tuple[str, ...]:
-    """Return the CEFR levels the student may see on the dashboard."""
+    """Return the CEFR levels the student may see on the dashboard.
+
+    Order of precedence:
+      1. If the student is **enrolled** across two or more CEFR levels,
+         show all of those levels. This naturally widens the dashboard
+         for "preview" or all-access accounts without needing a per-user
+         flag — staff just enroll the account in every course they want
+         visible.
+      2. Beginners on the `beginner_start` onboarding path with no level
+         yet (or A0) see A0+A1, so they can taste both.
+      3. Otherwise show only the student's current CEFR level.
+    """
+    enrolled_levels = tuple(
+        Course.objects
+        .filter(enrollments__user=user, status="published",
+                is_active=True, level__is_active=True)
+        .values_list("level__code", flat=True)
+        .distinct()
+    )
+    if len(enrolled_levels) >= 2:
+        return tuple(c for c in CEFR_ORDER if c in enrolled_levels)
     profile = getattr(user, "profile", None)
     if getattr(profile, "onboarding_path", "") == "beginner_start":
         current = current_level_for_user(user)
@@ -99,7 +119,7 @@ def ensure_course_enrollment(user, course: Course) -> CourseEnrollment:
     return enrollment
 
 
-def dashboard_courses_for_user(user, *, limit: int = 6) -> list[Course]:
+def dashboard_courses_for_user(user, *, limit: int = 12) -> list[Course]:
     """Return dashboard-ready courses matched to the student's CEFR level."""
     qs = (
         visible_course_queryset_for_user(user)

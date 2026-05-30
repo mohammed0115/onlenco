@@ -1,0 +1,49 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--word-bank" data-word-bank>
+    <div class="onlenco-qr__sentence-tray" data-tray
+         aria-label="{% t_either 'Your sentence' 'جملتك' %}" dir="ltr"></div>
+    <div class="onlenco-qr__word-bank" data-bank dir="ltr">
+        {% for word in question_metadata.word_bank %}
+        <button type="button" class="onlenco-qr__word" data-word="{{ word }}">{{ word }}</button>
+        {% endfor %}
+    </div>
+    <div style="display:flex; justify-content: space-between; align-items:center;">
+        <p class="onlenco-qr__hint">{% t_either "Tap the words in order. Tap one in the tray to put it back." "اضغط الكلمات بالترتيب. اضغط عليها في الصينية لإرجاعها." %}</p>
+        <button type="button" class="onlenco-qr__word-bank-reset" data-word-bank-reset>
+            {% t_either "Reset" "إعادة" %}
+        </button>
+    </div>
+    <input type="hidden" name="answer" data-word-bank-answer value="[]">
+</div>
+<script>
+(function () {
+    var roots = document.querySelectorAll("[data-word-bank]");
+    var root = roots[roots.length - 1]; if (!root) return;
+    var tray = root.querySelector("[data-tray]");
+    var bank = root.querySelector("[data-bank]");
+    var hidden = root.querySelector("[data-word-bank-answer]");
+    var resetBtn = root.querySelector("[data-word-bank-reset]");
+    function refresh() {
+        var words = [].map.call(tray.querySelectorAll("[data-word]"),
+                                function (b) { return b.dataset.word; });
+        hidden.value = JSON.stringify(words);
+    }
+    bank.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-word]"); if (!btn || btn.disabled) return;
+        var clone = btn.cloneNode(true);
+        tray.appendChild(clone); btn.disabled = true; refresh();
+    });
+    tray.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-word]"); if (!btn) return;
+        var word = btn.dataset.word; btn.remove();
+        var orig = bank.querySelector("[data-word='" + word + "']");
+        if (orig) orig.disabled = false;
+        refresh();
+    });
+    if (resetBtn) resetBtn.addEventListener("click", function () {
+        [].forEach.call(tray.querySelectorAll("[data-word]"), function (b) { b.remove(); });
+        [].forEach.call(bank.querySelectorAll("[data-word]"), function (b) { b.disabled = false; });
+        refresh();
+    });
+})();
+</script>

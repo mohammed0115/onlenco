@@ -1,0 +1,11 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--legacy-text">
+    {% if question.question_type == "sentence_ordering" and question.options %}
+    <p class="onlenco-qr__hint onlenco-qr__hint--muted" dir="ltr">
+        {% t_either "Words:" "الكلمات:" %}
+        {% for w in question.options %}<code>{{ w }}</code>{% if not forloop.last %} · {% endif %}{% endfor %}
+    </p>
+    {% endif %}
+    <input class="onlenco-qr__input" type="text" name="answer" autocomplete="off" required dir="ltr"
+           placeholder="{% t_either 'Type your answer' 'اكتب إجابتك' %}">
+</div>

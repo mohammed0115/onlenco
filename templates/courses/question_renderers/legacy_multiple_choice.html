@@ -1,0 +1,13 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--legacy-mcq">
+    <div class="onlenco-qr__choices">
+        {% for opt in question.options %}
+        <label class="onlenco-qr__choice">
+            <input type="radio" name="answer" value="{{ opt }}" required>
+            <span class="onlenco-qr__choice-text" dir="ltr">{{ opt }}</span>
+        </label>
+        {% empty %}
+        <p class="onlenco-qr__hint">{% t_either "No options configured." "لا توجد خيارات." %}</p>
+        {% endfor %}
+    </div>
+</div>

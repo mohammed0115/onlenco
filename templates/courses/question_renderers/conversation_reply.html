@@ -1,0 +1,19 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--conversation">
+    <div class="onlenco-qr__chat" dir="ltr">
+        {% for turn in question_metadata.dialogue %}
+        <div class="onlenco-qr__bubble onlenco-qr__bubble--{% if turn.side == 'right' %}right{% else %}left{% endif %}">
+            {% if turn.speaker %}<span class="onlenco-qr__speaker">{{ turn.speaker }}</span>{% endif %}
+            <p>{{ turn.text }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="onlenco-qr__choices">
+        {% for opt in question_metadata.options %}
+        <label class="onlenco-qr__choice">
+            <input type="radio" name="answer" value="{{ opt.id }}" required>
+            <span class="onlenco-qr__choice-text" dir="ltr">{{ opt.text }}</span>
+        </label>
+        {% endfor %}
+    </div>
+</div>

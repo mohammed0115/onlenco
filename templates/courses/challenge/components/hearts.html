@@ -1,0 +1,9 @@
+{% load i18n_dict %}
+{% comment %}Hearts visual. Inputs: session (uses hearts_total + hearts_remaining).{% endcomment %}
+<div class="onlenco-ch-hearts" role="img"
+     aria-label="{% t_either 'Hearts remaining' 'القلوب المتبقية' %} {{ session.hearts_remaining }}/{{ session.hearts_total }}"
+     data-hearts data-hearts-remaining="{{ session.hearts_remaining }}">
+    {% for _ in ""|center:session.hearts_total %}
+        <span class="onlenco-ch-heart{% if forloop.counter > session.hearts_remaining %} is-lost{% endif %}" aria-hidden="true">♥</span>
+    {% endfor %}
+</div>

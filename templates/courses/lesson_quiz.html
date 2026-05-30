@@ -1,41 +1,681 @@
 {% extends "base.html" %}
-{% load i18n_dict %}
+{% load i18n_dict quiz_filters %}
 
 {% block title %}{{ quiz.title }} — Onlenco{% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-muted/20">
+<div class="min-h-screen bg-muted/20" data-quiz-id="{{ quiz.pk }}">
     {% include "_app_header.html" %}
 
-    <main class="container py-10 space-y-6 max-w-2xl">
-        <a href="{% url 'courses:lesson_detail' course.pk lesson.pk %}" class="btn btn-outline btn-sm">
-            <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
-            {{ lesson.title }}
-        </a>
-        <h1 class="font-display text-3xl font-bold">{{ quiz.title }}</h1>
-        <p class="text-muted-foreground text-sm">
-            {% t_either "Passing score" "درجة النجاح" %}: {{ quiz.passing_score }}%
-        </p>
+    <main class="container py-6 onlenco-quiz-page">
 
-        <form method="post" class="space-y-5">
-            {% csrf_token %}
-            {% for q in questions %}
-            <div class="card p-5">
-                <p class="font-medium mb-3">{{ forloop.counter }}. {{ q.question_text }}</p>
-                <div class="space-y-2 text-sm">
-                    {% for opt in q.options %}
-                    <label class="flex items-center gap-2 rounded border border-border px-3 py-2 cursor-pointer">
-                        <input type="radio" name="q_{{ q.id }}" value="{{ opt }}">
-                        <span>{{ opt }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
+        {# Top — breadcrumb + title + passing score #}
+        <a href="{% url 'courses:lesson_detail' course.pk lesson.pk %}" class="onlenco-back">
+            <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+            <span>{{ lesson.title }}</span>
+        </a>
+        <header class="onlenco-quiz-header">
+            <span class="onlenco-pill onlenco-pill--unit">{% t_either "Quiz" "اختبار" %} · {% t_either "Unit" "وحدة" %} {{ lesson.order|stringformat:"02d" }}</span>
+            <h1>{% if lang == "ar" and quiz.title_ar %}{{ quiz.title_ar }}{% else %}{{ quiz.title }}{% endif %}</h1>
+            <p class="onlenco-quiz-header__hint">
+                <i data-lucide="info" class="h-4 w-4"></i>
+                {% t_either "One question at a time. Tap Next to advance." "سؤال واحد في كل مرة. اضغط التالي للمتابعة." %}
+                · {% t_either "Pass:" "النجاح:" %} <strong>{{ quiz.passing_score }}%</strong>
+            </p>
+        </header>
+
+        {# Progress bar at the top #}
+        <div class="onlenco-quiz-progress">
+            <div class="onlenco-quiz-progress__label">
+                <span data-quiz-current>1</span> / {{ questions|length }}
             </div>
+            <div class="onlenco-quiz-progress__bar"><div class="onlenco-quiz-progress__fill" data-quiz-fill></div></div>
+        </div>
+
+        <form method="post" class="onlenco-quiz-form">
+            {% csrf_token %}
+
+            {% for q in questions %}
+            <section class="onlenco-q" data-q-step="{{ forloop.counter0 }}" data-q-type="{{ q.question_type }}" {% if not forloop.first %}hidden{% endif %}>
+
+                {# Question header — numbered like the book, with type icon #}
+                <div class="onlenco-q__header">
+                    <span class="onlenco-q__num">{{ forloop.counter }}</span>
+                    <div>
+                        <div class="onlenco-q__type-label">
+                            {% if q.question_type == "multiple_choice" %}{% if q.options|length == 2 %}✓ {% t_either "Mark the correct answer" "اختر الإجابة الصحيحة" %}{% else %}🔘 {% t_either "Pick one" "اختر إجابة" %}{% endif %}
+                            {% elif q.question_type == "fill_blank" %}✏ {% t_either "Fill in the gap" "املأ الفراغ" %}
+                            {% elif q.question_type == "correction" %}✎ {% t_either "Fix the sentence" "صحّح الجملة" %}
+                            {% elif q.question_type == "sentence_ordering" %}↕ {% t_either "Put in order" "رتّب الكلمات" %}
+                            {% elif q.question_type == "translation" %}🌐 {% t_either "Translate" "ترجم" %}
+                            {% elif q.question_type == "short_answer" %}📝 {% t_either "Short answer" "إجابة قصيرة" %}
+                            {% elif q.question_type == "speaking_prompt" %}🗣 {% t_either "Speaking task" "تمرين محادثة" %}
+                            {% elif q.question_type == "writing_prompt" %}✍ {% t_either "Writing task" "تمرين كتابة" %}
+                            {% endif %}
+                        </div>
+                        <p class="onlenco-q__text" dir="ltr">{{ q.question_text }}</p>
+                        {% if q.question_text_ar and q.question_text_ar != q.question_text %}
+                            <p class="onlenco-q__text-ar" dir="rtl">{{ q.question_text_ar }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Optional audio cue — QuestionMedia rows #}
+                {% with audio_media=q.media.all|dictsort:"sort_order"|first %}
+                {% if audio_media and audio_media.media_type == "audio" and audio_media.file %}
+                <div class="onlenco-q__audio">
+                    <button type="button" class="onlenco-q__audio-btn" data-audio-src="{{ audio_media.file.url }}" aria-label="Play">
+                        <i data-lucide="volume-2"></i>
+                    </button>
+                    <small>{% t_either "Tap to listen" "اضغط للاستماع" %}</small>
+                </div>
+                {% elif audio_media and audio_media.transcript %}
+                <div class="onlenco-q__audio onlenco-q__audio--pending">
+                    <i data-lucide="volume-2"></i>
+                    <small>{% t_either "Audio pending" "الصوت قيد التحضير" %}</small>
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {# Sample-answer indicator on item #1 — same convention as EFE practice modules #}
+                {% if forloop.first and q.options %}
+                <p class="onlenco-q__sample-note">
+                    💡 {% t_either "First answer shown as an example. Read it, then pick your own." "أوّل إجابة مثال — تقرأ ثم تختار إجابتك." %}
+                </p>
+                {% endif %}
+
+                {# ===== Input area, branched by question_type ===== #}
+
+                {# Multiple choice — 2 options → big T/F buttons; more → cards #}
+                {% if q.question_type == "multiple_choice" %}
+                    <div class="{% if q.options|length == 2 %}onlenco-q__tf{% else %}onlenco-q__choices{% endif %}">
+                        {% for opt in q.options %}
+                        <label class="{% if q.options|length == 2 %}onlenco-q__tf-opt{% else %}onlenco-q__choice{% endif %}">
+                            <input type="radio" name="q_{{ q.id }}" value="{{ opt }}">
+                            <span>{{ opt }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                {# Fill in the blank — sentence with __ becomes an inline input #}
+                {% elif q.question_type == "fill_blank" %}
+                    <div class="onlenco-q__fill">
+                        <input type="text" name="q_{{ q.id }}" placeholder="{% t_either 'Type the missing word' 'اكتب الكلمة الناقصة' %}" autocomplete="off">
+                    </div>
+
+                {# Correction — show the wrong text + input for the fix #}
+                {% elif q.question_type == "correction" %}
+                    <div class="onlenco-q__correct">
+                        <input type="text" name="q_{{ q.id }}" placeholder="{% t_either 'Write the corrected sentence' 'اكتب الجملة الصحيحة' %}" autocomplete="off">
+                    </div>
+
+                {# Sentence ordering — click tokens to build the sentence. #}
+                {% elif q.question_type == "sentence_ordering" %}
+                    <div class="onlenco-q__ordering" data-q-id="{{ q.id }}">
+                        <div class="onlenco-q__token-bank" data-token-bank>
+                            {% for tok in q.scrambled %}<button type="button" class="onlenco-q__token" data-token="{{ tok }}">{{ tok }}</button>{% endfor %}
+                        </div>
+                        <div class="onlenco-q__token-target" data-token-target>
+                            <span class="onlenco-q__target-placeholder">{% t_either "Tap words to build your sentence" "اضغط الكلمات لبناء جملتك" %}</span>
+                        </div>
+                        <button type="button" class="onlenco-q__token-reset" data-token-reset>↺ {% t_either "Reset" "إعادة" %}</button>
+                        <input type="hidden" name="q_{{ q.id }}" data-token-output>
+                    </div>
+
+                {# Frequency scale — drag-or-click words onto a 0–100% scale. #}
+                {% elif q.question_type == "frequency_scale" %}
+                    <div class="onlenco-q__scale" data-q-id="{{ q.id }}">
+                        <div class="onlenco-q__scale-words">
+                            {% for it in q.scale_items %}
+                                <button type="button" class="onlenco-q__scale-word" data-word="{{ it.word }}">{{ it.word }}</button>
+                            {% endfor %}
+                        </div>
+                        <div class="onlenco-q__scale-track">
+                            <div class="onlenco-q__scale-tick">0%</div>
+                            <div class="onlenco-q__scale-tick">25%</div>
+                            <div class="onlenco-q__scale-tick">50%</div>
+                            <div class="onlenco-q__scale-tick">75%</div>
+                            <div class="onlenco-q__scale-tick">100%</div>
+                            <div class="onlenco-q__scale-line"></div>
+                            <div class="onlenco-q__scale-targets" data-scale-targets></div>
+                        </div>
+                        <p class="onlenco-q__hint">💡 {% t_either "Drop each word at the percent that matches its meaning." "ضع كل كلمة عند النسبة المناسبة لمعناها." %}</p>
+                        <input type="hidden" name="q_{{ q.id }}" data-scale-output>
+                    </div>
+
+                {# Table sentence builder — student types N sentences using table columns. #}
+                {% elif q.question_type == "table_sentence_builder" %}
+                    <div class="onlenco-q__tbuilder" data-q-id="{{ q.id }}">
+                        <div class="onlenco-q__tbuilder-grid">
+                            {% for col in 'subject,frequency,activity,time'|cut:' '|stringformat:'s'|split:',' %}
+                                {% with col_items=q.columns|dict_get:col %}
+                                <div class="onlenco-q__tbuilder-col">
+                                    <div class="onlenco-q__tbuilder-col-head">{% if col == "subject" %}{% t_either "Subject" "الفاعل" %}{% elif col == "frequency" %}{% t_either "Frequency" "تكرار" %}{% elif col == "activity" %}{% t_either "Activity" "نشاط" %}{% else %}{% t_either "Time" "زمن" %}{% endif %}</div>
+                                    {% for item in col_items %}<button type="button" class="onlenco-q__tbuilder-cell" data-tbuilder-token="{{ item }}">{{ item }}</button>{% endfor %}
+                                </div>
+                                {% endwith %}
+                            {% endfor %}
+                        </div>
+                        <p class="onlenco-q__hint">✏ {% t_either "Tap one from each column, then add a sentence. Write" "اضغط واحد من كل عمود ثم أضف جملة. اكتب" %} <strong>{{ q.min_sentences }}</strong> {% t_either "sentences." "جمل." %}</p>
+                        <textarea name="q_{{ q.id }}" class="onlenco-q__textarea" rows="6" placeholder="{% t_either 'One sentence per line' 'جملة في كل سطر' %}" data-tbuilder-output></textarea>
+                    </div>
+
+                {# Listening match — audio cue (or pending) + drop-down per activity. #}
+                {% elif q.question_type == "listening_match" %}
+                    <div class="onlenco-q__lmatch" data-q-id="{{ q.id }}">
+                        {% if q.audio_status == "ready" %}
+                            <button type="button" class="onlenco-q__audio-btn" data-listening-audio aria-label="Play">
+                                <i data-lucide="volume-2"></i>
+                            </button>
+                        {% else %}
+                            <div class="onlenco-q__lmatch-pending">
+                                <i data-lucide="clock"></i>
+                                <span>{% t_either "Audio for this question is being generated. Match by reading the activities." "الصوت لهذا السؤال قيد التحضير. طابق بقراءة الأنشطة." %}</span>
+                            </div>
+                        {% endif %}
+                        <ul class="onlenco-q__lmatch-list">
+                            {% for pair in q.pairs %}
+                            <li class="onlenco-q__lmatch-row">
+                                <span class="onlenco-q__lmatch-activity">{{ pair.activity }}</span>
+                                <select class="onlenco-q__lmatch-select" data-pair-key="{{ pair.activity }}">
+                                    <option value="">— {% t_either "choose" "اختر" %} —</option>
+                                    {% for opt in q.answer_pool %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+                                </select>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <input type="hidden" name="q_{{ q.id }}" data-lmatch-output>
+                    </div>
+
+                {# Speaking sentence builder — visual prompt + AI tutor link. #}
+                {% elif q.question_type == "speaking_sentence_builder" %}
+                    <div class="onlenco-q__speak-builder">
+                        <p class="onlenco-q__speak-prompt">{{ q.speaking_prompt }}</p>
+                        {% if q.tutor_hint %}<p class="onlenco-q__hint">🎙 {% t_either "Tutor will check:" "المعلم سيراجع:" %} <em>{{ q.tutor_hint }}</em></p>{% endif %}
+                        <a href="/tutor/?lesson={{ lesson.pk }}&question={{ q.id }}" class="onlenco-q__tutor-link" target="_blank" rel="noopener">
+                            <i data-lucide="mic"></i>
+                            {% t_either "Practice with AI Tutor" "تدرّب مع المعلم الذكي" %}
+                        </a>
+                        <label class="onlenco-q__speaking-toggle">
+                            <input type="checkbox" name="q_{{ q.id }}" value="done">
+                            <span>{% t_either "I said the sentences" "قلت الجمل" %}</span>
+                        </label>
+                    </div>
+
+                {# Question transform — show statement, ask student to write the question. #}
+                {% elif q.question_type == "question_transform" %}
+                    <div class="onlenco-q__qtransform">
+                        <div class="onlenco-q__qtransform-source">
+                            <span class="onlenco-q__qtransform-label">📌 {% t_either "Statement" "الجملة" %}:</span>
+                            <span class="onlenco-q__qtransform-text" dir="ltr">{{ q.statement }}</span>
+                        </div>
+                        <div class="onlenco-q__qtransform-target">
+                            <span class="onlenco-q__qtransform-label">❓ {% t_either "Make a question with" "كوّن سؤالاً بـ" %} <strong>{{ q.target_qword|title }}</strong>:</span>
+                            <input type="text" name="q_{{ q.id }}" placeholder="{{ q.target_qword|title }}…" autocomplete="off">
+                        </div>
+                    </div>
+
+                {# Translation #}
+                {% elif q.question_type == "translation" %}
+                    <input class="onlenco-q__text-input" type="text" name="q_{{ q.id }}" placeholder="{% t_either 'Type the translation' 'اكتب الترجمة' %}" autocomplete="off">
+
+                {# Short answer #}
+                {% elif q.question_type == "short_answer" %}
+                    <input class="onlenco-q__text-input" type="text" name="q_{{ q.id }}" placeholder="{% t_either 'Your answer' 'إجابتك' %}" autocomplete="off">
+
+                {# Speaking — no text input, just a "noted" toggle #}
+                {% elif q.question_type == "speaking_prompt" %}
+                    <div class="onlenco-q__speaking">
+                        <p>🎙 {% t_either "Say your answer out loud (or practice with the AI Tutor in the lesson page)." "قل إجابتك بصوت (أو تدرّب مع المعلم الذكي في صفحة الدرس)." %}</p>
+                        <label class="onlenco-q__speaking-toggle">
+                            <input type="checkbox" name="q_{{ q.id }}" value="done">
+                            <span>{% t_either "I said it" "قلتها" %}</span>
+                        </label>
+                    </div>
+
+                {# Writing prompt — textarea #}
+                {% elif q.question_type == "writing_prompt" %}
+                    <textarea class="onlenco-q__textarea" name="q_{{ q.id }}" rows="4" placeholder="{% t_either 'Write your answer' 'اكتب إجابتك' %}"></textarea>
+
+                {% else %}
+                    <input class="onlenco-q__text-input" type="text" name="q_{{ q.id }}" placeholder="{% t_either 'Your answer' 'إجابتك' %}">
+                {% endif %}
+
+                {# Step navigation #}
+                <div class="onlenco-q__nav">
+                    {% if not forloop.first %}
+                        <button type="button" class="btn btn-outline" data-q-prev>← {% t_either "Back" "السابق" %}</button>
+                    {% else %}
+                        <span></span>
+                    {% endif %}
+                    {% if forloop.last %}
+                        <button type="submit" class="btn btn-hero" data-q-submit>{% t_either "Submit answers" "إرسال الإجابات" %}</button>
+                    {% else %}
+                        <button type="button" class="btn btn-hero" data-q-next>{% t_either "Next question" "السؤال التالي" %} →</button>
+                    {% endif %}
+                </div>
+            </section>
             {% endfor %}
-            <button type="submit" class="btn btn-hero w-full">
-                {% t_either "Submit answers" "إرسال الإجابات" %}
-            </button>
         </form>
     </main>
 </div>
+
+{# ===== JS — step navigation + audio buttons ===== #}
+<script>
+(function () {
+    var steps = Array.prototype.slice.call(document.querySelectorAll(".onlenco-q"));
+    var fill = document.querySelector("[data-quiz-fill]");
+    var current = document.querySelector("[data-quiz-current]");
+    var total = steps.length;
+
+    function show(i) {
+        if (i < 0 || i >= total) return;
+        steps.forEach(function (s, idx) { s.hidden = (idx !== i); });
+        if (fill) fill.style.width = ((i + 1) / total * 100) + "%";
+        if (current) current.textContent = (i + 1);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    document.querySelectorAll("[data-q-next]").forEach(function (b) {
+        b.addEventListener("click", function () {
+            var i = steps.findIndex(function (s) { return !s.hidden; });
+            show(i + 1);
+        });
+    });
+    document.querySelectorAll("[data-q-prev]").forEach(function (b) {
+        b.addEventListener("click", function () {
+            var i = steps.findIndex(function (s) { return !s.hidden; });
+            show(i - 1);
+        });
+    });
+
+    // Per-question audio playback
+    document.querySelectorAll(".onlenco-q__audio-btn").forEach(function (btn) {
+        var src = btn.dataset.audioSrc;
+        if (!src) return;
+        var audio = new Audio(src);
+        audio.playbackRate = 1.05;
+        btn.addEventListener("click", function () {
+            audio.currentTime = 0;
+            audio.play();
+        });
+    });
+
+    // --- Sentence-ordering: tap tokens to build the sentence -----------
+    document.querySelectorAll(".onlenco-q__ordering").forEach(function (root) {
+        var bank = root.querySelector("[data-token-bank]");
+        var target = root.querySelector("[data-token-target]");
+        var output = root.querySelector("[data-token-output]");
+        var resetBtn = root.querySelector("[data-token-reset]");
+        var placeholder = root.querySelector(".onlenco-q__target-placeholder");
+        function sync() {
+            var picked = Array.prototype.slice.call(target.querySelectorAll(".onlenco-q__token"));
+            output.value = picked.map(function (t) { return t.dataset.token; }).join("|");
+            if (placeholder) placeholder.hidden = picked.length > 0;
+        }
+        bank.querySelectorAll(".onlenco-q__token").forEach(function (tok) {
+            tok.addEventListener("click", function () {
+                if (tok.classList.contains("is-used")) return;
+                tok.classList.add("is-used");
+                var copy = tok.cloneNode(true);
+                copy.classList.remove("is-used");
+                copy.classList.add("is-placed");
+                copy.addEventListener("click", function () {
+                    tok.classList.remove("is-used");
+                    copy.remove();
+                    sync();
+                });
+                target.appendChild(copy);
+                sync();
+            });
+        });
+        if (resetBtn) resetBtn.addEventListener("click", function () {
+            target.querySelectorAll(".onlenco-q__token").forEach(function (n) { n.remove(); });
+            bank.querySelectorAll(".onlenco-q__token").forEach(function (n) { n.classList.remove("is-used"); });
+            sync();
+        });
+    });
+
+    // --- Frequency scale: tap a word then tap a tick to place it -------
+    document.querySelectorAll(".onlenco-q__scale").forEach(function (root) {
+        var output = root.querySelector("[data-scale-output]");
+        var targetsArea = root.querySelector("[data-scale-targets]");
+        var picked = null;
+        var assignments = {};
+        function refresh() {
+            targetsArea.innerHTML = "";
+            Object.keys(assignments).forEach(function (word) {
+                var pct = assignments[word];
+                var chip = document.createElement("button");
+                chip.type = "button";
+                chip.className = "onlenco-q__scale-chip";
+                chip.style.insetInlineStart = pct + "%";
+                chip.textContent = word;
+                chip.addEventListener("click", function () {
+                    delete assignments[word];
+                    root.querySelectorAll(".onlenco-q__scale-word").forEach(function (w) {
+                        if (w.dataset.word === word) w.classList.remove("is-used");
+                    });
+                    refresh();
+                });
+                targetsArea.appendChild(chip);
+            });
+            output.value = JSON.stringify(assignments);
+        }
+        root.querySelectorAll(".onlenco-q__scale-word").forEach(function (w) {
+            w.addEventListener("click", function () {
+                if (w.classList.contains("is-used")) return;
+                root.querySelectorAll(".onlenco-q__scale-word").forEach(function (x) { x.classList.remove("is-picked"); });
+                w.classList.add("is-picked");
+                picked = w.dataset.word;
+            });
+        });
+        root.querySelector(".onlenco-q__scale-track").addEventListener("click", function (e) {
+            if (!picked) return;
+            var rect = this.getBoundingClientRect();
+            var pct = Math.round((e.clientX - rect.left) / rect.width * 100);
+            pct = Math.max(0, Math.min(100, pct));
+            assignments[picked] = pct;
+            root.querySelectorAll(".onlenco-q__scale-word").forEach(function (w) {
+                if (w.dataset.word === picked) { w.classList.add("is-used"); w.classList.remove("is-picked"); }
+            });
+            picked = null;
+            refresh();
+        });
+    });
+
+    // --- Listening match: serialise the selects to JSON ---------------
+    document.querySelectorAll(".onlenco-q__lmatch").forEach(function (root) {
+        var out = root.querySelector("[data-lmatch-output]");
+        function sync() {
+            var data = {};
+            root.querySelectorAll(".onlenco-q__lmatch-select").forEach(function (sel) {
+                data[sel.dataset.pairKey] = sel.value;
+            });
+            out.value = JSON.stringify(data);
+        }
+        root.querySelectorAll(".onlenco-q__lmatch-select").forEach(function (sel) {
+            sel.addEventListener("change", sync);
+        });
+        sync();
+    });
+
+    // --- Table sentence builder: tapping a cell appends to the textarea -
+    document.querySelectorAll(".onlenco-q__tbuilder").forEach(function (root) {
+        var ta = root.querySelector("[data-tbuilder-output]");
+        root.querySelectorAll("[data-tbuilder-token]").forEach(function (cell) {
+            cell.addEventListener("click", function () {
+                ta.value = (ta.value ? ta.value + " " : "") + cell.dataset.tbuilderToken;
+                ta.focus();
+            });
+        });
+    });
+
+    show(0);
+})();
+</script>
+
+<style>
+.onlenco-quiz-page { display: grid; gap: 18px; }
+.onlenco-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: hsl(var(--muted-foreground));
+  text-decoration: none; padding: 6px 12px; border-radius: 999px;
+  background: hsl(var(--card)); border: 1px solid hsl(var(--border));
+  width: max-content;
+}
+.onlenco-quiz-header h1 { font-family: var(--font-display, inherit); font-size: clamp(1.4rem, 2vw, 2rem); font-weight: 800; margin: 8px 0 4px; }
+.onlenco-quiz-header__hint { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; color: hsl(var(--muted-foreground)); }
+.onlenco-quiz-header__hint i { width: 16px; height: 16px; }
+
+/* Top progress */
+.onlenco-quiz-progress { display: grid; gap: 6px; }
+.onlenco-quiz-progress__label { font-weight: 700; font-size: 0.9rem; color: hsl(var(--muted-foreground)); }
+.onlenco-quiz-progress__bar { height: 8px; background: hsl(var(--muted)/.5); border-radius: 999px; overflow: hidden; }
+.onlenco-quiz-progress__fill { height: 100%; width: 12%; background: #2563EB; transition: width .25s ease; }
+
+/* Pills (re-used from lesson page) */
+.onlenco-pill { display: inline-flex; align-items: center; gap: 5px; background: hsl(var(--card)); color: hsl(var(--foreground)); border: 1px solid hsl(var(--border)); padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.onlenco-pill--unit { background: #2563EB; color: #fff; border-color: transparent; }
+
+/* Each question card */
+.onlenco-q {
+  background: hsl(var(--card)); border: 1px solid hsl(var(--border));
+  border-radius: 18px; padding: 24px;
+  display: grid; gap: 16px;
+  animation: qIn .22s ease;
+}
+@keyframes qIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.onlenco-q__header { display: flex; gap: 14px; }
+.onlenco-q__num {
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  background: #2563EB; color: #fff;
+  display: grid; place-items: center; font-weight: 800;
+}
+.onlenco-q__type-label { font-size: 12px; font-weight: 700; color: hsl(var(--muted-foreground)); text-transform: uppercase; letter-spacing: 0.04em; }
+.onlenco-q__text { font-size: 1.05rem; font-weight: 600; line-height: 1.4; margin: 4px 0 0; color: hsl(var(--foreground)); }
+.onlenco-q__text-ar { font-size: 0.9rem; color: hsl(var(--muted-foreground)); margin: 4px 0 0; }
+.onlenco-q__sample-note { font-size: 0.85rem; color: #A16207; background: #FEF9C3; padding: 8px 12px; border-radius: 8px; margin: 0; }
+
+/* Audio cue */
+.onlenco-q__audio { display: flex; align-items: center; gap: 10px; }
+.onlenco-q__audio-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: #2563EB; color: #fff; border: none;
+  display: grid; place-items: center; cursor: pointer;
+}
+.onlenco-q__audio-btn i { width: 22px; height: 22px; }
+.onlenco-q__audio--pending { color: #A16207; background: #FEF9C3; padding: 8px 12px; border-radius: 8px; }
+.onlenco-q__audio--pending i { width: 18px; height: 18px; }
+
+/* Multiple choice — radio cards */
+.onlenco-q__choices { display: grid; gap: 8px; }
+.onlenco-q__choice {
+  display: flex; align-items: center; gap: 10px;
+  background: hsl(var(--muted)/.4); border: 2px solid hsl(var(--border));
+  padding: 12px 16px; border-radius: 12px; cursor: pointer;
+  font-size: 0.95rem;
+  transition: border-color .12s ease, background .12s ease;
+}
+.onlenco-q__choice:hover { border-color: #2563EB; }
+.onlenco-q__choice:has(input:checked) { border-color: #2563EB; background: #DBEAFE; }
+.onlenco-q__choice input { accent-color: #2563EB; }
+
+/* True / False — two big buttons */
+.onlenco-q__tf { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.onlenco-q__tf-opt {
+  display: grid; place-items: center;
+  background: hsl(var(--muted)/.4); border: 2px solid hsl(var(--border));
+  padding: 18px; border-radius: 14px; cursor: pointer;
+  font-size: 1.05rem; font-weight: 700; text-align: center;
+}
+.onlenco-q__tf-opt:has(input:checked) { background: #DBEAFE; border-color: #2563EB; color: #2563EB; }
+.onlenco-q__tf-opt input { display: none; }
+
+/* Text-based inputs (fill_blank, correction, translation, short_answer) */
+.onlenco-q__fill, .onlenco-q__correct, .onlenco-q__ordering { display: grid; gap: 10px; }
+.onlenco-q__fill input,
+.onlenco-q__correct input,
+.onlenco-q__ordering input,
+.onlenco-q__text-input,
+.onlenco-q__textarea {
+  width: 100%; padding: 14px 16px; border-radius: 12px;
+  border: 2px solid hsl(var(--border)); background: hsl(var(--card));
+  font-size: 1rem; font-family: inherit;
+}
+.onlenco-q__fill input:focus,
+.onlenco-q__correct input:focus,
+.onlenco-q__ordering input:focus,
+.onlenco-q__text-input:focus,
+.onlenco-q__textarea:focus { outline: none; border-color: #2563EB; }
+.onlenco-q__textarea { resize: vertical; min-height: 100px; }
+
+/* Sentence ordering tokens */
+.onlenco-q__tokens { display: flex; gap: 6px; flex-wrap: wrap; }
+.onlenco-q__token {
+  background: hsl(var(--muted)/.6); border: 1px solid hsl(var(--border));
+  padding: 6px 12px; border-radius: 8px; font-weight: 600;
+}
+
+/* Speaking */
+.onlenco-q__speaking { background: hsl(var(--muted)/.3); padding: 14px; border-radius: 12px; display: grid; gap: 10px; }
+.onlenco-q__speaking p { margin: 0; font-size: 0.95rem; }
+.onlenco-q__speaking-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #DCFCE7; color: #15803D; padding: 8px 14px;
+  border-radius: 999px; font-weight: 700; cursor: pointer; width: max-content;
+}
+
+/* Step navigation */
+.onlenco-q__nav { display: flex; justify-content: space-between; gap: 10px; padding-top: 4px; }
+
+/* ===== Sentence ordering ===== */
+.onlenco-q__ordering { display: grid; gap: 12px; }
+.onlenco-q__token-bank, .onlenco-q__token-target {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  min-height: 48px; padding: 10px;
+  border-radius: 12px;
+}
+.onlenco-q__token-bank { background: hsl(var(--muted)/.4); border: 2px dashed hsl(var(--border)); }
+.onlenco-q__token-target { background: #DBEAFE; border: 2px solid #2563EB; min-height: 56px; align-items: center; }
+.onlenco-q__token {
+  background: #fff; color: #1e293b; border: 1px solid hsl(var(--border));
+  padding: 8px 14px; border-radius: 999px;
+  font-weight: 600; cursor: pointer; font-size: 0.95rem;
+  transition: transform .12s ease;
+}
+.onlenco-q__token:hover { transform: translateY(-1px); }
+.onlenco-q__token.is-used { opacity: 0.3; pointer-events: none; }
+.onlenco-q__token.is-placed { background: #2563EB; color: #fff; border-color: transparent; }
+.onlenco-q__target-placeholder { font-size: 0.85rem; color: #6B7280; font-style: italic; }
+.onlenco-q__token-reset {
+  background: transparent; border: none; cursor: pointer;
+  font-size: 13px; color: #6B7280; padding: 6px; width: max-content;
+}
+.onlenco-q__token-reset:hover { color: #2563EB; }
+
+/* ===== Frequency scale ===== */
+.onlenco-q__scale { display: grid; gap: 18px; padding: 6px 0; }
+.onlenco-q__scale-words { display: flex; flex-wrap: wrap; gap: 8px; }
+.onlenco-q__scale-word {
+  background: #FEF9C3; color: #A16207; border: 1px solid #FDE68A;
+  padding: 7px 14px; border-radius: 999px;
+  font-weight: 700; cursor: pointer; font-size: 0.95rem;
+}
+.onlenco-q__scale-word.is-picked { background: #F59E0B; color: #fff; transform: scale(1.05); }
+.onlenco-q__scale-word.is-used { opacity: 0.35; pointer-events: none; }
+.onlenco-q__scale-track {
+  position: relative; min-height: 96px; padding: 24px 0;
+  cursor: crosshair;
+}
+.onlenco-q__scale-line {
+  position: absolute; left: 0; right: 0; top: 50%;
+  height: 4px; background: linear-gradient(90deg, #DCFCE7, #F59E0B, #DC2626);
+  border-radius: 999px;
+}
+.onlenco-q__scale-tick {
+  position: absolute; bottom: 0;
+  font-size: 11px; font-weight: 700; color: #6B7280;
+  transform: translateX(-50%);
+}
+.onlenco-q__scale-tick:nth-child(1) { left: 0%; }
+.onlenco-q__scale-tick:nth-child(2) { left: 25%; }
+.onlenco-q__scale-tick:nth-child(3) { left: 50%; }
+.onlenco-q__scale-tick:nth-child(4) { left: 75%; }
+.onlenco-q__scale-tick:nth-child(5) { left: 100%; }
+.onlenco-q__scale-targets { position: absolute; left: 0; right: 0; top: 8px; pointer-events: none; }
+.onlenco-q__scale-chip {
+  position: absolute; transform: translateX(-50%);
+  background: #2563EB; color: #fff; border: none;
+  padding: 6px 12px; border-radius: 999px;
+  font-weight: 700; font-size: 13px; pointer-events: auto; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+}
+
+/* ===== Table sentence builder ===== */
+.onlenco-q__tbuilder { display: grid; gap: 14px; }
+.onlenco-q__tbuilder-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.onlenco-q__tbuilder-col {
+  background: hsl(var(--muted)/.4);
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px; padding: 12px; display: grid; gap: 6px;
+}
+.onlenco-q__tbuilder-col-head {
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  color: #2563EB; letter-spacing: 0.04em; text-align: center;
+  border-bottom: 2px solid #DBEAFE; padding-bottom: 6px; margin-bottom: 4px;
+}
+.onlenco-q__tbuilder-cell {
+  background: #fff; border: 1px solid hsl(var(--border));
+  padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 0.92rem; text-align: center; font-weight: 600;
+}
+.onlenco-q__tbuilder-cell:hover { background: #DBEAFE; border-color: #2563EB; }
+
+/* ===== Listening match ===== */
+.onlenco-q__lmatch { display: grid; gap: 14px; }
+.onlenco-q__lmatch-pending {
+  display: flex; align-items: center; gap: 10px;
+  background: #FEF9C3; color: #A16207;
+  padding: 12px 16px; border-radius: 10px;
+}
+.onlenco-q__lmatch-pending i { width: 18px; height: 18px; }
+.onlenco-q__lmatch-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.onlenco-q__lmatch-row {
+  display: flex; align-items: center; gap: 12px;
+  background: hsl(var(--muted)/.4); padding: 12px 16px; border-radius: 10px;
+}
+.onlenco-q__lmatch-activity { flex: 1; font-weight: 600; }
+.onlenco-q__lmatch-select {
+  background: #fff; border: 2px solid hsl(var(--border));
+  padding: 8px 12px; border-radius: 8px;
+  font-family: inherit; font-size: 0.92rem;
+}
+
+/* ===== Speaking sentence builder ===== */
+.onlenco-q__speak-builder { display: grid; gap: 12px; }
+.onlenco-q__speak-prompt {
+  background: #FEE2E2; color: #991B1B;
+  padding: 14px 18px; border-radius: 12px;
+  font-size: 1rem; font-weight: 600; line-height: 1.5;
+  border-left: 4px solid #DC2626;
+}
+[dir="rtl"] .onlenco-q__speak-prompt { border-left: none; border-right: 4px solid #DC2626; }
+.onlenco-q__tutor-link {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #DC2626; color: #fff;
+  padding: 12px 22px; border-radius: 999px;
+  font-weight: 700; text-decoration: none; width: max-content;
+}
+.onlenco-q__tutor-link:hover { background: #991B1B; }
+.onlenco-q__tutor-link i { width: 18px; height: 18px; }
+
+/* ===== Question transform ===== */
+.onlenco-q__qtransform { display: grid; gap: 12px; }
+.onlenco-q__qtransform-source {
+  background: #F3F4F6; padding: 14px 18px; border-radius: 12px;
+  font-size: 1.05rem; line-height: 1.5;
+}
+.onlenco-q__qtransform-target {
+  background: #DBEAFE; padding: 14px 18px; border-radius: 12px;
+  display: grid; gap: 8px;
+}
+.onlenco-q__qtransform-label { font-size: 0.85rem; font-weight: 700; color: #1E40AF; }
+.onlenco-q__qtransform-text { font-weight: 600; color: #1E293B; }
+.onlenco-q__qtransform-target input {
+  width: 100%; padding: 12px 14px; border-radius: 8px;
+  border: 2px solid #2563EB; background: #fff; font-size: 1rem;
+}
+
+/* Generic hint */
+.onlenco-q__hint {
+  background: #FEF9C3; color: #A16207;
+  padding: 10px 14px; border-radius: 8px;
+  font-size: 0.88rem; margin: 0;
+}
+</style>
 {% endblock %}

@@ -1,0 +1,14 @@
+{% load i18n_dict %}
+{% comment %}Progress bar. Inputs: card_number, card_total.{% endcomment %}
+<div class="onlenco-ch-progress" role="progressbar"
+     aria-label="{% t_either 'Challenge progress' 'تقدّم التحدي' %}"
+     aria-valuenow="{{ card_number }}" aria-valuemin="1" aria-valuemax="{{ card_total }}">
+    <div class="onlenco-ch-progress__bar">
+        <div class="onlenco-ch-progress__fill" style="width: {% widthratio card_number card_total 100 %}%"></div>
+    </div>
+    <div class="onlenco-ch-progress__label">
+        <span class="onlenco-ch-progress__num">{{ card_number }}</span>
+        <span class="onlenco-ch-progress__sep">/</span>
+        <span class="onlenco-ch-progress__num">{{ card_total }}</span>
+    </div>
+</div>

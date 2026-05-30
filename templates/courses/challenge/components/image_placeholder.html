@@ -1,0 +1,18 @@
+{% load i18n_dict %}
+{% comment %}
+Reusable image frame. Inputs:
+  image_url   — direct image url (preferred)
+  image_alt   — alt text (defaults to "Illustration")
+  image_prompt — fallback hint shown when no image exists yet
+{% endcomment %}
+<div class="onlenco-qr__hero-image">
+    {% if image_url %}
+        <img src="{{ image_url }}" alt="{{ image_alt|default:image_prompt|default:'Illustration' }}" loading="lazy">
+    {% else %}
+        <div class="onlenco-qr__hero-pending" role="note">
+            <span class="onlenco-qr__hero-pending-icon" aria-hidden="true">🖼</span>
+            <strong>{% t_either "Image coming soon" "الصورة قادمة قريباً" %}</strong>
+            {% if image_prompt %}<em dir="ltr">{{ image_prompt }}</em>{% endif %}
+        </div>
+    {% endif %}
+</div>

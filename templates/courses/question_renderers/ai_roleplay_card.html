@@ -1,0 +1,168 @@
+{% load i18n_dict %}
+{% comment %}
+Phase 9.5 — Real in-card UI for `ai_roleplay_prompt`.
+
+Three branches:
+  1. AI enabled + within quota → "Start AI Roleplay" button + chat container.
+     POSTs to `courses:ai_roleplay_start` then `ai_roleplay_message`.
+  2. AI disabled / over quota → static self-practice fallback dialogue.
+  3. Either path: "Mark as practiced" checkbox so the Challenge can advance
+     without depending on AI.
+
+The button NEVER accepts a raw `prompt` from the client — only the
+`message` field on follow-up turns, capped at 500 chars server-side.
+{% endcomment %}
+
+<div class="onlenco-qr onlenco-qr--ai-roleplay" data-ai-roleplay
+     data-session-id="{{ session.pk }}"
+     data-question-id="{{ question.pk }}"
+     data-course-id="{{ course.pk }}"
+     data-lesson-id="{{ lesson.pk }}">
+
+    <div class="onlenco-qr__roleplay-scenario" dir="ltr">
+        <span class="onlenco-qr__roleplay-kicker">
+            <i data-lucide="mic" aria-hidden="true"></i>
+            {% t_either "Short AI Roleplay" "تمثيل قصير مع AI" %}
+        </span>
+        <p class="onlenco-qr__roleplay-prompt">
+            {{ question_metadata.scenario|default:question.question_text }}
+        </p>
+        {% if question_metadata.target_phrases %}
+        <p class="onlenco-qr__roleplay-targets" dir="ltr">
+            <small>{% t_either "Try to use" "حاول استخدام" %}:
+            {% for phrase in question_metadata.target_phrases %}<code>{{ phrase }}</code>{% if not forloop.last %} · {% endif %}{% endfor %}</small>
+        </p>
+        {% endif %}
+    </div>
+
+    {% if ai_enabled %}
+    {# ---- Branch 1: AI active ---- #}
+    <button type="button" class="onlenco-ch-ai-btn" data-roleplay-start
+            aria-label="{% t_either 'Start AI Roleplay' 'ابدأ التمثيل مع AI' %}">
+        <i data-lucide="play" aria-hidden="true"></i>
+        <span>{% t_either "Start AI Roleplay" "ابدأ التمثيل" %}</span>
+    </button>
+    <div class="onlenco-qr__roleplay-chat" data-roleplay-chat hidden role="log" aria-live="polite">
+        {# Messages get appended here by JS. #}
+    </div>
+    <form class="onlenco-qr__roleplay-form" data-roleplay-form hidden onsubmit="return false;">
+        <input type="text" class="onlenco-qr__input" data-roleplay-input
+               placeholder="{% t_either 'Type a short reply' 'اكتب رداً قصيراً' %}"
+               maxlength="500" autocomplete="off" dir="ltr">
+        <button type="submit" class="onlenco-ch-ai-btn" data-roleplay-send>
+            <span>{% t_either "Send" "أرسل" %}</span>
+        </button>
+    </form>
+
+    {% else %}
+    {# ---- Branch 2: AI off — self-practice script. ---- #}
+    <div class="onlenco-qr__roleplay-fallback" dir="ltr"
+         role="note"
+         aria-label="{% t_either 'Self-practice dialogue' 'حوار تدريب ذاتي' %}">
+        <div class="onlenco-qr__roleplay-turn">
+            <strong>AI</strong><span>Hello. What is your name?</span>
+        </div>
+        <div class="onlenco-qr__roleplay-turn">
+            <strong>You</strong><span>My name is <em>(your name)</em>.</span>
+        </div>
+        <div class="onlenco-qr__roleplay-turn">
+            <strong>AI</strong><span>Nice to meet you.</span>
+        </div>
+    </div>
+    <p class="onlenco-qr__hint">
+        {% t_either "Read this short dialogue out loud. AI roleplay will be available soon." "اقرأ هذا الحوار القصير بصوت مرتفع. التمثيل الحي مع AI قادم قريباً." %}
+    </p>
+    {% endif %}
+
+    {# Either branch: a self-check that lets the Challenge advance. #}
+    <label class="onlenco-qr__self-check">
+        <input type="checkbox" name="answer" value="self_read" checked required>
+        <span>{% t_either "Mark as practiced" "ضع علامة (تدرّبت)" %}</span>
+    </label>
+</div>
+
+{% if ai_enabled %}
+<script>
+(function () {
+    var roots = document.querySelectorAll("[data-ai-roleplay]");
+    var root = roots[roots.length - 1]; if (!root) return;
+    var startBtn = root.querySelector("[data-roleplay-start]");
+    var chat     = root.querySelector("[data-roleplay-chat]");
+    var form     = root.querySelector("[data-roleplay-form]");
+    var input    = root.querySelector("[data-roleplay-input]");
+    var sendBtn  = root.querySelector("[data-roleplay-send]");
+    if (!startBtn || !chat || !form || !input || !sendBtn) return;
+
+    var csrf = (document.querySelector("input[name=csrfmiddlewaretoken]") || {}).value || "";
+    var rolePlayId = null;
+    var startUrl = "/courses/" + root.dataset.courseId
+                 + "/lessons/" + root.dataset.lessonId
+                 + "/challenge/" + root.dataset.sessionId
+                 + "/roleplay/start/" + root.dataset.questionId + "/";
+
+    function append(sender, text, dir) {
+        var row = document.createElement("div");
+        row.className = "onlenco-qr__roleplay-turn onlenco-qr__roleplay-turn--" + sender;
+        var who = document.createElement("strong");
+        who.textContent = (sender === "ai") ? "AI" : "You";
+        var msg = document.createElement("span");
+        msg.textContent = text;
+        if (dir) msg.setAttribute("dir", dir);
+        row.appendChild(who); row.appendChild(msg);
+        chat.appendChild(row);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    startBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        startBtn.disabled = true; startBtn.classList.add("is-loading");
+        fetch(startUrl, {
+            method: "POST", credentials: "same-origin",
+            headers: {"X-CSRFToken": csrf, "Accept": "application/json"},
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+              startBtn.classList.remove("is-loading");
+              if (!data || !data.roleplay_id) {
+                  startBtn.disabled = false; return;
+              }
+              rolePlayId = data.roleplay_id;
+              startBtn.hidden = true;
+              chat.hidden = false; form.hidden = false;
+              if (data.opening_en) append("ai", data.opening_en, "ltr");
+              input.focus();
+          }).catch(function () {
+              startBtn.classList.remove("is-loading");
+              startBtn.disabled = false;
+          });
+    });
+
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var msg = (input.value || "").trim();
+        if (!msg || !rolePlayId) return;
+        append("user", msg, "ltr");
+        input.value = "";
+        sendBtn.disabled = true;
+        var url = "/courses/" + root.dataset.courseId
+                + "/lessons/" + root.dataset.lessonId
+                + "/challenge/" + root.dataset.sessionId
+                + "/roleplay/" + rolePlayId + "/message/";
+        var body = new URLSearchParams(); body.append("message", msg);
+        fetch(url, {
+            method: "POST", credentials: "same-origin",
+            headers: {"X-CSRFToken": csrf, "Accept": "application/json",
+                      "Content-Type": "application/x-www-form-urlencoded"},
+            body: body.toString(),
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+              sendBtn.disabled = false;
+              if (!data) return;
+              if (data.reply_en) append("ai", data.reply_en, "ltr");
+              if (data.status === "completed") {
+                  form.hidden = true;
+              }
+          }).catch(function () { sendBtn.disabled = false; });
+    });
+})();
+</script>
+{% endif %}

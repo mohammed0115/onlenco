@@ -1,0 +1,9 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--translate-en">
+    <div class="onlenco-qr__source onlenco-qr__source--ar" dir="rtl">
+        <span class="onlenco-qr__source-tag">{% t_either "Arabic" "العربية" %}</span>
+        <p>{{ question_metadata.source_ar }}</p>
+    </div>
+    <input class="onlenco-qr__input" type="text" name="answer" autocomplete="off" required dir="ltr"
+           placeholder="{% t_either 'Translate to English' 'ترجم إلى الإنجليزية' %}">
+</div>

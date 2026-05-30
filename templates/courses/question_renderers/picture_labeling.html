@@ -1,0 +1,7 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--picture-labeling">
+    {% include "courses/challenge/components/image_placeholder.html" with image_url=question_metadata.image_url image_prompt=question_metadata.image_prompt image_alt=question_metadata.image_prompt %}
+    <input class="onlenco-qr__input" type="text" name="answer" autocomplete="off" required dir="ltr"
+           aria-label="{% t_either 'Your answer' 'إجابتك' %}"
+           placeholder="{% t_either 'Type the English word' 'اكتب الكلمة بالإنجليزية' %}">
+</div>

@@ -1,0 +1,14 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--mini-story">
+    <div class="onlenco-qr__story" dir="ltr">
+        {% for line in question_metadata.story %}<p>{{ line }}</p>{% endfor %}
+    </div>
+    <div class="onlenco-qr__choices">
+        {% for opt in question_metadata.options %}
+        <label class="onlenco-qr__choice">
+            <input type="radio" name="answer" value="{{ opt.id }}" required>
+            <span class="onlenco-qr__choice-text" dir="ltr">{{ opt.text }}</span>
+        </label>
+        {% endfor %}
+    </div>
+</div>

@@ -455,3 +455,254 @@ class GameEventSound(models.Model):
     def effective_audio_src(self) -> str:
         """Return the URL or the static fallback path."""
         return self.audio_url or self.fallback_audio_path
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — XP ledger + Streak source-of-truth + Daily goal + Badge catalog
+# ---------------------------------------------------------------------------
+
+class XPTransaction(models.Model):
+    """Audit trail for every XP grant.
+
+    UserXP holds aggregates (total/weekly/monthly); this table holds the
+    per-event ledger so we can:
+      * Show an "XP breakdown" on the Challenge summary.
+      * Prevent double-award via a unique (source_type, source_id, reason)
+        index per user.
+      * Trace any XP that ever landed on a user account.
+    """
+
+    SOURCE_CHOICES = [
+        ("challenge_answer",      _("Challenge answer")),
+        ("challenge_completion",  _("Challenge completion bonus")),
+        ("perfect_bonus",         _("Perfect challenge bonus")),
+        ("daily_goal_bonus",      _("Daily goal bonus")),
+        ("badge_reward",          _("Badge reward")),
+        ("lesson_completion",     _("Lesson completion")),
+        ("speaking_placeholder",  _("Speaking placeholder (self-check)")),
+        ("manual_adjustment",     _("Manual adjustment")),
+        ("snapshot",              _("Daily activity snapshot")),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="xp_transactions",
+    )
+    amount = models.IntegerField(
+        help_text=_("Positive grant or negative correction."),
+    )
+    reason = models.CharField(max_length=120, blank=True)
+    source_type = models.CharField(
+        max_length=32, choices=SOURCE_CHOICES, default="manual_adjustment",
+    )
+    # Free-text id of whatever produced this XP — a ChallengeAnswer pk,
+    # a ChallengeSession pk, a date, a badge code, etc.
+    source_id = models.CharField(max_length=64, blank=True, default="")
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["source_type", "-created_at"]),
+        ]
+        constraints = [
+            # No two grants with the SAME (user, source_type, source_id).
+            # Empty source_id keeps the constraint inert for one-off manual
+            # adjustments — those CAN repeat.
+            models.UniqueConstraint(
+                fields=["user", "source_type", "source_id"],
+                condition=~models.Q(source_id=""),
+                name="motivation_xp_tx_idempotent",
+            ),
+        ]
+        verbose_name = _("XP transaction")
+        verbose_name_plural = _("XP transactions")
+
+    def __str__(self):
+        return f"XPTx<{self.user_id}> {self.amount:+d} {self.source_type}"
+
+
+class StudentStreak(models.Model):
+    """One row per user — current streak state.
+
+    Distinct from LearnerActivitySnapshot (a daily roll-up). Streak state
+    is updated only by `streak_v2.record_learning_activity`.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="streak",
+    )
+    current_streak = models.PositiveIntegerField(default=0)
+    longest_streak = models.PositiveIntegerField(default=0)
+    last_activity_date = models.DateField(null=True, blank=True)
+    streak_freeze_count = models.PositiveSmallIntegerField(
+        default=0,
+        help_text=_("Reserved for Phase 6 — not consumed yet."),
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Student streak")
+        verbose_name_plural = _("Student streaks")
+
+    def __str__(self):
+        return (
+            f"Streak<{self.user_id}> cur={self.current_streak} "
+            f"max={self.longest_streak} last={self.last_activity_date}"
+        )
+
+
+class StreakActivity(models.Model):
+    """Log row for an activity that affects the streak.
+
+    Lets the dashboard show "you've been active 7 of the last 10 days"
+    and prevents counting two unrelated events on the same day twice.
+    """
+
+    ACTIVITY_TYPE_CHOICES = [
+        ("challenge_started",     _("Challenge started")),
+        ("challenge_completed",   _("Challenge completed")),
+        ("lesson_completed",      _("Lesson completed")),
+        ("daily_goal_completed",  _("Daily goal completed")),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="streak_activities",
+    )
+    activity_date = models.DateField()
+    activity_type = models.CharField(
+        max_length=32, choices=ACTIVITY_TYPE_CHOICES,
+    )
+    xp_earned = models.PositiveIntegerField(default=0)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-activity_date", "-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-activity_date"]),
+        ]
+        # One row per (user, date, type) — a second
+        # "challenge_completed" on the same day is the SAME streak event.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "activity_date", "activity_type"],
+                name="motivation_streakact_unique",
+            ),
+        ]
+        verbose_name = _("Streak activity")
+        verbose_name_plural = _("Streak activities")
+
+    def __str__(self):
+        return f"StreakAct<{self.user_id}> {self.activity_date} {self.activity_type}"
+
+
+class DailyGoal(models.Model):
+    """Per-user daily-goal preference.
+
+    Phase 5 ships a single goal_type — XP — because time tracking is not
+    yet reliable across all activity surfaces. The model is shaped so
+    minutes/challenges goals plug in later without a migration shake.
+    """
+
+    GOAL_TYPE_CHOICES = [
+        ("xp",         _("Earn XP")),
+        ("minutes",    _("Spend minutes")),     # reserved — not active
+        ("challenges", _("Complete challenges")),  # reserved — not active
+    ]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="daily_goal",
+    )
+    goal_type = models.CharField(
+        max_length=16, choices=GOAL_TYPE_CHOICES, default="xp",
+    )
+    target_value = models.PositiveIntegerField(default=50)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Daily goal")
+        verbose_name_plural = _("Daily goals")
+
+    def __str__(self):
+        return f"DailyGoal<{self.user_id}> {self.goal_type}={self.target_value}"
+
+
+class DailyGoalProgress(models.Model):
+    """Per-(user, date) progress towards the active goal."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="daily_goal_progress",
+    )
+    date = models.DateField()
+    xp_earned = models.PositiveIntegerField(default=0)
+    minutes_spent = models.PositiveIntegerField(default=0)
+    challenges_completed = models.PositiveIntegerField(default=0)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    bonus_awarded = models.BooleanField(
+        default=False,
+        help_text=_("True once the +25 XP daily-goal bonus was credited."),
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-date"]
+        indexes = [
+            models.Index(fields=["user", "-date"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "date"], name="motivation_dailygoal_unique",
+            ),
+        ]
+        verbose_name = _("Daily goal progress")
+        verbose_name_plural = _("Daily goal progress")
+
+    def __str__(self):
+        return f"DGP<{self.user_id}> {self.date} {self.xp_earned}xp done={self.completed}"
+
+
+class BadgeDefinition(models.Model):
+    """Catalog row for every badge a user can earn.
+
+    UserBadge (already defined) holds awards keyed by `badge_code` —
+    we hold the bilingual title/description/criteria here so the catalog
+    and the awards stay decoupled.
+    """
+
+    code = models.CharField(
+        max_length=80, unique=True,
+        help_text=_("UPPER_SNAKE_CASE identifier, e.g. FIRST_CHALLENGE."),
+    )
+    title_en = models.CharField(max_length=120)
+    title_ar = models.CharField(max_length=120, blank=True)
+    description_en = models.TextField(blank=True)
+    description_ar = models.TextField(blank=True)
+    icon_name = models.CharField(
+        max_length=40, default="award",
+        help_text=_("Lucide icon name."),
+    )
+    xp_reward = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    criteria = models.JSONField(
+        default=dict, blank=True,
+        help_text=_("Free-form criteria the evaluator uses."),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = _("Badge definition")
+        verbose_name_plural = _("Badge definitions")
+
+    def __str__(self):
+        return f"{self.code}: {self.title_en}"

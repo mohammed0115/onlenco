@@ -72,7 +72,8 @@ class BeginnerJourneyE2ETests(TestCase):
         )
         if r.status_code == 200:
             html = r.content.decode("utf-8", errors="replace")
-            self.assertIn("data-action=\"start-quiz\"", html)
+            # Launcher exposes the quiz via a quick-link CTA.
+            self.assertIn("onlenco-quick-link--quiz", html)
 
     # ------------------------------------------------------------------
     # Flow 3 — units without media must not crash

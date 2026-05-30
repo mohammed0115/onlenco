@@ -1,0 +1,14 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--fill-blank">
+    {% if question_metadata.sentence_with_blank %}
+    <p class="onlenco-qr__sentence" dir="ltr">{{ question_metadata.sentence_with_blank }}</p>
+    {% endif %}
+    <input class="onlenco-qr__input" type="text" name="answer" autocomplete="off" required dir="ltr"
+           placeholder="{% t_either 'Fill in the blank' 'املأ الفراغ' %}">
+    {% if question_metadata.word_choices %}
+    <p class="onlenco-qr__hint onlenco-qr__hint--muted" dir="ltr">
+        {% t_either "Words:" "كلمات:" %}
+        {% for w in question_metadata.word_choices %}<code>{{ w }}</code>{% if not forloop.last %} · {% endif %}{% endfor %}
+    </p>
+    {% endif %}
+</div>

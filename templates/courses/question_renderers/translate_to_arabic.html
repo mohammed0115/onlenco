@@ -1,0 +1,15 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--translate-ar">
+    <div class="onlenco-qr__source onlenco-qr__source--en" dir="ltr">
+        <span class="onlenco-qr__source-tag">{% t_either "English" "الإنجليزية" %}</span>
+        <p>{{ question_metadata.source_en }}</p>
+    </div>
+    <div class="onlenco-qr__choices">
+        {% for opt in question_metadata.options %}
+        <label class="onlenco-qr__choice">
+            <input type="radio" name="answer" value="{{ opt.id }}" required>
+            <span class="onlenco-qr__choice-text" dir="rtl">{{ opt.text }}</span>
+        </label>
+        {% endfor %}
+    </div>
+</div>

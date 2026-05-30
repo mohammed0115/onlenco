@@ -1,0 +1,8 @@
+{% load i18n_dict %}
+{% comment %}Footer Check button. Sticky on mobile via .onlenco-ch-footer.{% endcomment %}
+<footer class="onlenco-ch-footer">
+    <button type="submit" class="onlenco-ch-btn onlenco-ch-btn--primary onlenco-ch-check"
+            data-check-btn aria-label="{% t_either 'Check answer' 'تحقّق من الإجابة' %}">
+        {% t_either "Check" "تحقّق" %}
+    </button>
+</footer>

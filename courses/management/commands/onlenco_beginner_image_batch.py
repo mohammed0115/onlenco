@@ -36,6 +36,10 @@ class Command(BaseCommand):
     help = "Generate Beginner-pack images via DALL-E 3 and persist them."
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--course-slug", default=COURSE_SLUG,
+            help=f"Course slug (default: {COURSE_SLUG}).",
+        )
         parser.add_argument("--unit", type=int, default=None,
                             help="Single Lesson order (1..48).")
         parser.add_argument("--range", dest="range_", default=None,
@@ -51,11 +55,12 @@ class Command(BaseCommand):
                             help="Re-generate even rows already marked is_generated.")
 
     def handle(self, *args, **options):
+        slug = options["course_slug"]
         try:
-            course = Course.objects.get(slug=COURSE_SLUG)
+            course = Course.objects.get(slug=slug)
         except Course.DoesNotExist:
             self.stderr.write(self.style.ERROR(
-                "Course not found — run seed_onlenco_beginner_48_units first."
+                f"Course '{slug}' not found — run the matching seed command first."
             ))
             return
 

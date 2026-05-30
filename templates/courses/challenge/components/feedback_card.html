@@ -1,0 +1,68 @@
+{% load i18n_dict %}
+{% comment %}
+Feedback card shown after answering. Inputs: answered, question, course, lesson, session, lang.
+Picks a rotating, encouraging headline so it doesn't feel canned.
+{% endcomment %}
+<section class="onlenco-ch-card onlenco-ch-card--{% if answered.is_correct %}correct{% else %}wrong{% endif %} onlenco-anim-feedback"
+         role="status" aria-live="polite" data-feedback-card>
+    <div class="onlenco-ch-result">
+        {% if answered.is_correct %}
+            <div class="onlenco-ch-result__badge onlenco-ch-result__badge--ok">
+                <i data-lucide="check-circle-2" aria-hidden="true"></i>
+                <span data-praise-en>
+                    {% cycle 'Great job!' 'Nice work!' 'Excellent!' 'Right on.' as praise_en silent %}
+                    {% t_either praise_en "أحسنت!" %}
+                </span>
+            </div>
+            <p class="onlenco-ch-result__line onlenco-ch-xp-tick">
+                <span aria-hidden="true">+{{ answered.xp_awarded }} XP</span>
+                <span class="sr-only">{% t_either 'You earned' 'كسبت' %} {{ answered.xp_awarded }} XP</span>
+            </p>
+            {% if answered.feedback_en %}
+                <p class="onlenco-ch-result__hint" dir="ltr">{{ answered.feedback_en }}</p>
+            {% endif %}
+        {% else %}
+            <div class="onlenco-ch-result__badge onlenco-ch-result__badge--ko">
+                <i data-lucide="alert-circle" aria-hidden="true"></i>
+                <span>{% t_either "Good try. Let's learn it." "محاولة جيدة. هيا نتعلمها." %}</span>
+            </div>
+            {% if answered.heart_lost %}
+                <p class="onlenco-ch-result__line onlenco-ch-result__line--soft">
+                    <span aria-hidden="true">♥</span>
+                    {% t_either "You lost a heart." "خسرت قلباً." %}
+                </p>
+            {% endif %}
+            {% if answered.feedback_en %}
+                <p class="onlenco-ch-result__hint" dir="ltr">{{ answered.feedback_en }}</p>
+            {% endif %}
+            {% if lang == "ar" and answered.feedback_ar %}
+                <p class="onlenco-ch-result__hint" dir="rtl">{{ answered.feedback_ar }}</p>
+            {% endif %}
+            {% if question.correct_answer %}
+                <p class="onlenco-ch-result__correct" dir="ltr">
+                    <span class="onlenco-ch-result__correct-tag">{% t_either "Answer" "الإجابة" %}</span>
+                    <strong>{{ question.correct_answer }}</strong>
+                </p>
+            {% endif %}
+            {# Phase 7: optional AI Tutor explanation. Hidden if AI is off
+               via JS check on response; visible state shows the help text. #}
+            <div class="onlenco-ch-result__ai" data-ai-explain-wrap>
+                <button type="button" class="onlenco-ch-ai-btn" data-ai-explain
+                        data-ai-explain-url="{% url 'courses:ai_explain_wrong_answer' course.pk lesson.pk session.pk answered.pk %}"
+                        aria-label="{% t_either 'Explain with AI Tutor' 'اشرح لي الخطأ' %}">
+                    <i data-lucide="sparkles" aria-hidden="true"></i>
+                    <span>{% t_either "Explain with AI Tutor" "اشرح لي الخطأ" %}</span>
+                </button>
+                <div class="onlenco-ch-ai-out" data-ai-explain-out hidden role="status" aria-live="polite"></div>
+            </div>
+        {% endif %}
+    </div>
+    <form method="post"
+          action="{% url 'courses:challenge_continue' course.pk lesson.pk session.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="onlenco-ch-btn onlenco-ch-btn--primary" autofocus>
+            {% t_either "Continue" "متابعة" %}
+            <i data-lucide="arrow-right" class="rtl-flip" aria-hidden="true"></i>
+        </button>
+    </form>
+</section>

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from . import views_content_review
 
 app_name = "teacher_portal"
 
@@ -40,4 +41,30 @@ urlpatterns = [
     path("analytics/", views.analytics, name="analytics"),
     path("notifications/", views.notifications, name="notifications"),
     path("settings/", views.settings, name="settings"),
+
+    # Phase 11 — Content Review Dashboard
+    path("content-review/",
+         views_content_review.content_review_list,
+         name="content_review_list"),
+    path("content-review/lessons/<int:lesson_id>/",
+         views_content_review.content_review_detail,
+         name="content_review_detail"),
+    path("content-review/lessons/<int:lesson_id>/start-review/",
+         views_content_review.action_start_review,
+         name="content_review_start_review"),
+    path("content-review/lessons/<int:lesson_id>/approve/",
+         views_content_review.action_approve,
+         name="content_review_approve"),
+    path("content-review/lessons/<int:lesson_id>/request-changes/",
+         views_content_review.action_request_changes,
+         name="content_review_request_changes"),
+    path("content-review/lessons/<int:lesson_id>/publish/",
+         views_content_review.action_publish,
+         name="content_review_publish"),
+    path("content-review/lessons/<int:lesson_id>/unpublish/",
+         views_content_review.action_unpublish,
+         name="content_review_unpublish"),
+    path("content-review/lessons/<int:lesson_id>/note/",
+         views_content_review.action_add_note,
+         name="content_review_add_note"),
 ]

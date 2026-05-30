@@ -1,0 +1,31 @@
+{% load i18n_dict %}
+{% comment %}
+Reusable visual-placeholder partial for a lesson step / section.
+
+Inputs:
+  image_prompt  — a LessonImagePrompt instance (or None)
+
+Renders:
+  * The generated image when `image_prompt.is_generated` is True and
+    `generated_image` exists.
+  * A friendly "Image coming soon" card otherwise — NEVER the raw prompt text.
+{% endcomment %}
+{% if image_prompt %}
+<div class="onlenco-lesson-img"
+     data-prompt-type="{{ image_prompt.prompt_type }}">
+    {% if image_prompt.is_generated and image_prompt.generated_image %}
+        <img src="{{ image_prompt.generated_image.url }}"
+             alt="{% t_either 'Lesson illustration' 'صورة توضيحية للدرس' %}"
+             loading="lazy">
+    {% else %}
+        <div class="onlenco-lesson-img__pending" role="note"
+             aria-label="{% t_either 'Image coming soon' 'الصورة قادمة قريباً' %}">
+            <span class="onlenco-lesson-img__icon" aria-hidden="true">🖼</span>
+            <div>
+                <strong>{% t_either "Image coming soon" "الصورة قادمة قريباً" %}</strong>
+                <small>{% t_either "Visual guide ready for AI image generation." "الدليل البصري جاهز لتوليد الصورة." %}</small>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endif %}

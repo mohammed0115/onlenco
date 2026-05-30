@@ -1,0 +1,8 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--listen-type">
+    {% include "courses/challenge/components/audio_button.html" with audio_url=question_metadata.audio_url audio_script=question_metadata.audio_script %}
+    <p class="onlenco-qr__hint">{% t_either "Listen and type what you hear." "استمع واكتب ما تسمعه." %}</p>
+    <input class="onlenco-qr__input" type="text" name="answer" autocomplete="off" required dir="ltr"
+           aria-label="{% t_either 'Your answer' 'إجابتك' %}"
+           placeholder="{% t_either 'Type what you heard' 'اكتب ما سمعت' %}">
+</div>

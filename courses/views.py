@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -154,12 +154,178 @@ def course_lesson_detail(request, course_pk, lesson_pk):
         .first()
     )
 
+    # Step cards consumed by the overview template. Tuples of
+    # (kind, emoji, en_title, ar_title, en_sub, ar_sub) — order = the
+    # learner's path through the stepper.
+    step_cards = [
+        ("intro",      "🎬", "Introduction", "مقدمة",
+         "Listen to the welcome", "استمع للترحيب"),
+        ("vocabulary", "📖", "Vocabulary", "المفردات",
+         "Learn the key words", "تعلّم الكلمات الجديدة"),
+        ("examples",   "💡", "Examples", "أمثلة",
+         "Hear it in context", "اسمعها في السياق"),
+        ("dialogue",   "💬", "Dialogue", "حوار",
+         "Two characters talking", "شخصان يتحدثان"),
+        ("listening",  "🎧", "Listening", "استماع",
+         "Focus on the sounds", "ركّز على الأصوات"),
+        ("speaking",   "🗣", "Speaking", "محادثة",
+         "Your turn to speak", "دورك للحديث"),
+        ("finish",     "🏁", "Finish", "إنهاء",
+         "Quiz + checklist", "كويز وقائمة"),
+    ]
+
+    # Surface the state of the user's most-recent challenge session so the
+    # launcher can switch label between Start / Resume / Practice again.
+    active_challenge = None
+    last_challenge = None
+    if quiz is not None:
+        from .models import ChallengeSession
+        active_challenge = (
+            ChallengeSession.objects.filter(
+                user=request.user, lesson=lesson,
+                status__in=("started", "in_progress"),
+            ).order_by("-updated_at").first()
+        )
+        last_challenge = (
+            ChallengeSession.objects.filter(user=request.user, lesson=lesson)
+            .order_by("-updated_at").first()
+        )
+
     return render(request, "courses/lesson_detail.html", {
         "course": course,
         "lesson": lesson,
         "enrollment": enrollment,
         "video": lesson.get_video_embed(),
         "progress": progress,
+        "quiz": quiz,
+        "next_lesson": next_lesson,
+        "step_cards": step_cards,
+        "active_challenge": active_challenge,
+        "last_challenge": last_challenge,
+    })
+
+
+# Ordered taxonomy of lesson steps. The view + template branch on this
+# tuple — adding "review" or another stage means editing this and the
+# step template's CONFIG dict only.
+LESSON_STEP_KINDS = (
+    "intro", "vocabulary", "examples", "dialogue", "listening", "speaking",
+    "finish",
+)
+
+
+@login_required
+def lesson_step(request, course_pk, lesson_pk, step_kind):
+    """Render ONE step of a lesson stepper as its own page.
+
+    Each step gets a dedicated URL so the student can deep-link, the
+    browser back/forward buttons work, and the page can be fully
+    immersive (no off-step distractions in the DOM).
+
+    `step_kind` is one of `LESSON_STEP_KINDS`. The first six map onto a
+    `LessonAudioScript.script_type`; the final `finish` step has no
+    audio — it's the wrap-up (checklist + quiz + next-unit CTAs).
+    """
+    if step_kind not in LESSON_STEP_KINDS:
+        raise Http404("Unknown step")
+
+    course = get_object_or_404(published_course_queryset(), pk=course_pk)
+    if not can_access_course(request.user, course):
+        return HttpResponseForbidden(_("An active subscription is required for this course."))
+
+    lesson = get_object_or_404(
+        published_lesson_queryset().filter(course=course),
+        pk=lesson_pk,
+    )
+    drip_redirect = _drip_gate(request, course, lesson)
+    if drip_redirect:
+        return drip_redirect
+
+    progress, _ = CourseLessonProgress.objects.get_or_create(
+        user=request.user, lesson=lesson,
+    )
+
+    # Pull the audio script for this step (None for `finish`).
+    script = None
+    dialogue_turns: list[tuple[str, str]] = []
+    example_lines: list[str] = []
+    if step_kind != "finish":
+        script = lesson.audio_scripts.filter(script_type=step_kind).first()
+        if script and script.script_text:
+            text = script.script_text.strip()
+            # Dialogue: each line is "Speaker: line text". Split into
+            # tuples for chat-bubble rendering. A line without ": " is
+            # treated as narration (speaker = "").
+            if step_kind == "dialogue":
+                for raw in text.splitlines():
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    if ":" in raw and len(raw.split(":", 1)[0]) <= 24:
+                        spk, line = raw.split(":", 1)
+                        dialogue_turns.append((spk.strip(), line.strip()))
+                    else:
+                        dialogue_turns.append(("", raw))
+            # Examples: one example sentence per line.
+            elif step_kind == "examples":
+                example_lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+
+    # Compute prev/next step kinds for the navigation pills.
+    idx = LESSON_STEP_KINDS.index(step_kind)
+    prev_kind = LESSON_STEP_KINDS[idx - 1] if idx > 0 else None
+    next_kind = LESSON_STEP_KINDS[idx + 1] if idx + 1 < len(LESSON_STEP_KINDS) else None
+
+    # Cover image (LessonImagePrompt of type "cover").
+    cover_prompt = (
+        lesson.image_prompts.filter(prompt_type="cover", is_generated=True)
+        .order_by("sort_order").first()
+    )
+
+    # Phase 9.5: Pick the step-relevant LessonImagePrompt — used by the
+    # template to render either a real `<img>` or a friendly "coming
+    # soon" placeholder. This keeps the visual promise of every step
+    # honest even before media batches run.
+    step_prompt_map = {
+        "vocabulary": "vocabulary",
+        "examples":   "grammar",
+        "dialogue":   "grammar",
+        "finish":     "quiz",
+    }
+    image_prompt_for_step = None
+    pt = step_prompt_map.get(step_kind)
+    if pt:
+        image_prompt_for_step = (
+            lesson.image_prompts.filter(prompt_type=pt)
+            .order_by("sort_order").first()
+        )
+
+    quiz = None
+    try:
+        quiz = lesson.quiz
+    except Exception:
+        quiz = None
+
+    next_lesson = (
+        published_lesson_queryset()
+        .filter(course=course, order__gt=lesson.order)
+        .order_by("order").first()
+    )
+
+    return render(request, "courses/lesson_step.html", {
+        "course": course,
+        "lesson": lesson,
+        "progress": progress,
+        "script": script,
+        "dialogue_turns": dialogue_turns,
+        "example_lines": example_lines,
+        "step_kind": step_kind,
+        "step_index": idx,
+        "step_total": len(LESSON_STEP_KINDS),
+        "step_kinds": LESSON_STEP_KINDS,
+        "prev_kind": prev_kind,
+        "next_kind": next_kind,
+        "cover_prompt": cover_prompt,
+        "image_prompt_for_step": image_prompt_for_step,
         "quiz": quiz,
         "next_lesson": next_lesson,
     })
@@ -231,6 +397,30 @@ def lesson_quiz_attempt(request, course_pk, lesson_pk):
     questions = list(quiz.questions.all().order_by("order", "id"))
 
     if request.method == "GET":
+        # Decorate each question with the per-type rendering payload
+        # the template needs. Keeping the heavy parsing here keeps
+        # the template readable.
+        for q in questions:
+            md = q.metadata or {}
+            # Templates can't access attributes starting with `_`. Use
+            # plain names (Django Template language restriction).
+            if q.question_type == "sentence_ordering":
+                q.scrambled = md.get("words") or list(q.options or [])
+            elif q.question_type == "frequency_scale":
+                q.scale_items = md.get("scale_items") or []
+            elif q.question_type == "table_sentence_builder":
+                q.columns = md.get("columns") or {}
+                q.min_sentences = int(md.get("min_sentences", 5))
+            elif q.question_type == "listening_match":
+                q.pairs = md.get("pairs") or []
+                q.answer_pool = sorted({p.get("answer", "") for p in q.pairs})
+                q.audio_status = md.get("audio_status", "pending_generation")
+            elif q.question_type == "speaking_sentence_builder":
+                q.speaking_prompt = md.get("student_prompt") or q.question_text
+                q.tutor_hint = md.get("ai_tutor_instruction") or ""
+            elif q.question_type == "question_transform":
+                q.statement = md.get("statement") or ""
+                q.target_qword = md.get("target_qword") or ""
         return render(request, "courses/lesson_quiz.html", {
             "course": course,
             "lesson": lesson,
@@ -238,18 +428,30 @@ def lesson_quiz_attempt(request, course_pk, lesson_pk):
             "questions": questions,
         })
 
-    # POST
+    # POST — use the centralised grader so each question_type runs the
+    # right rubric (sentence_ordering checks word order, frequency_scale
+    # respects tolerance, table_sentence_builder validates 4 columns,
+    # etc.).
+    from courses.services.quiz_grader import grade_question
     correct_count = 0
     results = []
     for q in questions:
-        chosen = (request.POST.get(f"q_{q.id}") or "").strip()
-        correct = (q.correct_answer or "").strip()
-        is_correct = chosen.lower() == correct.lower() and bool(correct)
+        # Some types submit multiple form fields → collect them all.
+        raw = request.POST.get(f"q_{q.id}")
+        if raw is None:
+            multi = request.POST.getlist(f"q_{q.id}[]")
+            raw = multi if multi else ""
+        grade = grade_question(q, raw)
+        is_correct = bool(grade.get("is_correct"))
         if is_correct:
             correct_count += 1
+        chosen = raw if isinstance(raw, str) else " | ".join(raw)
         results.append({
             "q": q, "chosen": chosen,
-            "correct": correct, "is_correct": is_correct,
+            "correct": q.correct_answer, "is_correct": is_correct,
+            "score": grade.get("score", 0.0),
+            "feedback_en": grade.get("feedback_en", ""),
+            "feedback_ar": grade.get("feedback_ar", ""),
         })
     total = len(questions) or 1
     score = int(correct_count * 100 / total)
@@ -286,3 +488,456 @@ def lesson_quiz_attempt(request, course_pk, lesson_pk):
         "results": results,
         "personalised_exercises": personalised_exercises,
     })
+
+
+# ---------------------------------------------------------------------------
+# Game Challenge Engine — Phase 1 (Prompt 02).
+# Five small views, each one HTML frame at a time. Legacy quiz views
+# above stay untouched.
+# ---------------------------------------------------------------------------
+
+def _get_challenge_context(request, course_pk, lesson_pk):
+    """Common owner/access checks for every challenge view."""
+    course = get_object_or_404(published_course_queryset(), pk=course_pk)
+    if not can_access_course(request.user, course):
+        return None, None, HttpResponseForbidden(
+            _("An active subscription is required for this course.")
+        )
+    lesson = get_object_or_404(
+        published_lesson_queryset().filter(course=course), pk=lesson_pk,
+    )
+    drip_redirect = _drip_gate(request, course, lesson)
+    if drip_redirect:
+        return None, None, drip_redirect
+    return course, lesson, None
+
+
+def _get_session_for_user(request, session_id):
+    """Fetch a ChallengeSession owned by the requesting user, else 404.
+
+    Hides the session from other users — they get the same 404 instead
+    of a 403 (no enumeration of foreign session ids)."""
+    from .models import ChallengeSession
+    session = get_object_or_404(
+        ChallengeSession.objects.filter(user=request.user), pk=session_id,
+    )
+    return session
+
+
+@login_required
+@subscription_required(allow_free_tier=True)
+def challenge_start(request, course_pk, lesson_pk):
+    """Create or resume the active session and bounce to its current card."""
+    from .services import challenge_runner
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    try:
+        session = challenge_runner.start_or_resume(request.user, lesson)
+    except challenge_runner.ChallengeError as exc:
+        messages.error(request, str(exc))
+        return redirect("courses:lesson_detail",
+                        course_pk=course.pk, lesson_pk=lesson.pk)
+    return redirect("courses:challenge_current",
+                    course_pk=course.pk, lesson_pk=lesson.pk,
+                    session_id=session.pk)
+
+
+@login_required
+@subscription_required(allow_free_tier=True)
+def challenge_current(request, course_pk, lesson_pk, session_id):
+    """Render the current card (or jump to summary if the session ended)."""
+    from .services import challenge_runner
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    session = _get_session_for_user(request, session_id)
+    if session.lesson_id != lesson.pk:
+        raise Http404()
+
+    if session.is_finished:
+        return redirect("courses:challenge_summary",
+                        course_pk=course.pk, lesson_pk=lesson.pk,
+                        session_id=session.pk)
+
+    question = challenge_runner.get_current_question(session)
+    if question is None:
+        # Walked past the last card without `continue` — finalise.
+        challenge_runner.continue_to_next(session)
+        return redirect("courses:challenge_summary",
+                        course_pk=course.pk, lesson_pk=lesson.pk,
+                        session_id=session.pk)
+
+    # If the student has already answered this card (refresh case),
+    # render the feedback frame instead of the question frame.
+    prior = challenge_runner.has_answered_current(session)
+
+    from .services import question_type_registry as _qtr
+    renderer = "courses/question_renderers/" + _qtr.renderer_for(question.question_type)
+    spec = _qtr.get_spec(question.question_type) or {}
+    kicker = spec.get("label_ar") if (getattr(request, "LANGUAGE_CODE", "") or "").startswith("ar") else spec.get("label_en")
+
+    # Phase 9.5 — ai_roleplay_card.html switches its UI on this flag.
+    try:
+        from tutor.services import ai_usage_guard
+        ai_enabled = ai_usage_guard.is_enabled()
+    except Exception:
+        ai_enabled = False
+
+    return render(request, "courses/challenge_session.html", {
+        "course": course,
+        "lesson": lesson,
+        "session": session,
+        "question": question,
+        "question_metadata": question.metadata or {},
+        "question_kicker": kicker or question.get_question_type_display(),
+        "question_renderer": renderer,
+        "is_placeholder_type": bool(spec.get("placeholder")),
+        "ai_enabled": ai_enabled,
+        "card_number": session.current_question_index + 1,
+        "card_total":  session.total_questions,
+        "answered":    prior,
+    })
+
+
+@login_required
+@require_POST
+@subscription_required(allow_free_tier=True)
+def challenge_answer(request, course_pk, lesson_pk, session_id):
+    """Submit the current card. Re-renders the feedback frame."""
+    from .services import challenge_runner
+    from .models import LessonQuestion
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    session = _get_session_for_user(request, session_id)
+    if session.lesson_id != lesson.pk:
+        raise Http404()
+    if not session.is_active:
+        return redirect("courses:challenge_summary",
+                        course_pk=course.pk, lesson_pk=lesson.pk,
+                        session_id=session.pk)
+
+    question_id = request.POST.get("question_id")
+    try:
+        question = LessonQuestion.objects.get(pk=int(question_id))
+    except (LessonQuestion.DoesNotExist, TypeError, ValueError):
+        messages.error(request, _("Invalid question."))
+        return redirect("courses:challenge_current",
+                        course_pk=course.pk, lesson_pk=lesson.pk,
+                        session_id=session.pk)
+
+    raw = request.POST.get("answer")
+    if raw is None:
+        # Some types submit multi-value form fields under "answer[]".
+        multi = request.POST.getlist("answer[]")
+        raw = multi if multi else ""
+    time_spent = int(request.POST.get("time_spent_seconds") or 0)
+
+    try:
+        challenge_runner.submit_answer(
+            session, question, raw, time_spent_seconds=time_spent,
+        )
+    except challenge_runner.ChallengeError:
+        # Re-show the current card (likely a refresh that resubmitted).
+        pass
+
+    return redirect("courses:challenge_current",
+                    course_pk=course.pk, lesson_pk=lesson.pk,
+                    session_id=session.pk)
+
+
+@login_required
+@require_POST
+@subscription_required(allow_free_tier=True)
+def challenge_continue(request, course_pk, lesson_pk, session_id):
+    """Advance to the next card. If the session ends, bounce to summary."""
+    from .services import challenge_runner
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    session = _get_session_for_user(request, session_id)
+    if session.lesson_id != lesson.pk:
+        raise Http404()
+    try:
+        challenge_runner.continue_to_next(session)
+    except challenge_runner.ChallengeError as exc:
+        messages.error(request, str(exc))
+    if session.is_finished:
+        return redirect("courses:challenge_summary",
+                        course_pk=course.pk, lesson_pk=lesson.pk,
+                        session_id=session.pk)
+    return redirect("courses:challenge_current",
+                    course_pk=course.pk, lesson_pk=lesson.pk,
+                    session_id=session.pk)
+
+
+@login_required
+@subscription_required(allow_free_tier=True)
+def challenge_summary(request, course_pk, lesson_pk, session_id):
+    """Render the end-of-Challenge summary screen."""
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    session = _get_session_for_user(request, session_id)
+    if session.lesson_id != lesson.pk:
+        raise Http404()
+
+    next_lesson = (
+        published_lesson_queryset()
+        .filter(course=course, order__gt=lesson.order)
+        .order_by("order")
+        .first()
+    )
+    # Time-spent (best-effort): completed_at - started_at, in whole seconds.
+    time_spent_seconds = 0
+    if session.completed_at and session.started_at:
+        delta = (session.completed_at - session.started_at).total_seconds()
+        time_spent_seconds = max(0, int(delta))
+    is_perfect = (
+        session.status == "completed" and session.wrong_count == 0
+    )
+
+    # ---- Phase 5 rewards context ----
+    rewards = _build_rewards_context(request, session)
+    # ---- Phase 6 learning context ----
+    learning = _build_learning_context(session)
+
+    return render(request, "courses/challenge_summary.html", {
+        "course": course,
+        "lesson": lesson,
+        "session": session,
+        "next_lesson": next_lesson,
+        "time_spent_seconds": time_spent_seconds,
+        "is_perfect": is_perfect,
+        "rewards": rewards,
+        "learning": learning,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 — AI Tutor inside Challenge endpoints.
+# ---------------------------------------------------------------------------
+
+def _get_owned_session(request, session_id, lesson):
+    """Return the user's session for `session_id`, scoped to `lesson`.
+
+    404 (not 403) on mismatch — no enumeration of foreign IDs."""
+    from .models import ChallengeSession
+    session = get_object_or_404(
+        ChallengeSession.objects.filter(user=request.user),
+        pk=session_id,
+    )
+    if session.lesson_id != lesson.pk:
+        raise Http404()
+    return session
+
+
+@login_required
+@require_POST
+@subscription_required(allow_free_tier=True)
+def ai_explain_wrong_answer(request, course_pk, lesson_pk, session_id, answer_id):
+    """Generate (or fetch the rule-based fallback for) an AI explanation
+    of a specific WRONG ChallengeAnswer.
+
+    Security:
+      * login_required + ownership: session must belong to the user.
+      * Answer must belong to that session.
+      * No raw prompt accepted — the body has no fields we trust.
+      * The view never echoes the student's raw answer back as user input
+        to the LLM — it goes through the context builder first.
+    """
+    from .models import ChallengeAnswer
+    from tutor.services import challenge_tutor_service
+
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    session = _get_owned_session(request, session_id, lesson)
+    answer = get_object_or_404(
+        ChallengeAnswer.objects.filter(session=session), pk=answer_id,
+    )
+
+    result = challenge_tutor_service.explain_wrong_answer(request.user, answer)
+    return JsonResponse({
+        "status": result["status"],
+        "reason": result["reason"],
+        "explanation_en": result["en"],
+        "explanation_ar": result["ar"],
+    })
+
+
+@login_required
+@require_POST
+@subscription_required(allow_free_tier=True)
+def ai_roleplay_start(request, course_pk, lesson_pk, session_id, question_id):
+    """Open a short, scoped roleplay session bound to (session, question).
+
+    Returns the roleplay ID + the AI's opening line. If quota is hit or
+    AI is off, returns a fallback opener — never a 5xx."""
+    from .models import LessonQuestion
+    from tutor.services import challenge_tutor_service
+
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    session = _get_owned_session(request, session_id, lesson)
+    question = get_object_or_404(
+        LessonQuestion.objects.filter(quiz=session.quiz), pk=question_id,
+    )
+    result = challenge_tutor_service.start_short_roleplay(
+        request.user, session, question,
+    )
+    return JsonResponse({
+        "roleplay_id": result["roleplay_id"],
+        "opening_en":  result["opening_en"],
+        "opening_ar":  result["opening_ar"],
+        "status":      result["status"],
+        "reason":      result["reason"],
+    })
+
+
+@login_required
+@require_POST
+@subscription_required(allow_free_tier=True)
+def ai_roleplay_message(request, course_pk, lesson_pk, session_id, roleplay_id):
+    """Continue an active roleplay. Accepts a short message; refuses
+    once `max_turns` is reached."""
+    from tutor.models import AIShortRoleplaySession
+    from tutor.services import challenge_tutor_service
+
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    session = _get_owned_session(request, session_id, lesson)
+    roleplay = get_object_or_404(
+        AIShortRoleplaySession.objects.filter(user=request.user),
+        pk=roleplay_id,
+    )
+    if roleplay.challenge_session_id != session.pk:
+        raise Http404()
+
+    user_message = (request.POST.get("message") or "").strip()[:500]
+    if not user_message:
+        return JsonResponse({"status": "failed", "reason": "empty_message"})
+
+    result = challenge_tutor_service.continue_short_roleplay(
+        request.user, roleplay, user_message,
+    )
+    return JsonResponse({
+        "reply_en":         result["reply_en"],
+        "reply_ar":         result["reply_ar"],
+        "status":           result["status"],
+        "reason":           result["reason"],
+        "turns_remaining":  result["turns_remaining"],
+    })
+
+
+@login_required
+@require_POST
+@subscription_required(allow_free_tier=True)
+def ai_end_advice(request, course_pk, lesson_pk, session_id):
+    """One short closing nudge for the Challenge summary. Defaults to
+    the rule-based generator if AI is off / over-quota."""
+    from tutor.services import challenge_tutor_service
+
+    course, lesson, err = _get_challenge_context(request, course_pk, lesson_pk)
+    if err:
+        return err
+    session = _get_owned_session(request, session_id, lesson)
+    result = challenge_tutor_service.generate_end_challenge_advice(
+        request.user, session,
+    )
+    return JsonResponse({
+        "advice_en": result["en"],
+        "advice_ar": result["ar"],
+        "status":    result["status"],
+        "reason":    result["reason"],
+    })
+
+
+def _build_learning_context(session) -> dict:
+    """Phase-6 learning signal for the Summary view.
+
+    Defensive — every call catches Exception so the Summary still renders
+    if `learning_core` is misconfigured.
+    """
+    out: dict = {}
+    try:
+        from learning_core.services import mastery_service
+        out["skills_practiced"] = mastery_service.skills_practiced_in_session(session)[:5]
+    except Exception:
+        out["skills_practiced"] = []
+    try:
+        from learning_core.services import phase6_recommendation
+        out["recommendation"] = phase6_recommendation.get_next_best_action(session.user)
+        out["weak_skills"]    = phase6_recommendation.get_weak_skills(session.user, limit=3)
+    except Exception:
+        out["recommendation"] = {}
+        out["weak_skills"]    = []
+    try:
+        from learning_core.services import smart_review_service
+        out["due_reviews_count"] = smart_review_service.count_due_now(session.user)
+    except Exception:
+        out["due_reviews_count"] = 0
+    return out
+
+
+def _build_rewards_context(request, session) -> dict:
+    """Pull every Phase-5 reward signal that the Summary template wants.
+
+    Defensive — every call catches Exception so a misconfigured motivation
+    app never 500s the Summary page; the student still sees their
+    completion with whatever data we have.
+    """
+    from motivation.services import (
+        xp_ledger, streak_v2, daily_goal_service, encouragement_service,
+    )
+    # XP breakdown by source for this session.
+    try:
+        breakdown = xp_ledger.xp_breakdown_for_session(session) or {}
+    except Exception:
+        breakdown = {}
+    # Streak state.
+    try:
+        streak = streak_v2.get_streak(session.user)
+    except Exception:
+        streak = None
+    # Daily goal summary.
+    try:
+        daily_goal = daily_goal_service.get_daily_goal_summary(session.user)
+    except Exception:
+        daily_goal = {}
+    # Badges newly earned during this session — keyed by session pk via
+    # UserBadge.metadata, OR awarded after completion. We surface "earned
+    # in the last 5 minutes" so a refresh of /summary shows them.
+    try:
+        from motivation.models import UserBadge
+        recent = list(
+            UserBadge.objects.filter(user=session.user)
+            .order_by("-earned_at")[:5]
+        )
+    except Exception:
+        recent = []
+    # Encouragement message for the page banner.
+    try:
+        lang = getattr(request, "LANGUAGE_CODE", "en")
+        if session.status == "failed":
+            event = "challenge_failed"
+        elif session.wrong_count == 0 and session.status == "completed":
+            event = "perfect_challenge"
+        else:
+            event = "challenge_completed"
+        msg_en, msg_ar = encouragement_service.get_bilingual(
+            event, context={"session": session.pk},
+        )
+    except Exception:
+        msg_en, msg_ar = "", ""
+    return {
+        "xp_breakdown":   breakdown,
+        "streak":         streak,
+        "daily_goal":     daily_goal,
+        "recent_badges":  recent,
+        "encouragement_en": msg_en,
+        "encouragement_ar": msg_ar,
+    }

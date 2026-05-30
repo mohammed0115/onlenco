@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Challenge complete" "تم التحدي" %} — {{ lesson.title }} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="onlenco-ch-page">
+    {% include "_app_header.html" %}
+
+    <main class="onlenco-ch-summary-main">
+        <section class="onlenco-ch-summary onlenco-anim-in"
+                 data-summary
+                 data-status="{{ session.status }}"
+                 data-perfect="{% if is_perfect %}1{% else %}0{% endif %}">
+
+            {# ===== Headline ===== #}
+            <header class="onlenco-ch-summary__head">
+                {% if is_perfect %}
+                    <div class="onlenco-ch-summary__emoji" aria-hidden="true">🏆</div>
+                    <h1>{% t_either "Perfect Challenge!" "تحدٍ كامل!" %}</h1>
+                    <p>{% t_either "Every card on the first try." "كل البطاقات من المحاولة الأولى." %}</p>
+                    <span class="onlenco-ch-summary__perfect-pill">
+                        <i data-lucide="sparkles" aria-hidden="true"></i>
+                        {% t_either "Perfect Bonus +10 XP" "مكافأة التميز +10 نقاط" %}
+                    </span>
+                {% elif session.status == "completed" %}
+                    <div class="onlenco-ch-summary__emoji" aria-hidden="true">✨</div>
+                    <h1>{% t_either "Great work!" "أحسنت!" %}</h1>
+                    <p>{% t_either "You completed this challenge." "أكملت هذا التحدي." %}</p>
+                {% elif session.status == "failed" %}
+                    <div class="onlenco-ch-summary__emoji" aria-hidden="true">💪</div>
+                    <h1>{% t_either "Good effort." "محاولة جيدة." %}</h1>
+                    <p>{% t_either "Practice again to strengthen this skill." "تدرّب مرة أخرى لتقوي هذه المهارة." %}</p>
+                {% else %}
+                    <div class="onlenco-ch-summary__emoji" aria-hidden="true">📊</div>
+                    <h1>{% t_either "Session summary" "ملخص الجلسة" %}</h1>
+                {% endif %}
+            </header>
+
+            {# ===== Stat tiles ===== #}
+            <div class="onlenco-ch-summary__grid">
+                <div class="onlenco-ch-summary__tile onlenco-ch-summary__tile--xp">
+                    <div class="onlenco-ch-summary__tile-icon" aria-hidden="true">⚡</div>
+                    <div class="onlenco-ch-summary__tile-value">{{ session.xp_earned }}</div>
+                    <div class="onlenco-ch-summary__tile-label">XP {% t_either "earned" "كسبتها" %}</div>
+                </div>
+                <div class="onlenco-ch-summary__tile onlenco-ch-summary__tile--acc">
+                    <div class="onlenco-ch-summary__tile-icon" aria-hidden="true">🎯</div>
+                    <div class="onlenco-ch-summary__tile-value">{{ session.accuracy_pct }}%</div>
+                    <div class="onlenco-ch-summary__tile-label">{% t_either "Accuracy" "الدقة" %}</div>
+                </div>
+                <div class="onlenco-ch-summary__tile onlenco-ch-summary__tile--ok">
+                    <div class="onlenco-ch-summary__tile-icon" aria-hidden="true">✅</div>
+                    <div class="onlenco-ch-summary__tile-value">{{ session.correct_count }} / {{ session.total_questions }}</div>
+                    <div class="onlenco-ch-summary__tile-label">{% t_either "Correct" "صحيحة" %}</div>
+                </div>
+                <div class="onlenco-ch-summary__tile onlenco-ch-summary__tile--hearts">
+                    <div class="onlenco-ch-summary__tile-icon" aria-hidden="true">♥</div>
+                    <div class="onlenco-ch-summary__tile-value">{{ session.hearts_remaining }} / {{ session.hearts_total }}</div>
+                    <div class="onlenco-ch-summary__tile-label">{% t_either "Hearts left" "قلوب متبقية" %}</div>
+                </div>
+                {% if time_spent_seconds %}
+                <div class="onlenco-ch-summary__tile onlenco-ch-summary__tile--time">
+                    <div class="onlenco-ch-summary__tile-icon" aria-hidden="true">⏱</div>
+                    <div class="onlenco-ch-summary__tile-value">
+                        {% widthratio time_spent_seconds 60 1 as minutes %}{{ minutes|default:0 }}m
+                    </div>
+                    <div class="onlenco-ch-summary__tile-label">{% t_either "Time spent" "الوقت المستغرق" %}</div>
+                </div>
+                {% endif %}
+                {% if session.wrong_count %}
+                <div class="onlenco-ch-summary__tile onlenco-ch-summary__tile--wrong">
+                    <div class="onlenco-ch-summary__tile-icon" aria-hidden="true">📝</div>
+                    <div class="onlenco-ch-summary__tile-value">{{ session.wrong_count }}</div>
+                    <div class="onlenco-ch-summary__tile-label">{% t_either "To review" "للمراجعة" %}</div>
+                </div>
+                {% endif %}
+            </div>
+
+            {# ===== Encouragement banner ===== #}
+            {% if rewards.encouragement_en %}
+            <p class="onlenco-ch-summary__encouragement" data-encouragement>
+                <span dir="ltr">{{ rewards.encouragement_en }}</span>
+                {% if rewards.encouragement_ar %}<span dir="rtl">{{ rewards.encouragement_ar }}</span>{% endif %}
+            </p>
+            {% endif %}
+
+            {# ===== XP breakdown ===== #}
+            {% if rewards.xp_breakdown.total %}
+            <section class="onlenco-ch-summary__breakdown" data-xp-breakdown
+                     aria-label="{% t_either 'XP breakdown' 'تفاصيل النقاط' %}">
+                <h2 class="onlenco-ch-summary__sec-title">{% t_either "XP breakdown" "تفاصيل النقاط" %}</h2>
+                <ul class="onlenco-ch-summary__bd-list">
+                    {% if rewards.xp_breakdown.challenge_answer %}
+                    <li>
+                        <span>{% t_either "Answers" "الإجابات" %}</span>
+                        <strong>+{{ rewards.xp_breakdown.challenge_answer }} XP</strong>
+                    </li>{% endif %}
+                    {% if rewards.xp_breakdown.challenge_completion %}
+                    <li>
+                        <span>{% t_either "Completion bonus" "مكافأة الإنجاز" %}</span>
+                        <strong>+{{ rewards.xp_breakdown.challenge_completion }} XP</strong>
+                    </li>{% endif %}
+                    {% if rewards.xp_breakdown.perfect_bonus %}
+                    <li class="is-highlight">
+                        <span>{% t_either "Perfect bonus" "مكافأة التميز" %}</span>
+                        <strong>+{{ rewards.xp_breakdown.perfect_bonus }} XP</strong>
+                    </li>{% endif %}
+                    {% if rewards.xp_breakdown.daily_goal_bonus %}
+                    <li class="is-highlight">
+                        <span>{% t_either "Daily goal bonus" "مكافأة الهدف اليومي" %}</span>
+                        <strong>+{{ rewards.xp_breakdown.daily_goal_bonus }} XP</strong>
+                    </li>{% endif %}
+                    {% if rewards.xp_breakdown.badge_reward %}
+                    <li class="is-highlight">
+                        <span>{% t_either "Badge rewards" "مكافآت الشارات" %}</span>
+                        <strong>+{{ rewards.xp_breakdown.badge_reward }} XP</strong>
+                    </li>{% endif %}
+                </ul>
+                <p class="onlenco-ch-summary__bd-total">
+                    {% t_either "Total" "الإجمالي" %}: <strong>+{{ rewards.xp_breakdown.total }} XP</strong>
+                </p>
+            </section>
+            {% endif %}
+
+            {# ===== Streak + Daily goal ===== #}
+            <section class="onlenco-ch-summary__metrics">
+                {% if rewards.streak %}
+                <div class="onlenco-ch-summary__metric onlenco-ch-summary__metric--streak" data-streak>
+                    <div class="onlenco-ch-summary__metric-head">
+                        <span class="onlenco-ch-summary__metric-emoji" aria-hidden="true">🔥</span>
+                        <span class="onlenco-ch-summary__metric-title">{% t_either "Streak" "السلسلة" %}</span>
+                    </div>
+                    <div class="onlenco-ch-summary__metric-value">{{ rewards.streak.current_streak }}d</div>
+                    <div class="onlenco-ch-summary__metric-sub">
+                        {% t_either "Longest" "الأطول" %}: {{ rewards.streak.longest_streak }}d
+                    </div>
+                </div>
+                {% endif %}
+                {% if rewards.daily_goal.target %}
+                <div class="onlenco-ch-summary__metric onlenco-ch-summary__metric--goal" data-daily-goal>
+                    <div class="onlenco-ch-summary__metric-head">
+                        <span class="onlenco-ch-summary__metric-emoji" aria-hidden="true">🎯</span>
+                        <span class="onlenco-ch-summary__metric-title">{% t_either "Daily goal" "الهدف اليومي" %}</span>
+                    </div>
+                    <div class="onlenco-ch-summary__goal-bar" role="progressbar"
+                         aria-valuenow="{{ rewards.daily_goal.pct }}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="onlenco-ch-summary__goal-fill"
+                             style="width: {{ rewards.daily_goal.pct }}%"></div>
+                    </div>
+                    <div class="onlenco-ch-summary__metric-sub">
+                        {{ rewards.daily_goal.earned }} / {{ rewards.daily_goal.target }} XP
+                        {% if rewards.daily_goal.completed %}
+                            · <span class="onlenco-ch-summary__goal-done">{% t_either "Done!" "تم!" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </section>
+
+            {# ===== Skills practiced (Phase 6) ===== #}
+            {% if learning.skills_practiced %}
+            <section class="onlenco-ch-summary__skills" data-skills-practiced
+                     aria-label="{% t_either 'Skills practiced' 'مهارات تدرّبت عليها' %}">
+                <h2 class="onlenco-ch-summary__sec-title">{% t_either "Skills practiced" "مهارات تدرّبت عليها" %}</h2>
+                <ul class="onlenco-ch-summary__skill-list">
+                    {% for sp in learning.skills_practiced %}
+                    <li class="onlenco-ch-summary__skill onlenco-ch-summary__skill--{{ sp.confidence }}">
+                        <div class="onlenco-ch-summary__skill-head">
+                            <strong>{{ sp.skill.display_title }}</strong>
+                            <span class="onlenco-ch-summary__skill-conf">{{ sp.confidence }}</span>
+                        </div>
+                        <div class="onlenco-ch-summary__skill-bar">
+                            <div class="onlenco-ch-summary__skill-fill"
+                                 style="width: {{ sp.mastery_score|default:0|floatformat:0 }}%"></div>
+                        </div>
+                        <small class="onlenco-ch-summary__skill-sub">
+                            {{ sp.correct }} / {{ sp.attempts }} {% t_either "correct" "صحيحة" %}
+                            · {{ sp.mastery_score|default:0|floatformat:0 }}%
+                        </small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+            {% endif %}
+
+            {# ===== Recommended next (Phase 6) ===== #}
+            {% if learning.recommendation.kind %}
+            <section class="onlenco-ch-summary__recommend" data-recommendation
+                     aria-label="{% t_either 'Recommended next' 'التوصية القادمة' %}">
+                <h2 class="onlenco-ch-summary__sec-title">{% t_either "Recommended next" "التوصية القادمة" %}</h2>
+                <div class="onlenco-ch-summary__rec-card onlenco-ch-summary__rec-card--{{ learning.recommendation.kind }}"
+                     data-rec-kind="{{ learning.recommendation.kind }}">
+                    <i data-lucide="
+                        {% if learning.recommendation.kind == 'review_mistakes' %}book-open
+                        {% elif learning.recommendation.kind == 'retry_challenge' %}rotate-cw
+                        {% elif learning.recommendation.kind == 'practice_skill' %}wrench
+                        {% elif learning.recommendation.kind == 'daily_goal' %}target
+                        {% else %}arrow-right
+                        {% endif %}" aria-hidden="true"></i>
+                    <div class="onlenco-ch-summary__rec-body">
+                        <strong dir="ltr">{{ learning.recommendation.title_en }}</strong>
+                        <small dir="rtl">{{ learning.recommendation.title_ar }}</small>
+                    </div>
+                </div>
+                {% if learning.due_reviews_count %}
+                <p class="onlenco-ch-summary__rec-note">
+                    {% t_either "Due reviews" "مراجعات مستحقّة" %}: <strong>{{ learning.due_reviews_count }}</strong>
+                </p>
+                {% endif %}
+            </section>
+            {% endif %}
+
+            {# ===== Badges earned (recent up to 5) ===== #}
+            {% if rewards.recent_badges %}
+            <section class="onlenco-ch-summary__badges" data-badges
+                     aria-label="{% t_either 'Recent badges' 'شارات حديثة' %}">
+                <h2 class="onlenco-ch-summary__sec-title">{% t_either "Recent badges" "شارات حديثة" %}</h2>
+                <ul class="onlenco-ch-summary__badge-list">
+                    {% for b in rewards.recent_badges %}
+                    <li class="onlenco-ch-summary__badge">
+                        <i data-lucide="{{ b.metadata.icon|default:'award' }}" aria-hidden="true"></i>
+                        <div>
+                            <strong>{{ b.badge_name }}</strong>
+                            <small>{{ b.description|default:b.badge_code }}</small>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </section>
+            {% endif %}
+
+            {# ===== AI Tutor — optional end advice ===== #}
+            <section class="onlenco-ch-summary__ai" data-ai-advice
+                     aria-label="{% t_either 'AI tutor advice' 'نصيحة المعلم الذكي' %}">
+                <h2 class="onlenco-ch-summary__sec-title">{% t_either "AI Tutor" "المعلم الذكي" %}</h2>
+                <button type="button" class="onlenco-ch-ai-btn" data-ai-advice-btn
+                        data-ai-advice-url="{% url 'courses:ai_end_advice' course.pk lesson.pk session.pk %}">
+                    <i data-lucide="sparkles" aria-hidden="true"></i>
+                    <span>{% t_either "Get one quick tip" "احصل على نصيحة سريعة" %}</span>
+                </button>
+                <div class="onlenco-ch-ai-out" data-ai-advice-out hidden role="status" aria-live="polite"></div>
+            </section>
+
+            {# ===== Action row ===== #}
+            <div class="onlenco-ch-summary__actions">
+                {% if session.status == "failed" %}
+                    <a href="{% url 'courses:challenge_start' course.pk lesson.pk %}"
+                       class="onlenco-ch-btn onlenco-ch-btn--primary"
+                       data-action="practice-again">
+                        <i data-lucide="rotate-cw" aria-hidden="true"></i>
+                        {% t_either "Practice again" "حاول مرة أخرى" %}
+                    </a>
+                {% elif session.status == "completed" %}
+                    <a href="{% url 'courses:challenge_start' course.pk lesson.pk %}"
+                       class="onlenco-ch-btn onlenco-ch-btn--secondary"
+                       data-action="retry-challenge">
+                        <i data-lucide="rotate-cw" aria-hidden="true"></i>
+                        {% t_either "Retry Challenge" "أعد التحدي" %}
+                    </a>
+                {% endif %}
+
+                {% if next_lesson %}
+                    <a href="{% url 'courses:lesson_detail' course.pk next_lesson.pk %}"
+                       class="onlenco-ch-btn onlenco-ch-btn--primary"
+                       data-action="next-lesson">
+                        {% t_either "Next lesson" "الدرس التالي" %}
+                        <i data-lucide="arrow-right" class="rtl-flip" aria-hidden="true"></i>
+                    </a>
+                {% endif %}
+
+                {% if session.wrong_count %}
+                    {# Placeholder for Phase 5 — back to lesson for now. #}
+                    <a href="{% url 'courses:lesson_detail' course.pk lesson.pk %}"
+                       class="onlenco-ch-btn onlenco-ch-btn--ghost"
+                       data-action="review-mistakes" data-placeholder="1"
+                       title="{% t_either 'Mistake review coming in a later release.' 'مراجعة الأخطاء قادمة في إصدار لاحق.' %}">
+                        <i data-lucide="book-open" aria-hidden="true"></i>
+                        {% t_either "Review mistakes (soon)" "مراجعة الأخطاء (قريباً)" %}
+                    </a>
+                {% endif %}
+
+                <a href="{% url 'courses:lesson_detail' course.pk lesson.pk %}"
+                   class="onlenco-ch-btn onlenco-ch-btn--ghost"
+                   data-action="back-to-lesson">
+                    {% t_either "Back to lesson" "العودة للدرس" %}
+                </a>
+            </div>
+        </section>
+    </main>
+</div>
+
+{# CSRF token sink — the advice button uses fetch+POST. #}
+<form style="display:none">{% csrf_token %}</form>
+
+<script>
+(function () {
+    var btn = document.querySelector("[data-ai-advice-btn]");
+    var out = document.querySelector("[data-ai-advice-out]");
+    if (!btn || !out) return;
+    var csrf = (document.querySelector("input[name=csrfmiddlewaretoken]") || {}).value || "";
+    btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        btn.disabled = true; btn.classList.add("is-loading");
+        fetch(btn.dataset.aiAdviceUrl, {
+            method: "POST", credentials: "same-origin",
+            headers: { "X-CSRFToken": csrf, "Accept": "application/json" },
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+              btn.classList.remove("is-loading");
+              if (!data) { btn.disabled = false; return; }
+              out.hidden = false;
+              out.innerHTML = "";
+              if (data.advice_en) {
+                  var en = document.createElement("p");
+                  en.dir = "ltr"; en.textContent = data.advice_en;
+                  out.appendChild(en);
+              }
+              if (data.advice_ar) {
+                  var ar = document.createElement("p");
+                  ar.dir = "rtl"; ar.textContent = data.advice_ar;
+                  out.appendChild(ar);
+              }
+              if (data.status !== "success") {
+                  out.classList.add("is-fallback");
+              }
+          }).catch(function () {
+              btn.classList.remove("is-loading");
+              btn.disabled = false;
+          });
+    });
+})();
+</script>
+
+<style>
+.onlenco-ch-page { background: #F8FAFC; min-height: 100vh; }
+.onlenco-ch-summary-main { max-width: 680px; margin: 0 auto; padding: 28px 16px 80px; }
+.onlenco-ch-summary {
+  background: #fff; border: 1px solid #E5E7EB; border-radius: 24px;
+  padding: 36px 28px; display: grid; gap: 26px;
+  box-shadow: 0 14px 32px rgba(15,23,42,0.07);
+}
+@keyframes onlencoIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes onlencoBadgePop { 0% { transform: scale(.5) rotate(-8deg); opacity: 0; } 60% { transform: scale(1.15) rotate(3deg); opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+.onlenco-anim-in { animation: onlencoIn .35s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .onlenco-anim-in, .onlenco-ch-summary__perfect-pill { animation: none !important; }
+}
+
+.onlenco-ch-summary__head { text-align: center; display: grid; gap: 8px; justify-items: center; }
+.onlenco-ch-summary__emoji { font-size: 64px; line-height: 1; }
+.onlenco-ch-summary__head h1 {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.5rem, 2.6vw, 2rem); font-weight: 800;
+  margin: 0; color: #111827;
+}
+.onlenco-ch-summary__head p { margin: 0; color: #6B7280; font-size: 1rem; }
+.onlenco-ch-summary__perfect-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(90deg, #FEF3C7, #FDE68A);
+  color: #92400E; border: 1px solid #FCD34D; border-radius: 999px;
+  padding: 8px 18px; font-weight: 800; font-size: .92rem;
+  animation: onlencoBadgePop .5s cubic-bezier(.2,.8,.2,1) .15s both;
+}
+.onlenco-ch-summary__perfect-pill i { width: 16px; height: 16px; }
+
+.onlenco-ch-summary__grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (min-width: 520px) { .onlenco-ch-summary__grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 720px) { .onlenco-ch-summary__grid { grid-template-columns: repeat(4, 1fr); } }
+.onlenco-ch-summary__tile {
+  background: #F8FAFC; border: 1px solid #E5E7EB;
+  border-radius: 16px; padding: 16px 12px; text-align: center;
+  display: grid; gap: 4px; place-items: center;
+}
+.onlenco-ch-summary__tile-icon { font-size: 22px; line-height: 1; }
+.onlenco-ch-summary__tile-value {
+  font-family: var(--font-display, inherit);
+  font-weight: 800; font-size: 1.4rem; color: #2563EB; line-height: 1.1;
+}
+.onlenco-ch-summary__tile--xp .onlenco-ch-summary__tile-value { color: #B45309; }
+.onlenco-ch-summary__tile--acc .onlenco-ch-summary__tile-value { color: #2563EB; }
+.onlenco-ch-summary__tile--ok .onlenco-ch-summary__tile-value { color: #15803D; }
+.onlenco-ch-summary__tile--hearts .onlenco-ch-summary__tile-value { color: #B91C1C; }
+.onlenco-ch-summary__tile--time .onlenco-ch-summary__tile-value { color: #6B7280; }
+.onlenco-ch-summary__tile--wrong .onlenco-ch-summary__tile-value { color: #6B7280; }
+.onlenco-ch-summary__tile-label {
+  font-size: 0.7rem; color: #6B7280; text-transform: uppercase;
+  letter-spacing: 0.06em; margin-top: 2px; font-weight: 700;
+}
+
+.onlenco-ch-summary__actions { display: grid; gap: 10px; }
+
+.onlenco-ch-btn {
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  width: 100%; padding: 14px 22px; border-radius: 999px;
+  font-weight: 800; text-decoration: none; border: none; cursor: pointer;
+  font-size: 1rem; font-family: inherit;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.onlenco-ch-btn--primary { background: #2563EB; color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,0.28); }
+.onlenco-ch-btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(37,99,235,0.40); }
+.onlenco-ch-btn--secondary { background: #fff; color: #2563EB; border: 2px solid #DBEAFE; }
+.onlenco-ch-btn--secondary:hover { background: #DBEAFE; }
+.onlenco-ch-btn--ghost { background: transparent; color: #6B7280; border: 1px solid #E5E7EB; }
+.onlenco-ch-btn--ghost:hover { color: #111827; background: #F8FAFC; }
+.onlenco-ch-btn--ghost[data-placeholder="1"] { opacity: .8; }
+.onlenco-ch-btn i { width: 18px; height: 18px; }
+
+/* Phase 5 — rewards sections */
+.onlenco-ch-summary__sec-title { font-family: var(--font-display, inherit); font-size: 0.9rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6B7280; margin: 0 0 10px; }
+.onlenco-ch-summary__encouragement { margin: 0; text-align: center; color: #111827; font-weight: 600; padding: 10px 14px; background: #F8FAFC; border: 1px solid #E5E7EB; border-radius: 14px; display: grid; gap: 4px; }
+.onlenco-ch-summary__encouragement span { display: block; font-size: 0.95rem; }
+
+.onlenco-ch-summary__breakdown { background: #F8FAFC; border: 1px solid #E5E7EB; border-radius: 16px; padding: 16px 18px; }
+.onlenco-ch-summary__bd-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.onlenco-ch-summary__bd-list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+.onlenco-ch-summary__bd-list li strong { color: #B45309; font-weight: 800; }
+.onlenco-ch-summary__bd-list li.is-highlight { color: #15803D; }
+.onlenco-ch-summary__bd-list li.is-highlight strong { color: #15803D; }
+.onlenco-ch-summary__bd-total { margin: 12px 0 0; padding-top: 10px; border-top: 1px dashed #E5E7EB; text-align: end; font-size: 1.05rem; color: #111827; }
+.onlenco-ch-summary__bd-total strong { color: #2563EB; font-weight: 800; }
+
+.onlenco-ch-summary__metrics { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 520px) { .onlenco-ch-summary__metrics { grid-template-columns: 1fr 1fr; } }
+.onlenco-ch-summary__metric { background: #F8FAFC; border: 1px solid #E5E7EB; border-radius: 16px; padding: 16px 18px; display: grid; gap: 6px; }
+.onlenco-ch-summary__metric--streak { background: linear-gradient(180deg, #FEF3C7, #FFFFFF); border-color: #FCD34D; }
+.onlenco-ch-summary__metric--goal { background: linear-gradient(180deg, #DBEAFE, #FFFFFF); border-color: #BFDBFE; }
+.onlenco-ch-summary__metric-head { display: flex; align-items: center; gap: 8px; font-weight: 800; color: #111827; }
+.onlenco-ch-summary__metric-emoji { font-size: 20px; }
+.onlenco-ch-summary__metric-title { font-size: 0.95rem; letter-spacing: .03em; }
+.onlenco-ch-summary__metric-value { font-family: var(--font-display, inherit); font-size: 1.8rem; font-weight: 800; color: #111827; line-height: 1; }
+.onlenco-ch-summary__metric-sub { color: #6B7280; font-size: 0.85rem; font-weight: 700; }
+.onlenco-ch-summary__goal-bar { height: 10px; background: #FFFFFF; border-radius: 999px; overflow: hidden; border: 1px solid #BFDBFE; }
+.onlenco-ch-summary__goal-fill { height: 100%; background: linear-gradient(90deg, #2563EB, #60A5FA); transition: width .4s cubic-bezier(.2,.8,.2,1); }
+.onlenco-ch-summary__goal-done { color: #15803D; font-weight: 800; }
+
+.onlenco-ch-summary__badges { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 16px 18px; }
+.onlenco-ch-summary__badge-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.onlenco-ch-summary__badge { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #F8FAFC; border: 1px solid #E5E7EB; }
+.onlenco-ch-summary__badge i { width: 28px; height: 28px; color: #B45309; flex-shrink: 0; }
+.onlenco-ch-summary__badge div { display: grid; }
+.onlenco-ch-summary__badge strong { font-weight: 800; color: #111827; font-size: 0.95rem; }
+.onlenco-ch-summary__badge small { color: #6B7280; font-size: 0.82rem; }
+
+/* Phase 6 — Skills practiced + Recommendation */
+.onlenco-ch-summary__skills { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 16px 18px; }
+.onlenco-ch-summary__skill-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.onlenco-ch-summary__skill { padding: 10px 12px; border-radius: 12px; background: #F8FAFC; border: 1px solid #E5E7EB; display: grid; gap: 6px; }
+.onlenco-ch-summary__skill--new       { border-left: 4px solid #9CA3AF; }
+.onlenco-ch-summary__skill--learning  { border-left: 4px solid #F59E0B; }
+.onlenco-ch-summary__skill--improving { border-left: 4px solid #3B82F6; }
+.onlenco-ch-summary__skill--strong    { border-left: 4px solid #22C55E; }
+.onlenco-ch-summary__skill--mastered  { border-left: 4px solid #15803D; background: #DCFCE7; }
+[dir="rtl"] .onlenco-ch-summary__skill { border-left-width: 1px; border-right: 4px solid; }
+.onlenco-ch-summary__skill-head { display: flex; justify-content: space-between; align-items: center; }
+.onlenco-ch-summary__skill-head strong { font-weight: 800; color: #111827; font-size: 0.95rem; }
+.onlenco-ch-summary__skill-conf { font-size: 0.7rem; font-weight: 800; color: #6B7280; text-transform: uppercase; letter-spacing: 0.06em; }
+.onlenco-ch-summary__skill-bar { height: 8px; background: #E5E7EB; border-radius: 999px; overflow: hidden; }
+.onlenco-ch-summary__skill-fill { height: 100%; background: linear-gradient(90deg, #2563EB, #60A5FA); transition: width .35s ease; }
+.onlenco-ch-summary__skill-sub { color: #6B7280; font-size: 0.78rem; font-weight: 700; }
+
+.onlenco-ch-summary__recommend { background: linear-gradient(180deg, #EFF6FF, #FFFFFF); border: 1px solid #BFDBFE; border-radius: 16px; padding: 16px 18px; }
+.onlenco-ch-summary__rec-card { display: flex; gap: 14px; align-items: center; padding: 14px 16px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; }
+.onlenco-ch-summary__rec-card i { width: 28px; height: 28px; color: #2563EB; flex-shrink: 0; }
+.onlenco-ch-summary__rec-card--review_mistakes i { color: #B45309; }
+.onlenco-ch-summary__rec-card--retry_challenge i { color: #DC2626; }
+.onlenco-ch-summary__rec-card--practice_skill i  { color: #2563EB; }
+.onlenco-ch-summary__rec-card--daily_goal i      { color: #15803D; }
+.onlenco-ch-summary__rec-body { display: grid; gap: 2px; }
+.onlenco-ch-summary__rec-body strong { font-weight: 800; color: #111827; font-size: 1rem; }
+.onlenco-ch-summary__rec-body small  { color: #6B7280; font-size: 0.85rem; }
+.onlenco-ch-summary__rec-note { margin: 10px 0 0; font-size: 0.85rem; color: #6B7280; }
+.onlenco-ch-summary__rec-note strong { color: #B91C1C; }
+
+/* Phase 7 — AI Tutor end-of-challenge advice */
+.onlenco-ch-summary__ai { background: linear-gradient(180deg, #FEF3C7, #FFFFFF); border: 1px solid #FCD34D; border-radius: 16px; padding: 16px 18px; display: grid; gap: 10px; }
+.onlenco-ch-ai-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; border: 1px solid #2563EB; background: #FFFFFF; color: #2563EB; font-weight: 700; cursor: pointer; font-family: inherit; font-size: .92rem; transition: all .12s ease; width: max-content; }
+.onlenco-ch-ai-btn:hover:not(:disabled) { background: #DBEAFE; }
+.onlenco-ch-ai-btn:disabled { opacity: .55; cursor: not-allowed; }
+.onlenco-ch-ai-btn.is-loading::after { content: "..."; margin-inline-start: 4px; }
+.onlenco-ch-ai-btn i { width: 16px; height: 16px; }
+.onlenco-ch-ai-out { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; }
+.onlenco-ch-ai-out p { margin: 0; color: #111827; font-size: .92rem; line-height: 1.5; }
+.onlenco-ch-ai-out.is-fallback { background: #FEF3C7; border-color: #FCD34D; }
+</style>
+{% endblock %}

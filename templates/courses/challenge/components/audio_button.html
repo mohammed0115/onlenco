@@ -1,0 +1,22 @@
+{% load i18n_dict %}
+{% comment %}
+Reusable audio player. Inputs (must set as context):
+  audio_url   — direct .mp3/.wav url (preferred)
+  audio_script — transcript shown when no audio file exists yet
+Falls back to a "audio coming soon" pill so renderers never break.
+{% endcomment %}
+{% if audio_url %}
+<div class="onlenco-qr__audio">
+    <audio controls preload="metadata" src="{{ audio_url }}"
+           aria-label="{% t_either 'Listen' 'استمع' %}"></audio>
+</div>
+{% else %}
+<div class="onlenco-qr__audio-pending" role="note"
+     aria-label="{% t_either 'Audio pending' 'الصوت قيد التحضير' %}">
+    <span class="onlenco-qr__audio-pending-icon" aria-hidden="true">🔊</span>
+    <div class="onlenco-qr__audio-pending-text">
+        <strong>{% t_either "Audio coming soon" "الصوت قادم قريباً" %}</strong>
+        {% if audio_script %}<em dir="ltr">"{{ audio_script }}"</em>{% endif %}
+    </div>
+</div>
+{% endif %}

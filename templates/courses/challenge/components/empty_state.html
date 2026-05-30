@@ -1,0 +1,17 @@
+{% load i18n_dict %}
+{% comment %}
+Generic empty-state for renderers whose metadata is malformed or
+missing required keys. Inputs: title (optional), hint (optional).
+Keeps the Challenge moving — student sees a friendly card instead of a
+500 page.
+{% endcomment %}
+<div class="onlenco-qr onlenco-qr--empty" role="note">
+    <div class="onlenco-qr__empty-icon" aria-hidden="true">🧩</div>
+    <h2 class="onlenco-qr__empty-title">
+        {% if title %}{{ title }}{% else %}{% t_either "This card isn't ready yet." "هذه البطاقة قيد التحضير." %}{% endif %}
+    </h2>
+    <p class="onlenco-qr__empty-hint">
+        {% if hint %}{{ hint }}{% else %}{% t_either "Submit to continue. Your teacher will fill it in soon." "أرسل للمتابعة. سيكملها المعلم قريباً." %}{% endif %}
+    </p>
+    <input type="hidden" name="answer" value="">
+</div>

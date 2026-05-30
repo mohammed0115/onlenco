@@ -1,0 +1,25 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--speaking">
+    <div class="onlenco-qr__speak-card" dir="ltr">
+        <span class="onlenco-qr__speak-mic" aria-hidden="true">🎙</span>
+        <p class="onlenco-qr__speak-prompt">
+            {% if question_metadata.sentence %}{{ question_metadata.sentence }}{% elif question_metadata.target_word %}{{ question_metadata.target_word }}{% elif question_metadata.scenario %}{{ question_metadata.scenario }}{% else %}{{ question.question_text }}{% endif %}
+        </p>
+        {% if question.question_type == "ai_roleplay_prompt" %}
+            <span class="onlenco-qr__speak-soon">{% t_either "Short AI roleplay — coming soon inside the card" "تمثيل قصير مع AI — قادم قريباً" %}</span>
+        {% else %}
+            <span class="onlenco-qr__speak-soon">{% t_either "AI speaking feedback coming soon" "تقييم النطق الذكي قادم قريباً" %}</span>
+        {% endif %}
+    </div>
+    <p class="onlenco-qr__hint">
+        {% if question.question_type == "ai_roleplay_prompt" %}
+            {% t_either "For now: read the scenario, plan your reply, and mark as practiced." "حالياً: اقرأ الموقف، خطّط للرد، ثم ضع علامة (تدرّبت)." %}
+        {% else %}
+            {% t_either "Practice saying this out loud. We'll add AI grading in a later phase." "تدرّب على قولها بصوت مرتفع. سيُضاف التقييم لاحقاً." %}
+        {% endif %}
+    </p>
+    <label class="onlenco-qr__self-check">
+        <input type="checkbox" name="answer" value="self_read" checked required>
+        <span>{% t_either "Mark as practiced" "ضع علامة (تدرّبت)" %}</span>
+    </label>
+</div>

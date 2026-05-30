@@ -82,20 +82,40 @@ WEEKLY_ASSESSMENT_STATUS_CHOICES = [
 
 
 class Skill(models.Model):
-    """A teachable skill (e.g. Grammar at B1, Listening at A2)."""
+    """A teachable skill (e.g. Grammar at B1, Listening at A2).
+
+    Phase 6 added the `code` (URL-safe identifier — "greetings",
+    "to_be_names") + bilingual titles/descriptions + sort_order. The
+    legacy `name`+`category`+`cefr_level` triplet stays as a backward-
+    compatible secondary key so existing rows keep working.
+    """
 
     name = models.CharField(max_length=120)
     category = models.CharField(max_length=20, choices=SKILL_CATEGORY_CHOICES)
     cefr_level = models.CharField(max_length=2, choices=CEFR_CHOICES, blank=True)
     description = models.TextField(blank=True)
+    # Phase 6: machine-friendly identifier used by question metadata,
+    # the resolver, and tests. Nullable so existing rows aren't broken
+    # by migration — `seed_learning_skills` upserts by `code` when set.
+    code = models.SlugField(
+        max_length=80, blank=True, null=True, unique=True,
+        verbose_name=_("Skill code"),
+        help_text=_("snake_case identifier — e.g. 'greetings'."),
+    )
+    title_en = models.CharField(max_length=120, blank=True)
+    title_ar = models.CharField(max_length=120, blank=True)
+    description_ar = models.TextField(blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=100)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["category", "cefr_level", "name"]
+        ordering = ["sort_order", "category", "cefr_level", "name"]
         indexes = [
             models.Index(fields=["category", "cefr_level"]),
             models.Index(fields=["is_active"]),
+            models.Index(fields=["code"]),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -108,6 +128,10 @@ class Skill(models.Model):
 
     def __str__(self):
         return f"{self.get_category_display()} · {self.name}"
+
+    @property
+    def display_title(self) -> str:
+        return self.title_en or self.name
 
 
 class GrammarTopic(models.Model):
@@ -174,8 +198,36 @@ class StudentLearningProfile(models.Model):
         return f"LearningProfile<{self.user_id}> θ={self.theta_score:.2f}"
 
 
+CONFIDENCE_LEVEL_CHOICES = [
+    ("new",       _("New")),
+    ("learning",  _("Learning")),
+    ("improving", _("Improving")),
+    ("strong",    _("Strong")),
+    ("mastered",  _("Mastered")),
+]
+
+
+def confidence_for(score: float) -> str:
+    """Compute confidence band from a 0-100 score (Phase 6 rule)."""
+    if score >= 90:
+        return "mastered"
+    if score >= 71:
+        return "strong"
+    if score >= 46:
+        return "improving"
+    if score >= 21:
+        return "learning"
+    return "new"
+
+
 class SkillMastery(models.Model):
-    """Per-(user, skill) mastery tracking."""
+    """Per-(user, skill) mastery tracking.
+
+    Phase 6 added: `confidence_level` (band derived from score),
+    `current_streak_correct/wrong` (consecutive answers in either
+    direction), and `next_review_at` (when this skill is due for
+    practice — used by the smart review queue).
+    """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -189,10 +241,16 @@ class SkillMastery(models.Model):
         default=0.0,
         validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
     )
+    confidence_level = models.CharField(
+        max_length=12, choices=CONFIDENCE_LEVEL_CHOICES, default="new",
+    )
     attempts_count = models.PositiveIntegerField(default=0)
     correct_count = models.PositiveIntegerField(default=0)
     wrong_count = models.PositiveIntegerField(default=0)
+    current_streak_correct = models.PositiveIntegerField(default=0)
+    current_streak_wrong   = models.PositiveIntegerField(default=0)
     last_practiced_at = models.DateTimeField(null=True, blank=True)
+    next_review_at    = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -206,6 +264,7 @@ class SkillMastery(models.Model):
         indexes = [
             models.Index(fields=["user", "skill"]),
             models.Index(fields=["mastery_score"]),
+            models.Index(fields=["next_review_at"]),
         ]
         verbose_name = _("Skill mastery")
         verbose_name_plural = _("Skill masteries")
@@ -563,3 +622,138 @@ class WeeklyAssessment(models.Model):
 
     def __str__(self):
         return f"{self.kind.title()}Asmt<{self.user_id}> {self.status} score={self.score:.0f}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 — StudentMistake + MasteryEvent
+# ---------------------------------------------------------------------------
+
+MISTAKE_TYPE_CHOICES = [
+    ("wrong_choice", _("Wrong choice")),
+    ("spelling",     _("Spelling")),
+    ("word_order",   _("Word order")),
+    ("grammar",      _("Grammar")),
+    ("listening",    _("Listening")),
+    ("speaking",     _("Speaking")),
+    ("translation",  _("Translation")),
+    ("unknown",      _("Unknown")),
+]
+
+MISTAKE_SEVERITY_CHOICES = [
+    ("low",    _("Low")),
+    ("medium", _("Medium")),
+    ("high",   _("High")),
+]
+
+
+class StudentMistake(models.Model):
+    """One row per (user, question) — created the first time a student
+    gets a question wrong, then UPDATED (not duplicated) on every
+    subsequent wrong attempt.
+
+    `UserError` (above) is the AI-tagged generic table — Phase 6 keeps
+    this separate so the rule-based engine has a focused, simple ledger
+    the review scheduler can lean on without depending on the AI
+    pipeline.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="student_mistakes",
+    )
+    question = models.ForeignKey(
+        "courses.LessonQuestion",
+        on_delete=models.CASCADE,
+        related_name="student_mistakes",
+    )
+    lesson = models.ForeignKey(
+        "courses.Lesson",
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="student_mistakes",
+    )
+    skill = models.ForeignKey(
+        Skill, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="student_mistakes",
+    )
+    challenge_answer = models.ForeignKey(
+        "courses.ChallengeAnswer",
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="student_mistakes",
+    )
+
+    mistake_type = models.CharField(
+        max_length=20, choices=MISTAKE_TYPE_CHOICES, default="unknown",
+    )
+    severity = models.CharField(
+        max_length=8, choices=MISTAKE_SEVERITY_CHOICES, default="medium",
+    )
+
+    user_answer = models.TextField(blank=True)
+    correct_answer = models.TextField(blank=True)
+    explanation_en = models.TextField(blank=True)
+    explanation_ar = models.TextField(blank=True)
+
+    review_count = models.PositiveIntegerField(default=0)
+    mastered = models.BooleanField(default=False)
+    next_review_at = models.DateTimeField(null=True, blank=True)
+
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["user", "mastered", "next_review_at"]),
+            models.Index(fields=["user", "skill"]),
+            models.Index(fields=["next_review_at"]),
+        ]
+        constraints = [
+            # One mistake row per (user, question). Repeats UPDATE the row.
+            models.UniqueConstraint(
+                fields=["user", "question"],
+                name="learning_core_unique_user_question_mistake",
+            ),
+        ]
+        verbose_name = _("Student mistake")
+        verbose_name_plural = _("Student mistakes")
+
+    def __str__(self):
+        flag = "✓" if self.mastered else "✗"
+        return f"Mistake<{self.user_id}> q={self.question_id} {flag} reviews={self.review_count}"
+
+
+class MasteryEvent(models.Model):
+    """Idempotency lock for mastery processing of ChallengeAnswers.
+
+    `mastery_service.process_challenge_answer(answer)` creates a row
+    here keyed by `challenge_answer` BEFORE doing any work. A second
+    call for the same answer hits the UNIQUE constraint and returns
+    early — so refresh, duplicate POST, or session re-entry can NEVER
+    double-update SkillMastery.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="mastery_events",
+    )
+    challenge_answer = models.OneToOneField(
+        "courses.ChallengeAnswer",
+        on_delete=models.CASCADE,
+        related_name="mastery_event",
+    )
+    processed_at = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-processed_at"]
+        indexes = [
+            models.Index(fields=["user", "-processed_at"]),
+        ]
+        verbose_name = _("Mastery event")
+        verbose_name_plural = _("Mastery events")
+
+    def __str__(self):
+        return f"MasteryEvent<{self.user_id}> answer={self.challenge_answer_id}"

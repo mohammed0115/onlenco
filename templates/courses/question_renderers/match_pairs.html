@@ -1,0 +1,47 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--match-pairs" data-match-root>
+    <p class="onlenco-qr__hint">{% t_either "Tap one card on the left, then its match on the right." "اضغط بطاقة من اليسار ثم زوجها من اليمين." %}</p>
+    <div class="onlenco-qr__match-grid">
+        <div class="onlenco-qr__match-col" data-side="left" dir="ltr">
+            {% for p in question_metadata.pairs %}
+            <button type="button" class="onlenco-qr__match-card" data-val="{{ p.left }}">{{ p.left }}</button>
+            {% endfor %}
+        </div>
+        <div class="onlenco-qr__match-col" data-side="right" dir="ltr">
+            {% for p in question_metadata.pairs %}
+            <button type="button" class="onlenco-qr__match-card" data-val="{{ p.right }}">{{ p.right }}</button>
+            {% endfor %}
+        </div>
+    </div>
+    <input type="hidden" name="answer" data-match-answer value="{}">
+</div>
+<script>
+(function () {
+    var root = document.querySelectorAll("[data-match-root]");
+    root = root[root.length - 1]; if (!root) return;
+    var leftSel = null, rightSel = null;
+    var answers = {};
+    var hidden = root.querySelector("[data-match-answer]");
+    function commit() { hidden.value = JSON.stringify(answers); }
+    function flash(btn, ok) {
+        btn.classList.add(ok ? "is-matched" : "is-wrong");
+        if (!ok) setTimeout(function () { btn.classList.remove("is-wrong"); }, 400);
+    }
+    root.addEventListener("click", function (e) {
+        var btn = e.target.closest(".onlenco-qr__match-card");
+        if (!btn || btn.disabled) return;
+        var side = btn.parentElement.dataset.side;
+        if (side === "left")  { if (leftSel)  leftSel.classList.remove("is-selected");  leftSel = btn;  }
+        if (side === "right") { if (rightSel) rightSel.classList.remove("is-selected"); rightSel = btn; }
+        btn.classList.add("is-selected");
+        if (leftSel && rightSel) {
+            answers[leftSel.dataset.val] = rightSel.dataset.val;
+            commit();
+            leftSel.disabled = true; rightSel.disabled = true;
+            leftSel.classList.remove("is-selected"); rightSel.classList.remove("is-selected");
+            flash(leftSel, true); flash(rightSel, true);
+            leftSel = null; rightSel = null;
+        }
+    });
+})();
+</script>

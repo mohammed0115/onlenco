@@ -1352,9 +1352,16 @@ def build_image_prompts(unit: dict) -> list[tuple[str, str]]:
 
 
 def build_audio_scripts(unit: dict) -> list[tuple[str, str, str]]:
-    """Return (script_type, voice_style, script_text) triples for one Lesson."""
-    examples_block = " ".join(en for en, _ar in unit.get("examples", []))
-    dialogue_block = " ".join(f"{spk}: {line}" for spk, line in unit.get("dialogue", []))
+    """Return (script_type, voice_style, script_text) triples for one Lesson.
+
+    Examples and dialogue use newline separators so the lesson page can
+    render each example as its own line and each dialogue turn as its
+    own chat bubble. TTS (`gpt-4o-mini-tts` / `tts-1`) handles newlines
+    correctly — it just inserts a small pause between turns, which
+    actually improves the audio quality.
+    """
+    examples_block = "\n".join(en for en, _ar in unit.get("examples", []))
+    dialogue_block = "\n".join(f"{spk}: {line}" for spk, line in unit.get("dialogue", []))
     return [
         ("intro", "friendly_teacher",
          f"In this lesson, you will learn {unit['new_language_en']}. {unit['skill_en']} Let's begin."),

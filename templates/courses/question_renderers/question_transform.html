@@ -1,0 +1,13 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--question-transform">
+    {% if question_metadata.statement %}
+    <p class="onlenco-qr__statement" dir="ltr">{{ question_metadata.statement }}</p>
+    {% endif %}
+    {% if question_metadata.target_qword %}
+    <p class="onlenco-qr__hint">
+        {% t_either "Start with:" "ابدأ بـ:" %} <code dir="ltr">{{ question_metadata.target_qword }}</code>
+    </p>
+    {% endif %}
+    <input class="onlenco-qr__input" type="text" name="answer" autocomplete="off" required dir="ltr"
+           placeholder="{% t_either 'Type the question' 'اكتب السؤال' %}">
+</div>

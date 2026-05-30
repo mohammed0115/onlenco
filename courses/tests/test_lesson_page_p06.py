@@ -59,71 +59,83 @@ class LessonPageP06Tests(TestCase):
                 f"Lesson {order} ({lesson.title}) returned 500",
             )
 
+    def _get_step(self, kind, lang="en"):
+        """The stepper redesign moved per-step content into its own URL."""
+        c = Client(SERVER_NAME="127.0.0.1")
+        c.force_login(self.user)
+        return c.get(
+            f"/courses/{self.course.pk}/lessons/{self.lesson.pk}/step/{kind}/",
+            HTTP_HOST="127.0.0.1",
+            HTTP_ACCEPT_LANGUAGE=("ar-EG" if lang == "ar" else "en-US"),
+        )
+
     def test_lesson_page_works_without_media(self):
-        """No LessonMedia / no audio file / no video → still 200, no crash."""
+        """No media → launcher still 200 + shows the cover fallback marker."""
         lesson = self.lesson
-        # Confirm there really is no media for this lesson.
         self.assertEqual(lesson.media.count(), 0)
         self.assertFalse(lesson.video_file)
         self.assertFalse(lesson.audio_file)
         r = self._get()
         self.assertNotEqual(r.status_code, 500)
-        # The fallback markers should appear.
         html = r.content.decode("utf-8", errors="replace")
         if r.status_code == 200:
-            self.assertIn("data-fallback=\"visual\"", html)
+            # Launcher shows the cover-fallback class when no image exists.
+            self.assertIn("onlenco-hero__cover-fallback", html)
 
     def test_lesson_page_shows_learning_points(self):
-        r = self._get()
-        if r.status_code != 200:
-            return  # Skipped if drip gate kicks in for this account.
-        html = r.content.decode("utf-8", errors="replace")
-        self.assertIn("data-section=\"learning-points\"", html)
-
-    def test_lesson_page_shows_checklist(self):
+        """The launcher renders 7 step cards (intro → finish), one per
+        learning stage. That's the new home for 'learning points'."""
         r = self._get()
         if r.status_code != 200:
             return
         html = r.content.decode("utf-8", errors="replace")
-        self.assertIn("data-section=\"checklist\"", html)
-        # At least the first lesson should show "I can…" text.
+        for kind in ["intro", "vocabulary", "examples", "dialogue",
+                     "listening", "speaking", "finish"]:
+            self.assertIn(f'data-step-kind="{kind}"', html)
+
+    def test_lesson_page_shows_checklist(self):
+        """Checklist lives on the finish step page, not the launcher."""
+        r = self._get_step("finish")
+        if r.status_code != 200:
+            return
+        html = r.content.decode("utf-8", errors="replace")
+        self.assertIn("onlenco-finish__list", html)
         self.assertTrue(
-            ("أستطيع" in html) or ("I can" in html),
+            ("أستطيع" in html) or ("I can" in html) or ("Tick what you can do" in html),
             "checklist header missing",
         )
 
     def test_lesson_page_shows_quiz_button(self):
+        """Quiz CTA appears on the launcher (quick-link) AND the finish step."""
         r = self._get()
         if r.status_code != 200:
             return
         html = r.content.decode("utf-8", errors="replace")
-        self.assertIn("data-action=\"start-quiz\"", html)
+        self.assertIn("onlenco-quick-link--quiz", html)
 
     def test_lesson_page_shows_ai_tutor_button(self):
-        r = self._get()
+        """AI Tutor CTA lives on the speaking step (per the lesson flow)."""
+        r = self._get_step("speaking")
         if r.status_code != 200:
             return
         html = r.content.decode("utf-8", errors="replace")
-        self.assertIn("data-action=\"ai-tutor\"", html)
+        self.assertIn("onlenco-tutor-cta", html)
 
     def test_lesson_page_supports_arabic_rtl(self):
         r = self._get(lang="ar")
         if r.status_code != 200:
             return
         html = r.content.decode("utf-8", errors="replace")
-        # The Arabic content block is gated on lang=="ar" inside the template.
-        # If it appears, RTL is supported.
+        # The page has Arabic step labels, RTL chrome.
         self.assertTrue(
-            ("dir=\"rtl\"" in html) or ("data-section=\"content-ar\"" in html),
-            "Arabic / RTL block missing under ar locale",
+            ('dir="rtl"' in html) or ("مفردات" in html) or ("ابدأ الدرس" in html),
+            "Arabic/RTL markers missing under ar locale",
         )
 
     def test_english_examples_remain_ltr_in_arabic_ui(self):
-        r = self._get(lang="ar")
+        """English transcript on step pages stays LTR even when UI is AR."""
+        r = self._get_step("dialogue", lang="ar")
         if r.status_code != 200:
             return
         html = r.content.decode("utf-8", errors="replace")
-        # The English content block carries dir="ltr" so examples don't
-        # get mirrored under the Arabic UI.
-        self.assertIn("data-section=\"content\"", html)
-        self.assertIn("dir=\"ltr\"", html)
+        self.assertIn('dir="ltr"', html)

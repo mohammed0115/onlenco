@@ -1,0 +1,17 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--table-builder">
+    {% if question_metadata.columns %}
+    <div class="onlenco-qr__table-cols" dir="ltr">
+        {% for col in question_metadata.columns %}
+        <div class="onlenco-qr__table-col">
+            <div class="onlenco-qr__table-col-head">{{ col.label }}</div>
+            {% for val in col.values %}
+            <div class="onlenco-qr__table-col-cell"><code>{{ val }}</code></div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <input class="onlenco-qr__input" type="text" name="answer" autocomplete="off" required dir="ltr"
+           placeholder="{% t_either 'Build a sentence using one cell from each column' 'كوّن جملة باستخدام خانة من كل عمود' %}">
+</div>

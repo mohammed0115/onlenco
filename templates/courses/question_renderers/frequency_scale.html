@@ -1,0 +1,20 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--frequency-scale">
+    <p class="onlenco-qr__hint">{% t_either "Drag the slider to where this word belongs on the frequency scale." "حرّك المؤشر إلى مكان الكلمة على المقياس." %}</p>
+    <div class="onlenco-qr__scale-track">
+        <span class="onlenco-qr__scale-anchor onlenco-qr__scale-anchor--left">0%</span>
+        <input class="onlenco-qr__scale-range" type="range" name="answer"
+               min="0" max="100" step="5" value="50" data-scale-range>
+        <span class="onlenco-qr__scale-anchor onlenco-qr__scale-anchor--right">100%</span>
+    </div>
+    <output class="onlenco-qr__scale-output" data-scale-output>50%</output>
+</div>
+<script>
+(function () {
+    var ranges = document.querySelectorAll("[data-scale-range]");
+    var r = ranges[ranges.length - 1]; if (!r) return;
+    var out = r.parentElement.parentElement.querySelector("[data-scale-output]");
+    function sync() { if (out) out.textContent = r.value + "%"; }
+    r.addEventListener("input", sync); sync();
+})();
+</script>

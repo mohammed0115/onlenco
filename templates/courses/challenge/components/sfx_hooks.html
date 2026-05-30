@@ -1,0 +1,29 @@
+{% comment %}
+Sound-effect hooks. Placeholders only — no audio assets shipped, no
+network calls. Renderers can dispatch any of:
+
+  document.dispatchEvent(new CustomEvent("onlenco:sfx",
+    {detail: {kind: "correct" | "wrong" | "click"}}));
+
+When real SFX assets land, populate window.OnlencoSFX with three Audio
+objects keyed by kind and remove the guard. Until then the dispatch is
+a no-op — won't crash if no listener is wired up.
+
+TODO Phase 5: ship Onlenco-original SFX (royalty-free or self-made),
+respect a per-user "Mute SFX" preference from the profile.
+{% endcomment %}
+<script>
+(function () {
+    if (window.OnlencoSFXBooted) return;
+    window.OnlencoSFXBooted = true;
+    document.addEventListener("onlenco:sfx", function (e) {
+        var kind = (e.detail && e.detail.kind) || "click";
+        var lib = window.OnlencoSFX || {};
+        var clip = lib[kind];
+        if (clip && typeof clip.play === "function") {
+            try { clip.currentTime = 0; clip.play(); } catch (_) {}
+        }
+        // Silent no-op when no library is bound — that's the placeholder behaviour.
+    });
+})();
+</script>

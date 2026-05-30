@@ -1,0 +1,15 @@
+{% load i18n_dict %}
+{% comment %}Top header: exit · progress · hearts · xp. Inputs: course, lesson, session, card_number, card_total.{% endcomment %}
+<header class="onlenco-ch-header" data-ch-header>
+    <a class="onlenco-ch-exit"
+       href="{% url 'courses:lesson_detail' course.pk lesson.pk %}"
+       aria-label="{% t_either 'Exit Challenge' 'الخروج من التحدي' %}"
+       title="{% t_either 'Exit' 'خروج' %}">
+        <i data-lucide="x" aria-hidden="true"></i>
+    </a>
+    {% include "courses/challenge/components/progress_bar.html" %}
+    <div class="onlenco-ch-stats">
+        {% include "courses/challenge/components/hearts.html" %}
+        {% include "courses/challenge/components/xp_badge.html" %}
+    </div>
+</header>

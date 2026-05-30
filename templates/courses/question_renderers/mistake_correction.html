@@ -1,0 +1,12 @@
+{% load i18n_dict %}
+<div class="onlenco-qr onlenco-qr--mistake-correction">
+    <div class="onlenco-qr__wrong-line" dir="ltr">
+        <span class="onlenco-qr__wrong-tag">{% t_either "Wrong" "خطأ" %}</span>
+        <s>{{ question_metadata.wrong_sentence }}</s>
+    </div>
+    {% if question_metadata.hint_en %}
+    <p class="onlenco-qr__hint" dir="ltr">💡 {{ question_metadata.hint_en }}</p>
+    {% endif %}
+    <input class="onlenco-qr__input" type="text" name="answer" autocomplete="off" required dir="ltr"
+           placeholder="{% t_either 'Type the correct sentence' 'اكتب الجملة الصحيحة' %}">
+</div>

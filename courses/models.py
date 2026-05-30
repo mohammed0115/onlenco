@@ -43,10 +43,15 @@ COURSE_STATUS_CHOICES = [
     ("archived",       _("Archived")),
 ]
 LESSON_STATUS_CHOICES = [
-    ("draft",          _("Draft")),
-    ("pending_review", _("Pending review")),
-    ("published",      _("Published")),
-    ("rejected",       _("Rejected")),
+    ("draft",             _("Draft")),
+    ("pending_review",    _("Pending review")),
+    # Phase 11 additions — finer-grained review workflow.
+    ("in_review",         _("In review")),
+    ("changes_requested", _("Changes requested")),
+    ("approved",          _("Approved (not yet published)")),
+    ("published",         _("Published")),
+    ("rejected",          _("Rejected")),
+    ("archived",          _("Archived")),
 ]
 COURSE_LANGUAGE_CHOICES = [
     ("ar",        _("Arabic")),
@@ -72,6 +77,7 @@ RESOURCE_TYPE_CHOICES = [
     ("worksheet", _("Worksheet")),
 ]
 QUESTION_TYPE_CHOICES = [
+    # Legacy types — kept exactly as-is for backward compatibility.
     ("multiple_choice",   _("Multiple choice")),
     ("fill_blank",        _("Fill in the blank")),
     ("correction",        _("Correction")),
@@ -80,6 +86,32 @@ QUESTION_TYPE_CHOICES = [
     ("short_answer",      _("Short answer")),
     ("speaking_prompt",   _("Speaking prompt")),
     ("writing_prompt",    _("Writing prompt")),
+    # Quiz Engine v2 interactive types.
+    ("frequency_scale",            _("Frequency scale")),
+    ("table_sentence_builder",     _("Table sentence builder")),
+    ("listening_match",            _("Listening match")),
+    ("speaking_sentence_builder",  _("Speaking sentence builder")),
+    ("question_transform",         _("Question transform")),
+    # Prompt 03 — Challenge-friendly game card types. Pedagogy is
+    # standard A1 syllabus convention; all rendered content is original
+    # Onlenco material with the Onlenco cast and original sentences.
+    ("tap_choice",            _("Tap choice")),
+    ("image_choice",          _("Image choice")),
+    ("listen_and_choose",     _("Listen and choose")),
+    ("listen_and_type",       _("Listen and type")),
+    ("sound_to_word",         _("Sound to word")),
+    ("picture_labeling",      _("Picture labeling")),
+    ("mini_story_choice",     _("Mini story choice")),
+    ("word_bank_sentence",    _("Word bank sentence")),
+    ("match_pairs",           _("Match pairs")),
+    ("fill_blank_card",       _("Fill blank card")),
+    ("conversation_reply",    _("Conversation reply")),
+    ("mistake_correction",    _("Mistake correction")),
+    ("translate_to_english",  _("Translate to English")),
+    ("translate_to_arabic",   _("Translate to Arabic")),
+    ("speak_this_sentence",   _("Speak this sentence")),
+    ("pronunciation_check",   _("Pronunciation check")),
+    ("ai_roleplay_prompt",    _("AI roleplay prompt")),
 ]
 ENROLLMENT_STATUS_CHOICES = [
     ("active",    _("Active")),
@@ -380,7 +412,7 @@ class Lesson(models.Model):
         default=0, verbose_name=_("Duration (minutes)"),
     )
     status = models.CharField(
-        max_length=16, choices=LESSON_STATUS_CHOICES, default="draft",
+        max_length=20, choices=LESSON_STATUS_CHOICES, default="draft",
         verbose_name=_("Status"),
     )
     created_by = models.ForeignKey(
@@ -395,6 +427,23 @@ class Lesson(models.Model):
     )
     reviewed_at = models.DateTimeField(
         null=True, blank=True, verbose_name=_("Reviewed at"),
+    )
+    # Phase 11 — distinct approval vs publish actors. Approved means the
+    # teacher signed off; published means the student-facing flag was flipped.
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="approved_lessons",
+        verbose_name=_("Approved by"),
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    quality_score = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name=_("Latest quality score (0-100)"),
+    )
+    quality_flags = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_("Latest quality flag list"),
     )
     is_active = models.BooleanField(default=True, verbose_name=_("Active"))
     created_at = models.DateTimeField(auto_now_add=True)
@@ -585,7 +634,7 @@ class LessonQuestion(models.Model):
         verbose_name=_("Quiz"),
     )
     question_type = models.CharField(
-        max_length=20, choices=QUESTION_TYPE_CHOICES,
+        max_length=32, choices=QUESTION_TYPE_CHOICES,
         verbose_name=_("Question type"),
     )
     question_text = models.TextField(verbose_name=_("Question text"))
@@ -593,6 +642,15 @@ class LessonQuestion(models.Model):
     question_text_en = models.TextField(blank=True, verbose_name=_("English question text"))
     options = models.JSONField(
         default=list, blank=True, verbose_name=_("Options"),
+    )
+    metadata = models.JSONField(
+        default=dict, blank=True, verbose_name=_("Type-specific metadata"),
+        help_text=_(
+            "Per-question_type payload — sentence_ordering: words/correct_order, "
+            "frequency_scale: scale_items, table_sentence_builder: columns/rows, "
+            "listening_match: pairs/audio_status, speaking_sentence_builder: "
+            "student_prompt/ai_tutor_instruction, question_transform: statement/target_qword."
+        ),
     )
     correct_answer = models.TextField(
         blank=True, verbose_name=_("Correct answer"),
@@ -1221,7 +1279,7 @@ class CourseReviewQuestion(models.Model):
         verbose_name=_("Review"),
     )
     question_type = models.CharField(
-        max_length=20, choices=QUESTION_TYPE_CHOICES,
+        max_length=32, choices=QUESTION_TYPE_CHOICES,
         verbose_name=_("Question type"),
     )
     question_text = models.TextField(verbose_name=_("Question text"))
@@ -1284,3 +1342,241 @@ class CourseReviewAttempt(models.Model):
 
     def __str__(self):
         return f"Attempt #{self.pk} · review={self.review_id} student={self.student_id}"
+
+
+# ---------------------------------------------------------------------------
+# 14. ChallengeSession + ChallengeAnswer (Prompt 02 / Phase 1)
+# ---------------------------------------------------------------------------
+# Server-checked, one-question-at-a-time game experience built on top of
+# the existing LessonQuiz / LessonQuestion bank. The legacy quiz
+# (`lesson_quiz_attempt`) stays untouched.
+
+CHALLENGE_STATUS_CHOICES = [
+    ("started",     _("Started")),
+    ("in_progress", _("In progress")),
+    ("completed",   _("Completed")),
+    ("failed",      _("Failed — out of hearts")),
+    ("abandoned",   _("Abandoned")),
+]
+
+CHALLENGE_DEFAULT_HEARTS = 5  # tunable later via settings
+
+
+class ChallengeSession(models.Model):
+    """One playthrough of a Lesson's Challenge by one student.
+
+    Each row tracks where the student is, their hearts, and their XP
+    earned this session. A user may have **at most one active session
+    per (user, lesson)** — opening a new one resumes the open session
+    instead of forking it.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="challenge_sessions",
+        verbose_name=_("Student"),
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE,
+        related_name="challenge_sessions",
+        verbose_name=_("Lesson"),
+    )
+    quiz = models.ForeignKey(
+        LessonQuiz, on_delete=models.CASCADE,
+        related_name="challenge_sessions",
+        verbose_name=_("Quiz"),
+    )
+
+    status = models.CharField(
+        max_length=12, choices=CHALLENGE_STATUS_CHOICES, default="started",
+        db_index=True, verbose_name=_("Status"),
+    )
+
+    # The ordered list of LessonQuestion ids this session walks through.
+    # Pinned at session creation so adding questions to a quiz mid-play
+    # doesn't shift indexes.
+    question_ids = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_("Question id sequence"),
+    )
+    current_question_index = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_("Current question index (0-based)"),
+    )
+    total_questions = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_("Total questions in this session"),
+    )
+
+    correct_count = models.PositiveSmallIntegerField(default=0)
+    wrong_count   = models.PositiveSmallIntegerField(default=0)
+
+    hearts_total     = models.PositiveSmallIntegerField(default=CHALLENGE_DEFAULT_HEARTS)
+    hearts_remaining = models.PositiveSmallIntegerField(default=CHALLENGE_DEFAULT_HEARTS)
+
+    xp_earned = models.PositiveIntegerField(
+        default=0, verbose_name=_("XP earned this session"),
+    )
+
+    started_at   = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        constraints = [
+            # At most one ACTIVE session per (user, lesson). Completed /
+            # failed / abandoned ones may coexist (history).
+            models.UniqueConstraint(
+                fields=["user", "lesson"],
+                condition=models.Q(status__in=["started", "in_progress"]),
+                name="challenge_session_one_active_per_user_lesson",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "lesson"]),
+            models.Index(fields=["status", "-updated_at"]),
+        ]
+        verbose_name = _("Challenge session")
+        verbose_name_plural = _("Challenge sessions")
+
+    def __str__(self):
+        return (
+            f"ChallengeSession<{self.pk}> "
+            f"u={self.user_id} L={self.lesson_id} "
+            f"step={self.current_question_index}/{self.total_questions} "
+            f"hearts={self.hearts_remaining}/{self.hearts_total} "
+            f"status={self.status}"
+        )
+
+    # ---- helpers (read-only; mutations live in challenge_runner) -----
+    @property
+    def is_active(self) -> bool:
+        return self.status in ("started", "in_progress")
+
+    @property
+    def is_finished(self) -> bool:
+        return self.status in ("completed", "failed")
+
+    @property
+    def accuracy_pct(self) -> int:
+        denom = (self.correct_count + self.wrong_count) or 1
+        return int(round(self.correct_count * 100 / denom))
+
+
+class ChallengeAnswer(models.Model):
+    """One answered card. Persisted before feedback is rendered so
+    refresh keeps the student's place exactly."""
+
+    session = models.ForeignKey(
+        ChallengeSession, on_delete=models.CASCADE,
+        related_name="answers",
+        verbose_name=_("Session"),
+    )
+    question = models.ForeignKey(
+        LessonQuestion, on_delete=models.CASCADE,
+        related_name="challenge_answers",
+        verbose_name=_("Question"),
+    )
+
+    # Free-text capture of whatever the student submitted. JSON-safe so
+    # complex types (e.g. sentence-ordering arrays) survive cleanly.
+    user_answer = models.TextField(blank=True)
+
+    is_correct = models.BooleanField(default=False)
+    score      = models.FloatField(default=0.0)
+
+    xp_awarded     = models.PositiveSmallIntegerField(default=0)
+    heart_lost     = models.BooleanField(default=False)
+
+    feedback_en = models.TextField(blank=True)
+    feedback_ar = models.TextField(blank=True)
+
+    time_spent_seconds = models.PositiveIntegerField(default=0)
+
+    answered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["session", "answered_at", "id"]
+        constraints = [
+            # One answer per (session, question). Future retry mode
+            # would need to relax this to (session, question, attempt).
+            models.UniqueConstraint(
+                fields=["session", "question"],
+                name="challenge_answer_unique_session_question",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["session", "question"]),
+        ]
+        verbose_name = _("Challenge answer")
+        verbose_name_plural = _("Challenge answers")
+
+    def __str__(self):
+        mark = "✓" if self.is_correct else "✗"
+        return f"ChAns<{self.pk}> session={self.session_id} q={self.question_id} {mark}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 11 — Lesson review audit trail
+# ---------------------------------------------------------------------------
+
+REVIEW_ACTION_CHOICES = [
+    ("start_review",     _("Start review")),
+    ("approve",          _("Approve")),
+    ("request_changes",  _("Request changes")),
+    ("reject",           _("Reject")),
+    ("publish",          _("Publish")),
+    ("unpublish",        _("Unpublish")),
+    ("archive",          _("Archive")),
+    ("note_added",       _("Note added")),
+    ("quality_check",    _("Quality check")),
+]
+
+
+class LessonReviewEvent(models.Model):
+    """Audit row for every review action on a Lesson.
+
+    Phase 11 contract:
+      * Every status change writes one of these.
+      * Every note add / quality check writes one of these.
+      * Querying the history of a Lesson = reading these rows by
+        `lesson_id` ordered by `created_at` asc.
+    """
+
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE,
+        related_name="review_events",
+        verbose_name=_("Lesson"),
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="review_actions",
+        verbose_name=_("Actor"),
+    )
+    from_status = models.CharField(
+        max_length=20, blank=True,
+        help_text=_("Status before this action (empty for notes/quality)."),
+    )
+    to_status = models.CharField(
+        max_length=20, blank=True,
+        help_text=_("Status after this action (empty when unchanged)."),
+    )
+    action = models.CharField(
+        max_length=20, choices=REVIEW_ACTION_CHOICES,
+    )
+    note = models.TextField(blank=True)
+    quality_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["lesson", "-created_at"]
+        indexes = [
+            models.Index(fields=["lesson", "-created_at"]),
+            models.Index(fields=["actor", "-created_at"]),
+            models.Index(fields=["action"]),
+        ]
+        verbose_name = _("Lesson review event")
+        verbose_name_plural = _("Lesson review events")
+
+    def __str__(self):
+        return f"ReviewEvent<{self.lesson_id}> {self.action} by {self.actor_id}"

@@ -1,0 +1,209 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{{ lesson.title }}{% endblock %}
+{% block teacher_subtitle %}Topic {{ lesson.order|stringformat:"02d" }} · {{ lesson.cefr_level }} · {{ lesson.status }}{% endblock %}
+
+{% block teacher_content %}
+<section class="onlenco-review-detail" data-review-detail
+         data-lesson-id="{{ lesson.pk }}" data-status="{{ lesson.status }}">
+
+    {# ===== Messages ===== #}
+    {% if messages %}
+    <ul class="onlenco-review__messages">
+        {% for m in messages %}<li class="onlenco-review__msg onlenco-review__msg--{{ m.tags }}">{{ m }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {# ===== Header / Action row ===== #}
+    <div class="onlenco-review-detail__head">
+        <a href="{% url 'teacher_portal:content_review_list' %}">← Back to list</a>
+        <div class="onlenco-review-detail__chip onlenco-review-detail__chip--{{ lesson.status }}">{{ lesson.status }}</div>
+        <div class="onlenco-review-detail__score">
+            Score: <strong>{{ quality.score }}/100</strong>
+            {% if quality.passed %}<span class="onlenco-review-detail__pass">PASS</span>{% else %}<span class="onlenco-review-detail__fail">FAIL</span>{% endif %}
+        </div>
+    </div>
+
+    <div class="onlenco-review-detail__actions">
+        {% if lesson.status in "pending_review changes_requested" %}
+        <form method="post" action="{% url 'teacher_portal:content_review_start_review' lesson.pk %}"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}"><button>Start review</button></form>
+        {% endif %}
+        {% if lesson.status in "in_review changes_requested pending_review" %}
+        <form method="post" action="{% url 'teacher_portal:content_review_approve' lesson.pk %}" onsubmit="return confirm('Approve this lesson?');">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <input type="text" name="note" placeholder="Optional approval note">
+            <button class="onlenco-review-detail__btn-approve">Approve</button>
+        </form>
+        {% endif %}
+        {% if lesson.status in "in_review pending_review" %}
+        <form method="post" action="{% url 'teacher_portal:content_review_request_changes' lesson.pk %}"
+              onsubmit="return this.note.value.trim() ? confirm('Send back with these notes?') : false;">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <input type="text" name="note" placeholder="What needs changing? (required)" required>
+            <button class="onlenco-review-detail__btn-changes">Request changes</button>
+        </form>
+        {% endif %}
+        {% if lesson.status == "approved" %}
+        <form method="post" action="{% url 'teacher_portal:content_review_publish' lesson.pk %}"
+              onsubmit="return confirm('Publish this lesson to all students?');">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <button class="onlenco-review-detail__btn-publish">Publish</button>
+        </form>
+        {% endif %}
+        {% if lesson.status == "published" %}
+        <form method="post" action="{% url 'teacher_portal:content_review_unpublish' lesson.pk %}"
+              onsubmit="return confirm('Hide this lesson from students?');">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <button class="onlenco-review-detail__btn-unpublish">Unpublish</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{% url 'teacher_portal:content_review_add_note' lesson.pk %}">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <input type="text" name="note" placeholder="Add a note" required>
+            <button>Save note</button>
+        </form>
+    </div>
+
+    {# ===== Quality flags ===== #}
+    <section class="onlenco-review-detail__panel">
+        <h3>Quality flags ({{ quality.flags|length }})</h3>
+        {% if quality.flags %}
+        <ul class="onlenco-review-detail__flags">
+            {% for f in quality.flags %}
+            <li class="onlenco-review-detail__flag onlenco-review-detail__flag--{{ f.severity }}" data-flag-code="{{ f.code }}">
+                <strong>{{ f.severity|upper }}</strong>
+                <code>{{ f.code }}</code>
+                <span>{{ f.message }}</span>
+                {% if f.where %}<small>@ {{ f.where }}</small>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="onlenco-review-detail__ok">No quality issues detected. ✅</p>
+        {% endif %}
+    </section>
+
+    {# ===== Content preview (EN) ===== #}
+    <details class="onlenco-review-detail__panel" open>
+        <summary><h3>English content preview</h3></summary>
+        <div class="onlenco-review-detail__content" dir="ltr">{{ lesson.content_html|safe }}</div>
+    </details>
+
+    {# ===== Content preview (AR) ===== #}
+    <details class="onlenco-review-detail__panel">
+        <summary><h3>Arabic content preview</h3></summary>
+        <div class="onlenco-review-detail__content" dir="rtl">{{ lesson.content_ar|safe }}</div>
+    </details>
+
+    {# ===== Questions ===== #}
+    <section class="onlenco-review-detail__panel">
+        <h3>Challenge questions ({{ questions|length }})</h3>
+        <table class="onlenco-review-detail__qtable">
+            <thead><tr><th>#</th><th>Type</th><th>Question</th><th>Skill</th><th>Diff</th></tr></thead>
+            <tbody>
+                {% for q in questions %}
+                <tr>
+                    <td>{{ q.order }}</td>
+                    <td><code>{{ q.question_type }}</code></td>
+                    <td>{{ q.question_text|truncatechars:80 }}</td>
+                    <td>
+                        {% with q.metadata.skills as skills %}
+                        {% if skills %}{% for s in skills %}<span class="onlenco-review-detail__skill{% if s == 'general_beginner' %} is-fallback{% endif %}">{{ s }}</span>{% endfor %}
+                        {% else %}<em>—</em>{% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>{{ q.difficulty_score }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {# ===== Media + checklist ===== #}
+    <section class="onlenco-review-detail__panel">
+        <h3>Image prompts ({{ image_prompts|length }})</h3>
+        <ul>
+            {% for ip in image_prompts %}<li><strong>{{ ip.prompt_type }}</strong>: <small>{{ ip.prompt|truncatechars:160 }}</small></li>{% endfor %}
+        </ul>
+    </section>
+
+    <section class="onlenco-review-detail__panel">
+        <h3>Audio scripts ({{ audio_scripts|length }})</h3>
+        <ul>
+            {% for s in audio_scripts %}<li><strong>{{ s.script_type }}</strong> <code>{{ s.voice_style }}</code>: "{{ s.script_text|truncatechars:120 }}"</li>{% endfor %}
+        </ul>
+    </section>
+
+    <section class="onlenco-review-detail__panel">
+        <h3>Checklist ({{ checklist|length }})</h3>
+        <ol>
+            {% for c in checklist %}<li>EN: {{ c.text_en }}<br><small dir="rtl">AR: {{ c.text_ar }}</small></li>{% endfor %}
+        </ol>
+    </section>
+
+    {# ===== Audit trail ===== #}
+    <section class="onlenco-review-detail__panel">
+        <h3>Audit trail ({{ events|length }})</h3>
+        <ul class="onlenco-review-detail__events">
+            {% for e in events %}
+            <li>
+                <strong>{{ e.action }}</strong> by {{ e.actor.username|default:"system" }}
+                {% if e.from_status and e.to_status %} · {{ e.from_status }} → {{ e.to_status }}{% endif %}
+                {% if e.quality_score %} · score={{ e.quality_score }}{% endif %}
+                <small>{{ e.created_at|date:"Y-m-d H:i" }}</small>
+                {% if e.note %}<p>{{ e.note }}</p>{% endif %}
+            </li>
+            {% empty %}
+            <li><em>No events yet.</em></li>
+            {% endfor %}
+        </ul>
+    </section>
+</section>
+
+<style>
+.onlenco-review-detail { display: grid; gap: 18px; }
+.onlenco-review__messages { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.onlenco-review__msg { padding: 10px 14px; border-radius: 10px; font-weight: 700; }
+.onlenco-review__msg--success { background: #DCFCE7; color: #15803D; }
+.onlenco-review__msg--error { background: #FEE2E2; color: #B91C1C; }
+.onlenco-review-detail__head { display: flex; gap: 14px; align-items: center; padding: 12px; background: #F8FAFC; border: 1px solid #E5E7EB; border-radius: 10px; }
+.onlenco-review-detail__chip { padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: .82rem; background: #E5E7EB; }
+.onlenco-review-detail__chip--pending_review { background: #FEF3C7; color: #92400E; }
+.onlenco-review-detail__chip--in_review { background: #DBEAFE; color: #1E40AF; }
+.onlenco-review-detail__chip--changes_requested { background: #FED7AA; color: #9A3412; }
+.onlenco-review-detail__chip--approved { background: #DCFCE7; color: #15803D; }
+.onlenco-review-detail__chip--published { background: #BBF7D0; color: #166534; }
+.onlenco-review-detail__chip--rejected { background: #FEE2E2; color: #B91C1C; }
+.onlenco-review-detail__score { margin-left: auto; font-size: .95rem; }
+.onlenco-review-detail__pass { background: #DCFCE7; color: #15803D; padding: 2px 10px; border-radius: 999px; font-weight: 800; }
+.onlenco-review-detail__fail { background: #FEE2E2; color: #B91C1C; padding: 2px 10px; border-radius: 999px; font-weight: 800; }
+.onlenco-review-detail__actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.onlenco-review-detail__actions form { display: flex; gap: 6px; align-items: center; }
+.onlenco-review-detail__actions input[type=text] { padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 6px; font-size: .85rem; min-width: 200px; }
+.onlenco-review-detail__actions button { background: #2563EB; color: white; border: 0; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.onlenco-review-detail__btn-approve { background: #22C55E; }
+.onlenco-review-detail__btn-changes { background: #F59E0B; }
+.onlenco-review-detail__btn-publish { background: #15803D; }
+.onlenco-review-detail__btn-unpublish { background: #6B7280; }
+.onlenco-review-detail__panel { background: white; border: 1px solid #E5E7EB; border-radius: 10px; padding: 16px; }
+.onlenco-review-detail__panel h3 { margin: 0 0 10px; font-size: 1rem; color: #111827; }
+.onlenco-review-detail__flags { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.onlenco-review-detail__flag { padding: 8px 12px; border-radius: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: .88rem; }
+.onlenco-review-detail__flag--error { background: #FEE2E2; }
+.onlenco-review-detail__flag--warning { background: #FEF3C7; }
+.onlenco-review-detail__flag--info { background: #DBEAFE; }
+.onlenco-review-detail__flag strong { font-size: .72rem; }
+.onlenco-review-detail__flag code { background: white; padding: 2px 8px; border-radius: 4px; font-size: .78rem; }
+.onlenco-review-detail__flag small { color: #6B7280; }
+.onlenco-review-detail__ok { color: #15803D; font-weight: 700; }
+.onlenco-review-detail__content { padding: 12px; background: #F9FAFB; border-radius: 8px; max-height: 540px; overflow: auto; }
+.onlenco-review-detail__qtable { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.onlenco-review-detail__qtable th, .onlenco-review-detail__qtable td { padding: 6px 10px; border-bottom: 1px solid #F3F4F6; text-align: left; }
+.onlenco-review-detail__qtable th { background: #F8FAFC; font-weight: 700; }
+.onlenco-review-detail__skill { display: inline-block; padding: 2px 6px; background: #DBEAFE; color: #1E40AF; border-radius: 4px; font-size: .72rem; margin-right: 4px; }
+.onlenco-review-detail__skill.is-fallback { background: #FEF3C7; color: #92400E; }
+.onlenco-review-detail__events { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: .88rem; }
+.onlenco-review-detail__events li { padding: 6px 10px; background: #F8FAFC; border-radius: 6px; }
+.onlenco-review-detail__events small { color: #6B7280; margin-left: 8px; }
+</style>
+{% endblock %}

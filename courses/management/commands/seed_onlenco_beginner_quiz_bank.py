@@ -31,13 +31,23 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--course-slug", default=COURSE_SLUG,
+            help=f"Course slug (default: {COURSE_SLUG}).",
+        )
+        parser.add_argument(
+            "--level", default=None,
+            choices=["A1", "A2", "B1", "B2", "C1", "C2"],
+            help="Use level descriptors instead of A0 UNITS list.",
+        )
         parser.add_argument("--quiet", action="store_true")
 
     @transaction.atomic
     def handle(self, *args, **options):
         quiet = options["quiet"]
+        slug = options["course_slug"]
         try:
-            course = Course.objects.get(slug=COURSE_SLUG)
+            course = Course.objects.get(slug=slug)
         except Course.DoesNotExist:
             self.stderr.write(self.style.ERROR(
                 f"Course '{COURSE_SLUG}' not found. "
@@ -58,7 +68,18 @@ class Command(BaseCommand):
 
         totals = {"quizzes": 0, "questions": 0, "audio_placeholders": 0}
 
-        for unit in UNITS:
+        # Pick unit-dict source: UNITS for A0, level descriptors otherwise.
+        if options["level"]:
+            from courses.services.onlenco_level_descriptors import LEVELS
+            from courses.services.onlenco_level_unit_builder import (
+                build_all_units_for_level,
+            )
+            level_dict = next(lv for lv in LEVELS if lv["code"] == options["level"])
+            unit_source = build_all_units_for_level(level_dict)
+        else:
+            unit_source = UNITS
+
+        for unit in unit_source:
             lesson = lessons_by_order.get(unit["n"])
             if lesson is None:
                 continue
