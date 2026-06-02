@@ -775,25 +775,37 @@ body.ds-no-scroll { overflow: hidden; }
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
-/* Desktop (>=769px): force the sidebar to stay IN the grid and keep all the
-   drawer chrome hidden. Declared last + as min-width so it overrides every
-   legacy max-width:980/560 rule — the sidebar never overlays content and the
-   hamburger/overlay never appear on desktop (root cause of the regression). */
-@media (min-width: 769px) {
+/* ===================================================================
+   Prompt 16.6A.2 — authoritative shell layout (rebuild).
+   Two decisive blocks override ALL legacy 980/560 media queries:
+     >=1024px  → fixed two-column grid, sidebar in-grid, NO drawer chrome.
+     <=1023px  → off-canvas drawer + hamburger.
+   !important is used only on the desktop hide rules so the drawer can
+   never leak onto desktop regardless of cascade order.
+   =================================================================== */
+@media (min-width: 1024px) {
   .teacher-shell { grid-template-columns: 16rem minmax(0, 1fr); }
   .teacher-sidebar {
     position: sticky;
     inset-block-start: 0;
     height: 100vh;
-    transform: none;
+    transform: none !important;
     z-index: auto;
+    max-width: none;
+    border-bottom: 0;
   }
-  .ds-drawer-toggle { display: none; }
-  .ds-overlay { display: none; }
+  .teacher-nav { grid-template-columns: 1fr; }
+  .teacher-topbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .ds-drawer-toggle { display: none !important; }
+  .ds-overlay { display: none !important; }
 }
 
-/* Mobile/tablet (<=768px): sidebar becomes an off-canvas drawer. */
-@media (max-width: 768px) {
+/* Mobile/tablet (<=1023px): sidebar becomes an off-canvas drawer. */
+@media (max-width: 1023px) {
   .teacher-shell { grid-template-columns: 1fr; }
   .teacher-sidebar {
     position: fixed;

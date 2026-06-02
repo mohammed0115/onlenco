@@ -761,25 +761,35 @@
 .ds-overlay.is-open { display: block; }
 body.ds-no-scroll { overflow: hidden; }
 
-/* Desktop (>=769px): force the sidebar to stay IN the grid and keep the
-   drawer chrome hidden. min-width + declared last overrides every legacy
-   max-width rule so the sidebar never overlays content and the hamburger/
-   overlay never appear on desktop (root cause of the regression). */
-@media (min-width: 769px) {
+/* ===================================================================
+   Prompt 16.6A.2 — authoritative shell layout (rebuild).
+   >=1024px  → fixed two-column grid, sidebar in-grid, NO drawer chrome.
+   <=1023px  → off-canvas drawer + hamburger.
+   !important only on desktop hide rules so the drawer never leaks onto
+   desktop regardless of cascade order vs legacy 1100/860 media queries.
+   =================================================================== */
+@media (min-width: 1024px) {
   .control-layout { grid-template-columns: 16rem minmax(0, 1fr); }
   .control-sidebar {
     position: sticky;
     inset-block-start: 0;
     height: 100vh;
-    transform: none;
+    transform: none !important;
     z-index: auto;
+    max-width: none;
   }
-  .ds-drawer-toggle { display: none; }
-  .ds-overlay { display: none; }
+  .control-nav { grid-template-columns: 1fr; }
+  .control-topbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .ds-drawer-toggle { display: none !important; }
+  .ds-overlay { display: none !important; }
 }
 
-/* Mobile/tablet (<=768px): sidebar becomes an off-canvas drawer. */
-@media (max-width: 768px) {
+/* Mobile/tablet (<=1023px): sidebar becomes an off-canvas drawer. */
+@media (max-width: 1023px) {
   .control-layout { grid-template-columns: 1fr; }
   .control-sidebar {
     position: fixed;

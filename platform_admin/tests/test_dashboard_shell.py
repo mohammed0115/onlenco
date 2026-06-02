@@ -35,18 +35,28 @@ class AdminShellResponsiveTests(PlatformAdminTestMixin, TestCase):
         r = self.client.get("/admin/")
         self.assertNotEqual(r.status_code, 200)
 
-    # --- Prompt 16.6A.1 — shell layout regression guards ---
+    # --- Prompt 16.6A.2 — shell layout rebuild guards ---
 
-    def test_admin_dashboard_desktop_shell_not_drawer(self):
+    def _control_css(self):
         from django.contrib.staticfiles import finders
-        css = open(finders.find("platform_admin/css/control.css")).read()
-        self.assertIn("@media (min-width: 769px)", css)
-        self.assertIn("@media (max-width: 768px)", css)
-        desktop = css.split("@media (min-width: 769px)")[1].split("@media (max-width: 768px)")[0]
-        self.assertIn(".ds-drawer-toggle", desktop)
-        self.assertIn("display: none", desktop)
+        return open(finders.find("platform_admin/css/control.css")).read()
+
+    def test_admin_shell_desktop_sidebar_not_drawer(self):
+        css = self._control_css()
+        self.assertIn("@media (min-width: 1024px)", css)
+        self.assertIn("@media (max-width: 1023px)", css)
+        desktop = css.split("@media (min-width: 1024px)")[1].split("@media (max-width: 1023px)")[0]
+        self.assertIn("position: sticky", desktop)
+        self.assertNotIn("position: fixed", desktop)
+
+    def test_admin_hamburger_hidden_on_desktop(self):
+        css = self._control_css()
+        desktop = css.split("@media (min-width: 1024px)")[1].split("@media (max-width: 1023px)")[0]
+        self.assertIn(".ds-drawer-toggle { display: none !important; }", desktop)
+        self.assertIn(".ds-overlay { display: none !important; }", desktop)
+        self.assertIn("grid-template-columns: 16rem minmax(0, 1fr)", desktop)
 
     def test_admin_css_version_bumped(self):
         self.client.force_login(self.platform_admin)
         html = self.client.get("/admin/").content.decode()
-        self.assertIn("control.css?v=p166a1", html)
+        self.assertIn("control.css?v=p166a2", html)

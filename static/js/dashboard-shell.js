@@ -28,6 +28,9 @@
         return drawer.classList.contains("is-open");
       }
       function open() {
+        // Desktop guard: the toggle is display:none on desktop, so the drawer
+        // must never open there even if open() is invoked programmatically.
+        if (getComputedStyle(btn).display === "none") return;
         drawer.classList.add("is-open");
         if (overlay) overlay.classList.add("is-open");
         btn.setAttribute("aria-expanded", "true");
