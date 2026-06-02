@@ -1161,6 +1161,73 @@ def placement_question_action(request, pk, action):
     return redirect("platform_admin:placement_questions")
 
 
+@require_POST
+@control_permission_required(perms.CAP_SETTINGS_MANAGE)
+def placement_question_bulk_action(request):
+    """POST-only: activate / deactivate / delete many questions at once."""
+    from django.utils import timezone
+    from django.db.models import ProtectedError
+    from placement.models import PlacementQuestion
+    from platform_admin.services.audit_log_service import log_action
+
+    ids = request.POST.getlist("ids")
+    action = (request.POST.get("bulk_action") or "").strip()
+    qs = PlacementQuestion.objects.filter(pk__in=ids)
+
+    if not ids:
+        messages.warning(request, "No questions selected.")
+        return redirect("platform_admin:placement_questions")
+
+    if action in ("activate", "deactivate"):
+        is_active = action == "activate"
+        count = qs.update(is_active=is_active, updated_at=timezone.now())
+        log_action(
+            request,
+            action_type="placement_question.bulk_toggle",
+            object_type="PlacementQuestion",
+            object_id=0,
+            description=f"{'Activated' if is_active else 'Deactivated'} {count} question(s)",
+        )
+        messages.success(
+            request,
+            f"{count} question(s) {'activated' if is_active else 'deactivated'}.",
+        )
+    elif action == "delete":
+        deleted = protected = 0
+        # PROTECT on PlacementAttemptQuestion.question — questions already
+        # used in an attempt can't be hard-deleted; deactivate those instead.
+        for question in qs:
+            try:
+                question.delete()
+                deleted += 1
+            except ProtectedError:
+                question.is_active = False
+                question.save(update_fields=["is_active", "updated_at"])
+                protected += 1
+        log_action(
+            request,
+            action_type="placement_question.bulk_delete",
+            object_type="PlacementQuestion",
+            object_id=0,
+            description=f"Deleted {deleted} question(s); deactivated {protected} in-use",
+        )
+        if deleted:
+            messages.success(request, f"{deleted} question(s) deleted.")
+        if protected:
+            messages.warning(
+                request,
+                f"{protected} question(s) were used in past attempts — deactivated instead of deleted.",
+            )
+    else:
+        messages.warning(request, "Unknown bulk action.")
+
+    # Preserve the current filters/page when returning to the list.
+    next_url = request.POST.get("next") or ""
+    if next_url.startswith("/") and not next_url.startswith("//"):
+        return redirect(next_url)
+    return redirect("platform_admin:placement_questions")
+
+
 # ---------------------------------------------------------------------------
 # Payment method accounts — bank/wallet details students transfer to.
 # Moved into the Control Center so finance admins manage them without

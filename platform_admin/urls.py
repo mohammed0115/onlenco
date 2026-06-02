@@ -69,6 +69,7 @@ urlpatterns = [
     # Placement question bank — CRUD inside the Control Center.
     path("placement-questions/", views.placement_questions, name="placement_questions"),
     path("placement-questions/new/", views.placement_question_create, name="placement_question_create"),
+    path("placement-questions/bulk/", views.placement_question_bulk_action, name="placement_question_bulk_action"),
     path("placement-questions/<int:pk>/edit/", views.placement_question_edit, name="placement_question_edit"),
     path("placement-questions/<int:pk>/<slug:action>/", views.placement_question_action, name="placement_question_action"),
 ]

@@ -49,59 +49,109 @@
   </a>
 </div>
 
-<div class="control-panel">
-  <table class="control-table">
-    <thead>
-      <tr>
-        <th>{% if lang == "ar" %}الرمز{% else %}Code{% endif %}</th>
-        <th>{% if lang == "ar" %}النوع{% else %}Type{% endif %}</th>
-        <th>{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</th>
-        <th>{% if lang == "ar" %}السؤال{% else %}Question{% endif %}</th>
-        <th>{% if lang == "ar" %}المستوى{% else %}CEFR{% endif %}</th>
-        <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
-        <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for question in page_obj.object_list %}
+<form method="post" id="pq-bulk" action="{% url 'platform_admin:placement_question_bulk_action' %}">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+
+  <div class="toolbar">
+    <div class="filters">
+      <span class="muted" id="pq-selected-count">{% if lang == "ar" %}محدّد: 0{% else %}0 selected{% endif %}</span>
+      <button type="submit" name="bulk_action" value="activate" class="btn-control">
+        <i data-lucide="check-circle" class="h-4 w-4"></i>
+        {% if lang == "ar" %}تفعيل المحدّد{% else %}Enable selected{% endif %}
+      </button>
+      <button type="submit" name="bulk_action" value="deactivate" class="btn-control">
+        <i data-lucide="slash" class="h-4 w-4"></i>
+        {% if lang == "ar" %}تعطيل المحدّد{% else %}Disable selected{% endif %}
+      </button>
+      <button type="submit" name="bulk_action" value="delete" class="btn-control link-danger" data-pq-confirm="{% if lang == 'ar' %}حذف الأسئلة المحدّدة؟ لا يمكن التراجع.{% else %}Delete selected questions? This cannot be undone.{% endif %}">
+        <i data-lucide="trash-2" class="h-4 w-4"></i>
+        {% if lang == "ar" %}حذف المحدّد{% else %}Delete selected{% endif %}
+      </button>
+    </div>
+  </div>
+
+  <div class="control-panel">
+    <table class="control-table">
+      <thead>
         <tr>
-          <td><code>{{ question.code }}</code></td>
-          <td>
-            {% if question.question_type == "written" %}{% if lang == "ar" %}كتابي{% else %}Written{% endif %}
-            {% else %}{% if lang == "ar" %}محادثة{% else %}Speaking{% endif %}{% endif %}
-          </td>
-          <td>{{ question.get_skill_display }}</td>
-          <td>{{ question.question_text|truncatechars:70 }}</td>
-          <td><span dir="ltr">{{ question.cefr_min_level }}–{{ question.cefr_max_level }}</span></td>
-          <td>
-            <span class="badge {% if question.is_active %}badge-green{% else %}badge-red{% endif %}">
-              {% if question.is_active %}{% if lang == "ar" %}نشط{% else %}Active{% endif %}{% else %}{% if lang == "ar" %}معطّل{% else %}Inactive{% endif %}{% endif %}
-            </span>
-          </td>
-          <td class="row-actions">
-            <a class="btn-control" href="{% url 'platform_admin:placement_question_edit' question.pk %}">
-              <i data-lucide="pencil" class="h-4 w-4"></i>
-              {% if lang == "ar" %}تعديل{% else %}Edit{% endif %}
-            </a>
-            <form method="post" action="{% url 'platform_admin:placement_question_action' question.pk 'toggle' %}" style="display:inline">
-              {% csrf_token %}
-              <button type="submit" class="btn-control">
+          <th><input type="checkbox" id="pq-check-all" aria-label="{% if lang == 'ar' %}اختيار الكل{% else %}Select all{% endif %}"></th>
+          <th>{% if lang == "ar" %}الرمز{% else %}Code{% endif %}</th>
+          <th>{% if lang == "ar" %}النوع{% else %}Type{% endif %}</th>
+          <th>{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</th>
+          <th>{% if lang == "ar" %}السؤال{% else %}Question{% endif %}</th>
+          <th>{% if lang == "ar" %}المستوى{% else %}CEFR{% endif %}</th>
+          <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+          <th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for question in page_obj.object_list %}
+          <tr>
+            <td><input type="checkbox" class="pq-row-check" name="ids" value="{{ question.pk }}" aria-label="{{ question.code }}"></td>
+            <td><code>{{ question.code }}</code></td>
+            <td>
+              {% if question.question_type == "written" %}{% if lang == "ar" %}كتابي{% else %}Written{% endif %}
+              {% else %}{% if lang == "ar" %}محادثة{% else %}Speaking{% endif %}{% endif %}
+            </td>
+            <td>{{ question.get_skill_display }}</td>
+            <td>{{ question.question_text|truncatechars:70 }}</td>
+            <td><span dir="ltr">{{ question.cefr_min_level }}–{{ question.cefr_max_level }}</span></td>
+            <td>
+              <span class="badge {% if question.is_active %}badge-green{% else %}badge-red{% endif %}">
+                {% if question.is_active %}{% if lang == "ar" %}نشط{% else %}Active{% endif %}{% else %}{% if lang == "ar" %}معطّل{% else %}Inactive{% endif %}{% endif %}
+              </span>
+            </td>
+            <td class="row-actions">
+              <a class="btn-control" href="{% url 'platform_admin:placement_question_edit' question.pk %}">
+                <i data-lucide="pencil" class="h-4 w-4"></i>
+                {% if lang == "ar" %}تعديل{% else %}Edit{% endif %}
+              </a>
+              <button type="submit" class="btn-control" formaction="{% url 'platform_admin:placement_question_action' question.pk 'toggle' %}">
                 {% if question.is_active %}{% if lang == "ar" %}تعطيل{% else %}Disable{% endif %}{% else %}{% if lang == "ar" %}تفعيل{% else %}Enable{% endif %}{% endif %}
               </button>
-            </form>
-            <form method="post" action="{% url 'platform_admin:placement_question_action' question.pk 'delete' %}"
-                  onsubmit="return confirm('{% if lang == "ar" %}حذف هذا السؤال؟{% else %}Delete this question?{% endif %}');"
-                  style="display:inline">
-              {% csrf_token %}
-              <button type="submit" class="btn-control link-danger">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
-            </form>
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد أسئلة. اضغط "سؤال جديد" أو شغّل seed_placement_questions.{% else %}No questions. Click "New question" or run seed_placement_questions.{% endif %}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+              <button type="submit" class="btn-control link-danger" formaction="{% url 'platform_admin:placement_question_action' question.pk 'delete' %}" data-pq-confirm="{% if lang == 'ar' %}حذف هذا السؤال؟{% else %}Delete this question?{% endif %}">
+                {% if lang == "ar" %}حذف{% else %}Delete{% endif %}
+              </button>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="muted">{% if lang == "ar" %}لا توجد أسئلة. اضغط "سؤال جديد" أو شغّل seed_placement_questions.{% else %}No questions. Click "New question" or run seed_placement_questions.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+<div class="control-panel">
   {% include "platform_admin/pagination.html" %}
 </div>
+
+<script>
+(function () {
+  var all = document.getElementById('pq-check-all');
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.pq-row-check'));
+  var counter = document.getElementById('pq-selected-count');
+  var lang = document.documentElement.lang || '';
+  function refresh() {
+    var n = boxes.filter(function (b) { return b.checked; }).length;
+    if (counter) { counter.textContent = (lang.indexOf('ar') === 0) ? ('محدّد: ' + n) : (n + ' selected'); }
+    if (all) { all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+  }
+  if (all) { all.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = all.checked; }); refresh(); }); }
+  boxes.forEach(function (b) { b.addEventListener('change', refresh); });
+  document.querySelectorAll('[data-pq-confirm]').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      var msg = btn.getAttribute('data-pq-confirm');
+      var isBulk = btn.value === 'delete' && btn.name === 'bulk_action';
+      if (isBulk && boxes.filter(function (b) { return b.checked; }).length === 0) {
+        e.preventDefault();
+        return;
+      }
+      if (!window.confirm(msg)) { e.preventDefault(); }
+    });
+  });
+  refresh();
+})();
+</script>
 {% endblock %}
