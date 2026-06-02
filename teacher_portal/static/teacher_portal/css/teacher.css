@@ -806,6 +806,8 @@ body.ds-no-scroll { overflow: hidden; }
 
 /* Mobile/tablet (<=1023px): sidebar becomes an off-canvas drawer. */
 @media (max-width: 1023px) {
+  /* Clip the off-canvas sidebar so it never creates horizontal scroll. */
+  .teacher-shell { overflow-x: clip; }
   .teacher-shell { grid-template-columns: 1fr; }
   .teacher-sidebar {
     position: fixed;

@@ -264,6 +264,10 @@
   grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
   gap: 16px;
 }
+/* Grid items must be allowed to shrink below their content width, else a
+   wide table inside .stack stretches the column and overflows the page
+   (especially when the grid collapses to one column on mobile). */
+.detail-grid > * { min-width: 0; }
 
 .tabs {
   display: flex;
@@ -790,6 +794,9 @@ body.ds-no-scroll { overflow: hidden; }
 
 /* Mobile/tablet (<=1023px): sidebar becomes an off-canvas drawer. */
 @media (max-width: 1023px) {
+  /* The off-canvas sidebar sits beyond the inline-end edge while closed;
+     clip it so it never creates a horizontal scrollbar / content shift. */
+  .control-shell { overflow-x: clip; }
   .control-layout { grid-template-columns: 1fr; }
   .control-sidebar {
     position: fixed;
@@ -819,13 +826,62 @@ body.ds-no-scroll { overflow: hidden; }
   .control-panel { overflow-x: auto; }
 }
 
-/* Teacher detail — compact actions card. Replaces 4 separate .action-box
-   forms whose grid layout stretched each .btn-control to the full panel
-   width (oversized buttons). Buttons now sit in flex rows at natural size. */
-.ta-card { display: grid; gap: 18px; }
-.ta-group { display: grid; gap: 8px; }
-.ta-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.ta-row form { display: contents; }
-.ta-assign { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.ta-assign select { flex: 1 1 160px; min-width: 0; }
-.ta-danger-label { color: hsl(var(--destructive)); }
+/* Teacher detail — compact professional action panel (Prompt 16.6A.3).
+   Replaces the oversized full-height colored action blocks with a side
+   column of small cards: status, role, course assignment, danger zone.
+   Buttons are normal 46px controls, full width INSIDE their card only. */
+.ta-aside {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+}
+.ta-aside .control-card { padding: 16px; }
+
+.ta-status { display: grid; gap: 14px; }
+.ta-status-head { display: flex; align-items: center; gap: 12px; }
+.ta-avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: hsl(var(--primary) / .12);
+  color: hsl(var(--primary));
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.ta-status-id { min-width: 0; }
+.ta-name { font-weight: 800; line-height: 1.2; }
+.ta-email { font-size: 12px; overflow-wrap: anywhere; }
+.ta-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ta-mini { display: grid; gap: 10px; }
+.ta-mini-title { font-weight: 800; font-size: 0.95rem; }
+.ta-hint { font-size: 12px; line-height: 1.5; margin: 0; }
+.ta-mini form { margin: 0; }
+
+/* Action buttons: normal height, full width inside the card (never the
+   full panel height — the old .action-box grid-stretch bug). */
+.ta-btn {
+  width: 100%;
+  min-height: 46px;
+  justify-content: center;
+}
+.ta-assign-form { display: grid; gap: 10px; }
+.ta-assign-form select,
+.ta-assign-form input { width: 100%; }
+
+/* Danger zone — subtle red card, not a giant red block. */
+.ta-danger {
+  border-color: hsl(var(--destructive) / .4);
+  background: hsl(var(--destructive) / .04);
+}
+.ta-danger-title { color: hsl(var(--destructive)); }
+
+/* On mobile the action panel stacks under the main content (detail-grid
+   already collapses to one column at <=1100px). */
+@media (max-width: 1100px) {
+  .ta-aside { gap: 12px; }
+}

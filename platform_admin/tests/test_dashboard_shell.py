@@ -59,4 +59,4 @@ class AdminShellResponsiveTests(PlatformAdminTestMixin, TestCase):
     def test_admin_css_version_bumped(self):
         self.client.force_login(self.platform_admin)
         html = self.client.get("/admin/").content.decode()
-        self.assertIn("control.css?v=p166a2", html)
+        self.assertIn("control.css?v=p166a3", html)

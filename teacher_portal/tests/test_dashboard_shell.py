@@ -69,7 +69,7 @@ class TeacherShellResponsiveTests(TeacherPortalTestMixin):
     def test_teacher_css_version_bumped(self):
         self.client.force_login(self.teacher)
         html = self.client.get("/teacher/dashboard/").content.decode()
-        self.assertIn("teacher.css?v=p166a2", html)
+        self.assertIn("teacher.css?v=p166a3", html)
 
     def test_dashboard_shell_js_exits_early_on_desktop(self):
         from django.contrib.staticfiles import finders
