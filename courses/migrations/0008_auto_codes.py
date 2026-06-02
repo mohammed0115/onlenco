@@ -91,7 +91,7 @@ class Migration(migrations.Migration):
             model_name="course",
             name="code",
             field=models.CharField(
-                blank=True, db_index=True, default="", max_length=50,
+                blank=True, default="", max_length=50,
                 verbose_name="Auto code",
             ),
             preserve_default=False,
@@ -100,7 +100,7 @@ class Migration(migrations.Migration):
             model_name="courseunit",
             name="code",
             field=models.CharField(
-                blank=True, db_index=True, default="", max_length=50,
+                blank=True, default="", max_length=50,
                 verbose_name="Auto code",
             ),
             preserve_default=False,
@@ -109,7 +109,7 @@ class Migration(migrations.Migration):
             model_name="lesson",
             name="code",
             field=models.CharField(
-                blank=True, db_index=True, default="", max_length=50,
+                blank=True, default="", max_length=50,
                 verbose_name="Auto code",
             ),
             preserve_default=False,
@@ -118,7 +118,7 @@ class Migration(migrations.Migration):
             model_name="lessonquiz",
             name="code",
             field=models.CharField(
-                blank=True, db_index=True, default="", max_length=60,
+                blank=True, default="", max_length=60,
                 verbose_name="Auto code",
             ),
             preserve_default=False,

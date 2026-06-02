@@ -58,7 +58,7 @@ class Migration(migrations.Migration):
             model_name="book",
             name="code",
             field=models.CharField(
-                blank=True, db_index=True, default="", max_length=50,
+                blank=True, default="", max_length=50,
                 verbose_name="Auto code",
             ),
             preserve_default=False,
@@ -67,7 +67,7 @@ class Migration(migrations.Migration):
             model_name="chapter",
             name="code",
             field=models.CharField(
-                blank=True, db_index=True, default="", max_length=60,
+                blank=True, default="", max_length=60,
                 verbose_name="Auto code",
             ),
             preserve_default=False,
