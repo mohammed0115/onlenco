@@ -83,13 +83,42 @@ def chat(messages: list[dict], *, json_mode: bool = False,
         if remote: candidates.append(("openai", remote))
         if local: candidates.append(("local", local))
 
+    attempted = bool(candidates)
     for label, (base, model, key) in candidates:
         out = _post_chat(base, model, key, messages,
                          json_mode=json_mode, timeout=timeout)
         if out is not None:
             out.setdefault("_router", {})["served_by"] = label
+            _log_funnel_usage(label, model, out, success=True)
             return out
+    if attempted:
+        _log_funnel_usage("openai", "", None, success=False)
     return None
+
+
+def _log_funnel_usage(label: str, model: str, out: dict | None, *, success: bool) -> None:
+    """Meter the shared router funnel into ai_usage (Prompt 12A.1).
+
+    Attribution is coarse here — the router serves ai_engine providers,
+    content generation, and eval — so we log role=system / feature=
+    content_generation, with served_by in metadata. Never raises.
+    """
+    try:
+        from ai_usage import constants as AC
+        from ai_usage.services import usage_logger
+
+        usage = (out or {}).get("usage") or {}
+        provider = AC.PROVIDER_OPENAI if label == "openai" else AC.PROVIDER_OTHER
+        usage_logger.log_ai_usage(
+            user=None, role=AC.ROLE_SYSTEM, feature=AC.FEATURE_CONTENT_GENERATION,
+            provider=provider, model_name=model or "",
+            status=AC.STATUS_SUCCESS if success else AC.STATUS_FAILED,
+            input_tokens=int(usage.get("prompt_tokens", 0) or 0),
+            output_tokens=int(usage.get("completion_tokens", 0) or 0),
+            metadata={"served_by": label, "via": "llm_router_funnel"},
+        )
+    except Exception:  # pragma: no cover - metering must never break routing
+        logger.warning("llm_router: ai_usage funnel log failed", exc_info=True)
 
 
 def parse_json_content(payload: dict | None) -> dict | None:

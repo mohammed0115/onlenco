@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     "platform_admin",
     "teacher_portal",
     "subscriptions",
+    "ai_usage",
 ]
 
 # --- Daily Learning Engine ----------------------------------------------
@@ -154,6 +155,7 @@ MIDDLEWARE = [
     "accounts.middleware.LanguagePreferenceMiddleware",
     "accounts.middleware.ExpireSubscriptionMiddleware",
     "accounts.middleware.ForcePasswordChangeMiddleware",
+    "accounts.middleware.StudentApprovalRequiredMiddleware",
     "axes.middleware.AxesMiddleware",
 ]
 
@@ -287,6 +289,76 @@ AI_CEFR_MODEL_PATH = env_get(
     str(BASE_DIR / "local_models" / "cefr_classifier" / "v0" / "model.joblib"),
 )
 AI_CEFR_MODEL_VERSION = env_get("AI_CEFR_MODEL_VERSION", "v0-logreg")
+
+# --- AI Usage Tracking & Cost Control (ai_usage app, Prompt 12A) --------
+# Master switch. When False the wrapper still calls the provider and
+# returns the response, but skips usage logging & minute enforcement.
+AI_USAGE_TRACKING_ENABLED = env_bool("AI_USAGE_TRACKING_ENABLED", True)
+AI_USAGE_DEFAULT_CURRENCY = env_get("AI_USAGE_DEFAULT_CURRENCY", "USD")
+# Comma-separated list of admin emails for spend / failure alerts.
+AI_USAGE_ALERT_EMAILS = env_list("AI_USAGE_ALERT_EMAILS", [])
+# Budgets (strings → Decimal in the alert/dashboard services so we never
+# carry float money). Empty / "0" disables that threshold.
+AI_USAGE_DAILY_BUDGET_USD = env_get("AI_USAGE_DAILY_BUDGET_USD", "25")
+AI_USAGE_MONTHLY_BUDGET_USD = env_get("AI_USAGE_MONTHLY_BUDGET_USD", "500")
+# AI-Tutor free first-day / base plan minute defaults. Authoritative
+# allowances live on SubscriptionPlan; these are the fallbacks the
+# adapter uses when the subscription system can't answer.
+AI_TUTOR_FREE_FIRST_DAY_MINUTES = int(env_get("AI_TUTOR_FREE_FIRST_DAY_MINUTES", "5") or 5)
+AI_TUTOR_BASE_DAILY_MINUTES = int(env_get("AI_TUTOR_BASE_DAILY_MINUTES", "5") or 5)
+# Privacy. Students never see internal USD cost unless this is True.
+AI_USAGE_STUDENT_CAN_VIEW_COST = env_bool("AI_USAGE_STUDENT_CAN_VIEW_COST", False)
+# Prompt / response storage OFF by default. If enabled, redaction applies.
+AI_USAGE_LOG_PROMPTS = env_bool("AI_USAGE_LOG_PROMPTS", False)
+AI_USAGE_LOG_RESPONSES = env_bool("AI_USAGE_LOG_RESPONSES", False)
+AI_USAGE_REDACT_METADATA = env_bool("AI_USAGE_REDACT_METADATA", True)
+# Abnormal per-user daily spend ($) that triggers an alert.
+AI_USAGE_USER_DAILY_ALERT_USD = env_get("AI_USAGE_USER_DAILY_ALERT_USD", "5")
+# Failed-request count per hour that triggers an alert.
+AI_USAGE_FAILED_REQUESTS_ALERT = int(env_get("AI_USAGE_FAILED_REQUESTS_ALERT", "25") or 25)
+
+# --- Student registration approval gate + anti-bot --------------------
+# New students need admin approval before reaching student features.
+ONLENCO_STUDENT_APPROVAL_REQUIRED = env_bool("ONLENCO_STUDENT_APPROVAL_REQUIRED", True)
+# Registration honeypot field name (hidden in the form; bots fill it).
+ONLENCO_REGISTRATION_HONEYPOT_FIELD = env_get("ONLENCO_REGISTRATION_HONEYPOT_FIELD", "ol_contact_url")
+# CAPTCHA readiness (disabled by default; the project already supports hCaptcha
+# via HCAPTCHA_SITE_KEY — these are forward-compatible toggles).
+ONLENCO_REGISTRATION_CAPTCHA_ENABLED = env_bool("ONLENCO_REGISTRATION_CAPTCHA_ENABLED", False)
+ONLENCO_CAPTCHA_PROVIDER = env_get("ONLENCO_CAPTCHA_PROVIDER", "turnstile")
+# Disposable-email blocking (off by default).
+ONLENCO_BLOCK_DISPOSABLE_EMAILS = env_bool("ONLENCO_BLOCK_DISPOSABLE_EMAILS", False)
+ONLENCO_DISPOSABLE_EMAIL_DOMAINS = env_list("ONLENCO_DISPOSABLE_EMAIL_DOMAINS", [
+    "mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com",
+    "trashmail.com", "yopmail.com", "throwawaymail.com", "getnada.com",
+])
+# Registration rate limit (per IP per hour). The signup view already throttles;
+# this constant centralises the value.
+ONLENCO_REGISTRATION_RATE_LIMIT_PER_HOUR = int(
+    env_get("ONLENCO_REGISTRATION_RATE_LIMIT_PER_HOUR", "10") or 10)
+
+# --- Media Generation Pilot (Prompt 15) -------------------------------
+# OFF by default — generation must be explicitly enabled (or --allow-dev-generation).
+ONLENCO_MEDIA_GENERATION_ENABLED = env_bool("ONLENCO_MEDIA_GENERATION_ENABLED", False)
+ONLENCO_MEDIA_PILOT_BUDGET_USD = env_get("ONLENCO_MEDIA_PILOT_BUDGET_USD", "5.00")
+ONLENCO_MEDIA_MAX_IMAGES_PER_RUN = int(env_get("ONLENCO_MEDIA_MAX_IMAGES_PER_RUN", "20") or 20)
+ONLENCO_MEDIA_MAX_AUDIO_PER_RUN = int(env_get("ONLENCO_MEDIA_MAX_AUDIO_PER_RUN", "30") or 30)
+# Only published/approved lessons are eligible; students see media only after approval.
+ONLENCO_MEDIA_REQUIRE_APPROVED_LESSON = env_bool("ONLENCO_MEDIA_REQUIRE_APPROVED_LESSON", True)
+ONLENCO_MEDIA_STUDENT_VISIBLE_ONLY_AFTER_APPROVAL = env_bool(
+    "ONLENCO_MEDIA_STUDENT_VISIBLE_ONLY_AFTER_APPROVAL", True)
+# Pilot scope + conservative per-item cost estimates (used for budget gating
+# before the real AIUsageLog cost lands).
+ONLENCO_MEDIA_PILOT_TOPICS = env_get("ONLENCO_MEDIA_PILOT_TOPICS", "2-6")
+ONLENCO_MEDIA_IMAGE_SIZE = env_get("ONLENCO_MEDIA_IMAGE_SIZE", "1024x1024")
+ONLENCO_MEDIA_EST_COST_PER_IMAGE_USD = env_get("ONLENCO_MEDIA_EST_COST_PER_IMAGE_USD", "0.02")
+ONLENCO_MEDIA_EST_COST_PER_AUDIO_USD = env_get("ONLENCO_MEDIA_EST_COST_PER_AUDIO_USD", "0.05")
+# Brand / IP names that must never reach the image provider. Matched as WHOLE
+# words, so the safe disclaimer "no logos / no trademarked styling" is fine —
+# generic words like "logo"/"trademark" are deliberately NOT listed.
+ONLENCO_MEDIA_UNSAFE_WORDS = env_list("ONLENCO_MEDIA_UNSAFE_WORDS", [
+    "dk", "duolingo", "owl", "disney", "pixar", "celebrity",
+])
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024

@@ -66,6 +66,16 @@ def next_url_for(user) -> str | None:
             return None
     if _is_staff_account(user):
         return None
+    # Approval gate: an email-verified student who is not yet approved must
+    # wait — they precede onboarding (placement spends AI minutes). Respects
+    # the ONLENCO_STUDENT_APPROVAL_REQUIRED flag (off in tests).
+    from django.conf import settings as _settings
+    if (getattr(_settings, "ONLENCO_STUDENT_APPROVAL_REQUIRED", True)
+            and getattr(profile, "needs_admin_approval", False)):
+        try:
+            return reverse("pending_approval")
+        except Exception:
+            return None
     if needs_onboarding(profile):
         try:
             return reverse("onboarding_choice")

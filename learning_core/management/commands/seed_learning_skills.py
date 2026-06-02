@@ -80,6 +80,14 @@ BEGINNER_SKILLS = [
     ("speaking_intro",            "Speaking — introduction",    "محادثة — تمهيد",     "speaking",   "A0", 490),
     ("pronunciation_basic",       "Pronunciation — basic",      "نطق — أساسي",        "pronunciation","A0", 500),
 
+    # ---- Prompt 12B.1 additions ----
+    # NOTE: `error_correction` is a LearningSkill code for error/correction
+    # practice. It is deliberately NOT named `mistake_correction` to avoid a
+    # namespace clash with the `mistake_correction` *question_type* (a separate
+    # model/field; the distinct name prevents confusion).
+    ("error_correction",          "Error correction",           "تصحيح الأخطاء",       "grammar",    "A1", 475),
+    ("places_in_town",            "Places in town",             "أماكن في المدينة",    "vocabulary", "A1", 155),
+
     # ---- Fallback ----
     (FALLBACK_SKILL_CODE,         "General beginner skill",     "مهارة عامة للمبتدئ", "vocabulary", "A0", 9999),
 ]

@@ -1,0 +1,62 @@
+{% extends "platform_admin/base.html" %}
+{% load i18n %}
+
+{% block control_title %}Student Approvals{% endblock %}
+{% block control_subtitle %}Review and approve new student registrations (anti-bot gate).{% endblock %}
+
+{% block control_content %}
+<section class="control-card">
+  <form method="get" class="control-filter-form">
+    <label>Status
+      <select name="status" onchange="this.form.submit()">
+        {% for v, label in status_choices %}<option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button type="submit" class="btn">Filter</button></noscript>
+  </form>
+</section>
+
+<form method="post" action="{% url 'platform_admin:student_approval_bulk' %}">
+  {% csrf_token %}
+  <section class="control-card" style="margin-top:16px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <select name="bulk_action"><option value="approve">Approve selected</option><option value="reject">Reject selected</option></select>
+      <input type="text" name="note" placeholder="Note (required for reject)" style="flex:1">
+      <button type="submit" class="btn">Apply to selected</button>
+    </div>
+    <table class="control-table">
+      <thead><tr>
+        <th></th><th>Name</th><th>Email</th><th>Registered</th><th>Email verified</th>
+        <th>IP</th><th>Suspicious</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td><input type="checkbox" name="student_ids" value="{{ r.id }}"></td>
+          <td>{{ r.name }}</td>
+          <td>{{ r.email }}</td>
+          <td>{{ r.registered|date:'Y-m-d H:i' }}</td>
+          <td>{% if r.email_verified %}✅{% else %}—{% endif %}</td>
+          <td>{{ r.ip|default:'—' }}</td>
+          <td>{% if r.suspicious_flags %}<span class="control-alert">{{ r.suspicious_flags|join:', ' }}</span>{% else %}—{% endif %}</td>
+          <td>{{ r.approval_status }}</td>
+          <td style="white-space:nowrap">
+            <button form="approve-{{ r.id }}" class="btn btn-sm">Approve</button>
+            <button form="suspend-{{ r.id }}" class="btn btn-sm">Suspend</button>
+            <button form="reject-{{ r.id }}" class="btn btn-sm">Reject</button>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9">No students in this status.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</form>
+
+{% for r in rows %}
+  <form id="approve-{{ r.id }}" method="post" action="{% url 'platform_admin:student_approval_action' r.id 'approve' %}">{% csrf_token %}</form>
+  <form id="suspend-{{ r.id }}" method="post" action="{% url 'platform_admin:student_approval_action' r.id 'suspend' %}">{% csrf_token %}<input type="hidden" name="note" value="Suspended from approvals queue."></form>
+  <form id="reject-{{ r.id }}" method="post" action="{% url 'platform_admin:student_approval_action' r.id 'reject' %}">{% csrf_token %}<input type="hidden" name="note" value="Rejected from approvals queue (likely bot/spam)."></form>
+{% endfor %}
+{% endblock %}

@@ -77,29 +77,20 @@ def generate_image(prompt: str, *, size: str = "1024x1024",
     )
 
     try:
-        resp = requests.post(
-            f"{_api_base()}/images/generations",
-            headers={
-                "Authorization": f"Bearer {_api_key()}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model,
-                "prompt": full_prompt[:3800],
-                "n": 1,
-                "size": size,
-            },
-            timeout=120,
+        # Centralised ai_usage wrapper (Prompt 12A.1): media_generation,
+        # role=system. cost_estimate_usd below is the historical business
+        # estimate kept for backward-compat; ai_usage prices from AIModelPricing.
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        png = ai_client.generate_image(
+            full_prompt[:3800], size=size, model=model,
+            feature=AC.FEATURE_MEDIA_GENERATION, role=AC.ROLE_SYSTEM,
+            metadata={"kind": "image"},
         )
-        resp.raise_for_status()
-        data = resp.json()
-        b64 = data["data"][0]["b64_json"]
-        # gpt-image-1-mini approx $0.005/image at 1024×1024. We bill the
-        # estimate even when the API doesn't return a usage block so the
-        # caller can still aggregate spend.
         return GenerationResult(
             ok=True,
-            bytes_=base64.b64decode(b64),
+            bytes_=png,
             cost_estimate_usd=0.005 if "mini" in model else 0.04,
         )
     except Exception as e:
@@ -122,26 +113,20 @@ def generate_audio(text: str, *, voice_style: str = "friendly_teacher",
     voice = VOICE_BY_STYLE.get(voice_style, VOICE_BY_STYLE["_default"])
 
     try:
-        resp = requests.post(
-            f"{_api_base()}/audio/speech",
-            headers={
-                "Authorization": f"Bearer {_api_key()}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model,
-                "input": text[:4000],   # API limit 4096
-                "voice": voice,
-                "response_format": "mp3",
-                "speed": 1.0,            # natural conversational pace
-            },
-            timeout=60,
+        # Centralised ai_usage wrapper (Prompt 12A.1): media_generation TTS,
+        # role=system. cost_estimate_usd preserves the historical $15/1M-char
+        # business estimate; ai_usage prices from AIModelPricing.
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        audio = ai_client.synthesize_speech(
+            text[:4000], voice=voice, model=model,
+            feature=AC.FEATURE_MEDIA_GENERATION, role=AC.ROLE_SYSTEM,
+            response_format="mp3", timeout=60, metadata={"kind": "lesson_audio"},
         )
-        resp.raise_for_status()
-        # Pricing: tts-1 is $15 / 1M characters.
         return GenerationResult(
             ok=True,
-            bytes_=resp.content,
+            bytes_=audio,
             cost_estimate_usd=len(text) * 15.0 / 1_000_000,
         )
     except Exception as e:

@@ -931,6 +931,21 @@ def voice_call_session(request):
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
+    # Record the realtime session authorisation in ai_usage (Prompt 12A.1).
+    # The realtime API bills browser↔OpenAI, so tokens/cost are invisible
+    # here — minutes are charged on hang-up via session_service.end_session.
+    try:
+        from ai_usage import constants as _AC
+        from ai_usage.services import ai_client as _ai_client
+        _ai_client.log_realtime_session_start(
+            user=request.user, role=_AC.ROLE_STUDENT,
+            session_id=f"tutor_session:{tutor_session.pk}",
+            metadata={"is_placement_call": bool(is_placement_call),
+                      "quota_source": source_bucket},
+        )
+    except Exception:
+        logger.warning("ai_usage realtime session-start log failed", exc_info=True)
+
     # The browser must cap its own session at min(provider_expiry, our quota).
     max_session_seconds = min(
         int(getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900)),

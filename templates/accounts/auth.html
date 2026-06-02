@@ -68,6 +68,11 @@
                                 <p class="text-xs text-destructive mt-1">{{ err }}</p>
                             {% endfor %}
                         </div>
+                        {% comment %} Anti-bot honeypot — hidden off-screen; humans never fill it. {% endcomment %}
+                        <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden">
+                            <label for="id_ol_contact_url">Contact URL</label>
+                            <input type="text" id="id_ol_contact_url" name="ol_contact_url" tabindex="-1" autocomplete="off">
+                        </div>
                     {% else %}
                         <div>
                             <label class="label" for="id_username">{% t "auth.email" %}</label>

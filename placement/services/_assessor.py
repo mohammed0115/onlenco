@@ -198,42 +198,27 @@ def assess(answers: dict) -> dict:
     }
 
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
+        # Centralised ai_usage wrapper (Prompt 12A.1): meters tokens/cost and
+        # logs success/failure once. Function-calling passed via extra_payload.
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        data = ai_client.chat(
+            payload["messages"], feature=AC.FEATURE_PLACEMENT_WRITTEN,
+            role=AC.ROLE_STUDENT, model=settings.AI_MODEL,
+            extra_payload={"tools": payload["tools"],
+                           "tool_choice": payload["tool_choice"]},
             timeout=30,
         )
-        resp.raise_for_status()
-        data = resp.json()
         tool_call = data["choices"][0]["message"]["tool_calls"][0]
         result = json.loads(tool_call["function"]["arguments"])
         # Sanity-check the keys we care about
         for k in ("level", "written_score", "speaking_score", "feedback"):
             if k not in result:
                 raise ValueError(f"missing key {k} in AI response")
-        try:
-            from core.services.ai_usage import log_usage
-            usage = data.get("usage", {}) or {}
-            log_usage(
-                None, "placement", model=settings.AI_MODEL,
-                prompt_tokens=int(usage.get("prompt_tokens", 0) or 0),
-                completion_tokens=int(usage.get("completion_tokens", 0) or 0),
-                success=True,
-            )
-        except Exception:
-            pass
         return result
     except Exception as e:
         logger.exception("AI placement call failed: %s", e)
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(None, "placement", model=settings.AI_MODEL, success=False, error_message=str(e))
-        except Exception:
-            pass
         # Fall back rather than 500ing — better UX
         result = _heuristic_fallback(answers)
         result["feedback"] = (

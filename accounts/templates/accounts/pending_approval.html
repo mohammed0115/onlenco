@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% if lang == "ar" %}بانتظار موافقة الإدارة{% else %}Waiting for approval{% endif %}{% endblock %}
+
+{% block body %}
+<main class="auth-shell" dir="{% if lang == 'ar' %}rtl{% else %}ltr{% endif %}">
+  <section class="auth-card pending-approval-card" style="max-width:560px;margin:48px auto;padding:28px;text-align:center">
+    <div class="pending-approval-icon" aria-hidden="true" style="font-size:42px">⏳</div>
+
+    <h1 class="auth-title">{% if lang == "ar" %}حسابك بانتظار الموافقة{% else %}Your account is awaiting approval{% endif %}</h1>
+
+    <p class="auth-subtitle">
+      {% if lang == "ar" %}تم إنشاء حسابك بنجاح وهو الآن بانتظار موافقة الإدارة. ستتمكن من دخول لوحة التحكم بعد الموافقة.{% else %}Your account has been created and is waiting for admin approval. You will be able to access your dashboard after approval.{% endif %}
+    </p>
+
+    <div class="pending-approval-status" style="margin:18px 0;padding:12px;border-radius:10px;background:rgba(0,0,0,.04)">
+      {% if email_verified %}
+        <p>✅ {% if lang == "ar" %}تم تأكيد بريدك الإلكتروني.{% else %}Your email is verified.{% endif %}</p>
+      {% else %}
+        <p>✉️ {% if lang == "ar" %}يرجى تأكيد بريدك الإلكتروني أولاً.{% else %}Please verify your email first.{% endif %}
+          <a href="{% url 'verify_email_otp' %}">{% if lang == "ar" %}تأكيد البريد{% else %}Verify email{% endif %}</a>
+        </p>
+      {% endif %}
+    </div>
+
+    <p class="pending-approval-support">
+      {% if lang == "ar" %}بحاجة لمساعدة؟ تواصل معنا:{% else %}Need help? Contact us:{% endif %}
+      <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+    </p>
+
+    <form method="post" action="{% url 'logout' %}" style="margin-top:20px">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary">{% if lang == "ar" %}تسجيل الخروج{% else %}Log out{% endif %}</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

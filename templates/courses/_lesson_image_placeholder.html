@@ -13,7 +13,7 @@ Renders:
 {% if image_prompt %}
 <div class="onlenco-lesson-img"
      data-prompt-type="{{ image_prompt.prompt_type }}">
-    {% if image_prompt.is_generated and image_prompt.generated_image %}
+    {% if image_prompt.is_student_visible %}
         <img src="{{ image_prompt.generated_image.url }}"
              alt="{% t_either 'Lesson illustration' 'صورة توضيحية للدرس' %}"
              loading="lazy">

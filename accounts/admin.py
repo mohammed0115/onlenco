@@ -3,7 +3,20 @@ from datetime import timedelta
 from django.contrib import admin
 from django.utils import timezone
 
-from .models import Profile
+from .models import Profile, StudentApprovalEvent
+
+
+@admin.register(StudentApprovalEvent)
+class StudentApprovalEventAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "action", "old_status", "new_status",
+                    "actor", "ip_address")
+    list_filter = ("action", "new_status")
+    search_fields = ("user__username", "user__email", "note")
+    readonly_fields = [f.name for f in StudentApprovalEvent._meta.fields]
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(Profile)
@@ -12,6 +25,7 @@ class ProfileAdmin(admin.ModelAdmin):
         "user",
         "full_name",
         "role",
+        "approval_status",
         "cefr_level",
         "initial_cefr_level",
         "onboarding_path",

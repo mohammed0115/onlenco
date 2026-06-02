@@ -1,0 +1,81 @@
+{% extends "platform_admin/base.html" %}
+{% load i18n %}
+
+{% block control_title %}{% if lang == "ar" %}استخدام وتكلفة الذكاء الاصطناعي{% else %}AI Usage & Cost{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}نظرة يومية وشهرية على استهلاك وتكلفة الذكاء الاصطناعي داخل المنصة.{% else %}Daily and monthly view of AI consumption and spend across the platform.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="control-grid metrics-grid">
+  <div class="control-card metric-card">
+    <div><div class="metric-value">${{ today_spend|floatformat:4 }}</div>
+    <div class="metric-label">{% if lang == "ar" %}إنفاق اليوم{% else %}Today spend{% endif %}</div></div>
+  </div>
+  <div class="control-card metric-card">
+    <div><div class="metric-value">${{ yesterday_spend|floatformat:4 }}</div>
+    <div class="metric-label">{% if lang == "ar" %}إنفاق الأمس{% else %}Yesterday spend{% endif %}</div></div>
+  </div>
+  <div class="control-card metric-card">
+    <div><div class="metric-value">${{ month_spend|floatformat:4 }}</div>
+    <div class="metric-label">{% if lang == "ar" %}إنفاق الشهر{% else %}Month spend{% endif %}</div></div>
+  </div>
+  <div class="control-card metric-card">
+    <div><div class="metric-value">{{ requests_today }}</div>
+    <div class="metric-label">{% if lang == "ar" %}الطلبات اليوم{% else %}Requests today{% endif %}</div></div>
+  </div>
+  <div class="control-card metric-card">
+    <div><div class="metric-value">{{ tokens_today }}</div>
+    <div class="metric-label">{% if lang == "ar" %}الرموز اليوم{% else %}Tokens today{% endif %}</div></div>
+  </div>
+  <div class="control-card metric-card">
+    <div><div class="metric-value">{{ tutor_minutes_today|floatformat:1 }}</div>
+    <div class="metric-label">{% if lang == "ar" %}دقائق المعلم الذكي اليوم{% else %}AI Tutor minutes today{% endif %}</div></div>
+  </div>
+  <div class="control-card metric-card">
+    <div><div class="metric-value">{{ failed_today }}</div>
+    <div class="metric-label">{% if lang == "ar" %}طلبات فاشلة اليوم{% else %}Failed requests today{% endif %}</div></div>
+  </div>
+  <div class="control-card metric-card">
+    <div><div class="metric-value">{{ daily_budget_pct }}% / {{ monthly_budget_pct }}%</div>
+    <div class="metric-label">{% if lang == "ar" %}الميزانية اليومية / الشهرية{% else %}Daily / monthly budget used{% endif %}</div></div>
+  </div>
+</div>
+
+<div class="control-grid two-grid" style="margin-top:16px">
+  <section class="control-card">
+    <h3>{% if lang == "ar" %}أعلى 10 مستخدمين (تكلفة اليوم){% else %}Top 10 users by cost (today){% endif %}</h3>
+    <table class="control-table">
+      <thead><tr><th>{% if lang == "ar" %}المستخدم{% else %}User{% endif %}</th><th>{% if lang == "ar" %}التكلفة{% else %}Cost{% endif %}</th></tr></thead>
+      <tbody>
+      {% for u in top_users %}<tr><td>{{ u.user__username }}</td><td>${{ u.cost|floatformat:4 }}</td></tr>{% empty %}<tr><td colspan="2">—</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="control-card">
+    <h3>{% if lang == "ar" %}أعلى الميزات (تكلفة اليوم){% else %}Top features by cost (today){% endif %}</h3>
+    <table class="control-table">
+      <thead><tr><th>{% if lang == "ar" %}الميزة{% else %}Feature{% endif %}</th><th>{% if lang == "ar" %}الطلبات{% else %}Requests{% endif %}</th><th>{% if lang == "ar" %}التكلفة{% else %}Cost{% endif %}</th></tr></thead>
+      <tbody>
+      {% for f in top_features %}<tr><td>{{ f.feature }}</td><td>{{ f.requests }}</td><td>${{ f.cost|floatformat:4 }}</td></tr>{% empty %}<tr><td colspan="3">—</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<div class="control-grid two-grid" style="margin-top:16px">
+  <section class="control-card">
+    <h3>{% if lang == "ar" %}أعلى النماذج (تكلفة اليوم){% else %}Top models by cost (today){% endif %}</h3>
+    <table class="control-table">
+      <thead><tr><th>{% if lang == "ar" %}النموذج{% else %}Model{% endif %}</th><th>{% if lang == "ar" %}التكلفة{% else %}Cost{% endif %}</th></tr></thead>
+      <tbody>
+      {% for m in top_models %}<tr><td>{{ m.model_name|default:"—" }}</td><td>${{ m.cost|floatformat:4 }}</td></tr>{% empty %}<tr><td colspan="2">—</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="control-card">
+    <h3>{% if lang == "ar" %}روابط{% else %}Links{% endif %}</h3>
+    <p><a href="{% url 'ai_usage:daily_report' %}">{% if lang == "ar" %}التقرير اليومي{% else %}Daily usage report{% endif %}</a></p>
+    <p><a href="{% url 'ai_usage:student_usage' %}">{% if lang == "ar" %}استخدام الطالب{% else %}Student AI usage{% endif %}</a></p>
+    <p><a href="{% url 'ai_usage:export_csv' %}">{% if lang == "ar" %}تصدير CSV{% else %}Export CSV{% endif %}</a></p>
+  </section>
+</div>
+{% endblock %}

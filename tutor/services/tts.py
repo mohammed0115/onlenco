@@ -45,31 +45,18 @@ def synthesize(text: str, *, language: str = "en") -> dict:
         "format": getattr(settings, "AI_TTS_FORMAT", DEFAULT_FORMAT),
     }
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/audio/speech",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=(5, 15),
+        # Centralised ai_usage wrapper (Prompt 12A.1): logs TTS audio output
+        # seconds + cost. Returns raw audio bytes.
+        from ai_usage.services import ai_client, feature_mapping
+
+        audio_bytes = ai_client.synthesize_speech(
+            text[:3000], voice=payload["voice"],
+            feature=feature_mapping.TTS, model=payload["model"],
+            response_format=payload["format"], timeout=(5, 15),
+            metadata={"caller": "tutor_reply"},
         )
-        resp.raise_for_status()
-        audio_b64 = base64.b64encode(resp.content).decode("ascii")
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(None, "tutor", model=payload["model"], success=True)
-        except Exception:
-            pass
+        audio_b64 = base64.b64encode(audio_bytes).decode("ascii")
         return {"audio_b64": audio_b64, "format": payload["format"], "voice": payload["voice"]}
     except Exception as e:
         logger.warning("TTS call failed: %s", e)
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(
-                None, "tutor", model=payload.get("model", ""),
-                success=False, error_message=str(e),
-            )
-        except Exception:
-            pass
         return {"audio_b64": "", "format": "", "voice": ""}

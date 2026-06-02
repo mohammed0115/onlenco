@@ -1,0 +1,60 @@
+{% extends "platform_admin/base.html" %}
+{% load i18n %}
+
+{% block control_title %}{% if lang == "ar" %}التقرير اليومي لاستخدام الذكاء الاصطناعي{% else %}Daily AI Usage Report{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}تصفية حسب التاريخ والمستخدم والدور والميزة والنموذج والحالة.{% else %}Filter by date, user, role, feature, model and status.{% endif %}{% endblock %}
+
+{% block control_content %}
+<section class="control-card">
+  <form method="get" class="control-filter-form">
+    <label>{% if lang == "ar" %}من{% else %}From{% endif %} <input type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}"></label>
+    <label>{% if lang == "ar" %}إلى{% else %}To{% endif %} <input type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}"></label>
+    <label>{% if lang == "ar" %}المستخدم (id){% else %}User id{% endif %} <input type="text" name="user" value="{{ filters.user }}"></label>
+    <label>{% if lang == "ar" %}الميزة{% else %}Feature{% endif %}
+      <select name="feature"><option value="">—</option>{% for v,l in feature_choices %}<option value="{{ v }}" {% if filters.feature == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    </label>
+    <label>{% if lang == "ar" %}الدور{% else %}Role{% endif %}
+      <select name="role"><option value="">—</option>{% for v,l in role_choices %}<option value="{{ v }}" {% if filters.role == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    </label>
+    <label>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}
+      <select name="status"><option value="">—</option>{% for v,l in status_choices %}<option value="{{ v }}" {% if filters.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    </label>
+    <label>{% if lang == "ar" %}النموذج{% else %}Model{% endif %} <input type="text" name="model_name" value="{{ filters.model_name }}"></label>
+    <button type="submit" class="btn">{% if lang == "ar" %}تصفية{% else %}Filter{% endif %}</button>
+    <a class="btn" href="{% url 'ai_usage:export_csv' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}">{% if lang == "ar" %}تصدير CSV{% else %}Export CSV{% endif %}</a>
+  </form>
+</section>
+
+<section class="control-card" style="margin-top:16px">
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}التاريخ{% else %}Date{% endif %}</th>
+      <th>{% if lang == "ar" %}المستخدم{% else %}User{% endif %}</th>
+      <th>{% if lang == "ar" %}الدور{% else %}Role{% endif %}</th>
+      <th>{% if lang == "ar" %}الميزة{% else %}Feature{% endif %}</th>
+      <th>{% if lang == "ar" %}النموذج{% else %}Model{% endif %}</th>
+      <th>{% if lang == "ar" %}الرموز{% else %}Tokens{% endif %}</th>
+      <th>{% if lang == "ar" %}الدقائق{% else %}Minutes{% endif %}</th>
+      <th>{% if lang == "ar" %}التكلفة{% else %}Cost{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.usage_date|date:'Y-m-d' }}</td>
+        <td>{{ r.user.username|default:"—" }}</td>
+        <td>{{ r.role }}</td>
+        <td>{{ r.feature }}</td>
+        <td>{{ r.model_name|default:"—" }}</td>
+        <td>{{ r.total_tokens }}</td>
+        <td>{{ r.ai_minutes_used|floatformat:2 }}</td>
+        <td>${{ r.estimated_cost_usd|floatformat:4 }}</td>
+        <td>{{ r.status }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="9">{% if lang == "ar" %}لا توجد بيانات.{% else %}No data.{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

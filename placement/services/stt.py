@@ -36,35 +36,20 @@ def transcribe(audio_file) -> dict:
     audio_file.seek(0)
     name = getattr(audio_file, "name", "audio.webm")
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/audio/transcriptions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-            },
-            files={"file": (name, audio_file.read())},
-            data={
-                "model": getattr(settings, "AI_STT_MODEL", "whisper-1"),
-                "response_format": "verbose_json",
-            },
-            # 5s connect, 15s read. Whisper normally returns in 1-3s for
-            # short tutor recordings; capping at 15s prevents the voice
-            # path from feeling stuck when the upstream is degraded.
-            timeout=(5, 15),
+        # Centralised ai_usage wrapper (Prompt 12A.1): logs audio seconds +
+        # cost. STT timeout 5s connect / 15s read preserved.
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        body = ai_client.transcribe_audio(
+            audio_file.read(), filename=name,
+            feature=AC.FEATURE_PLACEMENT_SPEAKING, role=AC.ROLE_STUDENT,
+            model=getattr(settings, "AI_STT_MODEL", "whisper-1"),
+            response_format="verbose_json", timeout=(5, 15),
         )
-        resp.raise_for_status()
-        body = resp.json()
         transcript = (body.get("text") or "").strip()
         duration = int(round(body.get("duration", 0) or 0))
         confidence = 1.0 if transcript else 0.0
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(
-                None, "placement",
-                model=getattr(settings, "AI_STT_MODEL", "whisper-1"),
-                success=True,
-            )
-        except Exception:
-            pass
         return {
             "transcript": transcript,
             "duration_seconds": duration,
@@ -72,15 +57,6 @@ def transcribe(audio_file) -> dict:
         }
     except Exception as e:
         logger.warning("STT call failed: %s", e)
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(
-                None, "placement",
-                model=getattr(settings, "AI_STT_MODEL", "whisper-1"),
-                success=False, error_message=str(e),
-            )
-        except Exception:
-            pass
         return _stub_response(audio_file)
 
 

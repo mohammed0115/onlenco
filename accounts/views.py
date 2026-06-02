@@ -37,6 +37,39 @@ def _client_ip(request) -> str:
     return raw
 
 
+def _registration_suspicious_flags(request, user, user_agent: str, ip: str) -> list:
+    """Best-effort anti-bot signals recorded on the new student's profile.
+
+    These do NOT block (honeypot/rate-limit do); they let an admin spot
+    likely bots in the approval queue. Never raises."""
+    flags = []
+    try:
+        ua = (user_agent or "").lower()
+        if not ua or len(ua) < 12 or any(
+            tok in ua for tok in ("bot", "crawl", "spider", "python-requests",
+                                  "curl", "wget", "httpclient", "scrapy")):
+            flags.append("suspicious_user_agent")
+        domain = (getattr(user, "email", "") or "").rsplit("@", 1)[-1].lower()
+        disposable = set(getattr(settings, "ONLENCO_DISPOSABLE_EMAIL_DOMAINS", []))
+        if domain and domain in disposable:
+            flags.append("disposable_email")
+        # Repeated IP: several registrations from the same IP recently.
+        from datetime import timedelta
+        from django.utils import timezone
+        from accounts.models import StudentApprovalEvent
+        if ip and ip != "0.0.0.0":
+            recent = StudentApprovalEvent.objects.filter(
+                action="registered", ip_address=ip,
+                created_at__gte=timezone.now() - timedelta(hours=24),
+            ).exclude(user=user).count()
+            if recent >= 3:
+                flags.append("repeated_ip")
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("suspicious-flag calc failed", exc_info=True)
+    return flags
+
+
 def _signup_rate_exceeded(request) -> bool:
     """Returns True if this IP has hit its hourly signup cap."""
     return _rate_exceeded(
@@ -262,6 +295,21 @@ def auth_view(request):
                     import logging
                     logging.getLogger(__name__).exception("set signup language failed")
 
+                # Record the registration into the approval gate (sets the
+                # student to pending + captures IP/UA + anti-bot signals).
+                try:
+                    from accounts import approval as _approval
+                    ua = request.META.get("HTTP_USER_AGENT", "")
+                    ip = _client_ip(request)
+                    flags = _registration_suspicious_flags(request, user, ua, ip)
+                    _approval.record_registration(
+                        user, ip=ip, user_agent=ua,
+                        suspicious_flags=flags, suspicious_score=len(flags),
+                    )
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception("approval record_registration failed")
+
                 # Issue the OTP + fire signup notifications OFF-THREAD.
                 # SMTP delivery is slow and can hang on an unreachable
                 # mail host; sending it inline used to freeze the signup
@@ -314,6 +362,26 @@ def logout_view(request):
     return redirect("home")
 
 
+@login_required
+@require_http_methods(["GET"])
+def pending_approval(request):
+    """Waiting page for students who are not yet approved.
+
+    Approved students (or staff/teachers) are bounced to their dashboard.
+    Shows email-verification status, support contact, and a logout button —
+    NO dashboard links and NO internal anti-bot detail.
+    """
+    profile = getattr(request.user, "profile", None)
+    if profile is None or profile.is_approved_student:
+        return redirect(_post_login_destination(request.user))
+    return render(request, "accounts/pending_approval.html", {
+        "approval_status": profile.approval_status,
+        "email_verified": profile.email_verified,
+        "support_email": getattr(settings, "SUPPORT_EMAIL", "support@onlenco.academy"),
+        "lang": _request_language(request),
+    })
+
+
 @require_http_methods(["GET"])
 def verify_email(request, token: str):
     """Consume an email-verification URL token (link from the email)."""
@@ -356,6 +424,14 @@ def verify_email_otp(request):
         if form.is_valid():
             ok = consume_verification_token(form.cleaned_data["code"], user=request.user)
             if ok:
+                # Advance the approval gate: pending_email_verification →
+                # pending_admin_approval (writes an audit event).
+                try:
+                    from accounts import approval as _approval
+                    _approval.mark_email_verified(request.user)
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception("mark_email_verified failed")
                 messages.success(request, "Your email is verified. Welcome!")
                 nxt = onboarding_lib.next_url_for(request.user)
                 return redirect(nxt or "dashboard")

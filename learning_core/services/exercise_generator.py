@@ -215,38 +215,23 @@ def _call_ai(*, skill: str, topic: str, cefr_level: str, difficulty: float, coun
         },
     }
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
+        # Centralised ai_usage wrapper (Prompt 12A.1): content generation,
+        # role=system. Function-calling passed via extra_payload.
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        data = ai_client.chat(
+            payload["messages"], feature=AC.FEATURE_CONTENT_GENERATION,
+            role=AC.ROLE_SYSTEM, model=settings.AI_MODEL,
+            extra_payload={"tools": payload["tools"],
+                           "tool_choice": payload["tool_choice"]},
             timeout=30,
         )
-        resp.raise_for_status()
-        data = resp.json()
         tool_call = data["choices"][0]["message"]["tool_calls"][0]
         result = json.loads(tool_call["function"]["arguments"])
-        try:
-            from core.services.ai_usage import log_usage
-            usage = data.get("usage", {}) or {}
-            log_usage(
-                None, "exercise_generation", model=settings.AI_MODEL,
-                prompt_tokens=int(usage.get("prompt_tokens", 0) or 0),
-                completion_tokens=int(usage.get("completion_tokens", 0) or 0),
-                success=True,
-            )
-        except Exception:
-            pass
         return result
     except Exception as e:
         logger.warning("Exercise generator AI call failed: %s", e)
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(None, "exercise_generation", model=settings.AI_MODEL, success=False, error_message=str(e))
-        except Exception:
-            pass
         return None
 
 

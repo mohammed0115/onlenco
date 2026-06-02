@@ -31,7 +31,7 @@
         {# ---------- Hero stage — cover, step badge, audio player ---------- #}
         <section class="onlenco-stage">
             {# Background visual #}
-            {% if cover_prompt and cover_prompt.generated_image %}
+            {% if cover_prompt and cover_prompt.is_student_visible %}
                 <div class="onlenco-stage__bg" style="background-image:url('{{ cover_prompt.generated_image.url }}')"></div>
             {% endif %}
             <div class="onlenco-stage__overlay"></div>
@@ -67,7 +67,7 @@
 
                 {# Mega audio player — only for non-finish steps #}
                 {% if step_kind != "finish" %}
-                    {% if script and script.generated_audio %}
+                    {% if script and script.is_student_visible %}
                     <div class="onlenco-mega-player" data-onlenco-autoplay="true">
                         <button class="onlenco-mega-player__play" type="button" aria-label="Play / pause">
                             <i data-lucide="play" class="onlenco-mega-player__icon-play"></i>

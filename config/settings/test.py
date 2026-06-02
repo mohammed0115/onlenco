@@ -38,3 +38,12 @@ TUTOR_HOOKS_SYNC = True
 # clearing both keys here keeps `_hcaptcha_verify` short-circuited.
 HCAPTCHA_SITE_KEY = ""
 HCAPTCHA_SECRET = ""
+
+# Student approval gate OFF by default in tests; feature tests opt in via
+# @override_settings(ONLENCO_STUDENT_APPROVAL_REQUIRED=True).
+ONLENCO_STUDENT_APPROVAL_REQUIRED = False
+
+# Isolate file storage in tests so generated-media tests do not pollute the
+# real MEDIA_ROOT (Prompt 16.5 — tests write real files on .save()).
+import tempfile as _tempfile
+MEDIA_ROOT = _tempfile.mkdtemp(prefix="onlenco-test-media-")

@@ -69,26 +69,21 @@ def _call_ai(chapter: Chapter, language: str) -> Optional[dict]:
         return None
     sys, user = _build_prompt(chapter, language)
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": settings.AI_MODEL,
-                "messages": [
-                    {"role": "system", "content": sys},
-                    {"role": "user", "content": user},
-                ],
-                "max_tokens": 350,
-                "temperature": 0.3,
-                "response_format": {"type": "json_object"},
-            },
+        # Centralised ai_usage wrapper (Prompt 12A) handles metering + logging.
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        resp_data = ai_client.chat(
+            [
+                {"role": "system", "content": sys},
+                {"role": "user", "content": user},
+            ],
+            feature=AC.FEATURE_LIBRARY, model=settings.AI_MODEL,
+            extra_payload={"max_tokens": 350, "temperature": 0.3,
+                           "response_format": {"type": "json_object"}},
             timeout=45,
         )
-        resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"].get("content") or "{}"
+        content = resp_data["choices"][0]["message"].get("content") or "{}"
         data = json.loads(content)
         summary = (data.get("summary") or "").strip()
         key_points = [

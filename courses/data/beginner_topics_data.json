@@ -150,8 +150,7 @@
         "question_text_ar": "صل كل تحية بمعناها.",
         "metadata": {
           "skills": [
-            "greetings",
-            "general_beginner"
+            "greetings"
           ],
           "pairs": [
             {
@@ -8054,19 +8053,19 @@
     "image_prompts": [
       {
         "prompt_type": "cover",
-        "prompt": "Modern friendly cartoon cover scene of a small town street with a park, a bank, and a cafe. Two young adults walk on the sidewalk. Bright daylight, warm colors, soft outlines. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern friendly cartoon cover scene of a small town street with a park, a bank, and a cafe. Two young adults walk on the sidewalk. Bright daylight, warm colors, soft outlines. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "vocabulary",
-        "prompt": "Friendly cartoon vocabulary chart with six labeled tiles: park, school, bank, cafe, library, hospital. Each tile shows a clean simple building icon. Soft pastel background. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon vocabulary chart with six labeled tiles: park, school, bank, cafe, library, hospital. Each tile shows a clean simple building icon. Soft pastel background. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "grammar",
-        "prompt": "Modern cartoon diagram showing a sentence pattern Subject plus go to plus the plus place. Arrows connect three boxes with sample words. Clean teal and orange palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern cartoon diagram showing a sentence pattern Subject plus go to plus the plus place. Arrows connect three boxes with sample words. Clean teal and orange palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "quiz",
-        "prompt": "Friendly cartoon quiz scene with a cheerful map of a small town and a question mark above one building. Soft colors, modern flat style. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon quiz scene with a cheerful map of a small town and a question mark above one building. Soft colors, modern flat style. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       }
     ],
     "audio_scripts": [
@@ -8137,7 +8136,7 @@
         "question_text_ar": "اختر المكان الذي تستعير منه الكتب.",
         "metadata": {
           "skills": [
-            "general_beginner"
+            "places_in_town"
           ],
           "options": [
             {
@@ -8188,7 +8187,7 @@
         "question_text_ar": "طابق المكان مع استخدامه.",
         "metadata": {
           "skills": [
-            "general_beginner"
+            "places_in_town"
           ],
           "pairs": [
             {
@@ -8287,7 +8286,7 @@
         "question_text_ar": "اقرأ القصة واختر النهاية المناسبة.",
         "metadata": {
           "skills": [
-            "general_beginner"
+            "places_in_town"
           ],
           "story": "Hala needs a book for class. She walks down Palm Street and turns at the corner.",
           "options": [
@@ -8405,19 +8404,19 @@
     "image_prompts": [
       {
         "prompt_type": "cover",
-        "prompt": "Modern friendly cartoon scene of a small town square with a fountain, benches, and trees. Bright daylight, warm pastel colors. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern friendly cartoon scene of a small town square with a fountain, benches, and trees. Bright daylight, warm pastel colors. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "vocabulary",
-        "prompt": "Friendly cartoon vocabulary panel showing one bank with the label there is a bank, and three cafes with the label there are three cafes. Soft pastel background. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon vocabulary panel showing one bank with the label there is a bank, and three cafes with the label there are three cafes. Soft pastel background. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "grammar",
-        "prompt": "Modern cartoon grammar chart with two columns labeled there is plus singular and there are plus plural. Clean teal and orange palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern cartoon grammar chart with two columns labeled there is plus singular and there are plus plural. Clean teal and orange palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "quiz",
-        "prompt": "Friendly cartoon quiz scene with a town map and a question mark, paired with small icons of buildings. Soft modern flat style. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon quiz scene with a town map and a question mark, paired with small icons of buildings. Soft modern flat style. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       }
     ],
     "audio_scripts": [
@@ -8753,19 +8752,19 @@
     "image_prompts": [
       {
         "prompt_type": "cover",
-        "prompt": "Modern friendly cartoon scene of a desk with a book, an apple, and a red chair behind it. Bright warm colors, soft outlines. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern friendly cartoon scene of a desk with a book, an apple, and a red chair behind it. Bright warm colors, soft outlines. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "vocabulary",
-        "prompt": "Friendly cartoon vocabulary chart with labeled tiles for a book, an apple, an orange, a chair, a table, a lamp. Pastel background. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon vocabulary chart with labeled tiles for a book, an apple, an orange, a chair, a table, a lamp. Pastel background. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "grammar",
-        "prompt": "Modern cartoon grammar chart with three columns labeled a plus consonant sound, an plus vowel sound, the plus known noun. Sample words shown. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern cartoon grammar chart with three columns labeled a plus consonant sound, an plus vowel sound, the plus known noun. Sample words shown. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "quiz",
-        "prompt": "Friendly cartoon quiz scene with three objects and three article cards floating above. Soft modern flat style. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon quiz scene with three objects and three article cards floating above. Soft modern flat style. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       }
     ],
     "audio_scripts": [
@@ -9096,19 +9095,19 @@
     "image_prompts": [
       {
         "prompt_type": "cover",
-        "prompt": "Modern friendly cartoon scene of a person holding a paper map on a city street with a traffic light. Bright clean colors, soft outlines. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern friendly cartoon scene of a person holding a paper map on a city street with a traffic light. Bright clean colors, soft outlines. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "vocabulary",
-        "prompt": "Friendly cartoon panel with three arrows labeled go straight, turn left, turn right. Sidewalk and small buildings in background. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon panel with three arrows labeled go straight, turn left, turn right. Sidewalk and small buildings in background. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "grammar",
-        "prompt": "Modern cartoon diagram showing pattern Verb plus direction plus place with example Turn left at the bank. Clean teal and orange palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern cartoon diagram showing pattern Verb plus direction plus place with example Turn left at the bank. Clean teal and orange palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "quiz",
-        "prompt": "Friendly cartoon quiz scene showing a small town map with a dashed route and a question mark. Soft modern flat style. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon quiz scene showing a small town map with a dashed route and a question mark. Soft modern flat style. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       }
     ],
     "audio_scripts": [
@@ -9445,19 +9444,19 @@
     "image_prompts": [
       {
         "prompt_type": "cover",
-        "prompt": "Modern friendly cartoon scene of two young friends at a cafe table. One holds tea, the other holds tea and coffee. Bright colors, soft outlines. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern friendly cartoon scene of two young friends at a cafe table. One holds tea, the other holds tea and coffee. Bright colors, soft outlines. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "vocabulary",
-        "prompt": "Friendly cartoon vocabulary chart with two large word cards and and but and small example icons. Pastel background. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon vocabulary chart with two large word cards and and but and small example icons. Pastel background. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "grammar",
-        "prompt": "Modern cartoon grammar diagram showing two sentences joined by and, and two sentences joined by but with a plus sign and an X. Clean palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern cartoon grammar diagram showing two sentences joined by and, and two sentences joined by but with a plus sign and an X. Clean palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "quiz",
-        "prompt": "Friendly cartoon quiz scene with two object icons and conjunction cards and and but in the middle. Soft flat style. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon quiz scene with two object icons and conjunction cards and and but in the middle. Soft flat style. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       }
     ],
     "audio_scripts": [
@@ -9792,19 +9791,19 @@
     "image_prompts": [
       {
         "prompt_type": "cover",
-        "prompt": "Modern friendly cartoon scene comparing two parks side by side. One park is large and lively, the other is small and quiet. Bright clean palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern friendly cartoon scene comparing two parks side by side. One park is large and lively, the other is small and quiet. Bright clean palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "vocabulary",
-        "prompt": "Friendly cartoon vocabulary tiles for big, small, new, old, clean, busy, quiet, nice. Each tile shows a simple icon. Pastel background. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon vocabulary tiles for big, small, new, old, clean, busy, quiet, nice. Each tile shows a simple icon. Pastel background. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "grammar",
-        "prompt": "Modern cartoon grammar diagram showing noun plus be plus adjective and adjective plus noun with examples. Clean teal and orange palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern cartoon grammar diagram showing noun plus be plus adjective and adjective plus noun with examples. Clean teal and orange palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "quiz",
-        "prompt": "Friendly cartoon quiz scene with two place icons and adjective cards floating above. Soft flat style. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon quiz scene with two place icons and adjective cards floating above. Soft flat style. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       }
     ],
     "audio_scripts": [
@@ -10141,19 +10140,19 @@
     "image_prompts": [
       {
         "prompt_type": "cover",
-        "prompt": "Modern friendly cartoon scene of two friends chatting on a sunny day, one smiling and pointing at a calendar showing Friday. Bright clean palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern friendly cartoon scene of two friends chatting on a sunny day, one smiling and pointing at a calendar showing Friday. Bright clean palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "vocabulary",
-        "prompt": "Friendly cartoon vocabulary panel with feelings tiles for happy, tired, cold, warm, plus small icons for fun, boring, easy. Pastel background. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon vocabulary panel with feelings tiles for happy, tired, cold, warm, plus small icons for fun, boring, easy. Pastel background. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "grammar",
-        "prompt": "Modern cartoon grammar diagram showing result box plus because plus reason box with an arrow connecting them. Clean teal and orange palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern cartoon grammar diagram showing result box plus because plus reason box with an arrow connecting them. Clean teal and orange palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "quiz",
-        "prompt": "Friendly cartoon quiz scene with a thought bubble showing why and an answer card showing because. Soft modern flat style. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon quiz scene with a thought bubble showing why and an answer card showing because. Soft modern flat style. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       }
     ],
     "audio_scripts": [
@@ -10490,19 +10489,19 @@
     "image_prompts": [
       {
         "prompt_type": "cover",
-        "prompt": "Modern friendly cartoon cutaway of a small house showing four rooms: kitchen, bedroom, bathroom, living room, with one main furniture item in each. Bright clean palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern friendly cartoon cutaway of a small house showing four rooms: kitchen, bedroom, bathroom, living room, with one main furniture item in each. Bright clean palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "vocabulary",
-        "prompt": "Friendly cartoon vocabulary tiles for sofa, bed, table, chair, lamp, mirror, shelf with simple icons. Pastel background. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon vocabulary tiles for sofa, bed, table, chair, lamp, mirror, shelf with simple icons. Pastel background. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "grammar",
-        "prompt": "Modern cartoon grammar chart showing pattern Furniture plus is plus in plus room with sample sentence The table is in the kitchen. Clean palette. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Modern cartoon grammar chart showing pattern Furniture plus is plus in plus room with sample sentence The table is in the kitchen. Clean palette. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       },
       {
         "prompt_type": "quiz",
-        "prompt": "Friendly cartoon quiz scene showing a furniture item floating between two room icons with a question mark. Soft flat style. No logos, no copyrighted characters, no DK or Duolingo styling."
+        "prompt": "Friendly cartoon quiz scene showing a furniture item floating between two room icons with a question mark. Soft flat style. Use an original Onlenco educational style. No logos, no copyrighted characters, and no brand mascots or trademarked styling."
       }
     ],
     "audio_scripts": [
@@ -12002,7 +12001,7 @@
         "metadata": {
           "skills": [
             "countable_uncountable",
-            "mistake_correction"
+            "error_correction"
           ],
           "original": "I have two breads.",
           "hint": "Bread is uncountable."
@@ -12344,7 +12343,7 @@
         "metadata": {
           "skills": [
             "how_much_many",
-            "mistake_correction"
+            "error_correction"
           ],
           "original": "How much apples do you have?",
           "hint": "Apples is countable."
@@ -12655,7 +12654,7 @@
         "metadata": {
           "skills": [
             "clothes",
-            "mistake_correction"
+            "error_correction"
           ],
           "original": "I am wear a jacket.",
           "hint": "Use the -ing form after am."
@@ -12968,7 +12967,7 @@
         "metadata": {
           "skills": [
             "shopping",
-            "mistake_correction"
+            "error_correction"
           ],
           "original": "How much this cost?",
           "hint": "You need does before this."
@@ -13279,7 +13278,7 @@
         "metadata": {
           "skills": [
             "adjectives_basic",
-            "mistake_correction"
+            "error_correction"
           ],
           "original": "This is a car big.",
           "hint": "Put the adjective before the noun."

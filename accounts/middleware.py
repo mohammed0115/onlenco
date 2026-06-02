@@ -1,5 +1,6 @@
 import logging
 
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import translation
@@ -7,6 +8,69 @@ from django.utils import timezone
 
 
 logger = logging.getLogger(__name__)
+
+
+# Paths a NOT-yet-approved student may still reach (login/logout, email
+# verification, password reset/change, the waiting page, language, assets).
+# NOTE: onboarding (/auth/onboarding/…) and profile are intentionally NOT
+# here — a pending student must not start placement/onboarding (it spends AI).
+_APPROVAL_ALLOWED_PREFIXES = (
+    "/auth/logout",
+    "/auth/verify",            # verify/<token>/ and verify-email[/resend]
+    "/auth/password-reset",
+    "/auth/change-password",
+    "/account/pending-approval",
+    "/set-language/",
+    "/static/",
+    "/media/",
+    "/healthz",
+)
+
+
+def _wants_json(request) -> bool:
+    if request.path.startswith("/api/"):
+        return True
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return True
+    return "application/json" in (request.headers.get("accept") or "")
+
+
+class StudentApprovalRequiredMiddleware:
+    """Block not-yet-approved students from student features.
+
+    HTML requests → redirect to the pending-approval waiting page.
+    API/JSON requests → 403 JSON ``account_pending_approval``.
+
+    Admin / teacher / staff accounts are EXEMPT (``needs_admin_approval``
+    returns False for them). Approved students pass through untouched.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.conf import settings
+        if not getattr(settings, "ONLENCO_STUDENT_APPROVAL_REQUIRED", True):
+            return self.get_response(request)
+        user = getattr(request, "user", None)
+        if (
+            user is not None
+            and getattr(user, "is_authenticated", False)
+            and not any(request.path.startswith(p) for p in _APPROVAL_ALLOWED_PREFIXES)
+        ):
+            profile = getattr(user, "profile", None)
+            if profile is not None and profile.needs_admin_approval:
+                if _wants_json(request):
+                    return JsonResponse(
+                        {"code": "account_pending_approval",
+                         "message": "Your account is waiting for admin approval."},
+                        status=403,
+                    )
+                try:
+                    return redirect(reverse("pending_approval"))
+                except Exception:
+                    pass
+        return self.get_response(request)
 
 
 # Paths that authenticated users with a forced password change can still hit

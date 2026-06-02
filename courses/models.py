@@ -1090,7 +1090,47 @@ LESSON_AUDIO_VOICE_STYLE_CHOICES = [
 ]
 
 
-class LessonAudioScript(models.Model):
+GENERATED_MEDIA_STATUS_CHOICES = [
+    ("pending_generation", _("Pending generation")),
+    ("generated",          _("Generated")),
+    ("needs_review",       _("Needs review")),
+    ("approved",           _("Approved")),
+    ("rejected",           _("Rejected")),
+    ("failed",             _("Failed")),
+]
+
+
+class GeneratedMediaReviewMixin(models.Model):
+    """Review lifecycle + provenance for AI-generated media (Prompt 15).
+
+    Mixed into LessonImagePrompt / LessonAudioScript. Generated media starts
+    at ``needs_review`` and is shown to students ONLY when ``approved``.
+    """
+    generation_status = models.CharField(
+        max_length=20, choices=GENERATED_MEDIA_STATUS_CHOICES,
+        default="pending_generation", db_index=True,
+    )
+    generated_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.TextField(blank=True, default="")
+    gen_provider = models.CharField(max_length=16, blank=True, default="")
+    gen_model_name = models.CharField(max_length=128, blank=True, default="")
+    gen_error_message = models.CharField(max_length=500, blank=True, default="")
+    generation_metadata = models.JSONField(default=dict, blank=True)
+    ai_usage_log = models.ForeignKey(
+        "ai_usage.AIUsageLog", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        abstract = True
+
+
+class LessonAudioScript(GeneratedMediaReviewMixin, models.Model):
     """TTS source script for a Lesson. One row per script_type — feeds the
     batch audio generator (Prompt 08). Holds both the raw text and the
     eventually-generated audio file so re-runs are idempotent."""
@@ -1140,6 +1180,11 @@ class LessonAudioScript(models.Model):
     def __str__(self):
         return f"{self.lesson_id} · {self.script_type}#{self.pk}"
 
+    @property
+    def is_student_visible(self) -> bool:
+        """Show to students ONLY when approved AND a file exists."""
+        return self.generation_status == "approved" and bool(self.generated_audio)
+
 
 LESSON_IMAGE_PROMPT_TYPE_CHOICES = [
     ("cover",      _("Cover")),
@@ -1149,7 +1194,7 @@ LESSON_IMAGE_PROMPT_TYPE_CHOICES = [
 ]
 
 
-class LessonImagePrompt(models.Model):
+class LessonImagePrompt(GeneratedMediaReviewMixin, models.Model):
     """Image-generation prompt for a Lesson. One row per prompt_type — feeds
     the batch image generator (Prompt 07). Stores both the text prompt and
     the eventually-generated image so re-runs are idempotent."""
@@ -1190,6 +1235,11 @@ class LessonImagePrompt(models.Model):
 
     def __str__(self):
         return f"{self.lesson_id} · {self.prompt_type}#{self.pk}"
+
+    @property
+    def is_student_visible(self) -> bool:
+        """Show to students ONLY when approved AND an image file exists."""
+        return self.generation_status == "approved" and bool(self.generated_image)
 
 
 # ---------------------------------------------------------------------------

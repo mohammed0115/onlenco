@@ -9,6 +9,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from core.sitemaps import StaticViewSitemap
 from core.views import robots_txt, set_language
+from accounts.views import pending_approval as _pending_approval_view
 
 
 # Sitemap sections — one entry; the static-pages sitemap covers every
@@ -76,6 +77,7 @@ urlpatterns = [
 
     path("", include("core.urls")),
     path("auth/", include("accounts.urls")),
+    path("account/pending-approval/", _pending_approval_view, name="pending_approval"),
     path("dashboard/", include("lessons.urls")),
     path("daily/", include("daily_learning.urls")),
     path("placement/", include("placement.urls")),
@@ -90,6 +92,8 @@ urlpatterns = [
     path("api/v1/", include("api.v1.urls")),
     path("notifications/", include("notifications.urls")),
     path("subscriptions/", include("subscriptions.urls")),
+    path("api/ai-usage/", include(("ai_usage.api.urls", "ai_usage_api"), namespace="ai_usage_api")),
+    path("control/ai-usage/", include("ai_usage.urls")),
     path("settings/", RedirectView.as_view(pattern_name="profile", permanent=False), name="user_settings"),
 ]
 

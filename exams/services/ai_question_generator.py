@@ -59,23 +59,18 @@ def _call_llm(messages: list[dict]) -> Optional[dict]:
     if not settings.AI_API_KEY:
         return None
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": settings.AI_MODEL,
-                "messages": messages,
-                "max_tokens": 1500,
-                "temperature": 0.5,
-                "response_format": {"type": "json_object"},
-            },
+        # Centralised ai_usage wrapper (Prompt 12A.1): content generation,
+        # role=system (admin/teacher-triggered, not student minutes).
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        return ai_client.chat(
+            messages, feature=AC.FEATURE_CONTENT_GENERATION, role=AC.ROLE_SYSTEM,
+            model=settings.AI_MODEL,
+            extra_payload={"max_tokens": 1500, "temperature": 0.5,
+                           "response_format": {"type": "json_object"}},
             timeout=60,
         )
-        resp.raise_for_status()
-        return resp.json()
     except Exception as e:
         logger.warning("ai_question_generator: LLM call failed: %s", e)
         return None

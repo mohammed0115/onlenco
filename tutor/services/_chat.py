@@ -352,29 +352,17 @@ def chat(conversation, user_message: str, *, voice: bool = False) -> str:
     payload = _build_payload(conversation, user_message, voice=voice, stream=False)
 
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=25,
+        # Routed through the centralised ai_usage wrapper (Prompt 12A.1):
+        # the wrapper meters tokens/cost and logs success/failure once.
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        data = ai_client.chat(
+            payload["messages"], user=user, feature=AC.FEATURE_AI_TUTOR,
+            model=settings.AI_MODEL,
+            extra_payload={"max_tokens": payload["max_tokens"]}, timeout=25,
         )
-        resp.raise_for_status()
-        data = resp.json()
         content = data["choices"][0]["message"].get("content") or ""
-        try:
-            from core.services.ai_usage import log_usage
-            usage = data.get("usage", {}) or {}
-            log_usage(
-                user, "tutor", model=settings.AI_MODEL,
-                prompt_tokens=int(usage.get("prompt_tokens", 0) or 0),
-                completion_tokens=int(usage.get("completion_tokens", 0) or 0),
-                success=True,
-            )
-        except Exception:
-            pass
         fire_post_chat_hooks(user, user_message)
         # Sanitise the AI's reply BEFORE returning. Even with the system
         # prompt's "no technical tokens" rule, models occasionally emit
@@ -395,11 +383,6 @@ def chat(conversation, user_message: str, *, voice: bool = False) -> str:
         return cleaned or "Could you say a bit more? What do you mean?"
     except Exception as e:
         logger.exception("Tutor chat call failed: %s", e)
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(user, "tutor", model=settings.AI_MODEL, success=False, error_message=str(e))
-        except Exception:
-            pass
         fire_post_chat_hooks(user, user_message)
         return (
             "Thanks! I had a little trouble just now — could you "
@@ -435,39 +418,18 @@ def chat_stream_tokens(conversation, user_message: str, *, voice: bool = False) 
     payload = _build_payload(conversation, user_message, voice=voice, stream=True)
 
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-                "Accept": "text/event-stream",
-            },
-            json=payload,
-            timeout=(5, 30),  # 5s to connect, 30s for the whole stream
-            stream=True,
-        )
-        resp.raise_for_status()
+        # Routed through the centralised ai_usage wrapper (Prompt 12A.1):
+        # the wrapper parses the SSE stream, captures the trailing usage
+        # frame (or notes it missing), and logs success/failure once.
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
         any_yielded = False
-        # OpenAI-compatible streams emit one `data: {...}` line per chunk
-        # plus a final `data: [DONE]` sentinel.
-        for raw_line in resp.iter_lines(decode_unicode=True):
-            if not raw_line:
-                continue
-            line = raw_line.strip()
-            if not line.startswith("data:"):
-                continue
-            data = line[5:].strip()
-            if data == "[DONE]":
-                break
-            try:
-                obj = json.loads(data)
-            except ValueError:
-                continue
-            try:
-                choice = obj["choices"][0]
-            except (KeyError, IndexError, TypeError):
-                continue
-            delta = (choice.get("delta") or {}).get("content") or ""
+        for delta in ai_client.stream_chat(
+            payload["messages"], user=user, feature=AC.FEATURE_AI_TUTOR,
+            model=settings.AI_MODEL,
+            extra_payload={"max_tokens": payload["max_tokens"]}, timeout=(5, 30),
+        ):
             if delta:
                 any_yielded = True
                 yield delta
@@ -475,19 +437,9 @@ def chat_stream_tokens(conversation, user_message: str, *, voice: bool = False) 
             # Stream opened but yielded nothing — surface a fallback so
             # the bubble isn't empty.
             yield "Could you say a bit more? What do you mean?"
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(user, "tutor", model=settings.AI_MODEL, success=True)
-        except Exception:
-            pass
         fire_post_chat_hooks(user, user_message)
     except Exception as e:
         logger.exception("Tutor chat_stream call failed: %s", e)
-        try:
-            from core.services.ai_usage import log_usage
-            log_usage(user, "tutor", model=settings.AI_MODEL, success=False, error_message=str(e))
-        except Exception:
-            pass
         fire_post_chat_hooks(user, user_message)
         yield (
             "(stub: AI temporarily unavailable) Thanks! "

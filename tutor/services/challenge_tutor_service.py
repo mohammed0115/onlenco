@@ -39,39 +39,33 @@ LLM_MAX_TOKENS      = getattr(settings, "CHALLENGE_AI_MAX_TOKENS", 220)
 # available, otherwise calls the OpenAI-compatible endpoint directly.
 # ---------------------------------------------------------------------------
 
-def _call_llm(system_prompt: str, user_prompt: str) -> tuple[str, dict]:
-    """Returns (text, telemetry). Raises on hard failure."""
-    import json
-    import urllib.request
+def _call_llm(system_prompt: str, user_prompt: str, *,
+              feature: str = "challenge_explanation", user=None, session=None) -> tuple[str, dict]:
+    """Returns (text, telemetry). Raises on hard failure.
 
-    base = (getattr(settings, "AI_API_BASE", "") or "https://api.openai.com/v1").rstrip("/")
-    key = getattr(settings, "AI_API_KEY", "") or ""
-    if not key:
+    Routed through the centralised ``ai_usage`` wrapper (Prompt 12A.1): the
+    wrapper logs an ``AIUsageLog`` (success/failure), prices the call, and
+    scrubs the key. The legacy ``ChallengeAIInteraction`` row is still written
+    by the caller (``_dispatch``) — the two logs serve different purposes.
+    """
+    from ai_usage.services import ai_client
+
+    if not (getattr(settings, "AI_API_KEY", "") or ""):
         raise RuntimeError("ai_no_api_key")
 
     model = getattr(settings, "TUTOR_TEXT_MODEL", "gpt-4o-mini")
-    payload = {
-        "model": model,
-        "messages": [
+    session_id = f"challenge_session:{session.pk}" if session is not None else ""
+
+    started = time.time()
+    data = ai_client.chat(
+        [
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_prompt},
         ],
-        "max_tokens":  LLM_MAX_TOKENS,
-        "temperature": 0.4,
-    }
-
-    started = time.time()
-    req = urllib.request.Request(
-        f"{base}/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Content-Type":  "application/json",
-        },
+        user=user, feature=feature, model=model, session_id=session_id,
+        extra_payload={"max_tokens": LLM_MAX_TOKENS, "temperature": 0.4},
+        timeout=LLM_TIMEOUT_SECONDS,
     )
-    with urllib.request.urlopen(req, timeout=LLM_TIMEOUT_SECONDS) as resp:
-        raw = resp.read().decode("utf-8")
-    data = json.loads(raw)
     choices = (data.get("choices") or [])
     if not choices:
         raise RuntimeError("ai_empty_response")
@@ -127,8 +121,10 @@ def _dispatch(
     prompt_hash = challenge_ai_context.hash_prompt(user_prompt)
 
     try:
+        from ai_usage.services.feature_mapping import feature_for_challenge
         text, telemetry = _call_llm(
             challenge_ai_context.system_prompt(), user_prompt,
+            feature=feature_for_challenge(interaction_type), user=user, session=session,
         )
         clean = _post_process(text)
         if not clean:
@@ -305,6 +301,7 @@ def start_short_roleplay(user, session, question) -> dict:
     try:
         text, telemetry = _call_llm(
             challenge_ai_context.system_prompt(), user_prompt,
+            feature="challenge_roleplay", user=user, session=session,
         )
         clean = _post_process(text)
         if not clean:

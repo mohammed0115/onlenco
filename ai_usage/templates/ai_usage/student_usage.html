@@ -1,0 +1,36 @@
+{% extends "platform_admin/base.html" %}
+{% load i18n %}
+
+{% block control_title %}{% if lang == "ar" %}استخدام الطالب للذكاء الاصطناعي{% else %}Student AI Usage{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}الباقة، الدقائق المسموح بها والمتبقية، والاستخدام الشهري لكل طالب.{% else %}Plan, allowed and remaining minutes, and monthly usage per student.{% endif %}{% endblock %}
+
+{% block control_content %}
+<section class="control-card">
+  <form method="get" class="control-filter-form">
+    <label>{% if lang == "ar" %}اسم المستخدم{% else %}Username{% endif %} <input type="text" name="q" value="{{ q }}"></label>
+    <button type="submit" class="btn">{% if lang == "ar" %}بحث{% else %}Search{% endif %}</button>
+  </form>
+</section>
+
+{% if q and not student %}
+<section class="control-card" style="margin-top:16px"><p>{% if lang == "ar" %}لم يتم العثور على الطالب.{% else %}Student not found.{% endif %}</p></section>
+{% endif %}
+
+{% if data %}
+<div class="control-grid metrics-grid" style="margin-top:16px">
+  <div class="control-card metric-card"><div><div class="metric-value">{{ data.limit.plan_name|default:"—" }}</div><div class="metric-label">{% if lang == "ar" %}الباقة{% else %}Plan{% endif %}</div></div></div>
+  <div class="control-card metric-card"><div><div class="metric-value">{{ data.limit.allowed_minutes|floatformat:1 }}</div><div class="metric-label">{% if lang == "ar" %}الدقائق المسموح بها{% else %}Allowed minutes/day{% endif %}</div></div></div>
+  <div class="control-card metric-card"><div><div class="metric-value">{{ data.limit.used_minutes|floatformat:1 }}</div><div class="metric-label">{% if lang == "ar" %}دقائق مستخدمة اليوم{% else %}Used minutes today{% endif %}</div></div></div>
+  <div class="control-card metric-card"><div><div class="metric-value">{{ data.limit.remaining_minutes|floatformat:1 }}</div><div class="metric-label">{% if lang == "ar" %}الدقائق المتبقية{% else %}Remaining minutes{% endif %}</div></div></div>
+  <div class="control-card metric-card"><div><div class="metric-value">{{ data.month_requests }}</div><div class="metric-label">{% if lang == "ar" %}طلبات هذا الشهر{% else %}Requests this month{% endif %}</div></div></div>
+  <div class="control-card metric-card"><div><div class="metric-value">${{ data.month_cost|floatformat:4 }}</div><div class="metric-label">{% if lang == "ar" %}تكلفة هذا الشهر{% else %}Cost this month{% endif %}</div></div></div>
+</div>
+
+<section class="control-card" style="margin-top:16px">
+  <p>{% if lang == "ar" %}آخر جلسة معلم ذكي:{% else %}Last AI Tutor session:{% endif %}
+    {% if data.last_tutor %}{{ data.last_tutor.created_at|date:'Y-m-d H:i' }}{% else %}—{% endif %}</p>
+  {% if data.abnormal %}<p class="control-alert">{% if lang == "ar" %}⚠️ استخدام مرتفع غير معتاد اليوم.{% else %}⚠️ Abnormally high usage today.{% endif %}</p>{% endif %}
+  {% if data.limit.is_exceeded %}<p class="control-alert">{% if lang == "ar" %}تم استنفاد دقائق اليوم.{% else %}Daily minutes exhausted.{% endif %}</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

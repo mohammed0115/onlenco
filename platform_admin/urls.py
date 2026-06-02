@@ -1,12 +1,21 @@
 from django.urls import path
 
 from . import views
+from . import views_student_approval as approvals
+from . import views_media_review as media_review
 
 
 app_name = "platform_admin"
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
+    path("student-approvals/", approvals.student_approvals, name="student_approvals"),
+    path("student-approvals/bulk/", approvals.student_approval_bulk, name="student_approval_bulk"),
+    path("student-approvals/<int:pk>/<slug:action>/", approvals.student_approval_action,
+         name="student_approval_action"),
+    path("media-review/", media_review.media_review, name="media_review"),
+    path("media-review/<slug:media_type>/<int:pk>/<slug:action>/", media_review.media_action,
+         name="media_action"),
     path("dashboard/academic/", views.dashboard_academic, name="dashboard_academic"),
     path("dashboard/finance/", views.dashboard_finance, name="dashboard_finance"),
     path("dashboard/support/", views.dashboard_support, name="dashboard_support"),

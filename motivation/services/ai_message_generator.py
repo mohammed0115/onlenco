@@ -44,29 +44,23 @@ def _build_prompt(*, lang: str, tone: str, snapshot: dict, context: str) -> tupl
     return sys, user
 
 
-def _call_llm(sys: str, user: str) -> Optional[str]:
+def _call_llm(sys: str, user: str, *, user_obj=None) -> Optional[str]:
     if not settings.AI_API_KEY:
         return None
+    # Routed through the centralised ai_usage wrapper (Prompt 12A): usage,
+    # cost and failures are logged there — no inline metering here.
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": settings.AI_MODEL,
-                "messages": [
-                    {"role": "system", "content": sys},
-                    {"role": "user", "content": user},
-                ],
-                "max_tokens": 120,
-                "temperature": 0.7,
-            },
-            timeout=20,
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        data = ai_client.chat(
+            [
+                {"role": "system", "content": sys},
+                {"role": "user", "content": user},
+            ],
+            user=user_obj, feature=AC.FEATURE_MOTIVATION, model=settings.AI_MODEL,
+            extra_payload={"max_tokens": 120, "temperature": 0.7}, timeout=20,
         )
-        resp.raise_for_status()
-        data = resp.json()
         text = (data["choices"][0]["message"].get("content") or "").strip()
         return text or None
     except Exception as e:
@@ -106,7 +100,7 @@ def build_message_with_ai(
     sys, prompt = _build_prompt(
         lang=lang, tone=tone, snapshot=snapshot_data, context=context
     )
-    body = _call_llm(sys, prompt)
+    body = _call_llm(sys, prompt, user_obj=user)
     if not body:
         # Fallback to template path
         return message_generator.build_message(

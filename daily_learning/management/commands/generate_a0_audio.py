@@ -62,24 +62,18 @@ def _synth_bytes(text: str, *, voice: str = DEFAULT_VOICE,
         return None
     from core.services.text_humanizer import humanize_for_speech
     text = humanize_for_speech(text, language="en") or text
-    payload = {
-        "model": model,
-        "input": text[:MAX_CHARS],
-        "voice": voice,
-        "format": "mp3",
-    }
     try:
-        resp = requests.post(
-            f"{settings.AI_API_BASE.rstrip('/')}/audio/speech",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=(5, 30),
+        # Centralised ai_usage wrapper (Prompt 12A.1): media_generation TTS,
+        # role=system (offline batch command).
+        from ai_usage import constants as AC
+        from ai_usage.services import ai_client
+
+        return ai_client.synthesize_speech(
+            text[:MAX_CHARS], voice=voice, model=model,
+            feature=AC.FEATURE_MEDIA_GENERATION, role=AC.ROLE_SYSTEM,
+            response_format="mp3", timeout=(5, 30),
+            metadata={"kind": "a0_lesson_audio"},
         )
-        resp.raise_for_status()
-        return resp.content
     except Exception as e:
         logger.warning("TTS synth failed for %r: %s", text[:40], e)
         return None
