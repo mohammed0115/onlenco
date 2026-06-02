@@ -797,3 +797,14 @@ body.ds-no-scroll { overflow: hidden; }
   /* Dense tables scroll horizontally inside their panel on small screens. */
   .control-panel { overflow-x: auto; }
 }
+
+/* Teacher detail — compact actions card. Replaces 4 separate .action-box
+   forms whose grid layout stretched each .btn-control to the full panel
+   width (oversized buttons). Buttons now sit in flex rows at natural size. */
+.ta-card { display: grid; gap: 18px; }
+.ta-group { display: grid; gap: 8px; }
+.ta-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ta-row form { display: contents; }
+.ta-assign { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ta-assign select { flex: 1 1 160px; min-width: 0; }
+.ta-danger-label { color: hsl(var(--destructive)); }
