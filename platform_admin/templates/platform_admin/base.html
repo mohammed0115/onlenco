@@ -7,8 +7,9 @@
 
 {% block body %}
 <div class="control-shell">
+  <div class="ds-overlay" data-ds-overlay></div>
   <div class="control-layout">
-    <aside class="control-sidebar">
+    <aside id="control-sidebar" class="control-sidebar ds-drawer">
       <div class="control-brand">
         <div class="control-logo"><i data-lucide="brain" class="h-5 w-5"></i></div>
         <div>
@@ -28,6 +29,9 @@
 
     <div class="control-main">
       <header class="control-topbar">
+        <button type="button" class="ds-drawer-toggle" data-ds-toggle="#control-sidebar" aria-controls="control-sidebar" aria-expanded="false" aria-label="{% if lang == 'ar' %}القائمة{% else %}Menu{% endif %}">
+          <i data-lucide="menu" class="h-5 w-5"></i>
+        </button>
         <div>
           <div class="control-title">{% block control_title %}Onlenco Control Center{% endblock %}</div>
           <div class="control-subtitle">{% block control_subtitle %}Secure platform operations{% endblock %}</div>
@@ -71,5 +75,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
+  <script src="{% static 'js/dashboard-shell.js' %}"></script>
   <script src="{% static 'platform_admin/js/control.js' %}"></script>
 {% endblock %}

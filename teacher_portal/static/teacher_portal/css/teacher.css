@@ -711,3 +711,97 @@ code {
 .lesson-row-actions button:hover { text-decoration: underline; }
 .lesson-row-actions .link-danger { color: #d92d20; }
 .lesson-row-actions svg { width: 14px; height: 14px; }
+
+/* ===================================================================
+   Prompt 16.6 — accessibility + mobile drawer + responsive tables.
+   Additive only: appended last so it overrides the legacy mobile
+   blocks above without touching existing markup/flow.
+   =================================================================== */
+
+/* Visible focus ring for keyboard users across teacher controls. */
+.teacher-nav a:focus-visible,
+.teacher-btn:focus-visible,
+.teacher-link:focus-visible,
+.row-actions a:focus-visible,
+.row-actions button:focus-visible,
+.lesson-row-actions a:focus-visible,
+.ds-drawer-toggle:focus-visible {
+  outline: 2px solid hsl(var(--ring, var(--primary)));
+  outline-offset: 2px;
+}
+
+/* Comfortable touch targets on touch devices (WCAG 2.5.5). */
+@media (pointer: coarse) {
+  .teacher-nav a,
+  .teacher-btn { min-height: 44px; }
+}
+
+/* Responsive table wrapper (reusable across teacher list pages). */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table-wrap > table { margin: 0; }
+
+/* Hamburger toggle + drawer overlay — hidden on desktop, shown on mobile.
+   Defined here (not shared) so the teacher surface stays self-contained. */
+.ds-drawer-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+}
+.ds-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgb(15 23 42 / .45);
+}
+.ds-overlay.is-open { display: block; }
+body.ds-no-scroll { overflow: hidden; }
+
+@media (max-width: 980px) {
+  .teacher-shell { grid-template-columns: 1fr; }
+
+  /* Sidebar becomes an off-canvas drawer (slides from the inline-start edge). */
+  .teacher-sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 280px;
+    max-width: 84vw;
+    height: 100dvh;
+    z-index: 1200;
+    overflow-y: auto;
+    border-inline-end: 1px solid hsl(var(--border));
+    border-bottom: 0;
+    transform: translateX(-100%);
+    transition: transform var(--duration-base, .25s) ease;
+  }
+  [dir="rtl"] .teacher-sidebar { transform: translateX(100%); }
+  .teacher-sidebar.is-open {
+    transform: none;
+    box-shadow: var(--shadow-2xl, 0 20px 50px -12px rgb(0 0 0 / .4));
+  }
+
+  .teacher-nav { grid-template-columns: 1fr; }
+
+  /* Topbar: hamburger + title on one row, actions wrap below. */
+  .teacher-topbar {
+    position: sticky;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 14px 16px;
+  }
+  .ds-drawer-toggle { display: inline-flex; }
+}

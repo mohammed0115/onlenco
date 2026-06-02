@@ -7,7 +7,8 @@
 
 {% block body %}
 <div class="teacher-shell">
-  <aside class="teacher-sidebar">
+  <div class="ds-overlay" data-ds-overlay></div>
+  <aside id="teacher-sidebar" class="teacher-sidebar ds-drawer">
     <a class="teacher-brand" href="{% url 'teacher_portal:dashboard' %}">
       <span class="teacher-logo"><i data-lucide="brain" class="h-5 w-5"></i></span>
       <span>
@@ -27,6 +28,9 @@
 
   <div class="teacher-main">
     <header class="teacher-topbar">
+      <button type="button" class="ds-drawer-toggle" data-ds-toggle="#teacher-sidebar" aria-controls="teacher-sidebar" aria-expanded="false" aria-label="{% if lang == 'ar' %}القائمة{% else %}Menu{% endif %}">
+        <i data-lucide="menu" class="h-5 w-5"></i>
+      </button>
       <div>
         <h1>{% block teacher_title %}{% if lang == "ar" %}لوحة المعلم{% else %}Teacher Dashboard{% endif %}{% endblock %}</h1>
         <p>{% block teacher_subtitle %}{% if lang == "ar" %}إدارة المحتوى والطلاب دون استخدام Django Admin.{% else %}Manage teaching work without Django Admin.{% endif %}{% endblock %}</p>
@@ -66,5 +70,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
+  <script src="{% static 'js/dashboard-shell.js' %}"></script>
   <script src="{% static 'teacher_portal/js/teacher.js' %}"></script>
 {% endblock %}
