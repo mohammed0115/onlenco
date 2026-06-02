@@ -761,10 +761,26 @@
 .ds-overlay.is-open { display: block; }
 body.ds-no-scroll { overflow: hidden; }
 
-@media (max-width: 860px) {
-  .control-layout { grid-template-columns: 1fr; }
+/* Desktop (>=769px): force the sidebar to stay IN the grid and keep the
+   drawer chrome hidden. min-width + declared last overrides every legacy
+   max-width rule so the sidebar never overlays content and the hamburger/
+   overlay never appear on desktop (root cause of the regression). */
+@media (min-width: 769px) {
+  .control-layout { grid-template-columns: 16rem minmax(0, 1fr); }
+  .control-sidebar {
+    position: sticky;
+    inset-block-start: 0;
+    height: 100vh;
+    transform: none;
+    z-index: auto;
+  }
+  .ds-drawer-toggle { display: none; }
+  .ds-overlay { display: none; }
+}
 
-  /* Sidebar becomes an off-canvas drawer (slides from the inline-start edge). */
+/* Mobile/tablet (<=768px): sidebar becomes an off-canvas drawer. */
+@media (max-width: 768px) {
+  .control-layout { grid-template-columns: 1fr; }
   .control-sidebar {
     position: fixed;
     inset-block: 0;
@@ -782,10 +798,7 @@ body.ds-no-scroll { overflow: hidden; }
     transform: none;
     box-shadow: var(--shadow-2xl, 0 20px 50px -12px rgb(0 0 0 / .4));
   }
-
   .control-nav { grid-template-columns: 1fr; }
-
-  /* Topbar: hamburger + title on one row, actions wrap below. */
   .control-topbar {
     flex-direction: row;
     flex-wrap: wrap;
@@ -793,8 +806,6 @@ body.ds-no-scroll { overflow: hidden; }
     padding: 14px 16px;
   }
   .ds-drawer-toggle { display: inline-flex; }
-
-  /* Dense tables scroll horizontally inside their panel on small screens. */
   .control-panel { overflow-x: auto; }
 }
 

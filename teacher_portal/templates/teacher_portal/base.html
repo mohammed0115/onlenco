@@ -2,12 +2,11 @@
 {% load static %}
 
 {% block extra_head %}
-  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher.css' %}?v=figma-20260522">
+  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher.css' %}?v=p166a1-20260602">
 {% endblock %}
 
 {% block body %}
 <div class="teacher-shell">
-  <div class="ds-overlay" data-ds-overlay></div>
   <aside id="teacher-sidebar" class="teacher-sidebar ds-drawer">
     <a class="teacher-brand" href="{% url 'teacher_portal:dashboard' %}">
       <span class="teacher-logo"><i data-lucide="brain" class="h-5 w-5"></i></span>
@@ -66,10 +65,11 @@
       {% block teacher_content %}{% endblock %}
     </main>
   </div>
+  <div class="ds-overlay" data-ds-overlay></div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
-  <script src="{% static 'js/dashboard-shell.js' %}"></script>
+  <script src="{% static 'js/dashboard-shell.js' %}?v=p166a1-20260602"></script>
   <script src="{% static 'teacher_portal/js/teacher.js' %}"></script>
 {% endblock %}

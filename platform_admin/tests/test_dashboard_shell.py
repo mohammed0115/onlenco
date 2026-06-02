@@ -34,3 +34,19 @@ class AdminShellResponsiveTests(PlatformAdminTestMixin, TestCase):
         self.client.force_login(self.student)
         r = self.client.get("/admin/")
         self.assertNotEqual(r.status_code, 200)
+
+    # --- Prompt 16.6A.1 — shell layout regression guards ---
+
+    def test_admin_dashboard_desktop_shell_not_drawer(self):
+        from django.contrib.staticfiles import finders
+        css = open(finders.find("platform_admin/css/control.css")).read()
+        self.assertIn("@media (min-width: 769px)", css)
+        self.assertIn("@media (max-width: 768px)", css)
+        desktop = css.split("@media (min-width: 769px)")[1].split("@media (max-width: 768px)")[0]
+        self.assertIn(".ds-drawer-toggle", desktop)
+        self.assertIn("display: none", desktop)
+
+    def test_admin_css_version_bumped(self):
+        self.client.force_login(self.platform_admin)
+        html = self.client.get("/admin/").content.decode()
+        self.assertIn("control.css?v=p166a1", html)
