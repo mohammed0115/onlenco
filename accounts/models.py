@@ -289,7 +289,12 @@ class StudentApprovalEvent(models.Model):
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_profile(sender, instance, created, **kwargs):
-    """Auto-create a Profile when a new User is created."""
-    if created:
+def create_profile(sender, instance, created, raw=False, **kwargs):
+    """Auto-create a Profile when a new User is created.
+
+    Skips fixture loading (``raw=True``): during loaddata the Profile row
+    comes from the fixture itself, so auto-creating one here would collide
+    on the OneToOne user_id (UNIQUE constraint).
+    """
+    if created and not raw:
         Profile.objects.get_or_create(user=instance)

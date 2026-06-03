@@ -22,8 +22,10 @@ FREE_TRIAL_SECONDS = 5 * 60  # spec: 5 minutes one-shot
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def grant_free_trial_on_user_creation(sender, instance, created, **kwargs):
-    if not created:
+def grant_free_trial_on_user_creation(sender, instance, created, raw=False, **kwargs):
+    # Skip fixture loading (raw=True): the FreeTrialUsage row comes from the
+    # fixture itself, so auto-creating here collides on the OneToOne user_id.
+    if not created or raw:
         return
     try:
         FreeTrialUsage.objects.get_or_create(
