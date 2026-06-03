@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator
 from django.db import models
@@ -161,6 +163,85 @@ class StudentTeacherRelation(models.Model):
             relation.cefr_level_at_selection = cefr_level
         relation.save(update_fields=["is_active", "cefr_level_at_selection", "updated_at"])
         return relation
+
+
+LIVE_SESSION_STATUS_CHOICES = [
+    ("scheduled", _("Scheduled")),
+    ("completed", _("Completed")),
+    ("cancelled", _("Cancelled")),
+]
+
+# Max live sessions a teacher may schedule per course per ISO week.
+MAX_LIVE_SESSIONS_PER_WEEK = 2
+
+
+class LiveSession(models.Model):
+    """A scheduled live class (Google Meet) between a teacher and their
+    course's students. Capped at two per course per week.
+    """
+
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="live_sessions",
+        verbose_name=_("Teacher"),
+    )
+    course = models.ForeignKey(
+        "courses.Course",
+        on_delete=models.CASCADE,
+        related_name="live_sessions",
+        verbose_name=_("Course"),
+    )
+    title = models.CharField(max_length=200, verbose_name=_("Title"))
+    description = models.TextField(blank=True, verbose_name=_("Description"))
+    scheduled_at = models.DateTimeField(verbose_name=_("Scheduled at"))
+    duration_minutes = models.PositiveIntegerField(default=60, verbose_name=_("Duration (minutes)"))
+    meet_link = models.URLField(blank=True, verbose_name=_("Google Meet link"))
+    status = models.CharField(
+        max_length=10, choices=LIVE_SESSION_STATUS_CHOICES, default="scheduled",
+        db_index=True, verbose_name=_("Status"),
+    )
+    # Set when the 30-minute reminder has gone out, so it fires only once.
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-scheduled_at"]
+        verbose_name = _("Live session")
+        verbose_name_plural = _("Live sessions")
+        indexes = [
+            models.Index(fields=["teacher", "scheduled_at"]),
+            models.Index(fields=["status", "scheduled_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} — {self.scheduled_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def ends_at(self):
+        return self.scheduled_at + timedelta(minutes=self.duration_minutes or 0)
+
+    @staticmethod
+    def _week_bounds(when):
+        """Monday 00:00 .. next Monday 00:00 around ``when``."""
+        start = (when - timedelta(days=when.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0,
+        )
+        return start, start + timedelta(days=7)
+
+    @classmethod
+    def weekly_count(cls, teacher, course, when, exclude_pk=None):
+        """Active (non-cancelled) sessions for this teacher+course in the
+        ISO week containing ``when``."""
+        start, end = cls._week_bounds(when)
+        qs = (
+            cls.objects.filter(teacher=teacher, course=course, scheduled_at__gte=start, scheduled_at__lt=end)
+            .exclude(status="cancelled")
+        )
+        if exclude_pk:
+            qs = qs.exclude(pk=exclude_pk)
+        return qs.count()
 
 
 class TeacherStudentNote(models.Model):

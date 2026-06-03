@@ -4,6 +4,8 @@ import json
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from courses.models import (
     Course,
@@ -14,6 +16,8 @@ from courses.models import (
 )
 
 from .models import (
+    LiveSession,
+    MAX_LIVE_SESSIONS_PER_WEEK,
     StudentAssignmentSubmission,
     TeacherAssignment,
     TeacherProfile,
@@ -358,3 +362,44 @@ class ReviewSubmissionForm(forms.ModelForm):
         model = StudentAssignmentSubmission
         fields = ["score", "feedback", "status"]
         widgets = {"feedback": forms.Textarea(attrs={"rows": 4})}
+
+
+class LiveSessionForm(forms.ModelForm):
+    """Schedule a live class. Course choices are scoped to the teacher; at
+    most two active sessions per course per ISO week are allowed."""
+
+    class Meta:
+        model = LiveSession
+        fields = ["course", "title", "description", "scheduled_at", "duration_minutes"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "scheduled_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+        }
+
+    def __init__(self, *args, teacher=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.teacher = teacher
+        if teacher is not None:
+            self.fields["course"].queryset = teacher_course_queryset(teacher)
+
+    def clean_scheduled_at(self):
+        when = self.cleaned_data.get("scheduled_at")
+        if when and when <= timezone.now():
+            raise ValidationError(_("Pick a time in the future. / اختر وقتاً في المستقبل."))
+        return when
+
+    def clean(self):
+        cleaned = super().clean()
+        course = cleaned.get("course")
+        when = cleaned.get("scheduled_at")
+        if self.teacher is not None and course is not None and when is not None:
+            count = LiveSession.weekly_count(
+                self.teacher, course, when, exclude_pk=self.instance.pk,
+            )
+            if count >= MAX_LIVE_SESSIONS_PER_WEEK:
+                raise ValidationError(
+                    _("You can schedule at most %(n)d live sessions per course each week. / "
+                      "يمكنك جدولة %(n)d حصص مباشرة كحد أقصى لكل كورس أسبوعياً.")
+                    % {"n": MAX_LIVE_SESSIONS_PER_WEEK}
+                )
+        return cleaned

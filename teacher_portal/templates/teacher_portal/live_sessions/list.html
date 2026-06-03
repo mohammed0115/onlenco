@@ -1,0 +1,50 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}الحصص المباشرة{% else %}Live Sessions{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<div class="toolbar-line">
+  <a class="teacher-btn teacher-btn-primary" href="{% url 'teacher_portal:live_session_create' %}"><i data-lucide="plus"></i>{% if lang == "ar" %}جدولة حصة{% else %}Schedule a session{% endif %}</a>
+</div>
+<section class="teacher-panel">
+  <div class="table-wrap">
+  <table class="teacher-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th>
+      <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
+      <th>{% if lang == "ar" %}الموعد{% else %}When{% endif %}</th>
+      <th>{% if lang == "ar" %}المدة{% else %}Duration{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th>{% if lang == "ar" %}الرابط{% else %}Link{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for s in page_obj.object_list %}
+        <tr>
+          <td>{{ s.title }}</td>
+          <td>{{ s.course.title_ar|default:s.course.title }}</td>
+          <td><span dir="ltr">{{ s.scheduled_at|date:"Y-m-d H:i" }}</span></td>
+          <td>{{ s.duration_minutes }} {% if lang == "ar" %}د{% else %}min{% endif %}</td>
+          <td>
+            {% if s.status == "scheduled" %}<span class="badge badge-green">{% if lang == "ar" %}مجدولة{% else %}Scheduled{% endif %}</span>
+            {% elif s.status == "completed" %}<span class="badge">{% if lang == "ar" %}مكتملة{% else %}Completed{% endif %}</span>
+            {% else %}<span class="badge badge-red">{% if lang == "ar" %}ملغاة{% else %}Cancelled{% endif %}</span>{% endif %}
+          </td>
+          <td>{% if s.meet_link %}<a href="{{ s.meet_link }}" target="_blank" rel="noopener"><i data-lucide="video" class="h-4 w-4"></i> Meet</a>{% else %}—{% endif %}</td>
+          <td class="row-actions">
+            {% if s.status == "scheduled" %}
+            <form method="post" action="{% url 'teacher_portal:live_session_cancel' s.pk %}" onsubmit="return confirm('{% if lang == "ar" %}إلغاء هذه الحصة؟{% else %}Cancel this session?{% endif %}');">
+              {% csrf_token %}<button type="submit" class="link-danger">{% if lang == "ar" %}إلغاء{% else %}Cancel{% endif %}</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">{% if lang == "ar" %}لا توجد حصص مباشرة بعد. اضغط «جدولة حصة».{% else %}No live sessions yet. Click "Schedule a session".{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% include "teacher_portal/_pagination.html" %}
+</section>
+{% endblock %}

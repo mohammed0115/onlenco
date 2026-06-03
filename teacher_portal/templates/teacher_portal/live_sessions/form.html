@@ -1,0 +1,45 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}جدولة حصة مباشرة{% else %}Schedule a live session{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}لقاءان كحد أقصى لكل كورس في الأسبوع. يُولَّد رابط Google Meet تلقائياً.{% else %}Up to two per course each week. A Google Meet link is generated automatically.{% endif %}{% endblock %}
+
+{% block teacher_content %}
+<form class="teacher-form" method="post" style="max-width:640px">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="tp-form-errors">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="tp-fld">
+    <label for="{{ form.course.id_for_label }}">{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</label>
+    {{ form.course }}
+    {% if form.course.errors %}<small class="tp-err">{{ form.course.errors|join:" " }}</small>{% endif %}
+  </div>
+
+  <div class="tp-fld">
+    <label for="{{ form.title.id_for_label }}">{% if lang == "ar" %}عنوان الحصة{% else %}Session title{% endif %}</label>
+    {{ form.title }}
+    {% if form.title.errors %}<small class="tp-err">{{ form.title.errors|join:" " }}</small>{% endif %}
+  </div>
+
+  <div class="tp-fld">
+    <label for="{{ form.description.id_for_label }}">{% if lang == "ar" %}الوصف (اختياري){% else %}Description (optional){% endif %}</label>
+    {{ form.description }}
+  </div>
+
+  <div class="tp-fld">
+    <label for="{{ form.scheduled_at.id_for_label }}">{% if lang == "ar" %}الموعد{% else %}Date & time{% endif %}</label>
+    {{ form.scheduled_at }}
+    {% if form.scheduled_at.errors %}<small class="tp-err">{{ form.scheduled_at.errors|join:" " }}</small>{% endif %}
+  </div>
+
+  <div class="tp-fld">
+    <label for="{{ form.duration_minutes.id_for_label }}">{% if lang == "ar" %}المدة (دقائق){% else %}Duration (minutes){% endif %}</label>
+    {{ form.duration_minutes }}
+    {% if form.duration_minutes.errors %}<small class="tp-err">{{ form.duration_minutes.errors|join:" " }}</small>{% endif %}
+  </div>
+
+  <div class="form-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+    <button type="submit" class="teacher-btn teacher-btn-primary"><i data-lucide="calendar-plus"></i>{% if lang == "ar" %}جدولة وإشعار الطلاب{% else %}Schedule & notify students{% endif %}</button>
+    <a class="teacher-btn" href="{% url 'teacher_portal:live_sessions' %}">{% if lang == "ar" %}رجوع{% else %}Back{% endif %}</a>
+  </div>
+</form>
+{% endblock %}

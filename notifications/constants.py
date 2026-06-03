@@ -41,6 +41,10 @@ TEACHER_STUDENT_LOW_PERFORMANCE = "teacher_student_low_performance"
 TEACHER_CONTENT_NEEDS_REVISION = "teacher_content_needs_revision"
 TEACHER_DAILY_DIGEST = "teacher_daily_digest"
 
+# Live sessions (Marketplace prompt 2)
+LIVE_SESSION_SCHEDULED = "live_session_scheduled"
+LIVE_SESSION_REMINDER = "live_session_reminder"
+
 # Motivation engine events (delivered to students)
 MOTIVATION_MESSAGE_GENERATED = "motivation_message_generated"
 ACHIEVEMENT_UNLOCKED         = "achievement_unlocked"
@@ -88,6 +92,8 @@ ALL_TEACHER_EVENTS = [
     TEACHER_STUDENT_LOW_PERFORMANCE,
     TEACHER_CONTENT_NEEDS_REVISION,
     TEACHER_DAILY_DIGEST,
+    LIVE_SESSION_SCHEDULED,
+    LIVE_SESSION_REMINDER,
 ]
 
 ALL_MOTIVATION_EVENTS = [
@@ -235,6 +241,8 @@ DEFAULT_SUBJECTS = {
     TEACHER_STUDENT_LOW_PERFORMANCE: "A student needs support",
     TEACHER_CONTENT_NEEDS_REVISION: "Content needs revision",
     TEACHER_DAILY_DIGEST: "Your Onlenco teaching summary",
+    LIVE_SESSION_SCHEDULED: "A new live class has been scheduled",
+    LIVE_SESSION_REMINDER: "Your live class starts soon",
     MOTIVATION_MESSAGE_GENERATED: "Onlenco — keep going",
     ACHIEVEMENT_UNLOCKED: "Achievement unlocked!",
     BADGE_EARNED: "You earned a new badge",
@@ -277,6 +285,8 @@ SUBJECTS_AR = {
     TEACHER_STUDENT_LOW_PERFORMANCE: "يوجد طالب يحتاج إلى متابعة في كورسك",
     TEACHER_CONTENT_NEEDS_REVISION: "يوجد محتوى يحتاج إلى تعديل",
     TEACHER_DAILY_DIGEST: "ملخّص يومك التدريسي في Onlenco",
+    LIVE_SESSION_SCHEDULED: "تم تحديد موعد حصة مباشرة جديدة",
+    LIVE_SESSION_REMINDER: "حصتك المباشرة تبدأ قريباً",
 }
 
 # Map event_type → template filename (relative to templates/notifications/emails/)
@@ -313,4 +323,6 @@ TEMPLATE_NAMES = {
     AT_RISK_STUDENT: "admin_at_risk_student.html",
     DAILY_ADMIN_SUMMARY: "admin_daily_summary.html",
     WEEKLY_ADMIN_SUMMARY: "admin_weekly_summary.html",
+    LIVE_SESSION_SCHEDULED: "live_session_scheduled.html",
+    LIVE_SESSION_REMINDER: "live_session_reminder.html",
 }

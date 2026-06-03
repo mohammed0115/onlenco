@@ -242,6 +242,13 @@ GOOGLE_SITE_VERIFICATION = env_get("GOOGLE_SITE_VERIFICATION", "") or ""
 # Google Analytics 4 measurement ID, e.g. "G-XXXXXXXXXX". When empty the GA4
 # snippet is not emitted at all (no tracking, no extra requests).
 GOOGLE_ANALYTICS_ID = env_get("GOOGLE_ANALYTICS_ID", "") or ""
+
+# Live-session Google Meet integration. Off by default → the meet service
+# returns a realistic mock link so scheduling works everywhere without keys.
+# Set GOOGLE_MEET_ENABLED=1 and provide credentials to use the real API.
+GOOGLE_MEET_ENABLED = env_bool("GOOGLE_MEET_ENABLED", False)
+GOOGLE_MEET_CREDENTIALS_FILE = env_get("GOOGLE_MEET_CREDENTIALS_FILE", "") or ""
+GOOGLE_MEET_CALENDAR_ID = env_get("GOOGLE_MEET_CALENDAR_ID", "primary") or "primary"
 # Use the non-manifest variant: whitenoise still gzip/brotli-compresses, but
 # we don't depend on `staticfiles.json` existing post-collectstatic. Switch
 # back to CompressedManifestStaticFilesStorage when you want hashed filenames

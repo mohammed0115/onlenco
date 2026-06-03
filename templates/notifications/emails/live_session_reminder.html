@@ -1,0 +1,13 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}حصتك تبدأ قريباً ⏰{% else %}Your class starts soon ⏰{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحباً {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    حصتك المباشرة <strong>{{ payload.title|default:"" }}</strong> في كورس <strong>{{ payload.course_title|default:"" }}</strong> ستبدأ خلال نحو 30 دقيقة (<strong>{{ payload.scheduled_at|default:"—" }}</strong>).
+  {% else %}
+    Your live class <strong>{{ payload.title|default:"" }}</strong> for <strong>{{ payload.course_title|default:"" }}</strong> starts in about 30 minutes (<strong>{{ payload.scheduled_at|default:"—" }}</strong>).
+  {% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}انضمّ الآن{% else %}Join now{% endif %}</a></p>
+{% endblock %}

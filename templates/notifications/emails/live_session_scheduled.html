@@ -1,0 +1,19 @@
+{% extends "notifications/emails/base_email.html" %}
+{% block content %}
+<h1>{% if lang == "ar" %}حصة مباشرة جديدة 📅{% else %}A new live class 📅{% endif %}</h1>
+<p>{% if lang == "ar" %}مرحباً {{ recipient_name }}،{% else %}Hi {{ recipient_name }},{% endif %}</p>
+<p>
+  {% if lang == "ar" %}
+    حدّد أستاذك <strong>{{ payload.teacher_name|default:"" }}</strong> حصة مباشرة جديدة في كورس <strong>{{ payload.course_title|default:"" }}</strong>.
+  {% else %}
+    Your teacher <strong>{{ payload.teacher_name|default:"" }}</strong> scheduled a new live class for <strong>{{ payload.course_title|default:"" }}</strong>.
+  {% endif %}
+</p>
+<p>
+  <span class="badge">{{ payload.title|default:"" }}</span><br><br>
+  {% if lang == "ar" %}🕒 الموعد:{% else %}🕒 When:{% endif %} <strong>{{ payload.scheduled_at|default:"—" }}</strong><br>
+  {% if lang == "ar" %}⏱️ المدة:{% else %}⏱️ Duration:{% endif %} {{ payload.duration_minutes|default:"60" }} {% if lang == "ar" %}دقيقة{% else %}min{% endif %}
+</p>
+<p><a href="{{ cta_url }}" class="cta">{% if lang == "ar" %}انضمّ عبر Google Meet{% else %}Join on Google Meet{% endif %}</a></p>
+<p class="muted">{% if lang == "ar" %}سنذكّرك قبل بدء الحصة بنصف ساعة.{% else %}We'll remind you 30 minutes before it starts.{% endif %}</p>
+{% endblock %}

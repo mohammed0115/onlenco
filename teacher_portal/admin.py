@@ -1,12 +1,20 @@
 from django.contrib import admin
 
 from .models import (
+    LiveSession,
     StudentAssignmentSubmission,
     StudentTeacherRelation,
     TeacherAssignment,
     TeacherProfile,
     TeacherStudentNote,
 )
+
+
+@admin.register(LiveSession)
+class LiveSessionAdmin(admin.ModelAdmin):
+    list_display = ("title", "teacher", "course", "scheduled_at", "duration_minutes", "status", "reminder_sent_at")
+    list_filter = ("status", "scheduled_at")
+    search_fields = ("title", "teacher__email", "teacher__username", "course__title")
 
 
 @admin.register(TeacherProfile)

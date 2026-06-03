@@ -7,6 +7,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from courses.models import Course, CourseEnrollment, Lesson, LessonQuestion, LessonQuiz
@@ -15,6 +16,7 @@ from notifications.models import NotificationEvent
 
 from . import permissions as teacher_perms
 from .forms import (
+    LiveSessionForm,
     ReviewSubmissionForm,
     StudentAssignmentSubmissionForm,
     TeacherAssignmentForm,
@@ -25,7 +27,7 @@ from .forms import (
     TeacherQuizForm,
     TeacherStudentNoteForm,
 )
-from .models import StudentAssignmentSubmission, TeacherAssignment, TeacherProfile, TeacherStudentNote
+from .models import LiveSession, StudentAssignmentSubmission, TeacherAssignment, TeacherProfile, TeacherStudentNote
 from .permissions import teacher_required
 from .services import (
     analytics_service,
@@ -33,6 +35,8 @@ from .services import (
     course_service,
     dashboard_service,
     lesson_service,
+    live_session_service,
+    meet_service,
     notification_service,
     quiz_service,
     student_service,
@@ -48,6 +52,7 @@ def _teacher_nav():
         ("quizzes", "list-checks", "Quizzes", "اختباراتي", "teacher_portal:all_quizzes"),
         ("students", "users", "My Students", "طلابي", "teacher_portal:students"),
         ("assignments", "clipboard-list", "Assignments", "الواجبات", "teacher_portal:assignments"),
+        ("live_sessions", "video", "Live Sessions", "الحصص المباشرة", "teacher_portal:live_sessions"),
         ("analytics", "bar-chart-3", "Analytics", "التحليلات", "teacher_portal:analytics"),
         ("notifications", "bell", "Notifications", "الإشعارات", "teacher_portal:notifications"),
         ("settings", "settings", "Settings", "الإعدادات", "teacher_portal:settings"),
@@ -625,6 +630,60 @@ def question_delete(request, question_id):
     question.delete()
     messages.success(request, "Question deleted.")
     return redirect("teacher_portal:quiz_questions", quiz_id=quiz_id)
+
+
+@teacher_required
+def live_sessions_list(request):
+    """The teacher's scheduled / past live classes."""
+    qs = (
+        LiveSession.objects.filter(teacher=request.user)
+        .select_related("course")
+        .order_by("-scheduled_at")
+    )
+    return _render(
+        request,
+        "teacher_portal/live_sessions/list.html",
+        "live_sessions",
+        {"page_obj": _paginate(request, qs), "now": timezone.now()},
+    )
+
+
+@teacher_required
+def live_session_create(request):
+    """Schedule a live class: generate a Meet link + notify the course's
+    students. Enforces the two-per-week-per-course cap via the form."""
+    if request.method == "POST":
+        form = LiveSessionForm(request.POST, teacher=request.user)
+        if form.is_valid():
+            session = form.save(commit=False)
+            session.teacher = request.user
+            session.meet_link = meet_service.generate_meet_link(
+                title=session.title,
+                start=session.scheduled_at,
+                duration_minutes=session.duration_minutes,
+            )
+            session.save()
+            notified = live_session_service.notify_students_scheduled(session)
+            messages.success(request, f"Live session scheduled. {notified} student(s) notified.")
+            return redirect("teacher_portal:live_sessions")
+    else:
+        form = LiveSessionForm(teacher=request.user)
+    return _render(
+        request,
+        "teacher_portal/live_sessions/form.html",
+        "live_sessions",
+        {"form": form},
+    )
+
+
+@require_POST
+@teacher_required
+def live_session_cancel(request, session_id):
+    session = get_object_or_404(LiveSession, pk=session_id, teacher=request.user)
+    session.status = "cancelled"
+    session.save(update_fields=["status", "updated_at"])
+    messages.success(request, "Live session cancelled.")
+    return redirect("teacher_portal:live_sessions")
 
 
 @require_POST
