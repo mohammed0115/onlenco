@@ -147,6 +147,49 @@ class ScrubInternalLessonTextTests(TestCase):
         self.assertIn("Phase 9.5", self.lesson.content_html)   # untouched in dry-run
 
 
+class ApproveMediaWithFilesTests(TestCase):
+    def setUp(self):
+        from courses.models import Course, CourseLevel, LessonAudioScript
+        level = CourseLevel.objects.create(code="A1", name="A1", order=1)
+        course = Course.objects.create(title="C", slug="c", level=level, status="published")
+        self.lesson = Lesson.objects.create(course=course, title="L", order=1, status="published")
+        self.pending = LessonAudioScript.objects.create(
+            lesson=self.lesson, script_type="intro", script_text="hi",
+            generated_audio="lessons/audio/x.mp3", generation_status="pending_generation")
+        self.rejected = LessonAudioScript.objects.create(
+            lesson=self.lesson, script_type="vocabulary", script_text="hi",
+            generated_audio="lessons/audio/y.mp3", generation_status="rejected")
+        self.nofile = LessonAudioScript.objects.create(
+            lesson=self.lesson, script_type="examples", script_text="hi",
+            generated_audio="", generation_status="pending_generation")
+
+    def test_approves_only_pending_with_file(self):
+        call_command("approve_media_with_files", "--confirm", stdout=StringIO())
+        self.pending.refresh_from_db()
+        self.rejected.refresh_from_db()
+        self.nofile.refresh_from_db()
+        self.assertEqual(self.pending.generation_status, "approved")
+        self.assertEqual(self.rejected.generation_status, "rejected")        # left alone
+        self.assertEqual(self.nofile.generation_status, "pending_generation")  # no file -> skip
+
+    def test_does_not_change_lesson_status(self):
+        before = self.lesson.status
+        call_command("approve_media_with_files", "--confirm", stdout=StringIO())
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.status, before)
+
+    def test_idempotent(self):
+        call_command("approve_media_with_files", "--confirm", stdout=StringIO())
+        out = StringIO()
+        call_command("approve_media_with_files", "--confirm", stdout=out)
+        self.assertIn("approved=0", out.getvalue())
+
+    def test_dry_run_changes_nothing(self):
+        call_command("approve_media_with_files", "--dry-run", stdout=StringIO())
+        self.pending.refresh_from_db()
+        self.assertEqual(self.pending.generation_status, "pending_generation")
+
+
 class InspectLessonMediaTests(TestCase):
     @classmethod
     def setUpTestData(cls):
