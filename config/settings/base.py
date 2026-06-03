@@ -249,6 +249,14 @@ GOOGLE_ANALYTICS_ID = env_get("GOOGLE_ANALYTICS_ID", "") or ""
 GOOGLE_MEET_ENABLED = env_bool("GOOGLE_MEET_ENABLED", False)
 GOOGLE_MEET_CREDENTIALS_FILE = env_get("GOOGLE_MEET_CREDENTIALS_FILE", "") or ""
 GOOGLE_MEET_CALENDAR_ID = env_get("GOOGLE_MEET_CALENDAR_ID", "primary") or "primary"
+
+# Public social-media profiles, shown in the site footer. Each is empty by
+# default and only renders when set — no placeholder/fake links.
+SOCIAL_FACEBOOK_URL = env_get("SOCIAL_FACEBOOK_URL", "") or ""
+SOCIAL_INSTAGRAM_URL = env_get("SOCIAL_INSTAGRAM_URL", "") or ""
+SOCIAL_X_URL = env_get("SOCIAL_X_URL", "") or ""
+SOCIAL_LINKEDIN_URL = env_get("SOCIAL_LINKEDIN_URL", "") or ""
+SOCIAL_YOUTUBE_URL = env_get("SOCIAL_YOUTUBE_URL", "") or ""
 # Use the non-manifest variant: whitenoise still gzip/brotli-compresses, but
 # we don't depend on `staticfiles.json` existing post-collectstatic. Switch
 # back to CompressedManifestStaticFilesStorage when you want hashed filenames

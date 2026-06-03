@@ -51,12 +51,25 @@ def site_context(request):
         "dir": "rtl" if lang == "ar" else "ltr",
         "t": t,
         "T": DICT,  # raw dict for advanced lookups in templates
+        "social_links": _social_links(),
         "can_access_control_center": _can_access_control_center(request),
         "can_access_teacher_portal": _can_access_teacher_portal(request),
         "show_student_mode": _show_student_mode(request),
         "primary_role_label": _primary_role_label(request, lang),
         **_seo_context(request, lang),
     }
+
+
+def _social_links() -> list[dict]:
+    """Footer social profiles — only the ones configured in settings render."""
+    spec = [
+        ("Facebook", "facebook", getattr(settings, "SOCIAL_FACEBOOK_URL", "")),
+        ("Instagram", "instagram", getattr(settings, "SOCIAL_INSTAGRAM_URL", "")),
+        ("X", "twitter", getattr(settings, "SOCIAL_X_URL", "")),
+        ("LinkedIn", "linkedin", getattr(settings, "SOCIAL_LINKEDIN_URL", "")),
+        ("YouTube", "youtube", getattr(settings, "SOCIAL_YOUTUBE_URL", "")),
+    ]
+    return [{"name": n, "icon": i, "url": u} for n, i, u in spec if u]
 
 
 def _seo_context(request, lang: str) -> dict:
