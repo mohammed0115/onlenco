@@ -234,6 +234,14 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Public canonical origin — used for canonical URLs, sitemap, robots.txt,
 # Open Graph and JSON-LD. Override per environment via the SITE_URL env var.
 SITE_URL = env_get("SITE_URL", "https://onlenco.academy").rstrip("/")
+
+# Search Console domain-verification token (the value of the
+# `google-site-verification` content attribute, NOT the full tag). Empty by
+# default so nothing renders until it's set in the production environment.
+GOOGLE_SITE_VERIFICATION = env_get("GOOGLE_SITE_VERIFICATION", "") or ""
+# Google Analytics 4 measurement ID, e.g. "G-XXXXXXXXXX". When empty the GA4
+# snippet is not emitted at all (no tracking, no extra requests).
+GOOGLE_ANALYTICS_ID = env_get("GOOGLE_ANALYTICS_ID", "") or ""
 # Use the non-manifest variant: whitenoise still gzip/brotli-compresses, but
 # we don't depend on `staticfiles.json` existing post-collectstatic. Switch
 # back to CompressedManifestStaticFilesStorage when you want hashed filenames

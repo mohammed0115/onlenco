@@ -14,6 +14,7 @@
   <meta name="robots" content="index, follow">
   <meta name="googlebot" content="index, follow">
   <meta name="author" content="Onlenco Academy">
+  {% if google_site_verification %}<meta name="google-site-verification" content="{{ google_site_verification }}">{% endif %}
 
   {# Canonical + hreflang. Language is cookie-based, so each language #}
   {# is given a stable crawlable URL via ?hl=ar / ?hl=en. #}
@@ -145,6 +146,12 @@
   {% block extra_jsonld %}{% endblock %}
 
   {% block extra_head %}{% endblock %}
+
+  {% comment %}Google Analytics 4 — only emitted when GOOGLE_ANALYTICS_ID is set, and never on the gated admin/teacher consoles.{% endcomment %}
+  {% if google_analytics_id and not request.path|slice:":7" == "/admin/" and not request.path|slice:":9" == "/teacher/" and not request.path|slice:":9" == "/control/" %}
+  <script async src="https://www.googletagmanager.com/gtag/js?id={{ google_analytics_id }}"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ google_analytics_id }}');</script>
+  {% endif %}
 </head>
 <body>
 

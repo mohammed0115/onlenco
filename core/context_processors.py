@@ -85,6 +85,10 @@ def _seo_context(request, lang: str) -> dict:
         "og_locale": "ar_AR" if lang == "ar" else "en_US",
         "seo_title": _SEO_DEFAULT_TITLE[lang],
         "seo_description": _SEO_DEFAULT_DESCRIPTION[lang],
+        # Search Console verification token + GA4 id (both empty unless set in
+        # the environment, so nothing renders/loads by default).
+        "google_site_verification": getattr(settings, "GOOGLE_SITE_VERIFICATION", ""),
+        "google_analytics_id": getattr(settings, "GOOGLE_ANALYTICS_ID", ""),
     }
 
 
