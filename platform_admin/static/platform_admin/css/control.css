@@ -885,3 +885,148 @@ body.ds-no-scroll { overflow: hidden; }
 @media (max-width: 1100px) {
   .ta-aside { gap: 12px; }
 }
+
+/* ===================================================================
+   Prompt 16.6B.0.1 — global shell/table overflow hardening.
+   Root cause:
+   1) wide tables and filter rows could widen their parent cards/pages
+   2) some shell children lacked min-width:0 and max-width guards
+   3) off-canvas sidebar state needed stricter clipping on small screens
+   =================================================================== */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.control-shell,
+.control-shell *,
+.control-shell *::before,
+.control-shell *::after {
+  box-sizing: border-box;
+}
+
+.control-shell,
+.control-layout,
+.control-main,
+.control-content,
+.control-topbar,
+.control-topbar-actions,
+.toolbar,
+.filters,
+.control-card,
+.control-panel,
+.control-grid,
+.stack,
+.form-grid,
+.pagination {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.control-shell {
+  width: 100%;
+  overflow-x: clip;
+}
+
+.control-layout,
+.control-main {
+  width: 100%;
+}
+
+.control-sidebar {
+  min-width: 0;
+}
+
+.toolbar > *,
+.filters > *,
+.control-grid > *,
+.form-grid > *,
+.stack > * {
+  min-width: 0;
+}
+
+.control-panel,
+.table-wrap,
+.admin-table-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap,
+.admin-table-wrap {
+  width: 100%;
+}
+
+.table-wrap > .control-table,
+.admin-table-wrap > .control-table {
+  margin: 0;
+}
+
+.control-table {
+  min-width: 720px;
+  width: max-content;
+  min-inline-size: 100%;
+}
+
+.control-table td.row-actions,
+.control-table th:last-child,
+.control-table td:last-child {
+  white-space: nowrap;
+}
+
+.control-table td.row-actions {
+  min-width: 120px;
+}
+
+.filters input,
+.filters select,
+.filters button,
+.control-card input,
+.control-card select,
+.control-card textarea,
+.control-panel input,
+.control-panel select,
+.control-panel textarea {
+  max-width: 100%;
+}
+
+.filters input[type="text"],
+.filters input[type="search"],
+.filters input:not([type]) {
+  min-width: min(220px, 100%);
+}
+
+.filters select {
+  min-width: min(140px, 100%);
+}
+
+img,
+video,
+iframe,
+table {
+  max-width: 100%;
+}
+
+@media (max-width: 1023px) {
+  .control-search,
+  .filters input[type="text"],
+  .filters input[type="search"],
+  .filters input:not([type]),
+  .filters select,
+  .filters button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .control-sidebar {
+    width: min(20rem, 84vw);
+    max-width: 84vw;
+  }
+
+  .control-table {
+    min-width: 640px;
+  }
+}

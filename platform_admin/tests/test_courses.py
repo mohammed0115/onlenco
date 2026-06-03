@@ -7,6 +7,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 
 class PlatformCourseTests(PlatformAdminTestMixin, TestCase):
+    def test_admin_courses_detail_page_still_renders(self):
+        self.client.force_login(self.academic_admin)
+        response = self.client.get(f"/admin/courses/{self.course.pk}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.course.title)
+
     def test_course_filters_work(self):
         self.client.force_login(self.academic_admin)
         response = self.client.get("/admin/courses/", {"status": "pending_review"})

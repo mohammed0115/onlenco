@@ -11,6 +11,7 @@
 <div class="teacher-grid two">
   <section class="teacher-panel">
     <div class="panel-heading"><h2>{% if lang == "ar" %}الأسئلة{% else %}Questions{% endif %}</h2></div>
+    <div class="table-wrap">
     <table class="teacher-table">
       <thead><tr>
         <th>{% if lang == "ar" %}الترتيب{% else %}Order{% endif %}</th>
@@ -38,6 +39,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
   <section class="teacher-panel">
     <div class="panel-heading"><h2>{% if lang == "ar" %}إضافة سؤال{% else %}Add Question{% endif %}</h2></div>
@@ -49,4 +51,3 @@
   </section>
 </div>
 {% endblock %}
-

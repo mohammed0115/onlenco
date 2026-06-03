@@ -10,6 +10,7 @@
 </form>
 
 <section class="teacher-panel">
+  <div class="table-wrap">
   <table class="teacher-table">
     <thead><tr>
       <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
@@ -39,6 +40,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% include "teacher_portal/_pagination.html" %}
 </section>
 {% endblock %}

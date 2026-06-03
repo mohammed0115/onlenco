@@ -5,115 +5,297 @@
 {% endblock %}
 
 {% block control_subtitle %}
-  {% if lang == "ar" %}يظهر السؤال في الجزء الأول (كتابي) أو الثاني (محادثة) حسب النوع.{% else %}Appears in Part 1 (written) or Part 2 (speaking) depending on type.{% endif %}
+  {% if lang == "ar" %}مُنشئ مرئي للأسئلة بدون JSON للمدير العادي.{% else %}Visual builder for placement questions with no JSON required for normal admins.{% endif %}
 {% endblock %}
 
 {% block control_content %}
-<section class="control-card" style="max-width:780px">
-  <form method="post" class="control-form">
+<section class="control-card pq-builder-shell" style="max-width:960px">
+  <form method="post" class="control-form pq-builder" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}
-      <div class="alert alert-danger" style="margin-bottom:14px">{{ form.non_field_errors }}</div>
+      <div class="alert alert-danger pq-alert">{{ form.non_field_errors }}</div>
     {% endif %}
 
-    <div class="control-grid two-grid">
-      <div>
-        <label>{% if lang == "ar" %}الرمز{% else %}Code{% endif %}</label>
-        {% if question %}
-          <input type="text" value="{{ question.code }}" readonly disabled style="background:#f3f4f6;color:#374151">
-          <small class="muted">{% if lang == "ar" %}يُولَّد تلقائياً ولا يمكن تعديله.{% else %}Auto-generated, not editable.{% endif %}</small>
-        {% else %}
-          <input type="text" value="{% if lang == 'ar' %}سيُولَّد تلقائياً بعد الحفظ{% else %}Auto-generated after save{% endif %}" readonly disabled style="background:#f3f4f6;color:#9ca3af;font-style:italic">
-          <small class="muted">{% if lang == "ar" %}يُبنى من النوع + الموضوع، مثل sp.intro.001.{% else %}Built from type + topic, e.g. sp.intro.001.{% endif %}</small>
-        {% endif %}
-      </div>
-      <div>
-        <label for="{{ form.is_active.id_for_label }}">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</label>
-        <div style="display:flex;align-items:center;gap:8px;min-height:38px">
-          {{ form.is_active }}
-          <span class="muted">{% if lang == "ar" %}نشط (يدخل في الاختيار){% else %}Active (eligible for selection){% endif %}</span>
+    <div class="pq-stepper" data-stepper>
+      <button class="pq-step is-active" type="button" data-step-target="1">1. {% if lang == "ar" %}الأساسيات{% else %}Basics{% endif %}</button>
+      <button class="pq-step" type="button" data-step-target="2">2. {% if lang == "ar" %}السؤال{% else %}Question{% endif %}</button>
+      <button class="pq-step" type="button" data-step-target="3">3. {% if lang == "ar" %}الإجابة{% else %}Answer Builder{% endif %}</button>
+      <button class="pq-step" type="button" data-step-target="4">4. {% if lang == "ar" %}التصحيح والمعاينة{% else %}Rubric & Preview{% endif %}</button>
+    </div>
+
+    <section class="pq-panel is-active" data-step-panel="1">
+      <div class="control-grid two-grid">
+        <div>
+          <label>{% if lang == "ar" %}الرمز{% else %}Code{% endif %}</label>
+          <input type="text" value="{% if question %}{{ question.code }}{% else %}{% if lang == 'ar' %}سيُولَّد تلقائياً بعد الحفظ{% else %}Auto-generated after save{% endif %}{% endif %}" readonly disabled class="pq-readonly">
+        </div>
+        <div>
+          <label for="{{ form.is_active.id_for_label }}">{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</label>
+          <div class="pq-inline-check">{{ form.is_active }} <span class="muted">{% if lang == "ar" %}نشط{% else %}Active{% endif %}</span></div>
         </div>
       </div>
-    </div>
 
-    <div class="control-grid two-grid">
+      <div class="control-grid two-grid">
+        <div>
+          <label for="{{ form.question_type.id_for_label }}">{% if lang == "ar" %}نوع السؤال{% else %}Question type{% endif %}</label>
+          {{ form.question_type }}
+          {% if form.question_type.errors %}<small class="error-text">{{ form.question_type.errors|join:" " }}</small>{% endif %}
+        </div>
+        <div>
+          <label for="{{ form.skill.id_for_label }}">{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</label>
+          {{ form.skill }}
+          {% if form.skill.errors %}<small class="error-text">{{ form.skill.errors|join:" " }}</small>{% endif %}
+        </div>
+      </div>
+
+      <div class="control-grid two-grid">
+        <div>
+          <label for="{{ form.topic.id_for_label }}">{% if lang == "ar" %}الموضوع{% else %}Topic{% endif %}</label>
+          {{ form.topic }}
+          {% if form.topic.errors %}<small class="error-text">{{ form.topic.errors|join:" " }}</small>{% endif %}
+        </div>
+        <div>
+          <label for="{{ form.expected_answer_type.id_for_label }}">{% if lang == "ar" %}نوع الإجابة{% else %}Answer type{% endif %}</label>
+          {{ form.expected_answer_type }}
+        </div>
+      </div>
+
+      <div class="control-grid two-grid">
+        <div>
+          <label for="{{ form.cefr_min_level.id_for_label }}">{% if lang == "ar" %}أقل مستوى{% else %}Min CEFR{% endif %}</label>
+          {{ form.cefr_min_level }}
+        </div>
+        <div>
+          <label for="{{ form.cefr_max_level.id_for_label }}">{% if lang == "ar" %}أعلى مستوى{% else %}Max CEFR{% endif %}</label>
+          {{ form.cefr_max_level }}
+        </div>
+      </div>
+
+      <div class="control-grid two-grid">
+        <div>
+          <label for="{{ form.difficulty_score.id_for_label }}">{% if lang == "ar" %}درجة الصعوبة{% else %}Difficulty{% endif %}</label>
+          {{ form.difficulty_score }}
+          {% if form.difficulty_score.errors %}<small class="error-text">{{ form.difficulty_score.errors|join:" " }}</small>{% endif %}
+          <div class="pq-scale"><span>0 = {% if lang == "ar" %}سهل جدًا{% else %}Very easy{% endif %}</span><span>0.5 = {% if lang == "ar" %}متوسط{% else %}Medium{% endif %}</span><span>1 = {% if lang == "ar" %}متقدم{% else %}Advanced{% endif %}</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pq-panel" data-step-panel="2">
       <div>
-        <label for="{{ form.question_type.id_for_label }}">{% if lang == "ar" %}النوع{% else %}Question type{% endif %}</label>
-        {{ form.question_type }}
-        {% if form.question_type.errors %}<small class="error-text">{{ form.question_type.errors|join:" " }}</small>{% endif %}
-        <small class="muted">{% if lang == "ar" %}كتابي = الجزء 1 · محادثة = الجزء 2 الصوتي.{% else %}Written = Part 1 · Speaking = Part 2 voice call.{% endif %}</small>
+        <label for="{{ form.question_text.id_for_label }}">{% if lang == "ar" %}السؤال بالإنجليزية{% else %}Question in English{% endif %}</label>
+        {{ form.question_text }}
+        {% if form.question_text.errors %}<small class="error-text">{{ form.question_text.errors|join:" " }}</small>{% endif %}
       </div>
       <div>
-        <label for="{{ form.skill.id_for_label }}">{% if lang == "ar" %}المهارة{% else %}Skill{% endif %}</label>
-        {{ form.skill }}
-        {% if form.skill.errors %}<small class="error-text">{{ form.skill.errors|join:" " }}</small>{% endif %}
+        <label for="{{ form.question_text_ar.id_for_label }}">{% if lang == "ar" %}السؤال بالعربية{% else %}Question in Arabic{% endif %}</label>
+        {{ form.question_text_ar }}
+        {% if form.question_text_ar.errors %}<small class="error-text">{{ form.question_text_ar.errors|join:" " }}</small>{% endif %}
       </div>
-    </div>
+    </section>
 
-    <div>
-      <label for="{{ form.topic.id_for_label }}">{% if lang == "ar" %}الموضوع{% else %}Topic bucket{% endif %}</label>
-      {{ form.topic }}
-      {% if form.topic.errors %}<small class="error-text">{{ form.topic.errors|join:" " }}</small>{% endif %}
-    </div>
+    <section class="pq-panel" data-step-panel="3">
+      <div class="pq-answer-builder" data-answer-builder>
+        <div class="pq-answer-group" data-answer-type="mcq">
+          <div class="pq-builder-card">
+            <h3>{% if lang == "ar" %}اختيارات السؤال{% else %}Multiple choice options{% endif %}</h3>
+            <div class="control-grid two-grid">
+              <div><label for="{{ form.option_1.id_for_label }}">{% if lang == "ar" %}الخيار 1{% else %}Option 1{% endif %}</label>{{ form.option_1 }}</div>
+              <div><label for="{{ form.option_2.id_for_label }}">{% if lang == "ar" %}الخيار 2{% else %}Option 2{% endif %}</label>{{ form.option_2 }}</div>
+              <div><label for="{{ form.option_3.id_for_label }}">{% if lang == "ar" %}الخيار 3{% else %}Option 3{% endif %}</label>{{ form.option_3 }}</div>
+              <div><label for="{{ form.option_4.id_for_label }}">{% if lang == "ar" %}الخيار 4{% else %}Option 4{% endif %}</label>{{ form.option_4 }}</div>
+            </div>
+            <div>
+              <label for="{{ form.correct_option.id_for_label }}">{% if lang == "ar" %}الإجابة الصحيحة{% else %}Correct answer{% endif %}</label>
+              {{ form.correct_option }}
+            </div>
+          </div>
+        </div>
 
-    <div>
-      <label for="{{ form.question_text.id_for_label }}">{% if lang == "ar" %}نص السؤال (إنجليزي){% else %}Question text (English){% endif %}</label>
-      {{ form.question_text }}
-      {% if form.question_text.errors %}<small class="error-text">{{ form.question_text.errors|join:" " }}</small>{% endif %}
-    </div>
+        <div class="pq-answer-group" data-answer-type="short_text,sentence,paragraph">
+          <div class="pq-builder-card">
+            <h3>{% if lang == "ar" %}إجابة نصية{% else %}Text answer{% endif %}</h3>
+            <div>
+              <label for="{{ form.expected_answer.id_for_label }}">{% if lang == "ar" %}الإجابة المتوقعة{% else %}Expected answer{% endif %}</label>
+              {{ form.expected_answer }}
+            </div>
+            <div>
+              <label for="{{ form.accepted_answers.id_for_label }}">{% if lang == "ar" %}إجابات مقبولة إضافية{% else %}Accepted alternatives{% endif %}</label>
+              {{ form.accepted_answers }}
+            </div>
+          </div>
+        </div>
 
-    <div>
-      <label for="{{ form.question_text_ar.id_for_label }}">{% if lang == "ar" %}نص السؤال (عربي){% else %}Question text (Arabic){% endif %}</label>
-      {{ form.question_text_ar }}
-      <small class="muted">{% if lang == "ar" %}اختياري — يرجع للإنجليزي إذا تُرك فارغاً.{% else %}Optional — falls back to English if blank.{% endif %}</small>
-    </div>
-
-    <div class="control-grid two-grid">
-      <div>
-        <label for="{{ form.cefr_min_level.id_for_label }}">{% if lang == "ar" %}أدنى مستوى CEFR{% else %}CEFR min level{% endif %}</label>
-        {{ form.cefr_min_level }}
+        <div class="pq-answer-group" data-answer-type="voice">
+          <div class="pq-builder-card">
+            <h3>{% if lang == "ar" %}إجابة صوتية أو Transcript{% else %}Voice / transcript answer{% endif %}</h3>
+            <div>
+              <label for="{{ form.expected_answer.id_for_label }}">{% if lang == "ar" %}الإجابة المتوقعة{% else %}Expected answer{% endif %}</label>
+              {{ form.expected_answer }}
+            </div>
+            <div class="control-grid two-grid">
+              <div>
+                <label for="{{ form.voice_keywords.id_for_label }}">{% if lang == "ar" %}الكلمات المفتاحية{% else %}Keywords{% endif %}</label>
+                {{ form.voice_keywords }}
+              </div>
+              <div>
+                <label for="{{ form.minimum_words.id_for_label }}">{% if lang == "ar" %}الحد الأدنى للكلمات{% else %}Minimum words{% endif %}</label>
+                {{ form.minimum_words }}
+              </div>
+            </div>
+            <div>
+              <label for="{{ form.fluency_notes.id_for_label }}">{% if lang == "ar" %}ملاحظات الطلاقة{% else %}Fluency notes{% endif %}</label>
+              {{ form.fluency_notes }}
+            </div>
+          </div>
+        </div>
       </div>
-      <div>
-        <label for="{{ form.cefr_max_level.id_for_label }}">{% if lang == "ar" %}أعلى مستوى CEFR{% else %}CEFR max level{% endif %}</label>
-        {{ form.cefr_max_level }}
+    </section>
+
+    <section class="pq-panel" data-step-panel="4">
+      <div class="pq-builder-card">
+        <h3>{% if lang == "ar" %}معيار التصحيح{% else %}Rubric builder{% endif %}</h3>
+        <div class="control-grid two-grid">
+          <div><label for="{{ form.grammar_weight.id_for_label }}">{% if lang == "ar" %}وزن القواعد{% else %}Grammar weight{% endif %}</label>{{ form.grammar_weight }}</div>
+          <div><label for="{{ form.vocabulary_weight.id_for_label }}">{% if lang == "ar" %}وزن المفردات{% else %}Vocabulary weight{% endif %}</label>{{ form.vocabulary_weight }}</div>
+          <div><label for="{{ form.pronunciation_weight.id_for_label }}">{% if lang == "ar" %}وزن النطق{% else %}Pronunciation weight{% endif %}</label>{{ form.pronunciation_weight }}</div>
+          <div><label for="{{ form.fluency_weight.id_for_label }}">{% if lang == "ar" %}وزن الطلاقة{% else %}Fluency weight{% endif %}</label>{{ form.fluency_weight }}</div>
+          <div><label for="{{ form.minimum_passing_score.id_for_label }}">{% if lang == "ar" %}حد النجاح{% else %}Minimum passing score{% endif %}</label>{{ form.minimum_passing_score }}</div>
+        </div>
+        <div>
+          <label for="{{ form.rubric_notes.id_for_label }}">{% if lang == "ar" %}ملاحظات{% else %}Notes{% endif %}</label>
+          {{ form.rubric_notes }}
+        </div>
       </div>
-    </div>
 
-    <div class="control-grid two-grid">
-      <div>
-        <label for="{{ form.difficulty_score.id_for_label }}">{% if lang == "ar" %}درجة الصعوبة (0–1){% else %}Difficulty (0–1){% endif %}</label>
-        {{ form.difficulty_score }}
-        <small class="muted">{% if lang == "ar" %}0 = سهل جداً · 1 = متقدم C2.{% else %}0 = trivial A0 · 1 = advanced C2.{% endif %}</small>
+      {% if form.show_advanced_json %}
+        <details class="pq-advanced-json">
+          <summary>{% if lang == "ar" %}JSON متقدم للمطور{% else %}Advanced developer JSON{% endif %}</summary>
+          <p class="muted">{% if lang == "ar" %}حرر هذا فقط إذا كنت تعرف بنية البيانات.{% else %}Only edit this if you understand the schema.{% endif %}</p>
+          <div>
+            <label for="{{ form.options.id_for_label }}">{% if lang == "ar" %}JSON الخيارات{% else %}Options JSON{% endif %}</label>
+            {{ form.options }}
+          </div>
+          <div>
+            <label for="{{ form.scoring_rubric.id_for_label }}">{% if lang == "ar" %}JSON معيار التصحيح{% else %}Rubric JSON{% endif %}</label>
+            {{ form.scoring_rubric }}
+          </div>
+        </details>
+      {% endif %}
+
+      <div class="pq-preview" data-preview-root>
+        <div class="pq-preview-card">
+          <div class="badge badge-blue">{% if lang == "ar" %}معاينة الطالب{% else %}Student preview{% endif %}</div>
+          <h3 data-preview-question>{% if question %}{{ question.question_text }}{% endif %}</h3>
+          <p class="muted" data-preview-question-ar>{% if question %}{{ question.question_text_ar }}{% endif %}</p>
+          <ul class="pq-preview-options" data-preview-options></ul>
+          <div class="pq-admin-answer">{% if lang == "ar" %}الإجابة الصحيحة للمدير:{% else %}Admin correct answer:{% endif %} <strong data-preview-correct></strong></div>
+        </div>
       </div>
-      <div>
-        <label for="{{ form.expected_answer_type.id_for_label }}">{% if lang == "ar" %}نوع الإجابة المتوقعة{% else %}Expected answer type{% endif %}</label>
-        {{ form.expected_answer_type }}
-      </div>
-    </div>
+    </section>
 
-    <div>
-      <label for="{{ form.options.id_for_label }}">{% if lang == "ar" %}خيارات الاختيار من متعدد (JSON){% else %}MCQ options (JSON){% endif %}</label>
-      {{ form.options }}
-      {% if form.options.errors %}<small class="error-text">{{ form.options.errors|join:" " }}</small>{% endif %}
-      <small class="muted">{% if lang == "ar" %}يُستخدم فقط عندما نوع الإجابة = اختيار من متعدد. مثال: ["go","goes","went"]{% else %}Used only when answer type = MCQ. Example: ["go","goes","went"]{% endif %}</small>
-    </div>
-
-    <div>
-      <label for="{{ form.scoring_rubric.id_for_label }}">{% if lang == "ar" %}معيار التصحيح (JSON){% else %}Scoring rubric (JSON){% endif %}</label>
-      {{ form.scoring_rubric }}
-      {% if form.scoring_rubric.errors %}<small class="error-text">{{ form.scoring_rubric.errors|join:" " }}</small>{% endif %}
-      <small class="muted">{% if lang == "ar" %}اختياري — JSON حر يقرأه المُقيّم.{% else %}Optional — free-form JSON read by the assessor.{% endif %}</small>
-    </div>
-
-    <div style="display:flex;gap:10px;margin-top:18px">
-      <button type="submit" class="btn-control btn-primary">
-        <i data-lucide="check" class="h-4 w-4"></i>
+    <div class="pq-actions">
+      <button type="button" class="btn-control" data-step-back>{% if lang == "ar" %}السابق{% else %}Back{% endif %}</button>
+      <button type="button" class="btn-control btn-primary" data-step-next>{% if lang == "ar" %}التالي{% else %}Next{% endif %}</button>
+      <button type="submit" class="btn-control btn-success">
         {% if question %}{% if lang == "ar" %}حفظ التعديلات{% else %}Save changes{% endif %}{% else %}{% if lang == "ar" %}إنشاء السؤال{% else %}Create question{% endif %}{% endif %}
       </button>
-      <a class="btn-control" href="{% url 'platform_admin:placement_questions' %}">
-        {% if lang == "ar" %}إلغاء{% else %}Cancel{% endif %}
-      </a>
+      <a class="btn-control" href="{% url 'platform_admin:placement_questions' %}">{% if lang == "ar" %}إلغاء{% else %}Cancel{% endif %}</a>
     </div>
   </form>
 </section>
+
+<style>
+  .pq-builder { display:grid; gap:18px; }
+  .pq-alert { margin-bottom:0; }
+  .pq-stepper { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; }
+  .pq-step { min-height:46px; border:1px solid var(--cc-border); background:#fff; border-radius:14px; font-weight:800; color:var(--cc-muted); }
+  .pq-step.is-active { border-color:var(--cc-primary); color:var(--cc-primary); background:#f0fdfa; }
+  .pq-panel { display:none; gap:16px; }
+  .pq-panel.is-active { display:grid; }
+  .pq-readonly { background:#f3f4f6; color:#6b7280; }
+  .pq-inline-check { min-height:44px; display:flex; align-items:center; gap:8px; }
+  .pq-scale { display:flex; justify-content:space-between; gap:8px; color:var(--cc-muted); font-size:12px; margin-top:8px; }
+  .pq-answer-group { display:none; }
+  .pq-answer-group.is-active { display:block; }
+  .pq-builder-card { display:grid; gap:14px; padding:16px; border:1px solid var(--cc-border); border-radius:14px; background:linear-gradient(180deg, #ffffff 0%, #f8fffd 100%); }
+  .pq-builder-card h3 { margin:0; font-size:1rem; }
+  .pq-advanced-json { border:1px dashed var(--cc-border); border-radius:12px; padding:14px; }
+  .pq-preview { display:grid; }
+  .pq-preview-card { display:grid; gap:10px; border:1px solid var(--cc-border); border-radius:18px; padding:18px; background:#fff; }
+  .pq-preview-options { display:grid; gap:10px; padding:0; margin:0; list-style:none; }
+  .pq-preview-options li { padding:12px 14px; border:1px solid var(--cc-border); border-radius:12px; background:#f8fafc; }
+  .pq-admin-answer { font-size:13px; color:var(--cc-muted); }
+  .pq-actions { position:sticky; bottom:12px; display:flex; flex-wrap:wrap; gap:10px; padding:14px; border:1px solid var(--cc-border); border-radius:16px; background:rgba(255,255,255,.94); backdrop-filter:blur(8px); }
+  @media (max-width: 768px) {
+    .pq-stepper { grid-template-columns:1fr 1fr; }
+    .pq-actions { position:sticky; bottom:0; }
+  }
+</style>
+
+<script>
+  (() => {
+    const form = document.querySelector('.pq-builder');
+    if (!form) return;
+    const steps = Array.from(form.querySelectorAll('[data-step-target]'));
+    const panels = Array.from(form.querySelectorAll('[data-step-panel]'));
+    const nextBtn = form.querySelector('[data-step-next]');
+    const backBtn = form.querySelector('[data-step-back]');
+    const answerType = form.querySelector('#{{ form.expected_answer_type.id_for_label }}');
+    const qEn = form.querySelector('#{{ form.question_text.id_for_label }}');
+    const qAr = form.querySelector('#{{ form.question_text_ar.id_for_label }}');
+    const optionInputs = [1,2,3,4].map(n => form.querySelector('#id_option_' + n)).filter(Boolean);
+    const correctSelect = form.querySelector('#{{ form.correct_option.id_for_label }}');
+    const previewQuestion = form.querySelector('[data-preview-question]');
+    const previewQuestionAr = form.querySelector('[data-preview-question-ar]');
+    const previewOptions = form.querySelector('[data-preview-options]');
+    const previewCorrect = form.querySelector('[data-preview-correct]');
+    let current = 1;
+
+    function showStep(step) {
+      current = step;
+      steps.forEach(btn => btn.classList.toggle('is-active', Number(btn.dataset.stepTarget) === step));
+      panels.forEach(panel => panel.classList.toggle('is-active', Number(panel.dataset.stepPanel) === step));
+      backBtn.disabled = step === 1;
+      nextBtn.style.display = step === panels.length ? 'none' : '';
+    }
+
+    function updateAnswerBuilder() {
+      const value = answerType ? answerType.value : '';
+      form.querySelectorAll('[data-answer-type]').forEach(group => {
+        const supported = group.dataset.answerType.split(',');
+        group.classList.toggle('is-active', supported.includes(value));
+      });
+    }
+
+    function updatePreview() {
+      if (previewQuestion) previewQuestion.textContent = qEn?.value || '';
+      if (previewQuestionAr) previewQuestionAr.textContent = qAr?.value || '';
+      if (previewOptions) {
+        previewOptions.innerHTML = '';
+        optionInputs.forEach(input => {
+          if (input.value.trim()) {
+            const li = document.createElement('li');
+            li.textContent = input.value.trim();
+            previewOptions.appendChild(li);
+          }
+        });
+      }
+      if (previewCorrect && correctSelect) {
+        const index = Number(correctSelect.value || 0) - 1;
+        previewCorrect.textContent = index >= 0 && optionInputs[index] ? optionInputs[index].value.trim() : '';
+      }
+    }
+
+    steps.forEach(btn => btn.addEventListener('click', () => showStep(Number(btn.dataset.stepTarget))));
+    nextBtn?.addEventListener('click', () => showStep(Math.min(current + 1, panels.length)));
+    backBtn?.addEventListener('click', () => showStep(Math.max(current - 1, 1)));
+    answerType?.addEventListener('change', updateAnswerBuilder);
+    [qEn, qAr, correctSelect, ...optionInputs].forEach(el => el?.addEventListener('input', updatePreview));
+    correctSelect?.addEventListener('change', updatePreview);
+    updateAnswerBuilder();
+    updatePreview();
+    showStep(1);
+  })();
+</script>
 {% endblock %}

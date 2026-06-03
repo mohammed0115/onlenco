@@ -1067,7 +1067,7 @@ def placement_questions(request):
 @control_permission_required(perms.CAP_SETTINGS_MANAGE)
 def placement_question_create(request):
     if request.method == "POST":
-        form = PlacementQuestionForm(request.POST)
+        form = PlacementQuestionForm(request.POST, user=request.user)
         if form.is_valid():
             obj = form.save()
             from platform_admin.services.audit_log_service import log_action
@@ -1081,7 +1081,7 @@ def placement_question_create(request):
             messages.success(request, f"Question '{obj.code}' created.")
             return redirect("platform_admin:placement_questions")
     else:
-        form = PlacementQuestionForm()
+        form = PlacementQuestionForm(user=request.user)
     return _render(request, "platform_admin/placement/question_form.html", {
         "form": form, "question": None, "section": "placement_questions",
     })
@@ -1092,7 +1092,7 @@ def placement_question_edit(request, pk):
     from placement.models import PlacementQuestion
     question = get_object_or_404(PlacementQuestion, pk=pk)
     if request.method == "POST":
-        form = PlacementQuestionForm(request.POST, instance=question)
+        form = PlacementQuestionForm(request.POST, instance=question, user=request.user)
         if form.is_valid():
             obj = form.save()
             from platform_admin.services.audit_log_service import log_action
@@ -1106,7 +1106,7 @@ def placement_question_edit(request, pk):
             messages.success(request, f"Question '{obj.code}' saved.")
             return redirect("platform_admin:placement_questions")
     else:
-        form = PlacementQuestionForm(instance=question)
+        form = PlacementQuestionForm(instance=question, user=request.user)
     return _render(request, "platform_admin/placement/question_form.html", {
         "form": form, "question": question, "section": "placement_questions",
     })

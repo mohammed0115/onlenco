@@ -7,6 +7,7 @@
   <a class="teacher-btn teacher-btn-primary" href="{% url 'teacher_portal:assignment_create' %}"><i data-lucide="plus"></i>{% if lang == "ar" %}إنشاء واجب{% else %}Create Assignment{% endif %}</a>
 </div>
 <section class="teacher-panel">
+  <div class="table-wrap">
   <table class="teacher-table">
     <thead><tr>
       <th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th>
@@ -45,7 +46,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% include "teacher_portal/_pagination.html" %}
 </section>
 {% endblock %}
-

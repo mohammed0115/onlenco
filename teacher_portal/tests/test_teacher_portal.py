@@ -93,6 +93,33 @@ class MultiRoleTests(TeacherPortalTestMixin):
 
 
 class TeacherCourseWorkflowTests(TeacherPortalTestMixin):
+    def test_teacher_course_create_page_still_renders(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get("/teacher/courses/create/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "tp-wizard-stepper")
+        self.assertContains(response, "teacher.css?v=p166c-design-20260603")
+
+    def test_teacher_course_create_not_blank(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get("/teacher/courses/create/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<form", html=False)
+        self.assertContains(response, "tp-wizard-actions")
+
+    def test_course_create_uses_stepper(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get("/teacher/courses/create/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "tp-wizard-stepper")
+        self.assertContains(response, "data-step-panel=\"5\"")
+
+    def test_course_create_no_raw_json(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get("/teacher/courses/create/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "JSON")
+
     def test_teacher_course_filters_work(self):
         self.client.force_login(self.teacher)
         response = self.client.get("/teacher/courses/", {"status": "draft", "language": "bilingual"})
@@ -174,6 +201,33 @@ class TeacherCourseWorkflowTests(TeacherPortalTestMixin):
 
 
 class TeacherLessonQuizTests(TeacherPortalTestMixin):
+    def test_teacher_lesson_create_page_still_renders(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(f"/teacher/courses/{self.course.pk}/lessons/create/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "tp-wizard-stepper")
+        self.assertContains(response, "teacher.css?v=p166c-design-20260603")
+
+    def test_teacher_lesson_create_not_blank(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(f"/teacher/courses/{self.course.pk}/lessons/create/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<form", html=False)
+        self.assertContains(response, "tp-wizard-actions")
+
+    def test_lesson_create_uses_stepper(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(f"/teacher/courses/{self.course.pk}/lessons/create/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "tp-wizard-stepper")
+        self.assertContains(response, "data-step-panel=\"5\"")
+
+    def test_lesson_create_no_raw_json(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get(f"/teacher/courses/{self.course.pk}/lessons/create/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "JSON")
+
     def test_teacher_can_add_lesson_to_own_course(self):
         self.client.force_login(self.teacher)
         response = self.client.post(
@@ -235,6 +289,36 @@ class TeacherLessonQuizTests(TeacherPortalTestMixin):
 
 
 class TeacherStudentAssignmentTests(TeacherPortalTestMixin):
+    def test_teacher_students_page_has_table_wrap(self):
+        self.client.force_login(self.teacher)
+        response = self.client.get("/teacher/students/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="table-wrap"')
+
+    def test_teacher_students_page_table_not_direct_child_of_main(self):
+        self.client.force_login(self.teacher)
+        html = self.client.get("/teacher/students/").content.decode()
+        self.assertNotIn('<main class="teacher-content">\n  <table class="teacher-table">', html)
+        self.assertIn('<div class="table-wrap">', html)
+
+    def test_teacher_students_action_buttons_inside_table_wrap(self):
+        self.client.force_login(self.teacher)
+        html = self.client.get("/teacher/students/").content.decode()
+        self.assertIn('class="row-actions"', html)
+        self.assertIn('class="table-wrap"', html)
+
+    def test_all_teacher_table_pages_use_table_wrap(self):
+        self.client.force_login(self.teacher)
+        students_html = self.client.get("/teacher/students/").content.decode()
+        courses_html = self.client.get("/teacher/courses/").content.decode()
+        self.assertIn('class="table-wrap"', students_html)
+        self.assertIn('class="table-wrap"', courses_html)
+
+    def test_no_duplicate_sidebar_on_teacher_students(self):
+        self.client.force_login(self.teacher)
+        html = self.client.get("/teacher/students/").content.decode()
+        self.assertEqual(html.count('id="teacher-sidebar"'), 1)
+
     def test_teacher_sees_only_students_enrolled_in_own_courses(self):
         self.client.force_login(self.teacher)
         response = self.client.get("/teacher/students/")

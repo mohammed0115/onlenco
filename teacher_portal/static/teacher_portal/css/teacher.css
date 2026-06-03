@@ -838,3 +838,140 @@ body.ds-no-scroll { overflow: hidden; }
   }
   .ds-drawer-toggle { display: inline-flex; }
 }
+
+/* ===================================================================
+   Prompt 16.6B.0.1 — global shell/table overflow hardening.
+   =================================================================== */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.teacher-shell,
+.teacher-shell *,
+.teacher-shell *::before,
+.teacher-shell *::after {
+  box-sizing: border-box;
+}
+
+.teacher-shell,
+.teacher-main,
+.teacher-content,
+.teacher-topbar,
+.teacher-actions,
+.teacher-panel,
+.teacher-filters,
+.teacher-form,
+.teacher-grid,
+.teacher-grid > *,
+.teacher-metrics,
+.teacher-metrics > *,
+.tp-wizard-form,
+.tp-wizard-panel,
+.tp-wizard-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.teacher-shell {
+  width: 100%;
+  overflow-x: clip;
+}
+
+.teacher-main {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.teacher-panel,
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap {
+  width: 100%;
+}
+
+.table-wrap > .teacher-table {
+  margin: 0;
+}
+
+.teacher-table {
+  min-width: 720px;
+  max-width: 100%;
+  width: max-content;
+  min-inline-size: 100%;
+}
+
+.teacher-table td.row-actions,
+.teacher-table th:last-child,
+.teacher-table td:last-child {
+  white-space: nowrap;
+}
+
+.teacher-table td.row-actions {
+  min-width: 96px;
+}
+
+.teacher-table td.row-actions a,
+.teacher-table td.row-actions button,
+.teacher-table td.row-actions form {
+  white-space: nowrap;
+}
+
+.teacher-filters,
+.teacher-form {
+  width: 100%;
+}
+
+.teacher-filters > *,
+.teacher-form > *,
+.teacher-actions > *,
+.row-actions > *,
+.form-actions > * {
+  min-width: 0;
+}
+
+.teacher-form input,
+.teacher-form select,
+.teacher-form textarea,
+.teacher-filters input,
+.teacher-filters select,
+.teacher-panel input,
+.teacher-panel select,
+.teacher-panel textarea {
+  max-width: 100%;
+}
+
+img,
+video,
+iframe,
+table {
+  max-width: 100%;
+}
+
+@media (max-width: 1023px) {
+  .teacher-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-filters input,
+  .teacher-filters select,
+  .teacher-filters button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .teacher-sidebar {
+    width: min(20rem, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
+  }
+
+  .teacher-table {
+    min-width: 640px;
+  }
+}

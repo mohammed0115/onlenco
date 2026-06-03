@@ -46,6 +46,7 @@
   <div class="panel-heading">
     <h2>{% if lang == "ar" %}آخر الكورسات{% else %}Recent Courses{% endif %}</h2>
   </div>
+  <div class="table-wrap">
   <table class="teacher-table">
     <thead><tr><th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th><th>Level</th><th>Status</th><th></th></tr></thead>
     <tbody>
@@ -61,12 +62,14 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 
 <section class="teacher-panel">
   <div class="panel-heading">
     <h2>{% if lang == "ar" %}آخر التسليمات{% else %}Recent Submissions{% endif %}</h2>
   </div>
+  <div class="table-wrap">
   <table class="teacher-table">
     <thead><tr>
       <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
@@ -94,6 +97,6 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 {% endblock %}
-

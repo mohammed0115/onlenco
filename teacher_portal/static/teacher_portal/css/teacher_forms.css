@@ -111,3 +111,105 @@
   font-weight: 700;
   font-size: .9rem;
 }
+
+.tp-wizard-stepper {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tp-wizard-pill {
+  min-height: 46px;
+  border-radius: 999px;
+  border: 1px solid var(--tp-border);
+  background: #fff;
+  color: var(--tp-muted, #6b7280);
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.tp-wizard-pill.is-active {
+  background: color-mix(in srgb, var(--tp-primary, #0d9488) 10%, white);
+  color: var(--tp-primary, #0d9488);
+  border-color: var(--tp-primary, #0d9488);
+}
+
+.tp-wizard-panel { display: none; }
+.tp-wizard-panel.is-active { display: grid; gap: 14px; }
+
+.tp-wizard-actions {
+  position: sticky;
+  bottom: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--tp-border);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 0.94);
+  backdrop-filter: blur(8px);
+}
+
+.tp-preview-card,
+.tp-student-card,
+.tp-checklist {
+  border: 1px solid var(--tp-border);
+  border-radius: 16px;
+  padding: 16px;
+  background: linear-gradient(180deg, #fff 0%, #f7fffd 100%);
+}
+
+.tp-media-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.tp-media-placeholder {
+  min-height: 140px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--tp-border);
+  border-radius: 12px;
+  color: var(--tp-muted, #6b7280);
+  background: #fafafa;
+}
+
+.tp-structure-summary,
+.tp-review-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.tp-summary-chip {
+  display: inline-flex;
+  width: fit-content;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--tp-border);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--tp-primary, #0d9488);
+  background: #f0fdfa;
+}
+
+.tp-student-card h3 {
+  margin: 10px 0 8px;
+}
+
+.tp-priority-media {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--tp-primary, #0d9488) 40%, white);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tp-primary, #0d9488) 8%, white);
+}
+
+@media (max-width: 900px) {
+  .tp-wizard-stepper { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 640px) {
+  .tp-media-preview,
+  .tp-review-grid { grid-template-columns: 1fr; }
+  .tp-wizard-actions { bottom: 0; }
+}
