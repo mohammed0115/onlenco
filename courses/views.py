@@ -299,6 +299,23 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
             .order_by("sort_order").first()
         )
 
+    # Audio is shown to the student ONLY when approved AND the file truly
+    # exists in storage — an approved row whose file went missing must fall
+    # back to the clean placeholder (never a broken <audio>), and we log it
+    # so admins can spot it via inspect_lesson_media.
+    audio_ready = False
+    if script is not None and script.is_student_visible:
+        af = script.generated_audio
+        try:
+            audio_ready = bool(af) and af.storage.exists(af.name)
+        except Exception:
+            audio_ready = False
+        if not audio_ready:
+            logging.getLogger(__name__).warning(
+                "lesson_step: approved audio file missing for lesson=%s step=%s name=%s",
+                lesson.pk, step_kind, getattr(af, "name", ""),
+            )
+
     quiz = None
     try:
         quiz = lesson.quiz
@@ -316,6 +333,7 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
         "lesson": lesson,
         "progress": progress,
         "script": script,
+        "audio_ready": audio_ready,
         "dialogue_turns": dialogue_turns,
         "example_lines": example_lines,
         "step_kind": step_kind,

@@ -67,7 +67,7 @@
 
                 {# Mega audio player — only for non-finish steps #}
                 {% if step_kind != "finish" %}
-                    {% if script and script.is_student_visible %}
+                    {% if audio_ready %}
                     <div class="onlenco-mega-player" data-onlenco-autoplay="true">
                         <button class="onlenco-mega-player__play" type="button" aria-label="Play / pause">
                             <i data-lucide="play" class="onlenco-mega-player__icon-play"></i>
@@ -80,16 +80,14 @@
                     {% else %}
                     <div class="onlenco-stage__pending">
                         <i data-lucide="hourglass"></i>
-                        <p>{% t_either "Audio for this step is being generated. Continue to the next step." "الصوت لهذه الخطوة قيد التحضير. تابع للخطوة التالية." %}</p>
+                        <p>{% t_either "Audio is being prepared. You can continue the lesson." "الصوت قيد التحضير. يمكنك متابعة الدرس الآن." %}</p>
                     </div>
                     {% endif %}
                 {% endif %}
             </div>
         </section>
 
-        {# Phase 9.5 — Visual placeholder for steps that have an associated LessonImagePrompt.
-           Shows the generated image when available, otherwise a friendly "coming soon" card.
-           NEVER renders the raw prompt text. #}
+        {# Visual placeholder: shows the approved generated image, else a coming-soon card (never the raw prompt). #}
         {% if image_prompt_for_step %}
         <section class="onlenco-panel onlenco-panel--visual">
             {% include "courses/_lesson_image_placeholder.html" with image_prompt=image_prompt_for_step %}
@@ -543,7 +541,7 @@
   .onlenco-panel__transcript { padding: 16px 18px; }
 }
 
-/* Phase 9.5 — Visual placeholder (image_prompt awaits generation) */
+/* Visual placeholder styles (shown while an image awaits generation) */
 .onlenco-panel--visual { padding: 0; background: transparent; border: none; }
 .onlenco-lesson-img { width: 100%; }
 .onlenco-lesson-img img { width: 100%; height: auto; border-radius: 16px; display: block; }
