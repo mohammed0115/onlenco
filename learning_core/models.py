@@ -410,7 +410,7 @@ class AdaptiveExercise(models.Model):
         default=0.5,
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
     )
-    question_type = models.CharField(max_length=20, choices=QUESTION_TYPE_CHOICES)
+    question_type = models.CharField(max_length=32, choices=QUESTION_TYPE_CHOICES)
     question = models.TextField()
     options = models.JSONField(default=list, blank=True)
     correct_answer = models.TextField()
