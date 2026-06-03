@@ -1,4 +1,7 @@
 {% extends "teacher_portal/base.html" %}
+{% load static %}
+
+{% block extra_head %}{{ block.super }}<link rel="stylesheet" href="{% static 'teacher_portal/css/teacher_forms.css' %}?v=p166c-design-20260603">{% endblock %}
 
 {% block teacher_title %}{% if lang == "ar" %}الأسئلة{% else %}Questions{% endif %} · {{ quiz.title }}{% endblock %}
 
@@ -43,11 +46,7 @@
   </section>
   <section class="teacher-panel">
     <div class="panel-heading"><h2>{% if lang == "ar" %}إضافة سؤال{% else %}Add Question{% endif %}</h2></div>
-    <form class="teacher-form compact-form" method="post">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button class="teacher-btn teacher-btn-primary" type="submit"><i data-lucide="plus"></i>{% if lang == "ar" %}إضافة{% else %}Add{% endif %}</button>
-    </form>
+    {% include "teacher_portal/quizzes/_question_builder.html" %}
   </section>
 </div>
 {% endblock %}

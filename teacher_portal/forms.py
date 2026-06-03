@@ -140,10 +140,47 @@ class TeacherQuizForm(forms.ModelForm):
         return quiz
 
 
+# Question types that present discrete choices to the student (visual MCQ builder).
+MCQ_QUESTION_TYPES = {
+    "multiple_choice",
+    "image_choice",
+    "listen_and_choose",
+    "tap_choice",
+    "listening_match",
+    "sound_to_word",
+    "mini_story_choice",
+    "conversation_reply",
+}
+# Open-ended prompts that have no single correct string (speaking/writing practice).
+OPEN_PROMPT_QUESTION_TYPES = {
+    "speaking_prompt",
+    "writing_prompt",
+    "ai_roleplay_prompt",
+    "pronunciation_check",
+    "speak_this_sentence",
+}
+
+
 class TeacherQuestionForm(forms.ModelForm):
-    options_text = forms.CharField(
+    """Visual question builder — same pattern as the placement question builder.
+
+    Normal teachers never write JSON: multiple-choice options are entered through
+    discrete ``option_1..option_4`` fields with a ``correct_option`` picker, and
+    text answers use ``correct_answer`` directly. The raw ``options`` JSON is only
+    exposed to superusers through a collapsible advanced panel.
+    """
+
+    option_1 = forms.CharField(required=False, widget=forms.TextInput(attrs={"placeholder": ""}))
+    option_2 = forms.CharField(required=False, widget=forms.TextInput(attrs={"placeholder": ""}))
+    option_3 = forms.CharField(required=False, widget=forms.TextInput(attrs={"placeholder": ""}))
+    option_4 = forms.CharField(required=False, widget=forms.TextInput(attrs={"placeholder": ""}))
+    correct_option = forms.ChoiceField(
         required=False,
-        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "[\"A\", \"B\"] or one option per line"}),
+        choices=[("", "—"), ("1", "1"), ("2", "2"), ("3", "3"), ("4", "4")],
+    )
+    options_json = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4, "dir": "ltr", "spellcheck": "false"}),
     )
 
     class Meta:
@@ -152,7 +189,6 @@ class TeacherQuestionForm(forms.ModelForm):
             "question_type",
             "question_text_ar",
             "question_text_en",
-            "options_text",
             "correct_answer",
             "explanation_ar",
             "explanation_en",
@@ -161,48 +197,90 @@ class TeacherQuestionForm(forms.ModelForm):
             "order",
         ]
         widgets = {
-            "question_text_ar": forms.Textarea(attrs={"rows": 3}),
-            "question_text_en": forms.Textarea(attrs={"rows": 3}),
-            "explanation_ar": forms.Textarea(attrs={"rows": 2}),
-            "explanation_en": forms.Textarea(attrs={"rows": 2}),
+            "question_text_ar": forms.Textarea(attrs={"rows": 3, "dir": "rtl"}),
+            "question_text_en": forms.Textarea(attrs={"rows": 3, "dir": "ltr"}),
+            "explanation_ar": forms.Textarea(attrs={"rows": 2, "dir": "rtl"}),
+            "explanation_en": forms.Textarea(attrs={"rows": 2, "dir": "ltr"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk:
-            self.fields["options_text"].initial = json.dumps(self.instance.options or [], ensure_ascii=False)
         self.fields["question_type"].choices = QUESTION_TYPE_CHOICES
+        # Only superusers/developers ever see the raw JSON escape hatch.
+        self.show_advanced_json = bool(user and getattr(user, "is_superuser", False))
+        # Pre-fill the visual builder from any existing options on edit.
+        if self.instance and self.instance.pk:
+            options = self.instance.options or []
+            for idx in range(4):
+                value = options[idx] if idx < len(options) else ""
+                self.fields[f"option_{idx + 1}"].initial = value
+            answer = self.instance.correct_answer
+            if answer and answer in options:
+                self.fields["correct_option"].initial = str(options.index(answer) + 1)
+            self.fields["options_json"].initial = json.dumps(options, ensure_ascii=False)
 
-    def clean_options_text(self):
-        raw = (self.cleaned_data.get("options_text") or "").strip()
+    def _visual_options(self):
+        out = []
+        for idx in range(1, 5):
+            value = (self.cleaned_data.get(f"option_{idx}") or "").strip()
+            if value:
+                out.append(value)
+        return out
+
+    def clean_options_json(self):
+        raw = (self.cleaned_data.get("options_json") or "").strip()
         if not raw:
-            return []
+            return None
+        if not self.show_advanced_json:
+            # A non-superadmin can never submit raw JSON, even if they craft the field.
+            return None
         try:
             value = json.loads(raw)
         except json.JSONDecodeError:
-            value = [line.strip() for line in raw.splitlines() if line.strip()]
+            raise ValidationError("JSON غير صالح في المحرر المتقدم. / Invalid JSON in advanced editor.")
         if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
-            raise ValidationError("Options must be a list of text choices.")
+            raise ValidationError("الخيارات يجب أن تكون قائمة نصوص. / Options must be a list of text choices.")
         return value
 
     def clean(self):
         cleaned = super().clean()
+        qtype = cleaned.get("question_type")
+
         if not (cleaned.get("question_text_ar") or cleaned.get("question_text_en")):
-            raise ValidationError("Question text is required.")
-        if not cleaned.get("correct_answer"):
-            raise ValidationError("Correct answer is required.")
-        if cleaned.get("question_type") == "multiple_choice":
-            options = cleaned.get("options_text") or []
+            raise ValidationError("أضف نص السؤال بالعربية أو الإنجليزية. / Add the question in Arabic or English.")
+
+        # Advanced JSON (superadmin only) overrides the visual options when present.
+        advanced = cleaned.get("options_json")
+        options = advanced if advanced is not None else self._visual_options()
+
+        if qtype in MCQ_QUESTION_TYPES:
             if len(options) < 2:
-                raise ValidationError("Multiple-choice questions need at least 2 options.")
-            if cleaned.get("correct_answer") not in options:
-                raise ValidationError("Correct answer must be one of the options.")
-        self.instance.options = cleaned.get("options_text") or []
+                raise ValidationError("أسئلة الاختيار من متعدد تحتاج خيارين على الأقل. / Multiple-choice needs at least 2 options.")
+            picked = (cleaned.get("correct_option") or "").strip()
+            correct = ""
+            if picked.isdigit() and 1 <= int(picked) <= len(options):
+                correct = options[int(picked) - 1]
+            elif cleaned.get("correct_answer") in options:
+                correct = cleaned["correct_answer"]
+            if not correct:
+                raise ValidationError("اختر الإجابة الصحيحة من الخيارات. / Select the correct answer from the options.")
+            cleaned["correct_answer"] = correct
+        elif qtype in OPEN_PROMPT_QUESTION_TYPES:
+            # Open practice prompts have no single correct string.
+            options = []
+            cleaned["correct_answer"] = cleaned.get("correct_answer") or ""
+        else:
+            options = []
+            if not cleaned.get("correct_answer"):
+                raise ValidationError("أضف الإجابة الصحيحة. / Add the correct answer.")
+
+        self._resolved_options = options
+        self.instance.options = options
         return cleaned
 
     def save(self, commit=True):
         question = super().save(commit=False)
-        question.options = self.cleaned_data.get("options_text") or []
+        question.options = getattr(self, "_resolved_options", []) or []
         question.question_text = question.question_text_en or question.question_text_ar or question.question_text
         question.explanation = question.explanation_en or question.explanation_ar or question.explanation
         if commit:

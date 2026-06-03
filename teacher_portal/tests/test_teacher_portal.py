@@ -266,26 +266,75 @@ class TeacherLessonQuizTests(TeacherPortalTestMixin):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(LessonQuiz.objects.filter(lesson=self.lesson, title_en="Lesson Quiz").exists())
 
+    def _mcq_payload(self, **overrides):
+        data = {
+            "question_type": "multiple_choice",
+            "question_text_ar": "سؤال؟",
+            "question_text_en": "Question?",
+            "option_1": "A",
+            "option_2": "B",
+            "option_3": "",
+            "option_4": "",
+            "correct_option": "1",
+            "correct_answer": "",
+            "explanation_ar": "",
+            "explanation_en": "Because",
+            "difficulty_score": "0.4",
+            "points": 2,
+            "order": 1,
+        }
+        data.update(overrides)
+        return data
+
     def test_teacher_can_add_questions(self):
+        quiz = LessonQuiz.objects.create(lesson=self.lesson, title="Quiz", title_en="Quiz")
+        self.client.force_login(self.teacher)
+        response = self.client.post(f"/teacher/quizzes/{quiz.pk}/questions/", self._mcq_payload())
+        self.assertEqual(response.status_code, 302)
+        q = LessonQuestion.objects.get(quiz=quiz)
+        self.assertEqual(q.correct_answer, "A")
+        self.assertEqual(q.options, ["A", "B"])
+
+    def test_quiz_question_builder_is_visual_stepper(self):
+        quiz = LessonQuiz.objects.create(lesson=self.lesson, title="Quiz", title_en="Quiz")
+        self.client.force_login(self.teacher)
+        html = self.client.get(f"/teacher/quizzes/{quiz.pk}/questions/").content.decode()
+        self.assertIn("tp-qb-stepper", html)
+        self.assertIn("data-answer-builder", html)
+        self.assertIn("id_option_1", html)
+        self.assertIn("tp-qb-preview", html)
+
+    def test_quiz_question_builder_no_json_for_normal_teacher(self):
+        quiz = LessonQuiz.objects.create(lesson=self.lesson, title="Quiz", title_en="Quiz")
+        self.client.force_login(self.teacher)
+        html = self.client.get(f"/teacher/quizzes/{quiz.pk}/questions/").content.decode()
+        # The advanced JSON escape hatch must never render for a normal teacher.
+        self.assertNotIn("tp-qb-advanced", html)
+        self.assertNotIn("options_json", html)
+
+    def test_quiz_question_builder_text_answer_saves(self):
         quiz = LessonQuiz.objects.create(lesson=self.lesson, title="Quiz", title_en="Quiz")
         self.client.force_login(self.teacher)
         response = self.client.post(
             f"/teacher/quizzes/{quiz.pk}/questions/",
-            {
-                "question_type": "multiple_choice",
-                "question_text_ar": "سؤال؟",
-                "question_text_en": "Question?",
-                "options_text": '["A", "B"]',
-                "correct_answer": "A",
-                "explanation_ar": "",
-                "explanation_en": "Because",
-                "difficulty_score": "0.4",
-                "points": 2,
-                "order": 1,
-            },
+            self._mcq_payload(question_type="fill_blank", option_1="", option_2="", correct_option="", correct_answer="went"),
         )
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(LessonQuestion.objects.filter(quiz=quiz, correct_answer="A").exists())
+        q = LessonQuestion.objects.get(quiz=quiz)
+        self.assertEqual(q.correct_answer, "went")
+        self.assertEqual(q.options, [])
+
+    def test_quiz_question_edit_prefills_visual_options(self):
+        quiz = LessonQuiz.objects.create(lesson=self.lesson, title="Quiz", title_en="Quiz")
+        q = LessonQuestion.objects.create(
+            quiz=quiz, question_type="multiple_choice", question_text_en="Q",
+            options=["Cat", "Dog"], correct_answer="Dog", order=1,
+        )
+        self.client.force_login(self.teacher)
+        html = self.client.get(f"/teacher/questions/{q.pk}/edit/").content.decode()
+        self.assertIn("tp-qb-stepper", html)
+        self.assertIn('value="Cat"', html)
+        self.assertIn('value="Dog"', html)
 
 
 class TeacherStudentAssignmentTests(TeacherPortalTestMixin):

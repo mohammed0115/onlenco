@@ -1,0 +1,154 @@
+{% comment %} Visual question builder — mirrors the placement question builder; no JSON for normal teachers. {% endcomment %}
+<form class="teacher-form tp-qb" method="post" novalidate data-question-builder>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="tp-qb-alert">{{ form.non_field_errors }}</div>{% endif %}
+
+  <nav class="tp-qb-stepper" aria-label="{% if lang == 'ar' %}خطوات بناء السؤال{% else %}Question builder steps{% endif %}">
+    <button type="button" class="tp-qb-step is-active" data-step-target="1">1. {% if lang == "ar" %}الأساسيات{% else %}Basics{% endif %}</button>
+    <button type="button" class="tp-qb-step" data-step-target="2">2. {% if lang == "ar" %}السؤال{% else %}Question{% endif %}</button>
+    <button type="button" class="tp-qb-step" data-step-target="3">3. {% if lang == "ar" %}الإجابة والمعاينة{% else %}Answer & Preview{% endif %}</button>
+  </nav>
+
+  <section class="tp-qb-panel is-active" data-step-panel="1">
+    <div class="tp-qb-card">
+      <div class="tp-grid tp-grid-2">
+        <div class="tp-fld"><label for="{{ form.question_type.id_for_label }}">{% if lang == "ar" %}نوع السؤال{% else %}Question type{% endif %}</label>{{ form.question_type }}{% if form.question_type.errors %}<small class="tp-err">{{ form.question_type.errors|join:" " }}</small>{% endif %}</div>
+        <div class="tp-fld"><label for="{{ form.order.id_for_label }}">{% if lang == "ar" %}الترتيب{% else %}Order{% endif %}</label>{{ form.order }}</div>
+        <div class="tp-fld"><label for="{{ form.points.id_for_label }}">{% if lang == "ar" %}النقاط{% else %}Points{% endif %}</label>{{ form.points }}</div>
+        <div class="tp-fld"><label for="{{ form.difficulty_score.id_for_label }}">{% if lang == "ar" %}درجة الصعوبة{% else %}Difficulty{% endif %}</label>{{ form.difficulty_score }}<small class="tp-help">{% if lang == "ar" %}0 سهل · 0.5 متوسط · 1 متقدم{% else %}0 easy · 0.5 medium · 1 advanced{% endif %}</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tp-qb-panel" data-step-panel="2">
+    <div class="tp-qb-card">
+      <div class="tp-fld"><label for="{{ form.question_text_ar.id_for_label }}">{% if lang == "ar" %}السؤال بالعربية{% else %}Question in Arabic{% endif %}</label>{{ form.question_text_ar }}{% if form.question_text_ar.errors %}<small class="tp-err">{{ form.question_text_ar.errors|join:" " }}</small>{% endif %}</div>
+      <div class="tp-fld"><label for="{{ form.question_text_en.id_for_label }}">{% if lang == "ar" %}السؤال بالإنجليزية{% else %}Question in English{% endif %}</label>{{ form.question_text_en }}{% if form.question_text_en.errors %}<small class="tp-err">{{ form.question_text_en.errors|join:" " }}</small>{% endif %}</div>
+    </div>
+  </section>
+
+  <section class="tp-qb-panel" data-step-panel="3">
+    <div class="tp-qb-answer" data-answer-builder>
+      <div class="tp-qb-card tp-qb-group" data-answer-group="mcq">
+        <h3>{% if lang == "ar" %}خيارات الإجابة{% else %}Answer options{% endif %}</h3>
+        <p class="tp-help">{% if lang == "ar" %}اكتب الخيارات ثم اختر الإجابة الصحيحة. لا حاجة لأي JSON.{% else %}Type the options, then pick the correct one. No JSON needed.{% endif %}</p>
+        <div class="tp-qb-options">
+          <div class="tp-qb-opt"><span class="tp-qb-num">1</span>{{ form.option_1 }}</div>
+          <div class="tp-qb-opt"><span class="tp-qb-num">2</span>{{ form.option_2 }}</div>
+          <div class="tp-qb-opt"><span class="tp-qb-num">3</span>{{ form.option_3 }}</div>
+          <div class="tp-qb-opt"><span class="tp-qb-num">4</span>{{ form.option_4 }}</div>
+        </div>
+        <div class="tp-fld"><label for="{{ form.correct_option.id_for_label }}">{% if lang == "ar" %}الإجابة الصحيحة{% else %}Correct answer{% endif %}</label>{{ form.correct_option }}</div>
+      </div>
+
+      <div class="tp-qb-card tp-qb-group" data-answer-group="text">
+        <h3>{% if lang == "ar" %}الإجابة النصية{% else %}Text answer{% endif %}</h3>
+        <div class="tp-fld"><label for="{{ form.correct_answer.id_for_label }}">{% if lang == "ar" %}الإجابة الصحيحة{% else %}Correct answer{% endif %}</label>{{ form.correct_answer }}{% if form.correct_answer.errors %}<small class="tp-err">{{ form.correct_answer.errors|join:" " }}</small>{% endif %}</div>
+      </div>
+
+      <div class="tp-qb-card tp-qb-group" data-answer-group="open">
+        <h3>{% if lang == "ar" %}تدريب مفتوح{% else %}Open practice{% endif %}</h3>
+        <p class="tp-help">{% if lang == "ar" %}هذا النوع تدريب تحدّث/كتابة بلا إجابة واحدة صحيحة — يقيّمه الذكاء الاصطناعي.{% else %}This is a speaking/writing prompt with no single correct answer — graded by AI.{% endif %}</p>
+      </div>
+    </div>
+
+    <div class="tp-qb-card">
+      <div class="tp-grid tp-grid-2">
+        <div class="tp-fld"><label for="{{ form.explanation_ar.id_for_label }}">{% if lang == "ar" %}الشرح بالعربية{% else %}Explanation (Arabic){% endif %}</label>{{ form.explanation_ar }}</div>
+        <div class="tp-fld"><label for="{{ form.explanation_en.id_for_label }}">{% if lang == "ar" %}الشرح بالإنجليزية{% else %}Explanation (English){% endif %}</label>{{ form.explanation_en }}</div>
+      </div>
+    </div>
+
+    {% if form.show_advanced_json %}<details class="tp-qb-advanced"><summary>{% if lang == "ar" %}محرر JSON المتقدم للمطورين{% else %}Advanced developer JSON{% endif %}</summary><p class="tp-help">{% if lang == "ar" %}لا تعدّل هذا إلا إذا كنت تفهم بنية البيانات.{% else %}Only edit this if you understand the schema.{% endif %}</p>{{ form.options_json }}</details>{% endif %}
+
+    <div class="tp-qb-card tp-qb-preview" data-preview-root>
+      <div class="tp-qb-badge">{% if lang == "ar" %}معاينة الطالب{% else %}Student preview{% endif %}</div>
+      <h3 data-preview-question-ar dir="rtl">{% if question %}{{ question.question_text_ar }}{% endif %}</h3>
+      <p class="muted" data-preview-question-en dir="ltr">{% if question %}{{ question.question_text_en }}{% endif %}</p>
+      <ul class="tp-qb-preview-options" data-preview-options></ul>
+      <div class="tp-qb-admin-answer">{% if lang == "ar" %}الإجابة الصحيحة (للمعلّم):{% else %}Correct answer (teacher only):{% endif %} <strong data-preview-correct></strong></div>
+    </div>
+  </section>
+
+  <div class="tp-qb-actions">
+    <button type="button" class="teacher-btn" data-step-back>{% if lang == "ar" %}السابق{% else %}Back{% endif %}</button>
+    <button type="button" class="teacher-btn teacher-btn-primary" data-step-next>{% if lang == "ar" %}التالي{% else %}Next{% endif %}</button>
+    <button type="submit" class="teacher-btn teacher-btn-primary"><i data-lucide="save"></i>{% if question %}{% if lang == "ar" %}حفظ التعديلات{% else %}Save changes{% endif %}{% else %}{% if lang == "ar" %}إضافة السؤال{% else %}Add question{% endif %}{% endif %}</button>
+    <a class="teacher-btn" href="{% url 'teacher_portal:quiz_questions' quiz.pk %}">{% if lang == "ar" %}إلغاء{% else %}Cancel{% endif %}</a>
+  </div>
+</form>
+
+<script>
+  (() => {
+    const form = document.querySelector('[data-question-builder]');
+    if (!form) return;
+    const MCQ = ['multiple_choice','image_choice','listen_and_choose','tap_choice','listening_match','sound_to_word','mini_story_choice','conversation_reply'];
+    const OPEN = ['speaking_prompt','writing_prompt','ai_roleplay_prompt','pronunciation_check','speak_this_sentence'];
+    const steps = Array.from(form.querySelectorAll('[data-step-target]'));
+    const panels = Array.from(form.querySelectorAll('[data-step-panel]'));
+    const nextBtn = form.querySelector('[data-step-next]');
+    const backBtn = form.querySelector('[data-step-back]');
+    const qType = form.querySelector('#{{ form.question_type.id_for_label }}');
+    const qAr = form.querySelector('#{{ form.question_text_ar.id_for_label }}');
+    const qEn = form.querySelector('#{{ form.question_text_en.id_for_label }}');
+    const opts = [1,2,3,4].map(n => form.querySelector('#id_option_' + n)).filter(Boolean);
+    const correctSel = form.querySelector('#{{ form.correct_option.id_for_label }}');
+    const correctText = form.querySelector('#{{ form.correct_answer.id_for_label }}');
+    const pvAr = form.querySelector('[data-preview-question-ar]');
+    const pvEn = form.querySelector('[data-preview-question-en]');
+    const pvOpts = form.querySelector('[data-preview-options]');
+    const pvCorrect = form.querySelector('[data-preview-correct]');
+    let current = 1;
+
+    function showStep(step) {
+      current = step;
+      steps.forEach(b => b.classList.toggle('is-active', Number(b.dataset.stepTarget) === step));
+      panels.forEach(p => p.classList.toggle('is-active', Number(p.dataset.stepPanel) === step));
+      backBtn.disabled = step === 1;
+      nextBtn.style.display = step === panels.length ? 'none' : '';
+    }
+
+    function groupFor(type) {
+      if (MCQ.includes(type)) return 'mcq';
+      if (OPEN.includes(type)) return 'open';
+      return 'text';
+    }
+
+    function updateGroups() {
+      const g = groupFor(qType ? qType.value : '');
+      form.querySelectorAll('[data-answer-group]').forEach(el => el.classList.toggle('is-active', el.dataset.answerGroup === g));
+      updatePreview();
+    }
+
+    function updatePreview() {
+      if (pvAr) pvAr.textContent = qAr?.value || '';
+      if (pvEn) pvEn.textContent = qEn?.value || '';
+      const g = groupFor(qType ? qType.value : '');
+      if (pvOpts) {
+        pvOpts.innerHTML = '';
+        if (g === 'mcq') {
+          opts.forEach(i => { if (i.value.trim()) { const li = document.createElement('li'); li.textContent = i.value.trim(); pvOpts.appendChild(li); } });
+        }
+      }
+      if (pvCorrect) {
+        if (g === 'mcq') {
+          const idx = Number(correctSel?.value || 0) - 1;
+          pvCorrect.textContent = idx >= 0 && opts[idx] ? opts[idx].value.trim() : '';
+        } else if (g === 'text') {
+          pvCorrect.textContent = correctText?.value.trim() || '';
+        } else {
+          pvCorrect.textContent = '{% if lang == "ar" %}تقييم بالذكاء الاصطناعي{% else %}AI-graded{% endif %}';
+        }
+      }
+    }
+
+    steps.forEach(b => b.addEventListener('click', () => showStep(Number(b.dataset.stepTarget))));
+    nextBtn?.addEventListener('click', () => showStep(Math.min(current + 1, panels.length)));
+    backBtn?.addEventListener('click', () => showStep(Math.max(current - 1, 1)));
+    qType?.addEventListener('change', updateGroups);
+    [qAr, qEn, correctText, correctSel, ...opts].forEach(el => el?.addEventListener('input', updatePreview));
+    correctSel?.addEventListener('change', updatePreview);
+    updateGroups();
+    showStep(1);
+  })();
+</script>

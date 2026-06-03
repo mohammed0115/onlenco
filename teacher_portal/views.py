@@ -382,13 +382,13 @@ def quiz_questions(request, quiz_id):
     if not teacher_perms.teacher_lesson_queryset(request.user).filter(pk=quiz.lesson_id).exists():
         return HttpResponseForbidden("Forbidden")
     if request.method == "POST":
-        form = TeacherQuestionForm(request.POST)
+        form = TeacherQuestionForm(request.POST, user=request.user)
         if form.is_valid():
             quiz_service.save_question(request, form, quiz)
             messages.success(request, "Question saved.")
             return redirect("teacher_portal:quiz_questions", quiz_id=quiz.pk)
     else:
-        form = TeacherQuestionForm()
+        form = TeacherQuestionForm(user=request.user)
     return _render(
         request,
         "teacher_portal/quizzes/questions.html",
@@ -403,14 +403,14 @@ def question_edit(request, question_id):
     if not teacher_perms.teacher_lesson_queryset(request.user).filter(pk=question.quiz.lesson_id).exists():
         return HttpResponseForbidden("Forbidden")
     if request.method == "POST":
-        form = TeacherQuestionForm(request.POST, instance=question)
+        form = TeacherQuestionForm(request.POST, instance=question, user=request.user)
         if form.is_valid():
             quiz_service.save_question(request, form, question.quiz)
             messages.success(request, "Question updated.")
             return redirect("teacher_portal:quiz_questions", quiz_id=question.quiz_id)
     else:
-        form = TeacherQuestionForm(instance=question)
-    return _render(request, "teacher_portal/quizzes/question_edit.html", "quizzes", {"question": question, "form": form})
+        form = TeacherQuestionForm(instance=question, user=request.user)
+    return _render(request, "teacher_portal/quizzes/question_edit.html", "quizzes", {"question": question, "quiz": question.quiz, "form": form})
 
 
 @teacher_required
