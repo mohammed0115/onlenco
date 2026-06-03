@@ -3,7 +3,7 @@
 {% block control_title %}{% if lesson %}{% if lang == "ar" %}تعديل الدرس{% else %}Edit lesson{% endif %}{% else %}{% if lang == "ar" %}درس جديد{% else %}New lesson{% endif %}{% endif %}{% endblock %}
 {% block control_subtitle %}{{ course.title }}{% endblock %}
 
-{% block extra_head %}
+{% block extra_head %}{{ block.super }}
 <link href="https://unpkg.com/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
 <style>
   .lesson-editor-content { background:#fff; border-radius:8px; }
