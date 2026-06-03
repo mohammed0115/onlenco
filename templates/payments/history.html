@@ -52,6 +52,16 @@
                     {% endif %}
                 </p>
             </div>
+            <a href="{% url 'choose_teacher' %}" class="card p-5 mb-6 flex items-center justify-between gap-4 hover:bg-muted/30 transition" style="border-color: hsl(var(--primary)); text-decoration:none">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="graduation-cap" class="h-5 w-5 text-primary"></i>
+                    <div>
+                        <div class="font-semibold text-foreground">{% t_either "Choose your teacher" "اختر أستاذك" %}</div>
+                        <div class="text-xs text-muted-foreground">{% t_either "Pick a teacher that fits your level — optional, change anytime." "اختر أستاذاً يناسب مستواك — اختياري، يمكنك تغييره في أي وقت." %}</div>
+                    </div>
+                </div>
+                <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip text-primary shrink-0"></i>
+            </a>
         {% endif %}
 
         {% if submissions %}

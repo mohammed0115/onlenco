@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     StudentAssignmentSubmission,
+    StudentTeacherRelation,
     TeacherAssignment,
     TeacherProfile,
     TeacherStudentNote,
@@ -10,9 +11,21 @@ from .models import (
 
 @admin.register(TeacherProfile)
 class TeacherProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "specialization", "is_active", "approved_at")
+    list_display = (
+        "user", "specialization", "is_active", "is_featured",
+        "rating", "commission_rate", "cefr_focus", "approved_at",
+    )
+    list_editable = ("is_featured", "rating", "commission_rate", "cefr_focus")
     search_fields = ("user__email", "user__username", "user__profile__full_name", "specialization")
-    list_filter = ("is_active",)
+    list_filter = ("is_active", "is_featured")
+
+
+@admin.register(StudentTeacherRelation)
+class StudentTeacherRelationAdmin(admin.ModelAdmin):
+    list_display = ("student", "teacher", "is_active", "cefr_level_at_selection", "created_at")
+    search_fields = ("student__email", "student__username", "teacher__email", "teacher__username")
+    list_filter = ("is_active", "created_at")
+    autocomplete_fields = ()
 
 
 @admin.register(TeacherStudentNote)

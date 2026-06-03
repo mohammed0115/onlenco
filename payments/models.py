@@ -123,6 +123,13 @@ class PaymentSubmission(models.Model):
     refunded_at = models.DateTimeField(blank=True, null=True)
     refund_reason = models.TextField(blank=True)
 
+    # --- Marketplace revenue split (Prompt 1) --------------------------
+    # Filled in on approval: the SDG split between the student's chosen
+    # teacher and the platform. Both default to 0; when no teacher is
+    # selected the whole amount lands in platform_earnings.
+    teacher_earnings = models.PositiveIntegerField(default=0)
+    platform_earnings = models.PositiveIntegerField(default=0)
+
     class Meta:
         verbose_name = _("Payment submission")
         verbose_name_plural = _("Payment submissions")
@@ -160,6 +167,8 @@ class PaymentSubmission(models.Model):
         self.reviewed_at = now
         self.save(update_fields=["status", "reviewed_by", "reviewed_at"])
 
+        self._record_revenue_split()
+
         self._activate_subscriptions_plan(duration_days=days)
 
         try:
@@ -181,6 +190,28 @@ class PaymentSubmission(models.Model):
         except Exception:
             import logging
             logging.getLogger(__name__).exception("notify approve failed")
+
+    def _record_revenue_split(self) -> None:
+        """Split ``amount_sdg`` between the student's chosen teacher and the
+        platform. Defensive: any failure leaves the whole amount with the
+        platform so an approval is never blocked by the marketplace layer.
+        """
+        amount = int(self.amount_sdg or 0)
+        teacher_cut, platform_cut = 0, amount
+        try:
+            from teacher_portal.models import StudentTeacherRelation
+            relation = StudentTeacherRelation.active_for(self.user)
+            tp = getattr(relation.teacher, "teacher_profile", None) if relation else None
+            if tp is not None:
+                teacher_cut = tp.teacher_share(amount)
+                platform_cut = amount - teacher_cut
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("revenue split failed; defaulting to platform")
+            teacher_cut, platform_cut = 0, amount
+        self.teacher_earnings = teacher_cut
+        self.platform_earnings = platform_cut
+        self.save(update_fields=["teacher_earnings", "platform_earnings"])
 
     def _activate_subscriptions_plan(self, *, duration_days: int) -> None:
         """Spin up / extend the new-style UserSubscription. Best-effort."""

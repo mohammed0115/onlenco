@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+
+# Platform's default cut (%). The teacher keeps (100 - this). Overridable
+# per teacher via TeacherProfile.commission_rate. The roadmap example uses a
+# 70/30 teacher/platform split, i.e. a 30% platform commission.
+DEFAULT_PLATFORM_COMMISSION_RATE = 30
 
 
 NOTE_VISIBILITY_CHOICES = [
@@ -42,6 +49,35 @@ class TeacherProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # --- Marketplace fields (Prompt 1) ---------------------------------
+    # Reference hourly rate the teacher charges (informational; the actual
+    # payout is derived from the subscription price via the split below).
+    hourly_rate_sdg = models.PositiveIntegerField(
+        default=0, verbose_name=_("Hourly rate (SDG)"),
+    )
+    # The platform's commission percentage (0–100). Teacher keeps the rest.
+    commission_rate = models.PositiveIntegerField(
+        default=DEFAULT_PLATFORM_COMMISSION_RATE,
+        validators=[MaxValueValidator(100)],
+        verbose_name=_("Platform commission rate (%)"),
+        help_text=_("Percent the platform keeps; the teacher receives the remainder."),
+    )
+    # Average 0.00–5.00 star rating.
+    rating = models.DecimalField(
+        max_digits=3, decimal_places=2, default=0,
+        validators=[MaxValueValidator(5)],
+        verbose_name=_("Rating"),
+    )
+    is_featured = models.BooleanField(
+        default=False, db_index=True, verbose_name=_("Featured"),
+    )
+    # Comma-separated CEFR levels this teacher focuses on, e.g. "A0,A1,A2".
+    # Blank = available for any level.
+    cefr_focus = models.CharField(
+        max_length=64, blank=True, verbose_name=_("CEFR focus"),
+        help_text=_("Comma-separated levels, e.g. A0,A1,A2. Blank = all levels."),
+    )
+
     class Meta:
         ordering = ["user__email", "user__username"]
         verbose_name = _("Teacher profile")
@@ -49,6 +85,82 @@ class TeacherProfile(models.Model):
 
     def __str__(self):
         return getattr(self.user, "email", "") or self.user.get_username()
+
+    # --- Revenue split helpers -----------------------------------------
+    def teacher_share(self, amount_sdg: int) -> int:
+        """Integer SDG the teacher earns from a subscription of this amount."""
+        amount = int(amount_sdg or 0)
+        rate = min(int(self.commission_rate or 0), 100)
+        return amount * (100 - rate) // 100
+
+    def platform_share(self, amount_sdg: int) -> int:
+        """Integer SDG the platform keeps (gets any rounding remainder)."""
+        return int(amount_sdg or 0) - self.teacher_share(amount_sdg)
+
+    def teaches_level(self, cefr_level: str | None) -> bool:
+        """True if this teacher covers ``cefr_level`` (blank focus = all)."""
+        focus = (self.cefr_focus or "").strip()
+        if not focus:
+            return True
+        levels = {p.strip().upper() for p in focus.split(",") if p.strip()}
+        return not cefr_level or cefr_level.upper() in levels
+
+
+class StudentTeacherRelation(models.Model):
+    """Links a student to the teacher they chose in the Marketplace.
+
+    A student may have at most one *active* relation at a time; selecting a
+    new teacher deactivates the previous one (history is preserved). This is
+    additive — it never gates lesson access on its own.
+    """
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="teacher_relations",
+        verbose_name=_("Student"),
+    )
+    teacher = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="student_relations",
+        verbose_name=_("Teacher"),
+    )
+    is_active = models.BooleanField(default=True, db_index=True)
+    cefr_level_at_selection = models.CharField(max_length=2, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Student–teacher relation")
+        verbose_name_plural = _("Student–teacher relations")
+        indexes = [
+            models.Index(fields=["student", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.student} → {self.teacher}"
+
+    @classmethod
+    def active_for(cls, student):
+        """The student's current active teacher relation, or None."""
+        return cls.objects.filter(student=student, is_active=True).select_related("teacher").first()
+
+    @classmethod
+    def set_active(cls, student, teacher, cefr_level: str = ""):
+        """Make ``teacher`` the student's single active choice.
+
+        Deactivates any other active relation first, then reactivates (or
+        creates) the row for this teacher. Idempotent.
+        """
+        cls.objects.filter(student=student, is_active=True).exclude(teacher=teacher).update(is_active=False)
+        relation, _created = cls.objects.get_or_create(student=student, teacher=teacher)
+        relation.is_active = True
+        if cefr_level:
+            relation.cefr_level_at_selection = cefr_level
+        relation.save(update_fields=["is_active", "cefr_level_at_selection", "updated_at"])
+        return relation
 
 
 class TeacherStudentNote(models.Model):
