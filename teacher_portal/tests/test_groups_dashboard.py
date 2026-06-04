@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from courses.models import CourseLessonProgress, DigitalCertificate
 from teacher_portal.models import LiveSession
 from teacher_portal.services import dashboard_service, student_service
 from teacher_portal.tests.utils import TeacherPortalTestMixin
@@ -61,3 +62,37 @@ class DashboardNextSessionTests(TeacherPortalTestMixin):
         )
         ctx = dashboard_service.dashboard_context(self.teacher)
         self.assertIsNone(ctx["next_live_session"])
+
+
+class TeacherIssueCertificateTests(TeacherPortalTestMixin):
+    def setUp(self):
+        super().setUp()
+        # Make the lesson published and mark the student's progress complete.
+        self.lesson.status = "published"
+        self.lesson.is_active = True
+        self.lesson.save(update_fields=["status", "is_active"])
+        CourseLessonProgress.objects.filter(user=self.student, lesson=self.lesson).update(
+            completed_at=timezone.now(),
+        )
+
+    def _url(self, course):
+        return f"/teacher/students/{self.student.pk}/certificate/{course.pk}/"
+
+    def test_issue_success_when_eligible(self):
+        self.client.force_login(self.teacher)
+        r = self.client.post(self._url(self.course))
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(DigitalCertificate.objects.filter(student=self.student, course=self.course).exists())
+
+    def test_issue_blocked_when_not_eligible(self):
+        CourseLessonProgress.objects.filter(user=self.student, lesson=self.lesson).update(completed_at=None)
+        self.client.force_login(self.teacher)
+        r = self.client.post(self._url(self.course))
+        self.assertEqual(r.status_code, 302)
+        self.assertFalse(DigitalCertificate.objects.filter(student=self.student, course=self.course).exists())
+
+    def test_cannot_issue_for_other_teachers_course(self):
+        self.client.force_login(self.teacher)
+        r = self.client.post(self._url(self.other_course))
+        self.assertEqual(r.status_code, 404)
+        self.assertFalse(DigitalCertificate.objects.filter(student=self.student, course=self.other_course).exists())

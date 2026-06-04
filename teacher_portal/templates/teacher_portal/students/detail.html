@@ -26,20 +26,32 @@
 
 <section class="teacher-panel">
   <div class="panel-heading"><h2>{% if lang == "ar" %}تقدم الكورسات{% else %}Course Progress{% endif %}</h2></div>
+  <div class="table-wrap">
   <table class="teacher-table">
     <thead><tr>
       <th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th>
       <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
       <th>{% if lang == "ar" %}التقدم{% else %}Progress{% endif %}</th>
+      <th>{% if lang == "ar" %}شهادة{% else %}Certificate{% endif %}</th>
     </tr></thead>
     <tbody>
       {% for enrollment in enrollments %}
-        <tr><td>{{ enrollment.course.title_ar|default:enrollment.course.title }}</td><td>{{ enrollment.status }}</td><td>{{ enrollment.progress_percentage }}%</td></tr>
+        <tr>
+          <td>{{ enrollment.course.title_ar|default:enrollment.course.title }}</td>
+          <td>{{ enrollment.status }}</td>
+          <td>{{ enrollment.progress_percentage }}%</td>
+          <td class="row-actions">
+            <form method="post" action="{% url 'teacher_portal:issue_certificate' student.pk enrollment.course.pk %}">
+              {% csrf_token %}<button type="submit" class="btn-control">{% if lang == "ar" %}إصدار شهادة{% else %}Issue certificate{% endif %}</button>
+            </form>
+          </td>
+        </tr>
       {% empty %}
-        <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد تسجيلات.{% else %}No scoped enrollments.{% endif %}</td></tr>
+        <tr><td colspan="4" class="muted">{% if lang == "ar" %}لا توجد تسجيلات.{% else %}No scoped enrollments.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 
 <section class="teacher-panel">

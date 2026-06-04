@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase
@@ -13,6 +14,7 @@ from platform_admin import permissions as platform_perms
 
 class TeacherPortalTestMixin(TestCase):
     def setUp(self):
+        cache.clear()  # isolate cache-based rate-limit counters between tests
         call_command("seed_platform_roles", verbosity=0)
         self.User = get_user_model()
         self.level = CourseLevel.objects.create(code="A1", name="A1", order=1)

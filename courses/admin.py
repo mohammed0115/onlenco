@@ -14,10 +14,18 @@ from django.utils.translation import gettext_lazy as _
 from . import permissions as perms
 from .models import (
     AdminActionLog, ContentReviewLog, Course, CourseEnrollment,
-    CourseLevel, CourseUnit, Lesson, LessonQuestion, LessonQuiz,
+    CourseLevel, CourseUnit, DigitalCertificate, Lesson, LessonQuestion, LessonQuiz,
     LessonResource,
 )
 from .services import review_workflow
+
+
+@admin.register(DigitalCertificate)
+class DigitalCertificateAdmin(admin.ModelAdmin):
+    list_display = ("certificate_uuid", "student", "course", "level", "average_score", "issued_by", "issued_at")
+    search_fields = ("certificate_uuid", "student__email", "student__username", "course__title")
+    list_filter = ("level", "issued_at")
+    readonly_fields = ("certificate_uuid", "issued_at")
 from .services.admin_log import log_admin_action
 
 

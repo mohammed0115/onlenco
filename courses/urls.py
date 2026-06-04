@@ -8,6 +8,10 @@ app_name = "courses"
 
 urlpatterns = [
     path("", RedirectView.as_view(pattern_name="library", permanent=False), name="course_index"),
+    # Certificates — string prefixes declared before <int:pk> for clarity.
+    path("certificates/", views.certificates_list, name="certificates"),
+    path("certificate/<uuid:cert_uuid>/", views.certificate_detail, name="certificate_detail"),
+    path("verify/<uuid:cert_uuid>/", views.certificate_verify, name="certificate_verify"),
     path("<int:pk>/", views.course_detail, name="course_detail"),
     path("<int:course_pk>/lessons/<int:lesson_pk>/",
          views.course_lesson_detail, name="lesson_detail"),

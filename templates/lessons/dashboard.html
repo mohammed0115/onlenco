@@ -243,6 +243,16 @@
 
         {# Secondary actions #}
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <a href="{% url 'courses:certificates' %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">
+                        <i data-lucide="award" class="h-5 w-5 text-primary-foreground"></i>
+                    </div>
+                </div>
+                <div class="font-display text-lg font-bold mb-1">{% if lang == "ar" %}شهاداتي{% else %}My Certificates{% endif %}</div>
+                <div class="text-sm text-muted-foreground">{% if lang == "ar" %}اعرض وحمّل شهادات إتمام الكورسات.{% else %}View and download your course completion certificates.{% endif %}</div>
+            </a>
+
             <a href="{% url 'tutor' %}" class="card gradient-card p-6 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
                 <div class="flex items-start justify-between gap-3 mb-3">
                     <div class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center">

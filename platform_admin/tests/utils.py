@@ -4,6 +4,7 @@ from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 
@@ -22,6 +23,10 @@ def png_bytes() -> bytes:
 
 class PlatformAdminTestMixin:
     def setUp(self):
+        # LocMemCache is NOT reset between tests; the hand-rolled per-IP
+        # rate-limit counters would otherwise leak across the suite and make
+        # registration/login flows order-dependent (200 vs 302 flakes).
+        cache.clear()
         call_command("seed_platform_roles", verbosity=0)
         self.User = get_user_model()
         self.student = self.User.objects.create_user(

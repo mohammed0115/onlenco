@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{% if lang == "ar" %}شهادة إنجاز{% else %}Certificate{% endif %} — {{ cert.student.get_full_name|default:cert.student.username }} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="cert-page">
+  {% with verify_url=request.scheme|add:"://"|add:request.get_host %}
+  <div class="cert-actions no-print">
+    <button type="button" onclick="window.print()" class="cert-btn cert-btn-primary">🖨️ {% if lang == "ar" %}طباعة / حفظ PDF{% else %}Print / Save PDF{% endif %}</button>
+    <a class="cert-btn" target="_blank" rel="noopener" href="https://www.linkedin.com/sharing/share-offsite/?url={{ verify_url }}{% url 'courses:certificate_verify' cert.certificate_uuid %}">{% if lang == "ar" %}مشاركة على LinkedIn{% else %}Share on LinkedIn{% endif %}</a>
+    <a class="cert-btn" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u={{ verify_url }}{% url 'courses:certificate_verify' cert.certificate_uuid %}">{% if lang == "ar" %}مشاركة على Facebook{% else %}Share on Facebook{% endif %}</a>
+  </div>
+
+  <article class="cert" dir="{{ dir }}">
+    <div class="cert-frame">
+      <div class="cert-head">Onlenco Academy</div>
+      <div class="cert-kicker">{% if lang == "ar" %}شهادة إتمام{% else %}Certificate of Completion{% endif %}</div>
+      <p class="cert-line">{% if lang == "ar" %}تشهد أكاديمية Onlenco بأنّ{% else %}This certifies that{% endif %}</p>
+      <h1 class="cert-name">{{ cert.student.get_full_name|default:cert.student.username }}</h1>
+      <p class="cert-line">{% if lang == "ar" %}قد أتمّ بنجاح كورس{% else %}has successfully completed{% endif %}</p>
+      <h2 class="cert-course">{% if lang == "ar" %}{{ cert.course.title_ar|default:cert.course.title }}{% else %}{{ cert.course.title_en|default:cert.course.title }}{% endif %}</h2>
+
+      <div class="cert-meta">
+        {% if cert.level %}<div><span>{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</span><strong dir="ltr">{{ cert.level }}</strong></div>{% endif %}
+        <div><span>{% if lang == "ar" %}المعدّل{% else %}Average{% endif %}</span><strong>{{ cert.average_score|floatformat:0 }}%</strong></div>
+        <div><span>{% if lang == "ar" %}التاريخ{% else %}Date{% endif %}</span><strong dir="ltr">{{ cert.issued_at|date:"Y-m-d" }}</strong></div>
+      </div>
+
+      <div class="cert-foot">
+        <div class="cert-sign">
+          <div class="cert-sign-line"></div>
+          <span>{% if lang == "ar" %}إدارة Onlenco{% else %}Onlenco Academy{% endif %}</span>
+        </div>
+        <div class="cert-verify">
+          <div class="cert-uuid" dir="ltr">{{ cert.certificate_uuid }}</div>
+          <div class="muted-small">{% if lang == "ar" %}تحقّق عبر{% else %}Verify at{% endif %} {{ request.get_host }}{% url 'courses:certificate_verify' cert.certificate_uuid %}</div>
+        </div>
+      </div>
+    </div>
+  </article>
+  {% endwith %}
+</div>
+
+<style>
+  .cert-page { max-width: 920px; margin: 0 auto; padding: 24px 16px 60px; }
+  .cert-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+  .cert-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 999px; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--foreground)); text-decoration: none; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .cert-btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: transparent; }
+  .cert { background: #fff; }
+  .cert-frame { border: 3px solid #0F4E4B; border-radius: 16px; padding: 48px 40px; text-align: center; background: linear-gradient(180deg, #ffffff 0%, #f6fffb 100%); box-shadow: 0 10px 40px rgba(15,78,75,.10); }
+  .cert-head { font-family: "Fraunces", Georgia, serif; font-size: 22px; font-weight: 800; color: #0F4E4B; letter-spacing: .04em; }
+  .cert-kicker { margin-top: 6px; font-size: 13px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #EC983A; }
+  .cert-line { color: #536268; margin: 18px 0 6px; font-size: 15px; }
+  .cert-name { font-family: "Fraunces", Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); color: #0E2625; margin: 4px 0; }
+  .cert-course { font-size: clamp(1.1rem, 2.5vw, 1.5rem); color: #0F4E4B; margin: 4px 0 8px; }
+  .cert-meta { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; margin: 26px 0; }
+  .cert-meta > div { display: grid; gap: 2px; }
+  .cert-meta span { font-size: 12px; color: #536268; text-transform: uppercase; letter-spacing: .08em; }
+  .cert-meta strong { font-size: 1.3rem; color: #0E2625; }
+  .cert-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-top: 34px; flex-wrap: wrap; }
+  .cert-sign { text-align: center; }
+  .cert-sign-line { width: 180px; border-top: 2px solid #0E2625; margin-bottom: 6px; }
+  .cert-sign span { font-weight: 700; color: #0E2625; }
+  .cert-verify { text-align: end; }
+  .cert-uuid { font-family: ui-monospace, monospace; font-size: 13px; color: #0F4E4B; font-weight: 700; }
+  .muted-small { font-size: 11px; color: #536268; }
+  @media print {
+    .no-print { display: none !important; }
+    body { background: #fff !important; }
+    .cert-page { padding: 0; max-width: none; }
+    .cert-frame { box-shadow: none; border-radius: 0; }
+  }
+</style>
+{% endblock %}

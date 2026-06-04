@@ -959,3 +959,39 @@ def _build_rewards_context(request, session) -> dict:
         "encouragement_en": msg_en,
         "encouragement_ar": msg_ar,
     }
+
+
+# ---------------------------------------------------------------------------
+# Digital certificates (Marketplace prompt 5)
+# ---------------------------------------------------------------------------
+from .models import DigitalCertificate  # noqa: E402
+
+
+@login_required
+def certificates_list(request):
+    """The student's own issued certificates."""
+    certs = (
+        DigitalCertificate.objects.filter(student=request.user)
+        .select_related("course", "course__level")
+    )
+    return render(request, "courses/certificates_list.html", {"certificates": certs})
+
+
+def certificate_detail(request, cert_uuid):
+    """Printable certificate page. Public (shareable by link); the correct
+    answer / private data is never shown — only the achievement."""
+    cert = get_object_or_404(
+        DigitalCertificate.objects.select_related("student", "course", "course__level", "issued_by"),
+        certificate_uuid=cert_uuid,
+    )
+    return render(request, "courses/certificate_detail.html", {"cert": cert})
+
+
+def certificate_verify(request, cert_uuid):
+    """Public verification: confirms a certificate UUID is genuine."""
+    cert = (
+        DigitalCertificate.objects.select_related("student", "course", "course__level")
+        .filter(certificate_uuid=cert_uuid)
+        .first()
+    )
+    return render(request, "courses/certificate_verify.html", {"cert": cert, "queried_uuid": cert_uuid})

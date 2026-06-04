@@ -17,6 +17,8 @@ Architectural choices
 """
 from __future__ import annotations
 
+import uuid
+
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -1654,3 +1656,88 @@ class LessonReviewEvent(models.Model):
 
     def __str__(self):
         return f"ReviewEvent<{self.lesson_id}> {self.action} by {self.actor_id}"
+
+
+class DigitalCertificate(models.Model):
+    """A verifiable completion certificate issued to a student for a course.
+
+    Issued by a teacher once the student has completed every published lesson
+    of the course (the human-approval gate). Carries a unique UUID for public
+    verification and the student's average quiz score at issue time.
+    """
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="certificates", verbose_name=_("Student"),
+    )
+    course = models.ForeignKey(
+        "courses.Course", on_delete=models.CASCADE,
+        related_name="certificates", verbose_name=_("Course"),
+    )
+    level = models.CharField(max_length=8, blank=True, verbose_name=_("CEFR level"))
+    average_score = models.FloatField(default=0.0, verbose_name=_("Average score"))
+    certificate_uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
+    issued_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="issued_certificates", verbose_name=_("Issued by"),
+    )
+    issued_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-issued_at"]
+        verbose_name = _("Digital certificate")
+        verbose_name_plural = _("Digital certificates")
+        constraints = [
+            models.UniqueConstraint(fields=["student", "course"], name="uniq_certificate_student_course"),
+        ]
+
+    def __str__(self):
+        return f"Certificate {self.certificate_uuid} — {self.student_id}/{self.course_id}"
+
+    @staticmethod
+    def _published_lessons(course):
+        from courses.services.student_flow import published_lesson_queryset
+        return published_lesson_queryset().filter(course=course)
+
+    @classmethod
+    def is_eligible(cls, student, course):
+        """Eligible once every published lesson of the course is completed."""
+        lessons = cls._published_lessons(course)
+        total = lessons.count()
+        if total == 0:
+            return False
+        completed = (
+            CourseLessonProgress.objects
+            .filter(user=student, lesson__in=lessons, completed_at__isnull=False)
+            .count()
+        )
+        return completed >= total
+
+    @classmethod
+    def average_score_for(cls, student, course):
+        from django.db.models import Avg
+        lessons = cls._published_lessons(course)
+        avg = (
+            CourseLessonProgress.objects
+            .filter(user=student, lesson__in=lessons, quiz_score__isnull=False)
+            .aggregate(a=Avg("quiz_score"))["a"]
+        )
+        return round(avg or 0.0, 1)
+
+    @classmethod
+    def issue_for(cls, student, course, issued_by=None):
+        """Create (or return existing) certificate for student+course.
+
+        Snapshots the level + average score. Idempotent via the unique
+        constraint. Caller is responsible for the eligibility/ownership check.
+        """
+        level = getattr(getattr(course, "level", None), "code", "") or ""
+        cert, created = cls.objects.get_or_create(
+            student=student, course=course,
+            defaults={
+                "level": level,
+                "average_score": cls.average_score_for(student, course),
+                "issued_by": issued_by,
+            },
+        )
+        return cert, created

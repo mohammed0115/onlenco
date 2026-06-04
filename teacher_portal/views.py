@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from courses.models import Course, CourseEnrollment, Lesson, LessonQuestion, LessonQuiz
+from courses.models import Course, CourseEnrollment, DigitalCertificate, Lesson, LessonQuestion, LessonQuiz
 from notifications import constants as notification_constants
 from notifications.models import NotificationEvent
 
@@ -429,6 +429,24 @@ def students_list(request):
         "students",
         {"page_obj": _paginate(request, rows), "filters": request.GET},
     )
+
+
+@require_POST
+@teacher_required
+def issue_certificate(request, student_id, course_id):
+    """Teacher issues a completion certificate for one of their students.
+
+    Gated on course ownership + the student having completed every published
+    lesson (the eligibility rule). Idempotent.
+    """
+    course = get_object_or_404(teacher_perms.teacher_course_queryset(request.user), pk=course_id)
+    student = get_object_or_404(get_user_model(), pk=student_id)
+    if not DigitalCertificate.is_eligible(student, course):
+        messages.error(request, "Student hasn't completed every lesson yet — can't issue a certificate.")
+        return redirect("teacher_portal:student_detail", student_id=student.pk)
+    cert, created = DigitalCertificate.issue_for(student, course, issued_by=request.user)
+    messages.success(request, "Certificate issued." if created else "Certificate already issued.")
+    return redirect("teacher_portal:student_detail", student_id=student.pk)
 
 
 @teacher_required

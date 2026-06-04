@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{% if lang == "ar" %}شهاداتي{% else %}My Certificates{% endif %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20">
+  {% include "_app_header.html" %}
+  <main class="container py-10" style="max-width:48rem">
+    <h1 class="text-3xl font-extrabold text-foreground mb-6">{% if lang == "ar" %}شهاداتي{% else %}My Certificates{% endif %}</h1>
+    {% if certificates %}
+    <div class="grid gap-4">
+      {% for c in certificates %}
+      <a href="{% url 'courses:certificate_detail' c.certificate_uuid %}" class="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-5 hover:bg-muted/30 transition" style="text-decoration:none">
+        <div>
+          <div class="font-extrabold text-foreground">{% if lang == "ar" %}{{ c.course.title_ar|default:c.course.title }}{% else %}{{ c.course.title_en|default:c.course.title }}{% endif %}</div>
+          <div class="text-sm text-muted-foreground">{% if c.level %}<span dir="ltr">{{ c.level }}</span> · {% endif %}{% if lang == "ar" %}المعدّل{% else %}Average{% endif %} {{ c.average_score|floatformat:0 }}% · <span dir="ltr">{{ c.issued_at|date:"Y-m-d" }}</span></div>
+        </div>
+        <span class="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">{% if lang == "ar" %}عرض{% else %}View{% endif %}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="rounded-2xl border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
+      {% if lang == "ar" %}لا توجد شهادات بعد. أكمل كورساً ليمنحك أستاذك شهادة.{% else %}No certificates yet. Complete a course and your teacher can issue one.{% endif %}
+    </div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}
