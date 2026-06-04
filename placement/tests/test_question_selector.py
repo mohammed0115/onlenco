@@ -19,11 +19,27 @@ User = get_user_model()
 
 
 class SelectorTests(TestCase):
-    """Run with the real seeded bank so selection has enough material."""
+    """Diverse fixture bank so the selector's stratification / variety /
+    difficulty logic is exercised (independent of the curated seed)."""
 
     @classmethod
     def setUpTestData(cls):
-        call_command("seed_placement_questions", stdout=StringIO())
+        for topic in ["intro", "grammar_fix", "sentence", "daily", "reason"]:
+            for j in range(4):
+                PlacementQuestion.objects.create(
+                    code=f"w.{topic}.{j}", question_text=f"Written {topic} {j}",
+                    question_type="written", skill="grammar", topic=topic,
+                    difficulty_score=0.2 + 0.2 * j, expected_answer_type="sentence",
+                    is_active=True,
+                )
+        for topic in ["name", "age_country", "work_study", "hobby", "reason"]:
+            for j in range(4):
+                PlacementQuestion.objects.create(
+                    code=f"s.{topic}.{j}", question_text=f"Speaking {topic} {j}",
+                    question_type="speaking", skill="speaking", topic=topic,
+                    difficulty_score=0.2 + 0.2 * j, expected_answer_type="voice",
+                    is_active=True,
+                )
 
     def setUp(self):
         self.user = User.objects.create_user(username="sel@x.com", password="pw")
