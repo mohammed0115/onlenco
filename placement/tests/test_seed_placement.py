@@ -58,3 +58,23 @@ class SeedPlacementTests(TestCase):
         opts = self._q("wr.v2.001").options
         self.assertTrue(answer_key.is_answer_correct("goes", options=opts, expected_type="mcq"))
         self.assertFalse(answer_key.is_answer_correct("go", options=opts, expected_type="mcq"))
+
+
+class WrittenPageRenderTests(TestCase):
+    """The written test page must show option TEXT only — never the raw dict
+    or the is_correct answer key (which would tell the student the answer)."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        call_command("seed_placement_questions", stdout=StringIO())
+        self.user = get_user_model().objects.create_user("wr@x.com", "wr@x.com", "pw12345!")
+
+    def test_options_render_as_text_without_leaking_answer_key(self):
+        from placement.services.placement_question_selector import create_placement_attempt
+        attempt = create_placement_attempt(self.user)
+        self.client.force_login(self.user)
+        html = self.client.get(f"/placement/{attempt.id}/written/").content.decode()
+        self.assertEqual(self.client.get(f"/placement/{attempt.id}/written/").status_code, 200)
+        self.assertIn("played", html)            # option text is shown
+        self.assertNotIn("is_correct", html)     # answer key must NOT leak
+        self.assertNotIn("'text':", html)        # no raw python dict

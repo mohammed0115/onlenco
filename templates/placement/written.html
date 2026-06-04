@@ -29,19 +29,19 @@
         <div class="border border-border rounded-xl p-5 bg-white">
           <div class="flex items-start gap-3 mb-3">
             <span class="badge badge-outline">{{ forloop.counter }}/{{ questions|length }}</span>
-            <p class="font-semibold flex-1" dir="auto">
-              {% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}
-            </p>
+            <p class="font-semibold flex-1" dir="ltr">{{ aq.question.question_text }}</p>
           </div>
 
           {% if aq.question.expected_answer_type == "mcq" %}
             <div class="space-y-2">
               {% for opt in aq.question.options %}
+                {% with otext=opt.text|default:opt %}
                 <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/40 cursor-pointer">
-                  <input type="radio" name="q_{{ aq.id }}" value="{{ opt }}"
-                         {% if aq.user_answer_text == opt %}checked{% endif %} required>
-                  <span dir="ltr">{{ opt }}</span>
+                  <input type="radio" name="q_{{ aq.id }}" value="{{ otext }}"
+                         {% if aq.user_answer_text == otext %}checked{% endif %} required>
+                  <span dir="ltr">{{ otext }}</span>
                 </label>
+                {% endwith %}
               {% endfor %}
             </div>
 
