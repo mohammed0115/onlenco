@@ -4,13 +4,17 @@ from django.db.models import Avg, Count, Q
 from django.utils import timezone
 
 from courses.models import CourseLessonProgress, Lesson
-from teacher_portal.models import StudentAssignmentSubmission, TeacherAssignment
+from teacher_portal.models import LiveSession, StudentAssignmentSubmission, TeacherAssignment
 from teacher_portal.permissions import teacher_course_queryset
 
 
 def dashboard_context(user):
     courses = teacher_course_queryset(user)
     today = timezone.localdate()
+    next_live_session = (
+        LiveSession.objects.filter(teacher=user, status="scheduled", scheduled_at__gte=timezone.now())
+        .select_related("course").order_by("scheduled_at").first()
+    )
     students = courses.values("enrollments__user").exclude(enrollments__user__isnull=True).distinct()
     progress = CourseLessonProgress.objects.filter(lesson__course__in=courses)
     active_students = courses.filter(enrollments__user__last_login__date=today).values("enrollments__user").distinct().count()
@@ -38,5 +42,6 @@ def dashboard_context(user):
         },
         "recent_courses": courses.select_related("level").order_by("-updated_at")[:6],
         "recent_submissions": StudentAssignmentSubmission.objects.filter(assignment__in=assignments).select_related("student", "assignment")[:6],
+        "next_live_session": next_live_session,
     }
 

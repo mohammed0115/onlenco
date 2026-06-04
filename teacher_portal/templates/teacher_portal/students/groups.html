@@ -1,0 +1,42 @@
+{% extends "teacher_portal/base.html" %}
+
+{% block teacher_title %}{% if lang == "ar" %}مجموعات الطلاب{% else %}Student Groups{% endif %}{% endblock %}
+{% block teacher_subtitle %}{% if lang == "ar" %}طلابك مجمّعون حسب المستوى اللغوي مع تقدّمهم.{% else %}Your students grouped by CEFR level, with their progress.{% endif %}{% endblock %}
+
+{% block teacher_content %}
+{% for group in groups %}
+<section class="teacher-panel" style="margin-bottom:18px">
+  <div class="panel-heading" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span class="badge badge-green" dir="ltr">{{ group.level }}</span>
+    <h2 style="margin:0">{% if lang == "ar" %}{{ group.label_ar }}{% else %}{{ group.label_en }}{% endif %}</h2>
+    <span class="muted">· {{ group.count }} {% if lang == "ar" %}طالب{% else %}student{{ group.count|pluralize }}{% endif %}</span>
+  </div>
+  <div class="table-wrap">
+  <table class="teacher-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</th>
+      <th>{% if lang == "ar" %}الكورسات{% else %}Courses{% endif %}</th>
+      <th>{% if lang == "ar" %}متوسط التقدّم{% else %}Avg progress{% endif %}</th>
+      <th>{% if lang == "ar" %}متوسط الاختبارات{% else %}Quiz average{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for row in group.students %}
+        <tr>
+          <td>{{ row.student.get_full_name|default:row.student.username }}</td>
+          <td>{{ row.courses }}</td>
+          <td>{{ row.avg_progress }}%</td>
+          <td>{% if row.quiz_average is not None %}{{ row.quiz_average|floatformat:0 }}%{% else %}—{% endif %}</td>
+          <td class="row-actions"><a href="{% url 'teacher_portal:student_detail' row.student.pk %}">{% if lang == "ar" %}فتح{% else %}Open{% endif %}</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% empty %}
+<section class="teacher-panel">
+  <p class="muted">{% if lang == "ar" %}لا يوجد طلاب مسجّلون في كورساتك بعد.{% else %}No students enrolled in your courses yet.{% endif %}</p>
+</section>
+{% endfor %}
+{% endblock %}

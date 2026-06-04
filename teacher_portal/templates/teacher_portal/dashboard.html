@@ -18,6 +18,16 @@
   <div><strong>{{ metrics.delayed_students }}</strong><span>{% if lang == "ar" %}طلاب متعثّرون{% else %}Students Behind{% endif %}</span></div>
 </section>
 
+{% if next_live_session %}
+<a href="{% url 'teacher_portal:live_sessions' %}" class="teacher-panel" style="display:flex;align-items:center;gap:12px;text-decoration:none;margin-bottom:18px;border-inline-start:4px solid var(--tp-primary,#0d9488)">
+  <i data-lucide="video" class="h-5 w-5" style="color:var(--tp-primary,#0d9488)"></i>
+  <div>
+    <div style="font-weight:800">{% if lang == "ar" %}لقاؤك المباشر القادم{% else %}Your next live session{% endif %}</div>
+    <div class="muted">{{ next_live_session.title }} · {{ next_live_session.course.title_ar|default:next_live_session.course.title }} · <span dir="ltr">{{ next_live_session.scheduled_at|date:"Y-m-d H:i" }}</span></div>
+  </div>
+</a>
+{% endif %}
+
 <div class="teacher-grid two">
   <section class="teacher-panel">
     <div class="panel-heading">

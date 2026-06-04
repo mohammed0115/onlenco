@@ -51,6 +51,7 @@ def _teacher_nav():
         ("lessons", "play-square", "My Lessons", "دروسي", "teacher_portal:all_lessons"),
         ("quizzes", "list-checks", "Quizzes", "اختباراتي", "teacher_portal:all_quizzes"),
         ("students", "users", "My Students", "طلابي", "teacher_portal:students"),
+        ("groups", "users-round", "Groups", "المجموعات", "teacher_portal:student_groups"),
         ("assignments", "clipboard-list", "Assignments", "الواجبات", "teacher_portal:assignments"),
         ("live_sessions", "video", "Live Sessions", "الحصص المباشرة", "teacher_portal:live_sessions"),
         ("analytics", "bar-chart-3", "Analytics", "التحليلات", "teacher_portal:analytics"),
@@ -427,6 +428,17 @@ def students_list(request):
         "teacher_portal/students/list.html",
         "students",
         {"page_obj": _paginate(request, rows), "filters": request.GET},
+    )
+
+
+@teacher_required
+def student_groups(request):
+    """Students grouped by CEFR level — a teaching-community overview."""
+    return _render(
+        request,
+        "teacher_portal/students/groups.html",
+        "groups",
+        {"groups": student_service.teacher_student_groups(request.user)},
     )
 
 
