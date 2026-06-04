@@ -26,20 +26,18 @@
     sdpRelayUrl:    null,  // optional — when set, route SDP via Django
     conversationId: null,
     backUrl:        null,
-    // Placement Part 2 only: end the call automatically and route the
-    // student to their result when the interviewer signals it's done.
-    // `autoEndPhrases` = the closing phrases the AI is prompted to say
-    // (primary signal); `autoEndAfterAssistantTurns` = a turn-count safety
-    // net. Both null (the AI-tutor default) = no auto-end.
+    // Placement Part 2 only: the closing phrases the interviewer is prompted
+    // to say after question 5. When one is heard we end the call and route to
+    // the result. Setting this also marks the call as "placement", so it
+    // routes to backUrl whenever the call ends. Null = normal AI-tutor call.
     autoEndPhrases: null,
-    autoEndAfterAssistantTurns: null,
     language:       'en',
     tutorNameEn:    'Layla',
     tutorNameAr:    'ليلى',
   };
 
-  let assistantTurns = 0;
   let autoEndScheduled = false;
+  let isUnloading = false;
 
   // Strings use {name} as a placeholder for the chosen tutor (Layla /
   // Omar / Sara). Arabic strings stay gender-neutral so the same copy
@@ -403,7 +401,6 @@
       const text = (msg.transcript || '').trim();
       if (text) {
         appendTranscript('assistant', text);
-        assistantTurns += 1;
         maybeAutoEnd(text);
       }
     }
@@ -430,21 +427,22 @@
     els.transcript.scrollTop = els.transcript.scrollHeight;
   }
 
-  // Placement Part 2: end the call + go to results once the interviewer
-  // signals it's done — either by its closing phrase (primary signal) or a
-  // turn-count safety net. Fires once; waits for the closing audio to play.
+  // Placement Part 2: end the call + go to the result ONLY when the
+  // interviewer speaks its prompted closing line (after question 5). We do
+  // not count turns — the model emits several transcript events per turn, so
+  // a counter would cut the test short. Navigate explicitly after the closing
+  // audio plays so teardown timing can't swallow the redirect.
   function maybeAutoEnd(assistantText) {
     if (autoEndScheduled) return;
-    if (!els.card || els.card.dataset.state === 'ended') return;
     const phrases = Config.autoEndPhrases || [];
+    if (!phrases.length) return;
     const lower = (assistantText || '').toLowerCase();
-    const phraseHit = phrases.some((p) => lower.indexOf(String(p).toLowerCase()) !== -1);
-    const cap = Config.autoEndAfterAssistantTurns;
-    const turnHit = cap && assistantTurns >= cap;
-    if (phraseHit || turnHit) {
-      autoEndScheduled = true;
-      setTimeout(() => endCall(true), 4000);
-    }
+    if (!phrases.some((p) => lower.indexOf(String(p).toLowerCase()) !== -1)) return;
+    autoEndScheduled = true;
+    setTimeout(() => {
+      try { endCall(true); } catch (e) {}
+      if (Config.backUrl) window.location.href = Config.backUrl;
+    }, 4500);
   }
 
   // ----- AI audio visualizer (drives orb pulse) ------------------------
@@ -550,8 +548,13 @@
     // server-side evaluation has time to run BEFORE the next page
     // reads it (placement_voice_finalise reads VoiceCallEvaluation).
     // For pagehide / beforeunload we skip the navigation — the page
-    // is already on its way out.
-    const shouldNavigate = userInitiated && Config.backUrl;
+    // is already on its way out. For a PLACEMENT call (autoEndPhrases set)
+    // we always route to the result when the call ends for ANY reason
+    // (closing signal, daily-minutes cap, dropped connection) — the
+    // finalise page gracefully handles a short call. The normal AI-tutor
+    // call still only navigates when the user hangs up.
+    const isPlacement = !!Config.autoEndPhrases;
+    const shouldNavigate = Config.backUrl && !isUnloading && (userInitiated || isPlacement);
     if (Config.logUrl) {
       const p = postJSON(Config.logUrl, {
         conversation_id: Config.conversationId,
@@ -612,9 +615,10 @@
     }
 
     // Hang up if the user navigates away — avoids burning minutes after
-    // they've left the page.
-    window.addEventListener('pagehide', () => endCall(false));
-    window.addEventListener('beforeunload', () => endCall(false));
+    // they've left the page. Mark unloading first so we don't try to
+    // navigate to a result page the browser is already leaving.
+    window.addEventListener('pagehide', () => { isUnloading = true; endCall(false); });
+    window.addEventListener('beforeunload', () => { isUnloading = true; endCall(false); });
   }
 
   global.onlencoCall = {
