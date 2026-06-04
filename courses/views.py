@@ -977,21 +977,28 @@ def certificates_list(request):
     return render(request, "courses/certificates_list.html", {"certificates": certs})
 
 
+def _cert_student_name(cert):
+    """Public-safe display name — the profile full name only, never the
+    email/username (these pages are unauthenticated)."""
+    return (getattr(getattr(cert.student, "profile", None), "full_name", "") or "").strip()
+
+
 def certificate_detail(request, cert_uuid):
     """Printable certificate page. Public (shareable by link); the correct
     answer / private data is never shown — only the achievement."""
     cert = get_object_or_404(
-        DigitalCertificate.objects.select_related("student", "course", "course__level", "issued_by"),
+        DigitalCertificate.objects.select_related("student", "student__profile", "course", "course__level", "issued_by"),
         certificate_uuid=cert_uuid,
     )
-    return render(request, "courses/certificate_detail.html", {"cert": cert})
+    return render(request, "courses/certificate_detail.html", {"cert": cert, "student_name": _cert_student_name(cert)})
 
 
 def certificate_verify(request, cert_uuid):
     """Public verification: confirms a certificate UUID is genuine."""
     cert = (
-        DigitalCertificate.objects.select_related("student", "course", "course__level")
+        DigitalCertificate.objects.select_related("student", "student__profile", "course", "course__level")
         .filter(certificate_uuid=cert_uuid)
         .first()
     )
-    return render(request, "courses/certificate_verify.html", {"cert": cert, "queried_uuid": cert_uuid})
+    name = _cert_student_name(cert) if cert else ""
+    return render(request, "courses/certificate_verify.html", {"cert": cert, "queried_uuid": cert_uuid, "student_name": name})

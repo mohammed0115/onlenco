@@ -96,3 +96,17 @@ class TeacherIssueCertificateTests(TeacherPortalTestMixin):
         r = self.client.post(self._url(self.other_course))
         self.assertEqual(r.status_code, 404)
         self.assertFalse(DigitalCertificate.objects.filter(student=self.student, course=self.other_course).exists())
+
+    def test_cannot_issue_for_non_enrolled_student(self):
+        # P1 guard: a user who completed lessons but is NOT enrolled in the
+        # teacher's course must not get a certificate.
+        outsider = self.make_user("outsider@example.com", role="student")
+        # complete the lesson for the outsider, but do NOT enroll them.
+        CourseLessonProgress.objects.create(
+            user=outsider, lesson=self.lesson, video_completed=True,
+            quiz_score=90, completed_at=timezone.now(),
+        )
+        self.client.force_login(self.teacher)
+        r = self.client.post(f"/teacher/students/{outsider.pk}/certificate/{self.course.pk}/")
+        self.assertIn(r.status_code, (302, 403))
+        self.assertFalse(DigitalCertificate.objects.filter(student=outsider, course=self.course).exists())

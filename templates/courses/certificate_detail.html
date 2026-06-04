@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{% if lang == "ar" %}شهادة إنجاز{% else %}Certificate{% endif %} — {{ cert.student.get_full_name|default:cert.student.username }} — Onlenco{% endblock %}
+{% block title %}{% if lang == "ar" %}شهادة إنجاز{% else %}Certificate{% endif %} — {% if student_name %}{{ student_name }}{% else %}{% if lang == "ar" %}طالب Onlenco{% else %}Onlenco Student{% endif %}{% endif %} — Onlenco{% endblock %}
 
 {% block body %}
 <div class="cert-page">
@@ -16,7 +16,7 @@
       <div class="cert-head">Onlenco Academy</div>
       <div class="cert-kicker">{% if lang == "ar" %}شهادة إتمام{% else %}Certificate of Completion{% endif %}</div>
       <p class="cert-line">{% if lang == "ar" %}تشهد أكاديمية Onlenco بأنّ{% else %}This certifies that{% endif %}</p>
-      <h1 class="cert-name">{{ cert.student.get_full_name|default:cert.student.username }}</h1>
+      <h1 class="cert-name">{% if student_name %}{{ student_name }}{% else %}{% if lang == "ar" %}طالب Onlenco{% else %}Onlenco Student{% endif %}{% endif %}</h1>
       <p class="cert-line">{% if lang == "ar" %}قد أتمّ بنجاح كورس{% else %}has successfully completed{% endif %}</p>
       <h2 class="cert-course">{% if lang == "ar" %}{{ cert.course.title_ar|default:cert.course.title }}{% else %}{{ cert.course.title_en|default:cert.course.title }}{% endif %}</h2>
 

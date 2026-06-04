@@ -11,7 +11,7 @@
       <h1 class="text-2xl font-extrabold text-foreground">{% if lang == "ar" %}شهادة موثّقة ✓{% else %}Verified certificate ✓{% endif %}</h1>
       <p class="mt-4 text-muted-foreground">{% if lang == "ar" %}هذه الشهادة صادرة رسمياً من أكاديمية Onlenco.{% else %}This certificate was officially issued by Onlenco Academy.{% endif %}</p>
       <div class="mt-6 grid gap-2 text-start rounded-xl bg-muted/40 p-5">
-        <div class="flex justify-between gap-4"><span class="text-muted-foreground">{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</span><strong>{{ cert.student.get_full_name|default:cert.student.username }}</strong></div>
+        <div class="flex justify-between gap-4"><span class="text-muted-foreground">{% if lang == "ar" %}الطالب{% else %}Student{% endif %}</span><strong>{% if student_name %}{{ student_name }}{% else %}{% if lang == "ar" %}طالب Onlenco{% else %}Onlenco Student{% endif %}{% endif %}</strong></div>
         <div class="flex justify-between gap-4"><span class="text-muted-foreground">{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</span><strong>{% if lang == "ar" %}{{ cert.course.title_ar|default:cert.course.title }}{% else %}{{ cert.course.title_en|default:cert.course.title }}{% endif %}</strong></div>
         {% if cert.level %}<div class="flex justify-between gap-4"><span class="text-muted-foreground">{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</span><strong dir="ltr">{{ cert.level }}</strong></div>{% endif %}
         <div class="flex justify-between gap-4"><span class="text-muted-foreground">{% if lang == "ar" %}المعدّل{% else %}Average{% endif %}</span><strong>{{ cert.average_score|floatformat:0 }}%</strong></div>

@@ -1,18 +1,18 @@
 {% extends "platform_admin/base.html" %}
 {% load i18n %}
 
-{% block control_title %}Student Approvals{% endblock %}
-{% block control_subtitle %}Review and approve new student registrations (anti-bot gate).{% endblock %}
+{% block control_title %}{% if lang == "ar" %}موافقات الطلاب{% else %}Student Approvals{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}مراجعة واعتماد تسجيلات الطلاب الجدد (بوابة مكافحة البوتات).{% else %}Review and approve new student registrations (anti-bot gate).{% endif %}{% endblock %}
 
 {% block control_content %}
 <section class="control-card">
   <form method="get" class="control-filter-form">
-    <label>Status
+    <label>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}
       <select name="status" onchange="this.form.submit()">
         {% for v, label in status_choices %}<option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
       </select>
     </label>
-    <noscript><button type="submit" class="btn">Filter</button></noscript>
+    <noscript><button type="submit" class="btn">{% if lang == "ar" %}تصفية{% else %}Filter{% endif %}</button></noscript>
   </form>
 </section>
 
@@ -20,35 +20,35 @@
   {% csrf_token %}
   <section class="control-card" style="margin-top:16px">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-      <select name="bulk_action"><option value="approve">Approve selected</option><option value="reject">Reject selected</option></select>
-      <input type="text" name="note" placeholder="Note (required for reject)" style="flex:1">
-      <button type="submit" class="btn">Apply to selected</button>
+      <select name="bulk_action"><option value="approve">{% if lang == "ar" %}اعتماد المحدّد{% else %}Approve selected{% endif %}</option><option value="reject">{% if lang == "ar" %}رفض المحدّد{% else %}Reject selected{% endif %}</option></select>
+      <input type="text" name="note" placeholder="{% if lang == 'ar' %}ملاحظة (مطلوبة للرفض){% else %}Note (required for reject){% endif %}" style="flex:1">
+      <button type="submit" class="btn">{% if lang == "ar" %}تطبيق على المحدّد{% else %}Apply to selected{% endif %}</button>
     </div>
     <div class="table-wrap">
     <table class="control-table">
       <thead><tr>
-        <th></th><th>Name</th><th>Email</th><th>Registered</th><th>Email verified</th>
-        <th>IP</th><th>Suspicious</th><th>Status</th><th>Actions</th>
+        <th></th><th>{% if lang == "ar" %}الاسم{% else %}Name{% endif %}</th><th>{% if lang == "ar" %}البريد{% else %}Email{% endif %}</th><th>{% if lang == "ar" %}التسجيل{% else %}Registered{% endif %}</th><th>{% if lang == "ar" %}البريد مُفعّل{% else %}Email verified{% endif %}</th>
+        <th>IP</th><th>{% if lang == "ar" %}مشبوه{% else %}Suspicious{% endif %}</th><th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th><th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th>
       </tr></thead>
       <tbody>
       {% for r in rows %}
         <tr>
           <td><input type="checkbox" name="student_ids" value="{{ r.id }}"></td>
           <td>{{ r.name }}</td>
-          <td>{{ r.email }}</td>
-          <td>{{ r.registered|date:'Y-m-d H:i' }}</td>
+          <td dir="ltr">{{ r.email }}</td>
+          <td dir="ltr">{{ r.registered|date:'Y-m-d H:i' }}</td>
           <td>{% if r.email_verified %}✅{% else %}—{% endif %}</td>
-          <td>{{ r.ip|default:'—' }}</td>
+          <td dir="ltr">{{ r.ip|default:'—' }}</td>
           <td>{% if r.suspicious_flags %}<span class="control-alert">{{ r.suspicious_flags|join:', ' }}</span>{% else %}—{% endif %}</td>
           <td>{{ r.approval_status }}</td>
           <td style="white-space:nowrap">
-            <button form="approve-{{ r.id }}" class="btn btn-sm">Approve</button>
-            <button form="suspend-{{ r.id }}" class="btn btn-sm">Suspend</button>
-            <button form="reject-{{ r.id }}" class="btn btn-sm">Reject</button>
+            <button form="approve-{{ r.id }}" class="btn btn-sm">{% if lang == "ar" %}اعتماد{% else %}Approve{% endif %}</button>
+            <button form="suspend-{{ r.id }}" class="btn btn-sm">{% if lang == "ar" %}تعليق{% else %}Suspend{% endif %}</button>
+            <button form="reject-{{ r.id }}" class="btn btn-sm">{% if lang == "ar" %}رفض{% else %}Reject{% endif %}</button>
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="9">No students in this status.</td></tr>
+        <tr><td colspan="9">{% if lang == "ar" %}لا يوجد طلاب بهذه الحالة.{% else %}No students in this status.{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>

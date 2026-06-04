@@ -74,9 +74,17 @@ def teacher_student_groups(user):
     grouped: dict = {}
     for entry in by_student.values():
         grouped.setdefault(entry["level"], []).append(entry)
+
+    def _name(entry):
+        u = entry["student"]
+        return (u.get_full_name() or u.get_username()).lower()
+
+    # Known CEFR levels first (ordered), then any non-standard levels so no
+    # student silently disappears from the page.
+    ordered_levels = _LEVEL_ORDER + [lv for lv in grouped if lv not in _LEVEL_ORDER]
     groups = []
-    for level in _LEVEL_ORDER:
-        students = sorted(grouped.get(level, []), key=lambda x: x["student"].get_username())
+    for level in ordered_levels:
+        students = sorted(grouped.get(level, []), key=_name)
         if not students:
             continue
         en, ar = _LEVEL_LABELS.get(level, (level, level))

@@ -441,6 +441,13 @@ def issue_certificate(request, student_id, course_id):
     """
     course = get_object_or_404(teacher_perms.teacher_course_queryset(request.user), pk=course_id)
     student = get_object_or_404(get_user_model(), pk=student_id)
+    # The student must actually be this teacher's student and enrolled in the
+    # course — ownership of the course alone is not enough.
+    if not teacher_perms.teacher_can_view_student(request.user, student):
+        return HttpResponseForbidden("Forbidden")
+    if not CourseEnrollment.objects.filter(user=student, course=course).exists():
+        messages.error(request, "This student is not enrolled in that course.")
+        return redirect("teacher_portal:student_detail", student_id=student.pk)
     if not DigitalCertificate.is_eligible(student, course):
         messages.error(request, "Student hasn't completed every lesson yet — can't issue a certificate.")
         return redirect("teacher_portal:student_detail", student_id=student.pk)

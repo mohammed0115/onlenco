@@ -23,6 +23,9 @@ class _Fixture(TestCase):
         self.l1 = Lesson.objects.create(course=self.course, title="L1", order=1, lesson_type="reading", status="published", is_active=True)
         self.l2 = Lesson.objects.create(course=self.course, title="L2", order=2, lesson_type="reading", status="published", is_active=True)
         self.student = User.objects.create_user("cs", "cs@x.com", "pw12345!")
+        p = self.student.profile
+        p.full_name = "Test Student"
+        p.save(update_fields=["full_name"])
         CourseEnrollment.objects.create(user=self.student, course=self.course)
 
     def _complete(self, lesson, score=80):
@@ -81,7 +84,17 @@ class PublicViewTests(_Fixture):
         cert = self._cert()
         r = self.client.get(f"/courses/verify/{cert.certificate_uuid}/")
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "cs")  # student username/name appears
+        self.assertContains(r, "Test Student")  # profile name shown
+
+    def test_public_pages_never_leak_email(self):
+        # P0 guard: the public certificate + verify pages must NOT expose the
+        # student's email / username.
+        cert = self._cert()
+        for path in (f"/courses/certificate/{cert.certificate_uuid}/",
+                     f"/courses/verify/{cert.certificate_uuid}/"):
+            html = self.client.get(path).content.decode()
+            self.assertNotIn("cs@x.com", html)
+            self.assertIn("Test Student", html)
 
     def test_verify_unknown_uuid_shows_not_found(self):
         unknown = uuid.uuid4()
