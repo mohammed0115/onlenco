@@ -1,0 +1,420 @@
+{
+  "auth_next_placement": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 1366,
+    "offenders": [],
+    "sidebars": 0,
+    "final_url": "https://onlenco.academy/auth/?next=/placement/",
+    "title": "Welcome back — Onlenco",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/auth_next_placement.png"
+  },
+  "_login": {
+    "landing_after_next_placement": "https://onlenco.academy/admin/"
+  },
+  "admin_dashboard": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 1366,
+    "offenders": [],
+    "sidebars": 1,
+    "final_url": "https://onlenco.academy/admin/",
+    "title": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/admin_dashboard.png"
+  },
+  "admin_students": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 1366,
+    "offenders": [],
+    "sidebars": 1,
+    "final_url": "https://onlenco.academy/admin/students/",
+    "title": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/admin_students.png"
+  },
+  "teacher_dashboard": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 1366,
+    "offenders": [],
+    "sidebars": 1,
+    "final_url": "https://onlenco.academy/teacher/dashboard/",
+    "title": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/teacher_dashboard.png"
+  },
+  "teacher_students": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 1366,
+    "offenders": [
+      {
+        "cls": "",
+        "html": "<th></th>",
+        "id": "",
+        "right": -30,
+        "tag": "TH",
+        "width": 96
+      },
+      {
+        "cls": "row-actions",
+        "html": "<td class=\"row-actions\"><a href=\"/teacher/students/16/\">فتح</a></td>",
+        "id": "",
+        "right": -30,
+        "tag": "TD",
+        "width": 96
+      },
+      {
+        "cls": "",
+        "html": "<a href=\"/teacher/students/16/\">فتح</a>",
+        "id": "",
+        "right": -40,
+        "tag": "A",
+        "width": 51
+      },
+      {
+        "cls": "row-actions",
+        "html": "<td class=\"row-actions\"><a href=\"/teacher/students/24/\">فتح</a></td>",
+        "id": "",
+        "right": -30,
+        "tag": "TD",
+        "width": 96
+      },
+      {
+        "cls": "",
+        "html": "<a href=\"/teacher/students/24/\">فتح</a>",
+        "id": "",
+        "right": -40,
+        "tag": "A",
+        "width": 51
+      },
+      {
+        "cls": "row-actions",
+        "html": "<td class=\"row-actions\"><a href=\"/teacher/students/18/\">فتح</a></td>",
+        "id": "",
+        "right": -30,
+        "tag": "TD",
+        "width": 96
+      },
+      {
+        "cls": "",
+        "html": "<a href=\"/teacher/students/18/\">فتح</a>",
+        "id": "",
+        "right": -40,
+        "tag": "A",
+        "width": 51
+      },
+      {
+        "cls": "row-actions",
+        "html": "<td class=\"row-actions\"><a href=\"/teacher/students/23/\">فتح</a></td>",
+        "id": "",
+        "right": -30,
+        "tag": "TD",
+        "width": 96
+      }
+    ],
+    "sidebars": 1,
+    "final_url": "https://onlenco.academy/teacher/students/",
+    "title": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/teacher_students.png"
+  },
+  "admin_dashboard_m": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 390,
+    "offenders": [
+      {
+        "cls": "control-sidebar ds-drawer",
+        "html": "<aside id=\"control-sidebar\" class=\"control-sidebar ds-drawer\">\n      <div class=\"control-brand\">\n        <div class=\"con",
+        "id": "control-sidebar",
+        "right": 695,
+        "tag": "ASIDE",
+        "width": 320
+      },
+      {
+        "cls": "control-brand",
+        "html": "<div class=\"control-brand\">\n        <div class=\"control-logo\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=",
+        "id": "",
+        "right": 675,
+        "tag": "DIV",
+        "width": 264
+      },
+      {
+        "cls": "control-logo",
+        "html": "<div class=\"control-logo\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\"",
+        "id": "",
+        "right": 667,
+        "tag": "DIV",
+        "width": 40
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" str",
+        "id": "",
+        "right": 657,
+        "tag": "svg",
+        "width": 20
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M12 18V5\"></path>",
+        "id": "",
+        "right": 647,
+        "tag": "path",
+        "width": 0
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4\"></path>",
+        "id": "",
+        "right": 650,
+        "tag": "path",
+        "width": 5
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5\"></path>",
+        "id": "",
+        "right": 652,
+        "tag": "path",
+        "width": 10
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M17.997 5.125a4 4 0 0 1 2.526 5.77\"></path>",
+        "id": "",
+        "right": 655,
+        "tag": "path",
+        "width": 3
+      }
+    ],
+    "sidebars": 1,
+    "final_url": "https://onlenco.academy/admin/",
+    "title": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/admin_dashboard_m.png"
+  },
+  "admin_students_m": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 390,
+    "offenders": [
+      {
+        "cls": "control-sidebar ds-drawer",
+        "html": "<aside id=\"control-sidebar\" class=\"control-sidebar ds-drawer\">\n      <div class=\"control-brand\">\n        <div class=\"con",
+        "id": "control-sidebar",
+        "right": 695,
+        "tag": "ASIDE",
+        "width": 320
+      },
+      {
+        "cls": "control-brand",
+        "html": "<div class=\"control-brand\">\n        <div class=\"control-logo\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=",
+        "id": "",
+        "right": 675,
+        "tag": "DIV",
+        "width": 264
+      },
+      {
+        "cls": "control-logo",
+        "html": "<div class=\"control-logo\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\"",
+        "id": "",
+        "right": 667,
+        "tag": "DIV",
+        "width": 40
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" str",
+        "id": "",
+        "right": 657,
+        "tag": "svg",
+        "width": 20
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M12 18V5\"></path>",
+        "id": "",
+        "right": 647,
+        "tag": "path",
+        "width": 0
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4\"></path>",
+        "id": "",
+        "right": 650,
+        "tag": "path",
+        "width": 5
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5\"></path>",
+        "id": "",
+        "right": 652,
+        "tag": "path",
+        "width": 10
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M17.997 5.125a4 4 0 0 1 2.526 5.77\"></path>",
+        "id": "",
+        "right": 655,
+        "tag": "path",
+        "width": 3
+      }
+    ],
+    "sidebars": 1,
+    "final_url": "https://onlenco.academy/admin/students/",
+    "title": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/admin_students_m.png"
+  },
+  "teacher_dashboard_m": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 390,
+    "offenders": [
+      {
+        "cls": "teacher-sidebar ds-drawer",
+        "html": "<aside id=\"teacher-sidebar\" class=\"teacher-sidebar ds-drawer\">\n    <a class=\"teacher-brand\" href=\"/teacher/dashboard/\">\n",
+        "id": "teacher-sidebar",
+        "right": 695,
+        "tag": "ASIDE",
+        "width": 320
+      },
+      {
+        "cls": "teacher-brand",
+        "html": "<a class=\"teacher-brand\" href=\"/teacher/dashboard/\">\n      <span class=\"teacher-logo\"><svg xmlns=\"http://www.w3.org/2000",
+        "id": "",
+        "right": 679,
+        "tag": "A",
+        "width": 287
+      },
+      {
+        "cls": "teacher-logo",
+        "html": "<span class=\"teacher-logo\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none",
+        "id": "",
+        "right": 671,
+        "tag": "SPAN",
+        "width": 40
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" str",
+        "id": "",
+        "right": 661,
+        "tag": "svg",
+        "width": 20
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M12 18V5\"></path>",
+        "id": "",
+        "right": 651,
+        "tag": "path",
+        "width": 0
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4\"></path>",
+        "id": "",
+        "right": 654,
+        "tag": "path",
+        "width": 5
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5\"></path>",
+        "id": "",
+        "right": 656,
+        "tag": "path",
+        "width": 10
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M17.997 5.125a4 4 0 0 1 2.526 5.77\"></path>",
+        "id": "",
+        "right": 659,
+        "tag": "path",
+        "width": 3
+      }
+    ],
+    "sidebars": 1,
+    "final_url": "https://onlenco.academy/teacher/dashboard/",
+    "title": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/teacher_dashboard_m.png"
+  },
+  "teacher_students_m": {
+    "bodyOverflow": 0,
+    "docOverflow": 0,
+    "innerWidth": 390,
+    "offenders": [
+      {
+        "cls": "teacher-sidebar ds-drawer",
+        "html": "<aside id=\"teacher-sidebar\" class=\"teacher-sidebar ds-drawer\">\n    <a class=\"teacher-brand\" href=\"/teacher/dashboard/\">\n",
+        "id": "teacher-sidebar",
+        "right": 695,
+        "tag": "ASIDE",
+        "width": 320
+      },
+      {
+        "cls": "teacher-brand",
+        "html": "<a class=\"teacher-brand\" href=\"/teacher/dashboard/\">\n      <span class=\"teacher-logo\"><svg xmlns=\"http://www.w3.org/2000",
+        "id": "",
+        "right": 679,
+        "tag": "A",
+        "width": 287
+      },
+      {
+        "cls": "teacher-logo",
+        "html": "<span class=\"teacher-logo\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none",
+        "id": "",
+        "right": 671,
+        "tag": "SPAN",
+        "width": 40
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" str",
+        "id": "",
+        "right": 661,
+        "tag": "svg",
+        "width": 20
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M12 18V5\"></path>",
+        "id": "",
+        "right": 651,
+        "tag": "path",
+        "width": 0
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4\"></path>",
+        "id": "",
+        "right": 654,
+        "tag": "path",
+        "width": 5
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5\"></path>",
+        "id": "",
+        "right": 656,
+        "tag": "path",
+        "width": 10
+      },
+      {
+        "cls": "[object SVGAnimatedString]",
+        "html": "<path d=\"M17.997 5.125a4 4 0 0 1 2.526 5.77\"></path>",
+        "id": "",
+        "right": 659,
+        "tag": "path",
+        "width": 3
+      }
+    ],
+    "sidebars": 1,
+    "final_url": "https://onlenco.academy/teacher/students/",
+    "title": "أكاديمية Onlenco — منصة تعلّم الإنجليزية بالذكاء الاصطناعي",
+    "screenshot": "/home/mohamed/onlenco/docs/screenshots/p166c-prod-qa/teacher_students_m.png"
+  }
+}

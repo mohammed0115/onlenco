@@ -147,10 +147,29 @@ def _hcaptcha_verify(request) -> bool:
         return False
 
 
-def _post_login_destination(user):
+def _safe_next(request):
+    """A same-origin ``?next=`` destination, or None. Guards open-redirects."""
+    if request is None:
+        return None
+    from django.utils.http import url_has_allowed_host_and_scheme
+    nxt = (request.POST.get("next") or request.GET.get("next") or "").strip()
+    if nxt and url_has_allowed_host_and_scheme(
+        nxt, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return nxt
+    return None
+
+
+def _post_login_destination(user, request=None):
+    # Onboarding/placement gating always wins — a ``next`` link must not let a
+    # user skip required onboarding.
     nxt = onboarding_lib.next_url_for(user)
     if nxt:
         return nxt
+    # Otherwise honour an explicit, same-origin ``?next=`` (deep-linking).
+    safe = _safe_next(request)
+    if safe:
+        return safe
     try:
         from teacher_portal.services.role_service import RoleService
         return RoleService.get_default_landing_page(user)
@@ -239,7 +258,7 @@ def auth_view(request):
     the `mode` querystring (?mode=signup) or the form's hidden `mode` field."""
 
     if request.user.is_authenticated:
-        return redirect(_post_login_destination(request.user))
+        return redirect(_post_login_destination(request.user, request))
 
     mode = request.POST.get("mode") or request.GET.get("mode") or "signin"
     if mode not in ("signin", "signup"):
@@ -340,7 +359,7 @@ def auth_view(request):
             signin_form = EmailLoginForm(request, data=request.POST)
             if signin_form.is_valid():
                 login(request, signin_form.get_user())
-                return redirect(_post_login_destination(signin_form.get_user()))
+                return redirect(_post_login_destination(signin_form.get_user(), request))
             else:
                 messages.error(request, "Invalid email or password.")
 
@@ -373,7 +392,7 @@ def pending_approval(request):
     """
     profile = getattr(request.user, "profile", None)
     if profile is None or profile.is_approved_student:
-        return redirect(_post_login_destination(request.user))
+        return redirect(_post_login_destination(request.user, request))
     return render(request, "accounts/pending_approval.html", {
         "approval_status": profile.approval_status,
         "email_verified": profile.email_verified,
