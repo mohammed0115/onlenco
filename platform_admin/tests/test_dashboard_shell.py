@@ -59,7 +59,7 @@ class AdminShellResponsiveTests(PlatformAdminTestMixin, TestCase):
     def test_admin_css_version_bumped(self):
         self.client.force_login(self.platform_admin)
         html = self.client.get("/admin/").content.decode()
-        self.assertIn("control.css?v=p166c-design-20260603", html)
+        self.assertIn("control.css?v=p166d-student-detail-ux-20260604", html)
 
     def test_admin_lesson_create_page_renders_content(self):
         self.client.force_login(self.platform_admin)
@@ -78,7 +78,7 @@ class AdminShellResponsiveTests(PlatformAdminTestMixin, TestCase):
     def test_admin_lesson_create_page_uses_control_shell(self):
         self.client.force_login(self.platform_admin)
         html = self.client.get(f"/admin/courses/{self.course.pk}/lessons/new/").content.decode()
-        self.assertIn("control.css?v=p166c-design-20260603", html)
+        self.assertIn("control.css?v=p166d-student-detail-ux-20260604", html)
         self.assertIn('id="control-sidebar"', html)
         self.assertIn('class="control-main"', html)
 
@@ -96,7 +96,7 @@ class AdminShellResponsiveTests(PlatformAdminTestMixin, TestCase):
     def test_admin_lesson_create_page_loads_css_version(self):
         self.client.force_login(self.platform_admin)
         html = self.client.get(f"/admin/courses/{self.course.pk}/lessons/new/").content.decode()
-        self.assertIn("control.css?v=p166c-design-20260603", html)
+        self.assertIn("control.css?v=p166d-student-detail-ux-20260604", html)
 
     def test_admin_sidebar_visible_and_main_visible(self):
         self.client.force_login(self.platform_admin)

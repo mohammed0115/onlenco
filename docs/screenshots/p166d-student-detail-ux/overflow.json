@@ -1,0 +1,26 @@
+{
+  "admin-students-list-desktop": {
+    "body": 0,
+    "doc": 0,
+    "iw": 1366,
+    "offenders": 0
+  },
+  "admin-student-detail-top-desktop": {
+    "body": 0,
+    "doc": 0,
+    "iw": 1366,
+    "offenders": 0
+  },
+  "admin-student-detail-mobile": {
+    "body": 0,
+    "doc": 0,
+    "iw": 390,
+    "offenders": 109
+  },
+  "teacher-students-desktop": {
+    "body": 0,
+    "doc": 0,
+    "iw": 1366,
+    "offenders": 0
+  }
+}

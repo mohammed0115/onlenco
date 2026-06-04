@@ -4,185 +4,239 @@
 {% block control_subtitle %}{% if lang == "ar" %}ملف الطالب التشغيلي الكامل{% else %}Complete operational student profile{% endif %}{% endblock %}
 
 {% block control_content %}
-<div class="tabs">
-  <span class="tab-pill">{% if lang == "ar" %}نظرة عامة{% else %}Overview{% endif %}</span>
-  <span class="tab-pill">{% if lang == "ar" %}الإعداد وتحديد المستوى{% else %}Onboarding & Placement{% endif %}</span>
-  <span class="tab-pill">{% if lang == "ar" %}تقدّم التعلّم{% else %}Learning Progress{% endif %}</span>
-  <span class="tab-pill">{% if lang == "ar" %}نقاط الضعف والأخطاء{% else %}Weaknesses & Mistakes{% endif %}</span>
-  <span class="tab-pill">{% if lang == "ar" %}نشاط المعلم الذكي{% else %}AI Tutor Activity{% endif %}</span>
-  <span class="tab-pill">{% if lang == "ar" %}المدفوعات{% else %}Payments{% endif %}</span>
-  <span class="tab-pill">{% if lang == "ar" %}التحفيز والألعاب{% else %}Motivation & Game{% endif %}</span>
-  <span class="tab-pill">{% if lang == "ar" %}الملاحظات{% else %}Notes{% endif %}</span>
+<div class="tabs-wrap">
+  <div class="tabs-list">
+    <span class="tab-chip is-active">{% if lang == "ar" %}نظرة عامة{% else %}Overview{% endif %}</span>
+    <span class="tab-chip">{% if lang == "ar" %}الإعداد والتحديد{% else %}Onboarding & Placement{% endif %}</span>
+    <span class="tab-chip">{% if lang == "ar" %}تقدّم التعلّم{% else %}Learning Progress{% endif %}</span>
+    <span class="tab-chip">{% if lang == "ar" %}نقاط الضعف{% else %}Weaknesses{% endif %}</span>
+    <span class="tab-chip">{% if lang == "ar" %}المدرّس الذكي{% else %}AI Tutor{% endif %}</span>
+    <span class="tab-chip">{% if lang == "ar" %}المدفوعات{% else %}Payments{% endif %}</span>
+    <span class="tab-chip">{% if lang == "ar" %}التحفيز واللعبة{% else %}Motivation{% endif %}</span>
+    <span class="tab-chip">{% if lang == "ar" %}الملاحظات{% else %}Notes{% endif %}</span>
+  </div>
 </div>
 
 <div class="detail-grid">
   <div class="stack">
+    {# Summary stat cards #}
     <section class="control-card">
-      <h2 class="font-semibold mb-3">{% if lang == "ar" %}نظرة عامة{% else %}Overview{% endif %}</h2>
-      <table class="control-table">
-        <tbody>
-          <tr><td>{% if lang == "ar" %}البريد{% else %}Email{% endif %}</td><td dir="ltr">{{ student.email|default:"-" }}</td></tr>
-          <tr><td>{% if lang == "ar" %}اللغة{% else %}Language{% endif %}</td><td>{{ profile.preferred_language }}</td></tr>
-          <tr><td>{% if lang == "ar" %}تاريخ الانضمام{% else %}Joined{% endif %}</td><td dir="ltr">{{ student.date_joined|date:"Y-m-d" }}</td></tr>
-          <tr><td>{% if lang == "ar" %}آخر دخول{% else %}Last login{% endif %}</td><td dir="ltr">{{ student.last_login|date:"Y-m-d H:i"|default:"-" }}</td></tr>
-          <tr><td>{% if lang == "ar" %}الاشتراك{% else %}Subscription{% endif %}</td><td><span class="badge">{{ profile.subscription_status }}</span></td></tr>
-          <tr><td>{% if lang == "ar" %}المستوى الحالي{% else %}Current level{% endif %}</td><td dir="ltr">{{ profile.cefr_level|default:"-" }}</td></tr>
-          <tr><td>{% if lang == "ar" %}النقاط / السلسلة{% else %}XP / Streak{% endif %}</td><td>{{ motivation.xp_total }} XP · {{ motivation.streak }}</td></tr>
-          <tr><td>{% if lang == "ar" %}المخاطرة{% else %}Risk{% endif %}</td><td><span class="badge">{{ flag.risk_status }}</span></td></tr>
-        </tbody>
-      </table>
+      <div class="control-grid metrics-grid">
+        <div><div class="metric-value"><span class="badge">{{ profile.subscription_status }}</span></div><div class="muted">{% if lang == "ar" %}الاشتراك{% else %}Subscription{% endif %}</div></div>
+        <div><div class="metric-value" dir="ltr">{{ profile.cefr_level|default:"—" }}</div><div class="muted">{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</div></div>
+        <div><div class="metric-value">{{ motivation.xp_total }}</div><div class="muted">{% if lang == "ar" %}نقاط XP{% else %}XP{% endif %}</div></div>
+        <div><div class="metric-value">{{ motivation.streak }}</div><div class="muted">{% if lang == "ar" %}السلسلة{% else %}Streak{% endif %}</div></div>
+        <div><div class="metric-value" dir="ltr" style="font-size:1rem">{{ student.last_login|date:"Y-m-d"|default:"—" }}</div><div class="muted">{% if lang == "ar" %}آخر دخول{% else %}Last login{% endif %}</div></div>
+      </div>
     </section>
 
-    <section class="control-card">
-      <h2 class="font-semibold mb-3">{% if lang == "ar" %}الإعداد وتحديد المستوى{% else %}Onboarding & Placement{% endif %}</h2>
-      <table class="control-table">
-        <tbody>
-          <tr><td>{% if lang == "ar" %}المسار{% else %}Path{% endif %}</td><td>{{ profile.onboarding_path|default:"-" }}</td></tr>
-          <tr><td>{% if lang == "ar" %}المستوى الأولي{% else %}Initial level{% endif %}</td><td dir="ltr">{{ profile.initial_cefr_level|default:"-" }}</td></tr>
-          <tr><td>{% if lang == "ar" %}أُكمل تحديد المستوى{% else %}Placement completed{% endif %}</td><td>{{ profile.placement_completed }}</td></tr>
-          {% for result in placement_results %}
-            <tr><td>{% if lang == "ar" %}نتيجة{% else %}Result{% endif %} {{ result.created_at|date:"Y-m-d" }}</td><td>{{ result.level }} · {% if lang == "ar" %}كتابي{% else %}written{% endif %} {{ result.written_score|default:"-" }} · {% if lang == "ar" %}محادثة{% else %}speaking{% endif %} {{ result.speaking_score|default:"-" }}</td></tr>
-          {% empty %}
-            <tr><td colspan="2" class="muted">{% if lang == "ar" %}لا توجد نتيجة تحديد مستوى.{% else %}No placement result.{% endif %}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </section>
-
+    {# Learning Progress — wide table card #}
     <section class="control-card">
       <h2 class="font-semibold mb-3">{% if lang == "ar" %}تقدّم التعلّم{% else %}Learning Progress{% endif %}</h2>
-      <table class="control-table">
-        <thead><tr><th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th><th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th><th>{% if lang == "ar" %}التقدّم{% else %}Progress{% endif %}</th></tr></thead>
-        <tbody>
-          {% for enrollment in enrollments %}
-            <tr><td>{{ enrollment.course.title }}</td><td>{{ enrollment.status }}</td><td>{{ enrollment.progress_percentage|floatformat:1 }}%</td></tr>
-          {% empty %}
-            <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد كورسات مُسندة.{% else %}No courses assigned.{% endif %}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </section>
-
-    <section class="control-card">
-      <h2 class="font-semibold mb-3">{% if lang == "ar" %}نقاط الضعف والأخطاء{% else %}Weaknesses & Mistakes{% endif %}</h2>
-      <div class="stack">
-        {% for weakness in weaknesses %}
-          <div><span class="badge badge-yellow">{% if weakness.skill %}{{ weakness.skill.name }}{% elif weakness.grammar_topic %}{{ weakness.grammar_topic.name }}{% else %}{% if lang == "ar" %}عام{% else %}general{% endif %}{% endif %}</span> <span class="muted">{% if lang == "ar" %}أولوية{% else %}priority{% endif %} {{ weakness.priority_score|floatformat:1 }}</span></div>
-        {% empty %}
-          <div class="muted">{% if lang == "ar" %}لا توجد نقاط ضعف مسجّلة.{% else %}No weaknesses tracked.{% endif %}</div>
-        {% endfor %}
+      <div class="table-wrap">
+        <table class="control-table">
+          <thead><tr><th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th><th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th><th class="nowrap">{% if lang == "ar" %}التقدّم{% else %}Progress{% endif %}</th></tr></thead>
+          <tbody>
+            {% for enrollment in enrollments %}
+              <tr>
+                <td>{{ enrollment.course.title }}</td>
+                <td><span class="badge">{{ enrollment.status }}</span></td>
+                <td class="nowrap"><div class="progress-mini"><span style="width:{{ enrollment.progress_percentage|floatformat:0 }}%"></span></div> {{ enrollment.progress_percentage|floatformat:0 }}%</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3" class="muted">{% if lang == "ar" %}لا توجد كورسات مُسندة.{% else %}No courses assigned.{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </section>
 
-    <section class="control-card">
-      <h2 class="font-semibold mb-3">{% if lang == "ar" %}نشاط المعلم الذكي{% else %}AI Tutor Activity{% endif %}</h2>
-      <table class="control-table">
-        <tbody>
-          <tr><td>{% if lang == "ar" %}المحادثات{% else %}Conversations{% endif %}</td><td>{{ tutor_conversations|length }}</td></tr>
-          {% for message in tutor_messages %}
-            <tr><td>{{ message.role }}</td><td>{{ message.content|truncatechars:120 }}</td></tr>
+    {# Balanced 2-col content grid #}
+    <div class="content-grid">
+      <section class="control-card">
+        <h2 class="font-semibold mb-3">{% if lang == "ar" %}نظرة عامة{% else %}Overview{% endif %}</h2>
+        <table class="control-table">
+          <tbody>
+            <tr><td>{% if lang == "ar" %}البريد{% else %}Email{% endif %}</td><td dir="ltr">{{ student.email|default:"-" }}</td></tr>
+            <tr><td>{% if lang == "ar" %}اللغة{% else %}Language{% endif %}</td><td>{{ profile.preferred_language }}</td></tr>
+            <tr><td>{% if lang == "ar" %}تاريخ الانضمام{% else %}Joined{% endif %}</td><td dir="ltr">{{ student.date_joined|date:"Y-m-d" }}</td></tr>
+            <tr><td>{% if lang == "ar" %}آخر دخول{% else %}Last login{% endif %}</td><td dir="ltr">{{ student.last_login|date:"Y-m-d H:i"|default:"-" }}</td></tr>
+            <tr><td>{% if lang == "ar" %}المخاطرة{% else %}Risk{% endif %}</td><td><span class="badge">{{ flag.risk_status }}</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="control-card">
+        <h2 class="font-semibold mb-3">{% if lang == "ar" %}الإعداد والتحديد{% else %}Onboarding & Placement{% endif %}</h2>
+        <table class="control-table">
+          <tbody>
+            <tr><td>{% if lang == "ar" %}المسار{% else %}Path{% endif %}</td><td>{{ profile.onboarding_path|default:"-" }}</td></tr>
+            <tr><td>{% if lang == "ar" %}المستوى الأولي{% else %}Initial level{% endif %}</td><td dir="ltr">{{ profile.initial_cefr_level|default:"-" }}</td></tr>
+            <tr><td>{% if lang == "ar" %}أُكمل تحديد المستوى{% else %}Placement completed{% endif %}</td><td>{{ profile.placement_completed }}</td></tr>
+            {% for result in placement_results %}
+              <tr><td>{% if lang == "ar" %}نتيجة{% else %}Result{% endif %} {{ result.created_at|date:"Y-m-d" }}</td><td>{{ result.level }} · {% if lang == "ar" %}كتابي{% else %}written{% endif %} {{ result.written_score|default:"-" }} · {% if lang == "ar" %}محادثة{% else %}speaking{% endif %} {{ result.speaking_score|default:"-" }}</td></tr>
+            {% empty %}
+              <tr><td colspan="2" class="muted">{% if lang == "ar" %}لا توجد نتيجة تحديد مستوى.{% else %}No placement result.{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="control-card">
+        <h2 class="font-semibold mb-3">{% if lang == "ar" %}نشاط المدرّس الذكي{% else %}AI Tutor Activity{% endif %}</h2>
+        <table class="control-table">
+          <tbody>
+            <tr><td>{% if lang == "ar" %}المحادثات{% else %}Conversations{% endif %}</td><td>{{ tutor_conversations|length }}</td></tr>
+            {% for message in tutor_messages %}
+              <tr><td>{{ message.role }}</td><td>{{ message.content|truncatechars:120 }}</td></tr>
+            {% empty %}
+              <tr><td colspan="2" class="muted">{% if lang == "ar" %}لا توجد رسائل حديثة.{% else %}No recent tutor messages.{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="control-card">
+        <h2 class="font-semibold mb-3">{% if lang == "ar" %}نقاط الضعف والأخطاء{% else %}Weaknesses & Mistakes{% endif %}</h2>
+        <div class="stack">
+          {% for weakness in weaknesses %}
+            <div><span class="badge badge-yellow">{% if weakness.skill %}{{ weakness.skill.name }}{% elif weakness.grammar_topic %}{{ weakness.grammar_topic.name }}{% else %}{% if lang == "ar" %}عام{% else %}general{% endif %}{% endif %}</span> <span class="muted">{% if lang == "ar" %}أولوية{% else %}priority{% endif %} {{ weakness.priority_score|floatformat:1 }}</span></div>
           {% empty %}
-            <tr><td colspan="2" class="muted">{% if lang == "ar" %}لا توجد رسائل حديثة.{% else %}No recent tutor messages.{% endif %}</td></tr>
+            <div class="muted">{% if lang == "ar" %}لا توجد نقاط ضعف مسجّلة.{% else %}No weaknesses tracked.{% endif %}</div>
           {% endfor %}
-        </tbody>
-      </table>
-    </section>
+        </div>
+      </section>
 
-    <section class="control-card">
-      <h2 class="font-semibold mb-3">{% if lang == "ar" %}المدفوعات{% else %}Payments{% endif %}</h2>
-      <table class="control-table">
-        <thead><tr><th>{% if lang == "ar" %}الباقة{% else %}Plan{% endif %}</th><th>{% if lang == "ar" %}المبلغ{% else %}Amount{% endif %}</th><th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th><th>{% if lang == "ar" %}التاريخ{% else %}Date{% endif %}</th></tr></thead>
-        <tbody>
-          {% for payment in payments %}
-            <tr><td>{{ payment.plan }}</td><td>{{ payment.amount_sdg }}</td><td>{{ payment.status }}</td><td dir="ltr">{{ payment.created_at|date:"Y-m-d" }}</td></tr>
+      <section class="control-card">
+        <h2 class="font-semibold mb-3">{% if lang == "ar" %}المدفوعات{% else %}Payments{% endif %}</h2>
+        <div class="table-wrap">
+          <table class="control-table">
+            <thead><tr><th>{% if lang == "ar" %}الباقة{% else %}Plan{% endif %}</th><th>{% if lang == "ar" %}المبلغ{% else %}Amount{% endif %}</th><th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th><th class="nowrap">{% if lang == "ar" %}التاريخ{% else %}Date{% endif %}</th></tr></thead>
+            <tbody>
+              {% for payment in payments %}
+                <tr><td>{{ payment.plan }}</td><td>{{ payment.amount_sdg }}</td><td><span class="badge">{{ payment.status }}</span></td><td class="nowrap" dir="ltr">{{ payment.created_at|date:"Y-m-d" }}</td></tr>
+              {% empty %}
+                <tr><td colspan="4" class="muted">{% if lang == "ar" %}لا توجد مدفوعات.{% else %}No payments.{% endif %}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="control-card">
+        <h2 class="font-semibold mb-3">{% if lang == "ar" %}التحفيز واللعبة{% else %}Motivation & Game{% endif %}</h2>
+        <div class="stack">
+          <div><span class="badge badge-blue">{{ motivation.xp_total }} XP</span> <span class="badge badge-green">{% if lang == "ar" %}سلسلة{% else %}Streak{% endif %} {{ motivation.streak }}</span></div>
+          <div class="muted">{% if lang == "ar" %}الشارات{% else %}Badges{% endif %}: {{ motivation.badges|length }} · {% if lang == "ar" %}الإنجازات{% else %}Achievements{% endif %}: {{ motivation.achievements|length }}</div>
+        </div>
+      </section>
+
+      <section class="control-card card-wide">
+        <h2 class="font-semibold mb-3">{% if lang == "ar" %}الملاحظات{% else %}Notes{% endif %}</h2>
+        <div class="stack">
+          {% for note in notes %}
+            <div class="action-box">
+              <div>{{ note.note }}</div>
+              <div class="muted">{{ note.author.email|default:note.author.username }} · {{ note.created_at|date:"Y-m-d H:i" }}</div>
+            </div>
           {% empty %}
-            <tr><td colspan="4" class="muted">{% if lang == "ar" %}لا توجد مدفوعات.{% else %}No payments.{% endif %}</td></tr>
+            <div class="muted">{% if lang == "ar" %}لا توجد ملاحظات بعد.{% else %}No notes yet.{% endif %}</div>
           {% endfor %}
-        </tbody>
-      </table>
-    </section>
-
-    <section class="control-card">
-      <h2 class="font-semibold mb-3">{% if lang == "ar" %}التحفيز والألعاب{% else %}Motivation & Game{% endif %}</h2>
-      <div class="stack">
-        <div><span class="badge badge-blue">{{ motivation.xp_total }} XP</span> <span class="badge badge-green">{% if lang == "ar" %}سلسلة{% else %}Streak{% endif %} {{ motivation.streak }}</span></div>
-        <div class="muted">{% if lang == "ar" %}الشارات{% else %}Badges{% endif %}: {{ motivation.badges|length }} · {% if lang == "ar" %}الإنجازات{% else %}Achievements{% endif %}: {{ motivation.achievements|length }}</div>
-      </div>
-    </section>
-
-    <section class="control-card">
-      <h2 class="font-semibold mb-3">{% if lang == "ar" %}الملاحظات{% else %}Notes{% endif %}</h2>
-      <div class="stack">
-        {% for note in notes %}
-          <div class="action-box">
-            <div>{{ note.note }}</div>
-            <div class="muted">{{ note.author.email|default:note.author.username }} · {{ note.created_at|date:"Y-m-d H:i" }}</div>
-          </div>
-        {% empty %}
-          <div class="muted">{% if lang == "ar" %}لا توجد ملاحظات بعد.{% else %}No notes yet.{% endif %}</div>
-        {% endfor %}
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   </div>
 
-  <aside class="stack">
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'send-notification' %}">
-      {% csrf_token %}
-      <strong>{% if lang == "ar" %}إرسال إشعار{% else %}Send notification{% endif %}</strong>
-      {{ notification_form.title }}
-      {{ notification_form.message }}
-      <button class="btn-control btn-primary" type="submit"><i data-lucide="send" class="h-4 w-4"></i> {% if lang == "ar" %}إرسال{% else %}Send{% endif %}</button>
-    </form>
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'add-note' %}">
-      {% csrf_token %}
-      <strong>{% if lang == "ar" %}إضافة ملاحظة{% else %}Add note{% endif %}</strong>
-      {{ note_form.note }}
-      <label>{{ note_form.is_private }} {% if lang == "ar" %}خاصة{% else %}Private{% endif %}</label>
-      <button class="btn-control" type="submit"><i data-lucide="sticky-note" class="h-4 w-4"></i> {% if lang == "ar" %}إضافة ملاحظة{% else %}Add note{% endif %}</button>
-    </form>
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'mark-risk' %}">
-      {% csrf_token %}
-      <strong>{% if lang == "ar" %}حالة المخاطرة{% else %}Risk status{% endif %}</strong>
-      {{ risk_form.risk_status }}
-      <button class="btn-control btn-warning" type="submit"><i data-lucide="alert-triangle" class="h-4 w-4"></i> {% if lang == "ar" %}تحديث{% else %}Update{% endif %}</button>
-    </form>
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'assign-course' %}">
-      {% csrf_token %}
-      <strong>{% if lang == "ar" %}إسناد كورس{% else %}Assign course{% endif %}</strong>
-      {{ assign_course_form.course }}
-      <button class="btn-control" type="submit"><i data-lucide="book-plus" class="h-4 w-4"></i> {% if lang == "ar" %}إسناد{% else %}Assign{% endif %}</button>
-    </form>
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'extend-subscription' %}">
-      {% csrf_token %}
-      <strong>{% if lang == "ar" %}تمديد الاشتراك{% else %}Extend subscription{% endif %}</strong>
-      {{ extend_form.days }}
-      <button class="btn-control btn-success" type="submit"><i data-lucide="calendar-plus" class="h-4 w-4"></i> {% if lang == "ar" %}تمديد{% else %}Extend{% endif %}</button>
-    </form>
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'reset-placement' %}">
-      {% csrf_token %}
-      <button class="btn-control btn-warning" type="submit"><i data-lucide="rotate-ccw" class="h-4 w-4"></i> {% if lang == "ar" %}إعادة ضبط تحديد المستوى{% else %}Reset placement{% endif %}</button>
-    </form>
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'resend-verification' %}">
-      {% csrf_token %}
-      <button class="btn-control" type="submit" title="{% if lang == 'ar' %}إعادة إرسال كود التحقق{% else %}Resend verification email{% endif %}">
-        <i data-lucide="send" class="h-4 w-4"></i>
-        {% if lang == "ar" %}إعادة إرسال كود التحقق{% else %}Resend verification{% endif %}
-      </button>
-    </form>
-    {% if not student.profile.email_verified %}
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'verify-email' %}"
-          onsubmit="return confirm('{% if lang == "ar" %}تفعيل البريد يدوياً (في حال عدم وصول الكود)؟{% else %}Mark this email as verified manually?{% endif %}');">
-      {% csrf_token %}
-      <button class="btn-control btn-success" type="submit">
-        <i data-lucide="mail-check" class="h-4 w-4"></i>
-        {% if lang == "ar" %}تفعيل البريد يدوياً{% else %}Verify email manually{% endif %}
-      </button>
-    </form>
-    {% endif %}
-    <form class="action-box" method="post" action="{% url 'platform_admin:student_action' student.pk 'deactivate' %}">
-      {% csrf_token %}
-      <button class="btn-control btn-danger" type="submit"><i data-lucide="user-x" class="h-4 w-4"></i> {% if lang == "ar" %}تعطيل الحساب{% else %}Deactivate account{% endif %}</button>
-    </form>
+  {# Compact action panel (shared .ta-* component) #}
+  <aside class="ta-aside student-actions">
+    <section class="control-card ta-status">
+      <div class="ta-status-head">
+        <span class="ta-avatar">{{ profile.full_name|default:student.email|slice:":1"|upper }}</span>
+        <div class="ta-status-id">
+          <div class="ta-name">{{ profile.full_name|default:student.email }}</div>
+          <div class="muted ta-email" dir="ltr">{{ student.email }}</div>
+        </div>
+      </div>
+      <div class="ta-badges">
+        <span class="badge">{{ profile.subscription_status }}</span>
+        <span class="badge">{{ flag.risk_status }}</span>
+        {% if student.profile.email_verified %}<span class="badge badge-green">{% if lang == "ar" %}بريد مُفعّل{% else %}Verified{% endif %}</span>{% else %}<span class="badge badge-yellow">{% if lang == "ar" %}غير مُفعّل{% else %}Unverified{% endif %}</span>{% endif %}
+      </div>
+    </section>
+
+    <section class="control-card ta-mini">
+      <div class="ta-mini-title">{% if lang == "ar" %}الاشتراك{% else %}Subscription{% endif %}</div>
+      <form class="ta-assign-form" method="post" action="{% url 'platform_admin:student_action' student.pk 'extend-subscription' %}">
+        {% csrf_token %}
+        {{ extend_form.days }}
+        <button class="btn-control btn-success ta-btn" type="submit"><i data-lucide="calendar-plus" class="h-4 w-4"></i> {% if lang == "ar" %}تمديد الاشتراك{% else %}Extend subscription{% endif %}</button>
+      </form>
+    </section>
+
+    <section class="control-card ta-mini">
+      <div class="ta-mini-title">{% if lang == "ar" %}إسناد كورس{% else %}Assign course{% endif %}</div>
+      <form class="ta-assign-form" method="post" action="{% url 'platform_admin:student_action' student.pk 'assign-course' %}">
+        {% csrf_token %}
+        {{ assign_course_form.course }}
+        <button class="btn-control btn-primary ta-btn" type="submit"><i data-lucide="book-plus" class="h-4 w-4"></i> {% if lang == "ar" %}إسناد الكورس{% else %}Assign course{% endif %}</button>
+      </form>
+    </section>
+
+    <section class="control-card ta-mini">
+      <div class="ta-mini-title">{% if lang == "ar" %}إرسال إشعار{% else %}Send notification{% endif %}</div>
+      <form class="ta-assign-form" method="post" action="{% url 'platform_admin:student_action' student.pk 'send-notification' %}">
+        {% csrf_token %}
+        {{ notification_form.title }}
+        {{ notification_form.message }}
+        <button class="btn-control btn-primary ta-btn" type="submit"><i data-lucide="send" class="h-4 w-4"></i> {% if lang == "ar" %}إرسال إشعار{% else %}Send notification{% endif %}</button>
+      </form>
+    </section>
+
+    <section class="control-card ta-mini">
+      <div class="ta-mini-title">{% if lang == "ar" %}إضافة ملاحظة{% else %}Add note{% endif %}</div>
+      <form class="ta-assign-form" method="post" action="{% url 'platform_admin:student_action' student.pk 'add-note' %}">
+        {% csrf_token %}
+        {{ note_form.note }}
+        <label class="ta-hint">{{ note_form.is_private }} {% if lang == "ar" %}خاصة{% else %}Private{% endif %}</label>
+        <button class="btn-control ta-btn" type="submit"><i data-lucide="sticky-note" class="h-4 w-4"></i> {% if lang == "ar" %}إضافة ملاحظة{% else %}Add note{% endif %}</button>
+      </form>
+    </section>
+
+    <section class="control-card ta-mini">
+      <div class="ta-mini-title">{% if lang == "ar" %}حالة المخاطرة{% else %}Risk status{% endif %}</div>
+      <form class="ta-assign-form" method="post" action="{% url 'platform_admin:student_action' student.pk 'mark-risk' %}">
+        {% csrf_token %}
+        {{ risk_form.risk_status }}
+        <button class="btn-control btn-warning ta-btn" type="submit"><i data-lucide="alert-triangle" class="h-4 w-4"></i> {% if lang == "ar" %}تحديث{% else %}Update{% endif %}</button>
+      </form>
+    </section>
+
+    <section class="control-card ta-mini">
+      <div class="ta-mini-title">{% if lang == "ar" %}تحديد المستوى والبريد{% else %}Placement & email{% endif %}</div>
+      <form method="post" action="{% url 'platform_admin:student_action' student.pk 'reset-placement' %}">
+        {% csrf_token %}
+        <button class="btn-control btn-warning ta-btn" type="submit"><i data-lucide="rotate-ccw" class="h-4 w-4"></i> {% if lang == "ar" %}إعادة تحديد المستوى{% else %}Reset placement{% endif %}</button>
+      </form>
+      <form method="post" action="{% url 'platform_admin:student_action' student.pk 'resend-verification' %}">
+        {% csrf_token %}
+        <button class="btn-control ta-btn" type="submit"><i data-lucide="send" class="h-4 w-4"></i> {% if lang == "ar" %}إعادة إرسال كود التحقق{% else %}Resend verification{% endif %}</button>
+      </form>
+      {% if not student.profile.email_verified %}
+      <form method="post" action="{% url 'platform_admin:student_action' student.pk 'verify-email' %}" onsubmit="return confirm('{% if lang == "ar" %}تفعيل البريد يدوياً (في حال عدم وصول الكود)؟{% else %}Mark this email as verified manually?{% endif %}');">
+        {% csrf_token %}
+        <button class="btn-control btn-success ta-btn" type="submit"><i data-lucide="mail-check" class="h-4 w-4"></i> {% if lang == "ar" %}تفعيل البريد يدوياً{% else %}Verify email manually{% endif %}</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="control-card ta-mini ta-danger">
+      <div class="ta-mini-title ta-danger-title">{% if lang == "ar" %}منطقة الخطر{% else %}Danger zone{% endif %}</div>
+      <p class="ta-hint muted">{% if lang == "ar" %}تعطيل الحساب يمنع الطالب من تسجيل الدخول.{% else %}Deactivating blocks this student from signing in.{% endif %}</p>
+      <form method="post" action="{% url 'platform_admin:student_action' student.pk 'deactivate' %}" onsubmit="return confirm('{% if lang == "ar" %}تعطيل هذا الحساب؟{% else %}Deactivate this account?{% endif %}');">
+        {% csrf_token %}
+        <button class="btn-control btn-danger ta-btn" type="submit"><i data-lucide="user-x" class="h-4 w-4"></i> {% if lang == "ar" %}تعطيل الحساب{% else %}Deactivate account{% endif %}</button>
+      </form>
+    </section>
   </aside>
 </div>
 {% endblock %}
