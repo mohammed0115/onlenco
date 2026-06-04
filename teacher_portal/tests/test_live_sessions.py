@@ -126,6 +126,24 @@ class ReminderTests(TeacherPortalTestMixin):
         again = live_session_service.send_reminders()
         self.assertEqual(again["sessions"], 0)
 
+    def test_just_past_session_still_reminded_within_grace(self):
+        # A late cron tick: the session just crossed "now" but is within the
+        # grace floor → it must still be reminded, not lost forever.
+        LiveSession.objects.create(
+            teacher=self.teacher, course=self.course, title="JustStarted",
+            scheduled_at=timezone.now() - timedelta(minutes=5),
+        )
+        result = live_session_service.send_reminders()
+        self.assertEqual(result["sessions"], 1)
+
+    def test_long_past_session_not_reminded(self):
+        LiveSession.objects.create(
+            teacher=self.teacher, course=self.course, title="Old",
+            scheduled_at=timezone.now() - timedelta(minutes=40),
+        )
+        result = live_session_service.send_reminders()
+        self.assertEqual(result["sessions"], 0)
+
     def test_far_future_session_not_reminded(self):
         LiveSession.objects.create(
             teacher=self.teacher, course=self.course, title="Later",

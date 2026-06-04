@@ -113,6 +113,28 @@ QUESTION_TYPE_CHOICES = [
     ("pronunciation_check",   _("Pronunciation check")),
     ("ai_roleplay_prompt",    _("AI roleplay prompt")),
 ]
+
+# Single source of truth for how a question type is graded (shared with the
+# teacher quiz builder in teacher_portal.forms). MCQ types present discrete
+# options + a correct choice; open prompts are AI-graded with no single answer.
+MCQ_QUESTION_TYPES = {
+    "multiple_choice",
+    "image_choice",
+    "listen_and_choose",
+    "tap_choice",
+    "listening_match",
+    "sound_to_word",
+    "mini_story_choice",
+    "conversation_reply",
+}
+OPEN_PROMPT_QUESTION_TYPES = {
+    "speaking_prompt",
+    "writing_prompt",
+    "ai_roleplay_prompt",
+    "pronunciation_check",
+    "speak_this_sentence",
+}
+
 ENROLLMENT_STATUS_CHOICES = [
     ("active",    _("Active")),
     ("completed", _("Completed")),
@@ -679,9 +701,11 @@ class LessonQuestion(models.Model):
         super().clean()
         if not (self.question_text or self.question_text_ar or self.question_text_en):
             raise ValidationError(_("Question text is required."))
-        if not self.correct_answer:
+        # Open prompts (speaking/writing) are AI-graded — no single correct
+        # answer is required. Every other type needs one.
+        if self.question_type not in OPEN_PROMPT_QUESTION_TYPES and not self.correct_answer:
             raise ValidationError(_("Correct answer is required."))
-        if self.question_type == "multiple_choice":
+        if self.question_type in MCQ_QUESTION_TYPES:
             opts = list(self.options or [])
             if len(opts) < 2:
                 raise ValidationError(

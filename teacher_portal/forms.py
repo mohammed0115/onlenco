@@ -12,6 +12,8 @@ from courses.models import (
     Lesson,
     LessonQuestion,
     LessonQuiz,
+    MCQ_QUESTION_TYPES,
+    OPEN_PROMPT_QUESTION_TYPES,
     QUESTION_TYPE_CHOICES,
 )
 
@@ -142,27 +144,6 @@ class TeacherQuizForm(forms.ModelForm):
             quiz.save()
             self.save_m2m()
         return quiz
-
-
-# Question types that present discrete choices to the student (visual MCQ builder).
-MCQ_QUESTION_TYPES = {
-    "multiple_choice",
-    "image_choice",
-    "listen_and_choose",
-    "tap_choice",
-    "listening_match",
-    "sound_to_word",
-    "mini_story_choice",
-    "conversation_reply",
-}
-# Open-ended prompts that have no single correct string (speaking/writing practice).
-OPEN_PROMPT_QUESTION_TYPES = {
-    "speaking_prompt",
-    "writing_prompt",
-    "ai_roleplay_prompt",
-    "pronunciation_check",
-    "speak_this_sentence",
-}
 
 
 class TeacherQuestionForm(forms.ModelForm):

@@ -140,6 +140,10 @@ class StudentTeacherRelation(models.Model):
         indexes = [
             models.Index(fields=["student", "is_active"]),
         ]
+        constraints = [
+            # One row per (student, teacher) pair — makes get_or_create race-safe.
+            models.UniqueConstraint(fields=["student", "teacher"], name="uniq_student_teacher_relation"),
+        ]
 
     def __str__(self):
         return f"{self.student} → {self.teacher}"
@@ -154,14 +158,22 @@ class StudentTeacherRelation(models.Model):
         """Make ``teacher`` the student's single active choice.
 
         Deactivates any other active relation first, then reactivates (or
-        creates) the row for this teacher. Idempotent.
+        creates) the row for this teacher. Serialised per-student under a
+        transaction + row lock so two concurrent selections can't leave the
+        student with two active teachers. Idempotent.
         """
-        cls.objects.filter(student=student, is_active=True).exclude(teacher=teacher).update(is_active=False)
-        relation, _created = cls.objects.get_or_create(student=student, teacher=teacher)
-        relation.is_active = True
-        if cefr_level:
-            relation.cefr_level_at_selection = cefr_level
-        relation.save(update_fields=["is_active", "cefr_level_at_selection", "updated_at"])
+        from django.db import transaction
+
+        with transaction.atomic():
+            # Lock the student's existing relation rows (no-op on SQLite) so
+            # concurrent set_active calls for the same student serialise.
+            list(cls.objects.select_for_update().filter(student=student))
+            cls.objects.filter(student=student, is_active=True).exclude(teacher=teacher).update(is_active=False)
+            relation, _created = cls.objects.get_or_create(student=student, teacher=teacher)
+            relation.is_active = True
+            if cefr_level:
+                relation.cefr_level_at_selection = cefr_level
+            relation.save(update_fields=["is_active", "cefr_level_at_selection", "updated_at"])
         return relation
 
 

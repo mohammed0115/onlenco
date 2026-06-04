@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 # How long before a session the reminder goes out.
 REMINDER_WINDOW_MINUTES = 30
+# Grace floor so a late/skipped scheduler tick still catches a just-due
+# session instead of losing the reminder forever once it crosses "now".
+REMINDER_GRACE_MINUTES = 10
 
 
 def _course_title(course) -> str:
@@ -69,9 +72,10 @@ def due_reminders(now=None):
 
     now = now or timezone.now()
     horizon = now + timedelta(minutes=REMINDER_WINDOW_MINUTES)
+    floor = now - timedelta(minutes=REMINDER_GRACE_MINUTES)
     return (
         LiveSession.objects
-        .filter(status="scheduled", reminder_sent_at__isnull=True, scheduled_at__gte=now, scheduled_at__lte=horizon)
+        .filter(status="scheduled", reminder_sent_at__isnull=True, scheduled_at__gte=floor, scheduled_at__lte=horizon)
         .select_related("course", "teacher")
     )
 

@@ -285,8 +285,13 @@ class PaymentSubmission(models.Model):
         self.refunded_by = reviewer
         self.refunded_at = now
         self.refund_reason = reason
+        # Money is returned → reverse the recorded revenue split so refunded
+        # payments are never counted as teacher/platform earnings.
+        self.teacher_earnings = 0
+        self.platform_earnings = 0
         self.save(update_fields=[
             "status", "refunded_by", "refunded_at", "refund_reason",
+            "teacher_earnings", "platform_earnings",
         ])
 
         # Money returned → end the subscription this payment unlocked.

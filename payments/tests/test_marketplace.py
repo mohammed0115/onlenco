@@ -92,6 +92,43 @@ class RevenueSplitTests(_Base):
         self.assertEqual(self.student.profile.subscription_status, "active")
 
 
+class RefundAndIntegrityTests(_Base):
+    def test_refund_zeroes_recorded_earnings(self):
+        teacher = self._teacher("rt", commission=30)
+        StudentTeacherRelation.set_active(self.student, teacher)
+        sub = self._submission(amount=30000)
+        sub.approve(self.admin)
+        self.assertEqual(sub.teacher_earnings, 21000)
+        sub.refund(self.admin, reason="duplicate")
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, "refunded")
+        self.assertEqual(sub.teacher_earnings, 0)
+        self.assertEqual(sub.platform_earnings, 0)
+
+    def test_unique_constraint_blocks_duplicate_relation(self):
+        from django.db import IntegrityError, transaction
+        teacher = self._teacher("uq")
+        StudentTeacherRelation.objects.create(student=self.student, teacher=teacher)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                StudentTeacherRelation.objects.create(student=self.student, teacher=teacher)
+
+    def test_set_active_is_idempotent_no_duplicate_rows(self):
+        teacher = self._teacher("idem")
+        StudentTeacherRelation.set_active(self.student, teacher)
+        StudentTeacherRelation.set_active(self.student, teacher)
+        self.assertEqual(
+            StudentTeacherRelation.objects.filter(student=self.student, teacher=teacher).count(), 1,
+        )
+
+    def test_single_active_relation_after_switch(self):
+        t1, t2 = self._teacher("s1"), self._teacher("s2")
+        StudentTeacherRelation.set_active(self.student, t1)
+        StudentTeacherRelation.set_active(self.student, t2)
+        self.assertEqual(StudentTeacherRelation.objects.filter(student=self.student, is_active=True).count(), 1)
+        self.assertEqual(StudentTeacherRelation.active_for(self.student).teacher_id, t2.pk)
+
+
 class TeacherShareHelperTests(_Base):
     def test_teacher_and_platform_share_sum_to_amount(self):
         tp = self._teacher("h", commission=25).teacher_profile
