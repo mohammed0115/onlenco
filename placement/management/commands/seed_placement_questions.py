@@ -1,9 +1,10 @@
 """Seed the curated placement question bank (5 written MCQ + 5 spoken).
 
-Idempotent and NON-destructive: each row is keyed by ``code`` and upserted,
-so re-running (on every deploy via update.sh) keeps the curated set correct
-without creating duplicates. It does NOT delete or deactivate other questions
-— old questions are removed manually from the admin.
+Idempotent and EXCLUSIVE: each row is keyed by ``code`` and upserted, then
+every OTHER placement question is DEACTIVATED (is_active=False) — kept in the
+DB, never deleted — so the active pool is exactly these 10. The placement
+selector draws 5 written + 5 spoken at random from the ACTIVE pool, so any
+leftover active question would otherwise show up in the test.
 
 Answer keys reviewed/corrected from the source list:
 - Q1 "She ___ to school every day." → **goes** (was "go" — subject-verb agreement).
@@ -68,6 +69,8 @@ class Command(BaseCommand):
                 },
             )
 
+        new_codes = [w[0] for w in WRITTEN] + [s[0] for s in SPEAKING]
+
         for code, en, ar, diff, topic, rubric in SPEAKING:
             PlacementQuestion.objects.update_or_create(
                 code=code,
@@ -80,7 +83,18 @@ class Command(BaseCommand):
                 },
             )
 
+        # Make the curated set EXCLUSIVE by DEACTIVATING every other question
+        # (kept in the DB, not deleted). The placement selector draws 5 written
+        # + 5 spoken at random from the ACTIVE pool, so leftover active
+        # questions would otherwise appear in the test.
+        deactivated = (
+            PlacementQuestion.objects
+            .exclude(code__in=new_codes)
+            .filter(is_active=True)
+            .update(is_active=False)
+        )
+
         self.stdout.write(self.style.SUCCESS(
-            f"Placement bank upserted: written={len(WRITTEN)}, speaking={len(SPEAKING)}. "
-            "Old questions are not touched — remove them from the admin."
+            f"Placement bank set to curated set: active={len(new_codes)} "
+            f"(written=5, speaking=5), deactivated={deactivated} others."
         ))

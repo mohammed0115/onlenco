@@ -42,6 +42,18 @@ class SeedPlacementTests(TestCase):
         self.assertEqual(PlacementQuestion.objects.filter(code__startswith="wr.v2.").count(), 5)
         self.assertEqual(PlacementQuestion.objects.filter(code__startswith="sp.v2.").count(), 5)
 
+    def test_deactivates_other_questions_so_only_curated_are_active(self):
+        # An old question that existed before the seed must end up inactive,
+        # so the placement selector only ever draws the curated 10.
+        old = PlacementQuestion.objects.create(
+            code="sp.age.001", question_text="How old are you?", question_type="speaking",
+            skill="speaking", topic="age_country", expected_answer_type="voice", is_active=True,
+        )
+        call_command("seed_placement_questions", stdout=StringIO())
+        old.refresh_from_db()
+        self.assertFalse(old.is_active)
+        self.assertEqual(PlacementQuestion.objects.filter(is_active=True).count(), 10)
+
     def test_mcq_graded_against_key(self):
         opts = self._q("wr.v2.001").options
         self.assertTrue(answer_key.is_answer_correct("goes", options=opts, expected_type="mcq"))
