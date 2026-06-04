@@ -2,14 +2,14 @@
 {% load static %}
 
 {% block extra_head %}
-  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher.css' %}?v=p166c-design-20260603">
+  <link rel="stylesheet" href="{% static 'teacher_portal/css/teacher.css' %}?v=p166e-logo-fix-20260604">
 {% endblock %}
 
 {% block body %}
 <div class="teacher-shell">
   <aside id="teacher-sidebar" class="teacher-sidebar ds-drawer">
     <a class="teacher-brand" href="{% url 'teacher_portal:dashboard' %}">
-      <span class="teacher-logo"><i data-lucide="brain" class="h-5 w-5"></i></span>
+      <span class="teacher-logo"><img src="{% static 'img/onlenco-logo.png' %}?v=20260522" alt="Onlenco" width="28" height="28"></span>
       <span>
         <strong class="teacher-brand-name">Onlenco</strong>
         <small>{% if lang == "ar" %}الكورسات والطلاب{% else %}Courses and students{% endif %}</small>

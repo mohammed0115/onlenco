@@ -98,7 +98,7 @@ class TeacherCourseWorkflowTests(TeacherPortalTestMixin):
         response = self.client.get("/teacher/courses/create/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "tp-wizard-stepper")
-        self.assertContains(response, "teacher.css?v=p166c-design-20260603")
+        self.assertContains(response, "teacher.css?v=p166e-logo-fix-20260604")
 
     def test_teacher_course_create_not_blank(self):
         self.client.force_login(self.teacher)
@@ -206,7 +206,7 @@ class TeacherLessonQuizTests(TeacherPortalTestMixin):
         response = self.client.get(f"/teacher/courses/{self.course.pk}/lessons/create/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "tp-wizard-stepper")
-        self.assertContains(response, "teacher.css?v=p166c-design-20260603")
+        self.assertContains(response, "teacher.css?v=p166e-logo-fix-20260604")
 
     def test_teacher_lesson_create_not_blank(self):
         self.client.force_login(self.teacher)

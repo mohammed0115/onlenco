@@ -35,3 +35,35 @@ class AdminStudentI18nTests(PlatformAdminTestMixin, TestCase):
         html = self._html("/admin/student-approvals/")
         self.assertIn("موافقات الطلاب", html)
         self.assertIn("اعتماد", html)
+
+    def test_content_review_is_arabic(self):
+        html = self._html("/admin/courses/review/")
+        self.assertIn("مراجعة المحتوى", html)
+        self.assertIn("موافقة", html)
+        self.assertNotIn(">Content Review<", html)
+
+    def test_approvals_link_in_admin_nav(self):
+        html = self._html("/admin/students/")
+        self.assertIn("موافقات الطلاب", html)
+        self.assertIn("/admin/student-approvals/", html)
+
+    def test_admin_sidebar_uses_logo_image_not_icon(self):
+        html = self._html("/admin/students/")
+        self.assertIn("img/onlenco-logo.png", html)
+
+    def test_approve_button_shown_for_pending_student(self):
+        from accounts.models import APPROVAL_PENDING_ADMIN
+        p = self.student.profile
+        p.approval_status = APPROVAL_PENDING_ADMIN
+        p.save(update_fields=["approval_status"])
+        html = self._html(f"/admin/students/{self.student.pk}/")
+        self.assertIn("الموافقة على الطالب", html)
+        self.assertIn("student-approvals/%d/approve/" % self.student.pk, html)
+
+    def test_approve_button_hidden_for_approved_student(self):
+        from accounts.models import APPROVAL_APPROVED
+        p = self.student.profile
+        p.approval_status = APPROVAL_APPROVED
+        p.save(update_fields=["approval_status"])
+        html = self._html(f"/admin/students/{self.student.pk}/")
+        self.assertNotIn("الموافقة على الطالب", html)

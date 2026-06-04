@@ -249,6 +249,7 @@ def nav_items_for(user) -> list[dict]:
     items = [
         (CAP_DASHBOARD, "Dashboard", "لوحة التحكم", "layout-dashboard", "platform_admin:dashboard"),
         (CAP_STUDENTS_VIEW, "Students", "الطلاب", "users", "platform_admin:students"),
+        (CAP_STUDENTS_VIEW, "Student Approvals", "موافقات الطلاب", "user-check", "platform_admin:student_approvals"),
         (CAP_TEACHERS_VIEW, "Teachers", "المعلمون", "graduation-cap", "platform_admin:teachers"),
         (CAP_COURSES_VIEW, "Courses", "الكورسات", "book-open", "platform_admin:courses"),
         (CAP_PAYMENTS_VIEW, "Payments", "المدفوعات", "wallet", "platform_admin:payments"),

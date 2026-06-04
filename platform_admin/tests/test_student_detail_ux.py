@@ -60,7 +60,7 @@ class StudentDetailUxTests(PlatformAdminTestMixin, TestCase):
 
     def test_css_version_bumped_to_p166d(self):
         html = self._html()
-        self.assertIn("p166d-student-detail-ux-20260604", html)
+        self.assertIn("p166e-logo-fix-20260604", html)
 
     def test_action_buttons_not_grid_stretched(self):
         css = self._control_css()

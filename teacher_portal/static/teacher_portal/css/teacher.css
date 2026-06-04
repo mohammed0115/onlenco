@@ -975,3 +975,7 @@ table {
     min-width: 640px;
   }
 }
+
+/* Sidebar brand uses the real Onlenco logo (not a generic icon). */
+.teacher-logo { background: #fff; padding: 4px; overflow: hidden; }
+.teacher-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }

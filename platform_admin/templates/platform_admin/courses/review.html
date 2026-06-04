@@ -1,27 +1,27 @@
 {% extends "platform_admin/base.html" %}
 
-{% block control_title %}Content Review{% endblock %}
-{% block control_subtitle %}Pending courses awaiting academic approval.{% endblock %}
+{% block control_title %}{% if lang == "ar" %}مراجعة المحتوى{% else %}Content Review{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}الكورسات بانتظار الموافقة الأكاديمية.{% else %}Pending courses awaiting academic approval.{% endif %}{% endblock %}
 
 {% block control_content %}
 <div class="control-panel">
   <div class="table-wrap">
   <table class="control-table">
-    <thead><tr><th>Course</th><th>Teacher</th><th>Level</th><th>Updated</th><th>Actions</th></tr></thead>
+    <thead><tr><th>{% if lang == "ar" %}الكورس{% else %}Course{% endif %}</th><th>{% if lang == "ar" %}المعلّم{% else %}Teacher{% endif %}</th><th>{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</th><th class="nowrap">{% if lang == "ar" %}آخر تحديث{% else %}Updated{% endif %}</th><th>{% if lang == "ar" %}إجراءات{% else %}Actions{% endif %}</th></tr></thead>
     <tbody>
       {% for course in courses %}
         <tr>
           <td>{{ course.title }}</td>
-          <td>{{ course.teacher.email|default:"-" }}</td>
-          <td>{{ course.level.code }}</td>
-          <td>{{ course.updated_at|date:"Y-m-d" }}</td>
-          <td>
-            <a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}">Preview</a>
-            <form method="post" action="{% url 'platform_admin:course_action' course.pk 'approve' %}" style="display:inline">{% csrf_token %}<button class="btn-control btn-success" type="submit">Approve</button></form>
+          <td dir="ltr">{{ course.teacher.email|default:"-" }}</td>
+          <td dir="ltr">{{ course.level.code }}</td>
+          <td class="nowrap" dir="ltr">{{ course.updated_at|date:"Y-m-d" }}</td>
+          <td class="row-actions">
+            <a class="btn-control" href="{% url 'platform_admin:course_detail' course.pk %}">{% if lang == "ar" %}معاينة{% else %}Preview{% endif %}</a>
+            <form method="post" action="{% url 'platform_admin:course_action' course.pk 'approve' %}" style="display:inline">{% csrf_token %}<button class="btn-control btn-success" type="submit">{% if lang == "ar" %}موافقة{% else %}Approve{% endif %}</button></form>
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="5" class="muted">Nothing pending review.</td></tr>
+        <tr><td colspan="5" class="muted">{% if lang == "ar" %}لا يوجد محتوى بانتظار المراجعة.{% else %}Nothing pending review.{% endif %}</td></tr>
       {% endfor %}
     </tbody>
   </table>
