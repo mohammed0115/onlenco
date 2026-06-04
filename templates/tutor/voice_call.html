@@ -111,7 +111,7 @@
     </main>
 </div>
 
-<script src="{% static 'js/ai_tutor_realtime.js' %}"></script>
+<script src="{% static 'js/ai_tutor_realtime.js' %}?v=p166f-placement-autoend-20260604"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     if (!window.onlencoCall) return;
@@ -122,6 +122,8 @@
       sdpRelayUrl:   "{% url 'api_tutor_voice_call_sdp' %}",
       conversationId: {{ conversation.pk }},
       backUrl:       "{% if placement_back_path %}{{ placement_back_path }}{% else %}{% url 'tutor_detail' conversation.pk %}{% endif %}",
+      {% if placement_back_path %}autoEndPhrases: ["sending you to your results", "that's all five questions", "to your results now"],
+      autoEndAfterAssistantTurns: 7,{% endif %}
       language:      "{{ request.LANGUAGE_CODE|default:'en' }}",
       tutorNameEn:   "{{ tutor_name_en|escapejs }}",
       tutorNameAr:   "{{ tutor_name_ar|escapejs }}",

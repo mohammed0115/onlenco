@@ -26,10 +26,20 @@
     sdpRelayUrl:    null,  // optional — when set, route SDP via Django
     conversationId: null,
     backUrl:        null,
+    // Placement Part 2 only: end the call automatically and route the
+    // student to their result when the interviewer signals it's done.
+    // `autoEndPhrases` = the closing phrases the AI is prompted to say
+    // (primary signal); `autoEndAfterAssistantTurns` = a turn-count safety
+    // net. Both null (the AI-tutor default) = no auto-end.
+    autoEndPhrases: null,
+    autoEndAfterAssistantTurns: null,
     language:       'en',
     tutorNameEn:    'Layla',
     tutorNameAr:    'ليلى',
   };
+
+  let assistantTurns = 0;
+  let autoEndScheduled = false;
 
   // Strings use {name} as a placeholder for the chosen tutor (Layla /
   // Omar / Sara). Arabic strings stay gender-neutral so the same copy
@@ -391,7 +401,11 @@
     // Accumulate Layla's text (audio stream has its own text channel).
     if (type === 'response.audio_transcript.done' || type === 'response.output_audio_transcript.done') {
       const text = (msg.transcript || '').trim();
-      if (text) appendTranscript('assistant', text);
+      if (text) {
+        appendTranscript('assistant', text);
+        assistantTurns += 1;
+        maybeAutoEnd(text);
+      }
     }
   }
 
@@ -414,6 +428,23 @@
     line.appendChild(document.createTextNode(text));
     els.transcript.appendChild(line);
     els.transcript.scrollTop = els.transcript.scrollHeight;
+  }
+
+  // Placement Part 2: end the call + go to results once the interviewer
+  // signals it's done — either by its closing phrase (primary signal) or a
+  // turn-count safety net. Fires once; waits for the closing audio to play.
+  function maybeAutoEnd(assistantText) {
+    if (autoEndScheduled) return;
+    if (!els.card || els.card.dataset.state === 'ended') return;
+    const phrases = Config.autoEndPhrases || [];
+    const lower = (assistantText || '').toLowerCase();
+    const phraseHit = phrases.some((p) => lower.indexOf(String(p).toLowerCase()) !== -1);
+    const cap = Config.autoEndAfterAssistantTurns;
+    const turnHit = cap && assistantTurns >= cap;
+    if (phraseHit || turnHit) {
+      autoEndScheduled = true;
+      setTimeout(() => endCall(true), 4000);
+    }
   }
 
   // ----- AI audio visualizer (drives orb pulse) ------------------------

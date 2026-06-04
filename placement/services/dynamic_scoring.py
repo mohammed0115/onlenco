@@ -128,17 +128,26 @@ def _score_written_item(item: dict, answer: str) -> dict:
     expected = item.get("expected_answer_type") or ""
 
     if expected == "mcq":
-        in_options = answer in (item.get("options") or [])
-        base = 60 if in_options else 10
+        from placement.services.answer_key import is_answer_correct
+        correct = is_answer_correct(
+            answer, options=item.get("options"),
+            rubric=item.get("scoring_rubric"), expected_type="mcq",
+        )
+        if correct is None:
+            # Legacy options without an answer key — fall back to validity.
+            valid = any(
+                (o.get("text") if isinstance(o, dict) else o) == answer
+                for o in (item.get("options") or [])
+            )
+            base = 60 if valid else 10
+            notes = ["MCQ answer key is not present; scored as answer validity."]
+        else:
+            base = 100 if correct else 0
+            notes = ["MCQ graded against the stored answer key."]
         components = {
-            "grammar": base,
-            "spelling": 100 if in_options else 20,
-            "vocabulary": base,
-            "sentence_structure": base,
-            "clarity": 80 if in_options else 20,
-            "task_completion": 70 if in_options else 10,
+            "grammar": base, "spelling": base, "vocabulary": base,
+            "sentence_structure": base, "clarity": base, "task_completion": base,
         }
-        notes = ["MCQ answer key is not present in the question bank; scored as answer validity."]
     else:
         target_words, target_sentences = _targets_for_item(item)
         task_completion = _coverage_score(

@@ -54,24 +54,26 @@
       <div class="mt-4 space-y-3">
         {% for aq in written %}
           <div class="card p-4">
-            <div class="text-xs uppercase tracking-widest text-muted-foreground mb-1">
-              {% t_either "Written" "كتابي" %} · {{ forloop.counter }}
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="text-xs uppercase tracking-widest text-muted-foreground">{% t_either "Written" "كتابي" %} · {{ forloop.counter }}</span>
+              {% if aq.is_correct_display %}<span class="inline-flex items-center gap-1 text-green-600 text-sm font-bold"><i data-lucide="check-circle" class="h-4 w-4"></i> {% t_either "Correct" "صحيحة" %}{% if aq.score is not None %} · {{ aq.score|floatformat:0 }}%{% endif %}</span>{% else %}<span class="inline-flex items-center gap-1 text-red-600 text-sm font-bold"><i data-lucide="x-circle" class="h-4 w-4"></i> {% t_either "Incorrect" "خاطئة" %}{% if aq.score is not None %} · {{ aq.score|floatformat:0 }}%{% endif %}</span>{% endif %}
             </div>
-            <p class="font-semibold mb-1" dir="auto">
-              {% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}
-            </p>
-            <p class="text-sm text-muted-foreground" dir="ltr">{{ aq.user_answer_text|default:"—" }}</p>
+            <p class="font-semibold mb-2" dir="auto">{% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}</p>
+            <div class="text-sm"><span class="text-muted-foreground">{% t_either "Your answer" "إجابتك" %}:</span> <span dir="auto" class="{% if aq.is_correct_display %}text-green-700{% else %}text-red-700{% endif %}">{{ aq.student_answer|default:"—" }}</span></div>
+            {% if aq.correct_answer and not aq.is_correct_display %}<div class="text-sm mt-1"><span class="text-muted-foreground">{% t_either "Correct answer" "الإجابة الصحيحة" %}:</span> <span dir="auto" class="text-green-700 font-semibold">{{ aq.correct_answer }}</span></div>{% endif %}
+            {% if aq.feedback %}<div class="text-xs text-muted-foreground mt-2" dir="auto">{{ aq.feedback }}</div>{% endif %}
           </div>
         {% endfor %}
         {% for aq in speaking %}
           <div class="card p-4">
-            <div class="text-xs uppercase tracking-widest text-muted-foreground mb-1">
-              {% t_either "Speaking" "تحدث" %} · {{ forloop.counter }}
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="text-xs uppercase tracking-widest text-muted-foreground">{% t_either "Speaking" "تحدث" %} · {{ forloop.counter }}</span>
+              {% if aq.score is not None %}<span class="inline-flex items-center gap-1 text-sm font-bold {% if aq.is_correct_display %}text-green-600{% else %}text-amber-600{% endif %}">{% if aq.is_correct_display %}<i data-lucide="check-circle" class="h-4 w-4"></i>{% else %}<i data-lucide="alert-circle" class="h-4 w-4"></i>{% endif %} {{ aq.score|floatformat:0 }}%</span>{% endif %}
             </div>
-            <p class="font-semibold mb-1" dir="auto">
-              {% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}
-            </p>
-            <p class="text-sm text-muted-foreground" dir="ltr">{{ aq.transcript|default:"—" }}</p>
+            <p class="font-semibold mb-2" dir="auto">{% if request.LANGUAGE_CODE == "ar" and aq.question.question_text_ar %}{{ aq.question.question_text_ar }}{% else %}{{ aq.question.question_text }}{% endif %}</p>
+            <div class="text-sm"><span class="text-muted-foreground">{% t_either "Your answer" "إجابتك" %}:</span> <span dir="auto">{{ aq.student_answer|default:"—" }}</span></div>
+            {% if aq.correct_answer %}<div class="text-sm mt-1"><span class="text-muted-foreground">{% t_either "Expected / key points" "المتوقّع / النقاط الأساسية" %}:</span> <span dir="auto" class="text-green-700">{{ aq.correct_answer }}</span></div>{% endif %}
+            {% if aq.feedback %}<div class="text-xs text-muted-foreground mt-2" dir="auto">{{ aq.feedback }}</div>{% endif %}
           </div>
         {% endfor %}
       </div>

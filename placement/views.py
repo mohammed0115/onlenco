@@ -358,6 +358,8 @@ def placement_voice_finalise(request, attempt_id: int):
 
 @login_required
 def placement_result(request, attempt_id: int):
+    from placement.services.answer_key import correct_answer_for, is_answer_correct
+
     attempt = _user_attempt(request, attempt_id)
     written = list(
         attempt.questions.filter(section="written").select_related("question").order_by("order")
@@ -365,10 +367,30 @@ def placement_result(request, attempt_id: int):
     speaking = list(
         attempt.questions.filter(section="speaking").select_related("question").order_by("order")
     )
+
+    def _annotate(rows):
+        for aq in rows:
+            q = aq.question
+            student = aq.user_answer_text if aq.section == "written" else aq.transcript
+            aq.student_answer = (student or "").strip()
+            aq.correct_answer = correct_answer_for(
+                options=q.options, rubric=q.scoring_rubric, expected_type=q.expected_answer_type,
+            )
+            verdict = is_answer_correct(
+                aq.student_answer, options=q.options, rubric=q.scoring_rubric,
+                expected_type=q.expected_answer_type,
+            )
+            # Deterministic key wins; otherwise fall back to the rubric/AI
+            # score (>= 50 = pass) so the student still gets a ✓/✗ signal.
+            if verdict is None:
+                verdict = (aq.score is not None and aq.score >= 50) if aq.student_answer else False
+            aq.is_correct_display = verdict
+        return rows
+
     return render(request, "placement/result.html", {
         "attempt": attempt,
-        "written": written,
-        "speaking": speaking,
+        "written": _annotate(written),
+        "speaking": _annotate(speaking),
     })
 
 
