@@ -140,6 +140,11 @@ class PlacementSpeakingPolicyTests(_CallMixin, TestCase):
                              content_type="application/json")
         self.assertEqual(m.call_args.kwargs.get("language"), "en")
 
+    def test_placement_session_auto_starts_with_first_question(self):
+        body = self._post_session(self.conv.id).json()
+        self.assertTrue(body.get("auto_start"))
+        self.assertIn("question", (body.get("opening_instruction") or "").lower())
+
     def test_placement_speaking_creates_ai_usage_log_feature_placement_speaking(self):
         self._run_call(conversation_id=self.conv.id, answers=2)
         self.assertTrue(
@@ -243,6 +248,17 @@ class RegularAITutorPlanMinutesTests(_CallMixin, TestCase):
                              {"conversation_id": self.plain.id},
                              content_type="application/json")
         self.assertIsNone(m.call_args.kwargs.get("language"))
+
+    def test_regular_session_auto_starts_with_greeting(self):
+        self._subscribe(10)
+        with patch("tutor.services.realtime_session.request_ephemeral_session",
+                   return_value=_FAKE_SESSION):
+            r = self.client.post(reverse("api_tutor_voice_call_session"),
+                                 {"conversation_id": self.plain.id},
+                                 content_type="application/json")
+        body = r.json()
+        self.assertTrue(body.get("auto_start"))
+        self.assertIn("practice", (body.get("opening_instruction") or "").lower())
 
     def test_regular_ai_tutor_uses_plan_allowed_minutes(self):
         self._subscribe(10)

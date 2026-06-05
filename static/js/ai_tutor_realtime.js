@@ -122,6 +122,7 @@
   let maxSessionSeconds = 900;         // server overrides
   let maxSessionTimer = null;
   let isMuted = false;
+  let openingSent = false;             // one-shot guard: tutor opens the call once
   let activeSessionInfo = null;        // populated by startCall, read by endCall
   // Live transcript collected from data-channel events. Sent to the
   // server on hang-up so the conversation list reflects what was said.
@@ -196,6 +197,7 @@
     setState('connecting');
     transcriptTurns.length = 0;
     itemRoles.clear();
+    openingSent = false;   // fresh session → the tutor opens once
 
     let sessionInfo;
     try {
@@ -283,17 +285,7 @@
 
     // Open a data channel for events (transcripts, response.done, etc).
     dataChannel = peer.createDataChannel('oai-events');
-    dataChannel.onopen = () => {
-      // Push any client-side overrides as a session.update event.
-      // Server already configured the bulk of the session, but we add
-      // a brief instruction nudge so Layla opens the call herself.
-      try {
-        dataChannel.send(JSON.stringify({
-          type: 'response.create',
-          response: { modalities: ['audio', 'text'] },
-        }));
-      } catch (e) {}
-    };
+    dataChannel.onopen = () => { maybeSendOpening(); };
     dataChannel.onmessage = handleRealtimeEvent;
     dataChannel.onerror = (e) => console.warn('[onlenco-call] data channel error:', e);
 
@@ -370,6 +362,23 @@
     maxSessionTimer = setTimeout(() => endCall(true), maxSessionSeconds * 1000);
   }
 
+  // ----- Auto-start: the tutor speaks first ----------------------------
+  // Fire ONCE per session (guarded), as soon as the session is ready. The
+  // student never has to start the conversation. The opening instruction is
+  // provided by the server (placement asks the first question; regular AI
+  // tutor greets and asks what to practise).
+  function maybeSendOpening() {
+    if (openingSent || !dataChannel || dataChannel.readyState !== 'open') return;
+    const info = activeSessionInfo || {};
+    if (info.auto_start === false) return;
+    openingSent = true;
+    const response = { modalities: ['audio', 'text'] };
+    if (info.opening_instruction) response.instructions = info.opening_instruction;
+    try {
+      dataChannel.send(JSON.stringify({ type: 'response.create', response: response }));
+    } catch (e) { openingSent = false; }   // allow a retry if the send failed
+  }
+
   // ----- Realtime event router -----------------------------------------
 
   function handleRealtimeEvent(ev) {
@@ -377,6 +386,11 @@
     try { msg = JSON.parse(ev.data); } catch (e) { return; }
     const type = msg && msg.type;
     if (!type) return;
+
+    // The session is fully configured server-side → safe to open the call.
+    if (type === 'session.created' || type === 'session.updated') {
+      maybeSendOpening();
+    }
 
     // High-frequency lifecycle events let us flip the orb between
     // listening / thinking / speaking states for visual feedback.

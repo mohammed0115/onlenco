@@ -88,7 +88,7 @@
                     {% if lang == "ar" %}اضغط لبدء المكالمة مع {{ tutor_name_ar }}{% else %}Tap to call {{ tutor_name_en }}{% endif %}
                 </h1>
                 <p class="onlenco-call-sub" id="callSub">
-                    {% if placement_back_path %}{% t_either "Your teacher asks each question. Listen, then answer." "معلمك يطرح كل سؤال. استمع ثم أجب." %}{% else %}{% t_either "Your teacher will greet you and start a real English conversation." "سيرحّب بك معلمك ويبدأ محادثة إنجليزية حقيقية." %}{% endif %}
+                    {% if placement_back_path %}{% t_either "The tutor will start with the first question. Just listen, then answer." "سيبدأ المدرس الذكي بالسؤال الأول. فقط استمع ثم أجب." %}{% else %}{% t_either "Your teacher will greet you first and start the conversation." "سيرحّب بك معلمك أولًا ويبدأ المحادثة." %}{% endif %}
                 </p>
                 {% if placement_back_path %}
                 <p class="onlenco-call-sub text-sm text-muted-foreground" id="callHelper" dir="auto">
@@ -123,7 +123,7 @@
     </main>
 </div>
 
-<script src="{% static 'js/ai_tutor_realtime.js' %}?v=p166f-call-separation-20260605"></script>
+<script src="{% static 'js/ai_tutor_realtime.js' %}?v=p166h-auto-start-20260606"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     if (!window.onlencoCall) return;

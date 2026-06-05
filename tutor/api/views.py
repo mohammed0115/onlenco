@@ -1005,8 +1005,24 @@ def voice_call_session(request):
         else int(getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900))
     )
     max_session_seconds = min(hard_cap, seconds_remaining)
+    # Auto-start: the TUTOR speaks first when the session is ready — the
+    # student (often an A0 beginner) should never have to start the call.
+    if is_placement_call:
+        opening_instruction = (
+            "Begin the placement test NOW. Do not wait for the student to "
+            "speak first. Greet them in one short sentence, then immediately "
+            "ask the first question from your list. Keep it slow and simple."
+        )
+    else:
+        opening_instruction = (
+            "Begin NOW. Do not wait for the student to speak first. Greet them "
+            "warmly in one short sentence and ask what they would like to "
+            "practice today."
+        )
     return Response({
         "success": True,
+        "auto_start": True,
+        "opening_instruction": opening_instruction,
         "client_secret": client_secret,
         "session_id": session.get("id"),
         "tutor_session_id": tutor_session.pk,  # NEW — pass back to /voice/log
