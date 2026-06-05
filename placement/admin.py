@@ -2,8 +2,25 @@ from django.contrib import admin
 
 from .models import (
     PlacementAttempt, PlacementAttemptQuestion, PlacementQuestion,
-    PlacementResult,
+    PlacementResult, PlacementSpeakingAttempt,
 )
+
+
+@admin.register(PlacementSpeakingAttempt)
+class PlacementSpeakingAttemptAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "student", "status", "is_used_attempt",
+        "question_count_answered", "duration_seconds",
+        "started_at", "completed_at", "reset_at",
+    )
+    list_filter = ("status", "is_used_attempt")
+    search_fields = ("student__email", "student__username", "reset_reason")
+    readonly_fields = (
+        "student", "placement_attempt", "conversation", "status",
+        "started_at", "completed_at", "question_count_answered",
+        "duration_seconds", "is_used_attempt", "metadata",
+        "reset_by", "reset_at",
+    )
 
 
 @admin.register(PlacementResult)

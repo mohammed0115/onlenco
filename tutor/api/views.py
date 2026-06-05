@@ -801,6 +801,19 @@ def voice_tts(request):
 # Realtime voice-call (OpenAI Realtime API)
 # ---------------------------------------------------------------------------
 
+def _ai_tutor_exhausted_message(request) -> str:
+    """The clear daily-minutes-finished message for the REGULAR AI Tutor.
+
+    Never shown for the placement speaking test (which is quota-free).
+    """
+    lang = getattr(request, "LANGUAGE_CODE", "en") or "en"
+    if str(lang).startswith("ar"):
+        return ("لقد انتهى رصيدك اليومي من دقائق المعلم الذكي. "
+                "يمكنك المتابعة غدًا أو ترقية الباقة.")
+    return ("You've used today's AI Tutor minutes. "
+            "Continue tomorrow or upgrade your plan.")
+
+
 @extend_schema(exclude=True)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -834,26 +847,39 @@ def voice_call_session(request):
     # student takes it during onboarding before any subscription
     # exists. Trust the flag only when the conversation is actually
     # linked to a placement attempt owned by this user.
-    is_placement_call = False
+    placement_attempt = None
     if conv is not None:
         from placement.models import PlacementAttempt
-        is_placement_call = PlacementAttempt.objects.filter(
+        placement_attempt = PlacementAttempt.objects.filter(
             user=request.user, voice_conversation_id=conv.pk,
-        ).exists()
+        ).first()
+    is_placement_call = placement_attempt is not None
+    speaking_row = None
 
     seconds_remaining, source_bucket = quota_service.effective_ai_tutor_remaining(request.user)
     if is_placement_call:
-        # The placement call is its own short assessment, capped by
-        # AI_REALTIME_MAX_SESSION_SECONDS. Give it that budget so the
-        # max_session_seconds calc below works without touching quota.
-        seconds_remaining = int(
-            getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 300)
+        # Placement speaking NEVER touches the AI-Tutor minute allowance
+        # (Prompt 16.6F): it is one lifetime onboarding attempt, capped at
+        # its own per-attempt length. Enforce the one-attempt gate here.
+        from placement.services import speaking_quota
+        allowed, code, message = speaking_quota.check_can_start(request.user)
+        if not allowed:
+            lang = getattr(request, "LANGUAGE_CODE", "en") or "en"
+            text = (message or {}).get("ar" if str(lang).startswith("ar") else "en") \
+                or (message or {}).get("en", "")
+            return Response(
+                {"success": False, "error": code, "message": text},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        speaking_row = speaking_quota.open_attempt(
+            request.user, conversation=conv, placement_attempt=placement_attempt,
         )
+        seconds_remaining = speaking_quota.max_session_seconds()
     elif seconds_remaining <= 0:
         return Response(
             {
                 "success": False, "error": "limit_reached",
-                "message": "Your AI Tutor minutes are exhausted. Upgrade your plan to continue.",
+                "message": _ai_tutor_exhausted_message(request),
                 "upgrade_url": "/subscriptions/upgrade/",
             },
             status=status.HTTP_402_PAYMENT_REQUIRED,
@@ -876,7 +902,7 @@ def voice_call_session(request):
     try:
         tutor_session = session_service.start_session(
             request.user,
-            source="voice_call",
+            source="placement_voice" if is_placement_call else "voice_call",
             voice=voice,
             conversation_id=conv.pk if conv else None,
             voice_profile=voice_profile,
@@ -887,7 +913,7 @@ def voice_call_session(request):
         return Response(
             {
                 "success": False, "error": "limit_reached",
-                "message": "Your AI Tutor minutes are exhausted. Upgrade your plan to continue.",
+                "message": _ai_tutor_exhausted_message(request),
                 "upgrade_url": "/subscriptions/upgrade/",
             },
             status=status.HTTP_402_PAYMENT_REQUIRED,
@@ -937,20 +963,40 @@ def voice_call_session(request):
     try:
         from ai_usage import constants as _AC
         from ai_usage.services import ai_client as _ai_client
-        _ai_client.log_realtime_session_start(
-            user=request.user, role=_AC.ROLE_STUDENT,
-            session_id=f"tutor_session:{tutor_session.pk}",
-            metadata={"is_placement_call": bool(is_placement_call),
-                      "quota_source": source_bucket},
-        )
+        if is_placement_call:
+            # Log under placement_speaking — NOT ai_tutor — keyed by a
+            # stable request_id so the end-of-call row updates this same
+            # row with the minutes/cost (Prompt 16.6F). This row is what
+            # the placement safety quota counts as "one attempt".
+            _ai_client.log_realtime_session_start(
+                user=request.user, role=_AC.ROLE_STUDENT,
+                feature=_AC.FEATURE_PLACEMENT_SPEAKING,
+                session_id=f"tutor_session:{tutor_session.pk}",
+                request_id=f"placement_speaking:{tutor_session.pk}",
+                metadata={
+                    "is_placement_call": True,
+                    "placement_attempt_id": placement_attempt.id,
+                    "placement_speaking_attempt_id": speaking_row.id if speaking_row else None,
+                    "ended_reason": "in_progress",
+                },
+            )
+        else:
+            _ai_client.log_realtime_session_start(
+                user=request.user, role=_AC.ROLE_STUDENT,
+                session_id=f"tutor_session:{tutor_session.pk}",
+                metadata={"is_placement_call": False,
+                          "quota_source": source_bucket},
+            )
     except Exception:
         logger.warning("ai_usage realtime session-start log failed", exc_info=True)
 
     # The browser must cap its own session at min(provider_expiry, our quota).
-    max_session_seconds = min(
-        int(getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900)),
-        seconds_remaining,
+    # Placement uses its own per-attempt cap (already in seconds_remaining).
+    hard_cap = (
+        speaking_quota.max_session_seconds() if is_placement_call
+        else int(getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900))
     )
+    max_session_seconds = min(hard_cap, seconds_remaining)
     return Response({
         "success": True,
         "client_secret": client_secret,
@@ -1009,6 +1055,16 @@ def voice_call_log(request):
         if err is not None:
             return err
 
+    # Is this the placement speaking call? If so it must NOT deduct AI-Tutor
+    # minutes and is logged under placement_speaking instead (Prompt 16.6F).
+    placement_attempt = None
+    if conv is not None:
+        from placement.models import PlacementAttempt
+        placement_attempt = PlacementAttempt.objects.filter(
+            user=request.user, voice_conversation_id=conv.pk,
+        ).first()
+    is_placement_call = placement_attempt is not None
+
     transcript = request.data.get("transcript") or []
     if not isinstance(transcript, list):
         transcript = []
@@ -1054,6 +1110,10 @@ def voice_call_log(request):
         )
         remaining_after = closed.remaining_after_seconds
         quota_source = closed.quota_source
+    elif is_placement_call:
+        # Placement call with no matching open session (race / old client):
+        # never deduct AI-Tutor minutes for it.
+        remaining_after, quota_source = quota_service.effective_ai_tutor_remaining(request.user)
     else:
         # No matching open session (race / old client). Still deduct so we
         # don't leak free minutes.
@@ -1063,6 +1123,97 @@ def voice_call_log(request):
             )
         else:
             remaining_after, quota_source = quota_service.effective_ai_tutor_remaining(request.user)
+
+    # Placement speaking: finalise the one-lifetime attempt and log it under
+    # placement_speaking (NOT ai_tutor) with minutes + a rough cost estimate
+    # (Prompt 16.6F). Zero answers → failed_start (attempt NOT used, retryable);
+    # >=1 answer → the attempt is used up.
+    if is_placement_call:
+        try:
+            from decimal import Decimal as _D
+            from django.conf import settings as _dj
+            from ai_usage import constants as _AC
+            from ai_usage.services import usage_logger as _ul
+            from placement.services import speaking_quota
+
+            user_turns = sum(
+                1 for t in transcript
+                if isinstance(t, dict) and t.get("role") == "user"
+            )
+            question_count = min(user_turns, 5)
+
+            speaking_row = speaking_quota.open_attempt(
+                request.user, conversation=conv, placement_attempt=placement_attempt,
+            )
+            speaking_row, ended_reason = speaking_quota.finalise_attempt(
+                speaking_row, seconds=seconds, question_count=question_count,
+                killed_by_quota=killed_by_quota,
+            )
+
+            minutes = (_D(seconds) / _D(60)).quantize(_D("0.01"))
+            rate = _D(str(getattr(_dj, "PLACEMENT_SPEAKING_EST_COST_PER_MIN_USD", "0.30")))
+            sess_pk = open_session.pk if open_session is not None else None
+            _ul.log_success(
+                user=request.user, role=_AC.ROLE_STUDENT,
+                feature=_AC.FEATURE_PLACEMENT_SPEAKING,
+                model_name=getattr(_dj, "AI_REALTIME_MODEL", ""),
+                request_id=(f"placement_speaking:{sess_pk}" if sess_pk else None),
+                session_id=(f"tutor_session:{sess_pk}" if sess_pk else ""),
+                ai_minutes_used=minutes,
+                estimated_cost_usd=(minutes * rate),
+                audio_input_seconds=seconds,
+                audio_output_seconds=seconds,
+                metadata={
+                    "is_placement_call": True,
+                    "placement_attempt_id": placement_attempt.id,
+                    "placement_speaking_attempt_id": speaking_row.id,
+                    "question_count_answered": question_count,
+                    "ended_reason": ended_reason,
+                    "is_used_attempt": speaking_row.is_used_attempt,
+                    "realtime_reconcile_required": True,
+                },
+            )
+        except Exception:
+            logger.warning("ai_usage placement_speaking end-log failed", exc_info=True)
+    else:
+        # Regular AI Tutor call: log the finished session under ai_tutor with
+        # the plan + daily-minutes snapshot AFTER deduction (Prompt 16.6F).
+        try:
+            from decimal import Decimal as _D
+            from django.conf import settings as _dj
+            from ai_usage import constants as _AC
+            from ai_usage.services import usage_logger as _ul
+            from subscriptions.services import quota_service as _qs
+            minutes = (_D(seconds) / _D(60)).quantize(_D("0.01"))
+            snap = _qs.quota_snapshot(request.user)
+            ai = snap["ai_tutor"]
+            allowed_minutes = ai["limit_seconds"] // 60
+            used_minutes_after = round(ai["used_seconds"] / 60, 2)
+            remaining_minutes_after = round(ai["remaining_seconds"] / 60, 2)
+            plan_name = snap.get("plan_code") or quota_source
+            sess_pk = open_session.pk if open_session is not None else None
+            _ul.log_success(
+                user=request.user, role=_AC.ROLE_STUDENT,
+                feature=_AC.FEATURE_AI_TUTOR,
+                model_name=getattr(_dj, "AI_REALTIME_MODEL", ""),
+                request_id=(f"ai_tutor_end:{sess_pk}" if sess_pk else None),
+                session_id=(f"tutor_session:{sess_pk}" if sess_pk else ""),
+                ai_minutes_used=minutes,
+                audio_input_seconds=seconds,
+                audio_output_seconds=seconds,
+                metadata={
+                    "event": "realtime_session_end",
+                    "ai_tutor_session_id": sess_pk,
+                    "plan_name": plan_name,
+                    "allowed_minutes": allowed_minutes,
+                    "used_minutes_after": used_minutes_after,
+                    "remaining_minutes_after": remaining_minutes_after,
+                    "quota_source": quota_source,
+                    "realtime_reconcile_required": True,
+                },
+            )
+        except Exception:
+            logger.warning("ai_usage ai_tutor end-log failed", exc_info=True)
 
     # Credit speaking-minutes for today's activity snapshot.
     if seconds > 0:

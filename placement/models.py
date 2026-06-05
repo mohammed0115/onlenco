@@ -287,3 +287,77 @@ class PlacementAttemptQuestion(models.Model):
 
     def __str__(self):
         return f"AttQ<{self.attempt_id}.{self.order}> {self.question.code}"
+
+
+class PlacementSpeakingAttempt(models.Model):
+    """One lifetime placement SPEAKING attempt per student (Prompt 16.6F).
+
+    The written part can be retaken, but the live speaking call is a
+    one-shot: a student gets exactly ONE *valid* attempt. A re-attempt is
+    only possible after an audited admin reset (``reset_by`` / ``reset_at``
+    / ``reset_reason`` are stamped on the blocking row; nothing is deleted).
+
+    ``is_used_attempt`` is the gate: a row only "uses up" the lifetime
+    attempt when the student actually answered at least one question. A
+    connection that dropped before any answer is ``failed_start`` and does
+    NOT consume the attempt, so the student can simply try again.
+    """
+
+    STATUS_STARTED = "started"
+    STATUS_COMPLETED = "completed"
+    STATUS_FAILED_START = "failed_start"
+    STATUS_INSUFFICIENT = "insufficient_answers"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_STARTED, _("Started")),
+        (STATUS_COMPLETED, _("Completed")),
+        (STATUS_FAILED_START, _("Failed start — no answers")),
+        (STATUS_INSUFFICIENT, _("Insufficient answers")),
+        (STATUS_CANCELLED, _("Cancelled")),
+    ]
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="placement_speaking_attempts",
+        verbose_name=_("Student"),
+    )
+    placement_attempt = models.ForeignKey(
+        PlacementAttempt, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="speaking_attempts",
+    )
+    conversation = models.ForeignKey(
+        "tutor.TutorConversation", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="placement_speaking_attempts",
+    )
+    status = models.CharField(
+        max_length=24, choices=STATUS_CHOICES, default=STATUS_STARTED,
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    question_count_answered = models.PositiveSmallIntegerField(default=0)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    # The gate: True once the student has answered >= 1 question. Only a
+    # used attempt blocks future attempts (until an admin reset).
+    is_used_attempt = models.BooleanField(default=False, db_index=True)
+    # Admin reset audit — set when an admin reopens the test. The presence
+    # of ``reset_at`` clears this row from the blocking set.
+    reset_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="placement_speaking_resets",
+    )
+    reset_at = models.DateTimeField(null=True, blank=True)
+    reset_reason = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        verbose_name = _("Placement speaking attempt")
+        verbose_name_plural = _("Placement speaking attempts")
+        indexes = [
+            models.Index(fields=["student", "-started_at"]),
+            models.Index(fields=["student", "is_used_attempt", "reset_at"]),
+        ]
+
+    def __str__(self):
+        return (f"SpeakingAttempt<{self.id}> user={self.student_id} "
+                f"{self.status} used={self.is_used_attempt}")

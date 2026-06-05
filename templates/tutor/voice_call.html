@@ -20,11 +20,18 @@
                     <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
                     <span>{% t_either "Back to chat" "العودة للمحادثة" %}</span>
                 </a>
+                {% if placement_back_path %}
+                <div class="onlenco-call-minutes" id="minutesPill" title="{% t_either 'The placement test does not use your AI Tutor minutes.' 'اختبار تحديد المستوى لا يستهلك رصيد دقائق المعلّم الذكي.' %}">
+                    <i data-lucide="gift" class="h-3.5 w-3.5"></i>
+                    <span class="onlenco-min-suffix">{% t_either "Free — placement test" "مجاني — اختبار تحديد المستوى" %}</span>
+                </div>
+                {% else %}
                 <div class="onlenco-call-minutes" id="minutesPill">
                     <i data-lucide="clock" class="h-3.5 w-3.5"></i>
                     <span>{{ minutes_remaining }}</span>
                     <span class="onlenco-min-suffix">{% t_either "min left today" "دقيقة متبقية اليوم" %}</span>
                 </div>
+                {% endif %}
             </div>
 
             <div class="onlenco-call-orb-wrap">
@@ -111,7 +118,7 @@
     </main>
 </div>
 
-<script src="{% static 'js/ai_tutor_realtime.js' %}?v=p166g-placement-result-20260604"></script>
+<script src="{% static 'js/ai_tutor_realtime.js' %}?v=p166f-call-separation-20260605"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     if (!window.onlencoCall) return;

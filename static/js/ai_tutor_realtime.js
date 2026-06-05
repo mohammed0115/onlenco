@@ -180,6 +180,9 @@
         const err = new Error(body && body.error || 'http ' + r.status);
         err.code = (body && body.error) || r.status;
         err.status = r.status;
+        // Server may include a human-readable, already-localised message
+        // (e.g. placement safety-quota limits) — surface it verbatim.
+        err.detail = body && body.message ? String(body.message) : '';
         throw err;
       }
       return r.json();
@@ -201,7 +204,12 @@
     } catch (e) {
       console.error('[onlenco-call] session request failed:', e);
       const code = e && e.code;
-      if (code === 'limit_reached')        showError(t('limit_reached'));
+      const placementCodes = [
+        'placement_disabled', 'placement_max_attempts',
+        'placement_max_minutes', 'placement_cooldown',
+      ];
+      if (placementCodes.indexOf(code) !== -1) showError((e && e.detail) || t('limit_reached'));
+      else if (code === 'limit_reached')        showError((e && e.detail) || t('limit_reached'));
       else if (code === 'subscription_required') showError(t('ai_unavailable'));
       else if (code === 'ai_unavailable')  showError(t('ai_unavailable'));
       else if (code === 'concurrent_session') {

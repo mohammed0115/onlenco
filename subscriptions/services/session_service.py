@@ -150,9 +150,17 @@ def end_session(session_id: int, *, actual_seconds: int, killed_by_quota: bool =
         # Idempotent: end_session called twice (network retry) → noop.
         return session
     seconds = max(0, int(actual_seconds or 0))
-    remaining, charged_source = quota_service.deduct_session_seconds(
-        session.user, seconds, source_hint=session.quota_source,
-    )
+    if session.source == "placement_voice":
+        # Placement speaking is onboarding and has its OWN quota — it must
+        # NEVER deduct from the daily AI-Tutor minute allowance (Prompt
+        # 16.6F). We still record the elapsed seconds for analytics, but
+        # leave subscription / trial buckets untouched.
+        remaining, _src = quota_service.effective_ai_tutor_remaining(session.user)
+        charged_source = "none"
+    else:
+        remaining, charged_source = quota_service.deduct_session_seconds(
+            session.user, seconds, source_hint=session.quota_source,
+        )
     session.ended_at = timezone.now()
     session.duration_seconds = seconds
     session.consumed_seconds = seconds

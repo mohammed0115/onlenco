@@ -198,6 +198,8 @@ class AITutorSession(models.Model):
     SOURCE_CHOICES = [
         ("voice_call", _("Voice call")),
         ("chat", _("Text chat")),
+        # Placement speaking test — free of the AI-Tutor minute allowance.
+        ("placement_voice", _("Placement speaking")),
     ]
     STATUS_CHOICES = [
         ("in_progress", _("In progress")),

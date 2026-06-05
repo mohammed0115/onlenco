@@ -502,16 +502,20 @@ def generate_image(prompt, *, size="1024x1024", n=1, context=None,
 # Realtime (voice tutor) — usage is server-invisible; we log the session event
 # ---------------------------------------------------------------------------
 
-def log_realtime_session_start(*, context=None, **ctx_kwargs):
-    """Record that a realtime AI-Tutor session was authorised.
+def log_realtime_session_start(*, context=None, feature=None, **ctx_kwargs):
+    """Record that a realtime voice session was authorised.
 
     The realtime API bills browser↔OpenAI, so no tokens/cost are known here.
     Minutes are charged later via ``limit_service.finalize_ai_tutor_minutes``.
     This row marks the session start for the dashboard's request count.
+
+    ``feature`` defaults to AI Tutor but the placement speaking test passes
+    ``FEATURE_PLACEMENT_SPEAKING`` so its usage is never attributed to — or
+    counted against — the AI-Tutor minute allowance (Prompt 16.6F).
     """
     ctx = _coerce_context(context, ctx_kwargs)
     ctx.model = ctx.model or getattr(settings, "AI_REALTIME_MODEL", "gpt-realtime")
-    ctx.feature = C.FEATURE_AI_TUTOR
+    ctx.feature = feature or C.FEATURE_AI_TUTOR
     if not _tracking_enabled():
         return None
     md = dict(ctx.metadata or {})

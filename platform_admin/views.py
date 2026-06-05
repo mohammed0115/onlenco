@@ -187,6 +187,23 @@ def student_action(request, pk, action):
             return HttpResponseForbidden("Forbidden")
         student_management_service.reset_placement(request, student)
         messages.success(request, "Placement reset.")
+    elif action == "reset-placement-speaking":
+        # Audited reopen of the one-lifetime speaking test (Prompt 16.6F).
+        # Requires a reason; nothing is deleted — the blocking row is just
+        # stamped reset_by / reset_at / reset_reason.
+        if not perms.can_mutate(request.user, perms.CAP_STUDENTS_MANAGE):
+            return HttpResponseForbidden("Forbidden")
+        from placement.services import speaking_quota
+        reason = (request.POST.get("reset_reason") or "").strip()
+        try:
+            row = speaking_quota.reset_for(student, actor=request.user, reason=reason)
+        except speaking_quota.ResetError as exc:
+            messages.error(request, str(exc))
+        else:
+            if row is None:
+                messages.info(request, "No used speaking attempt to reset.")
+            else:
+                messages.success(request, "Speaking placement test reopened for this student.")
     elif action == "mark-risk":
         if not (
             perms.can_mutate(request.user, perms.CAP_STUDENTS_MANAGE)

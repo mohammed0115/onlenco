@@ -297,6 +297,28 @@ AI_REALTIME_DAILY_MINUTE_CAP = int(env_get("AI_REALTIME_DAILY_MINUTE_CAP", "30")
 # auto-ends when reached.
 AI_REALTIME_MAX_SESSION_SECONDS = int(env_get("AI_REALTIME_MAX_SESSION_SECONDS", "300") or 300)
 
+# --- Placement speaking (level test, Prompt 16.6F) ----------------------
+# The placement SPEAKING test is part of onboarding: a brand-new student
+# takes it before any subscription exists. Policy:
+#   * It NEVER consumes the daily AI-Tutor minute allowance, and is never
+#     blocked when those minutes are exhausted.
+#   * Each student gets exactly ONE valid attempt (ONE_ATTEMPT_ONLY). A
+#     re-attempt is only possible after an audited admin reset.
+#   * One attempt is capped at MAX_MINUTES_PER_ATTEMPT minutes.
+#   * Usage is still fully logged in ai_usage under
+#     feature="placement_speaking" (never "ai_tutor").
+PLACEMENT_SPEAKING_ENABLED = env_bool("PLACEMENT_SPEAKING_ENABLED", True)
+PLACEMENT_SPEAKING_ONE_ATTEMPT_ONLY = env_bool("PLACEMENT_SPEAKING_ONE_ATTEMPT_ONLY", True)
+PLACEMENT_SPEAKING_MAX_MINUTES_PER_ATTEMPT = int(
+    env_get("PLACEMENT_SPEAKING_MAX_MINUTES_PER_ATTEMPT", "7") or 7
+)
+PLACEMENT_SPEAKING_ALLOW_ADMIN_RESET = env_bool("PLACEMENT_SPEAKING_ALLOW_ADMIN_RESET", True)
+# Rough per-minute realtime cost (USD) used ONLY for the ai_usage estimate;
+# real billing is reconciled monthly against the provider invoice.
+PLACEMENT_SPEAKING_EST_COST_PER_MIN_USD = env_get(
+    "PLACEMENT_SPEAKING_EST_COST_PER_MIN_USD", "0.30"
+)
+
 # --- ai_engine local providers -----------------------------------------
 # Set AI_LOCAL_CLASSIFIER_ENABLED=1 in env to let the router try local
 # classifiers before falling through to LLMs. Per-task model paths are

@@ -279,7 +279,21 @@ def placement_voice_handoff(request, attempt_id: int):
     detail page.
     """
     from tutor.models import TutorConversation
+    from placement.services import speaking_quota
     attempt = _user_attempt(request, attempt_id)
+
+    # One lifetime speaking attempt (Prompt 16.6F): if the student has
+    # already used theirs (and no admin reset has reopened it), show a
+    # friendly locked page instead of starting another call.
+    allowed, code, message = speaking_quota.check_can_start(request.user)
+    if not allowed:
+        lang = getattr(request, "LANGUAGE_CODE", "en") or "en"
+        text = (message or {}).get("ar" if str(lang).startswith("ar") else "en") \
+            or (message or {}).get("en", "")
+        return render(request, "placement/speaking_locked.html", {
+            "message": text, "code": code, "attempt": attempt,
+        }, status=403)
+
     conv = attempt.voice_conversation
     if conv is None:
         conv = TutorConversation.objects.create(
