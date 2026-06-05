@@ -3,68 +3,99 @@
 
 {% block title %}{% t_either "Placement Test — Step 1 of 2" "اختبار تحديد المستوى — الخطوة 1 من 2" %} — Onlenco{% endblock %}
 
+{% block extra_head %}
+<style>
+  .pl-wrap { max-width: 720px; }
+  /* Stepper rail */
+  .pl-stepper { display: flex; align-items: center; justify-content: center; gap: 0; list-style: none; padding: 0; margin: 0 0 .25rem; }
+  .pl-dot { display: flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; flex: 0 0 auto; border-radius: 9999px; font-weight: 700; font-size: .85rem; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); border: 2px solid transparent; transition: all .2s ease; }
+  .pl-dot .pl-check { display: none; }
+  .pl-dot-line { flex: 1 1 auto; height: 2px; background: hsl(var(--muted)); margin: 0 .35rem; min-width: 12px; transition: background .2s ease; }
+  .pl-dot.is-active { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); transform: scale(1.08); }
+  .pl-dot.is-done { background: hsl(var(--primary) / .15); color: hsl(var(--primary)); border-color: hsl(var(--primary) / .4); }
+  .pl-dot.is-done .pl-num { display: none; }
+  .pl-dot.is-done .pl-check { display: inline; }
+  .pl-dot-line.is-done { background: hsl(var(--primary)); }
+  /* Progress bar */
+  .pl-progress { height: .5rem; background: hsl(var(--muted)); border-radius: 9999px; overflow: hidden; }
+  .pl-progress-fill { height: 100%; width: 0; background: hsl(var(--primary)); border-radius: 9999px; transition: width .3s ease; }
+  /* Steps */
+  .pl-step[hidden] { display: none; }
+  .pl-nav { display: flex; align-items: center; gap: .75rem; }
+  .pl-nav-spacer { flex: 1 1 auto; }
+  .pl-counter { font-size: .85rem; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+  @media (max-width: 480px) { .pl-dot { width: 1.7rem; height: 1.7rem; font-size: .75rem; } }
+</style>
+{% endblock %}
+
 {% block body %}
 <div class="min-h-screen bg-muted/20">
   {% include "_app_header.html" %}
 
-  <main class="container py-10 max-w-3xl mx-auto">
-    <div class="mb-6">
+  <main class="container py-10 pl-wrap mx-auto">
+    <div class="mb-6 text-center">
       <div class="text-xs uppercase tracking-widest text-muted-foreground mb-1">
-        {% t_either "Step 1 of 2" "الخطوة 1 من 2" %}
+        {% t_either "Step 1 of 2 — Written" "الخطوة 1 من 2 — الكتابة" %}
       </div>
       <h1 class="font-display text-3xl font-bold">
         {% t_either "Written Test" "الاختبار الكتابي" %}
       </h1>
       <p class="text-muted-foreground mt-2">
-        {% t_either "Answer the 5 questions below in English. Your answers help us pick the right level for you." "أجب عن الأسئلة الخمسة بالإنجليزية. إجاباتك تساعدنا في اختيار المستوى المناسب لك." %}
+        {% t_either "Answer one question at a time. Use Next to continue." "أجب عن سؤال واحد في كل خطوة. استخدم «التالي» للمتابعة." %}
       </p>
-      <div class="h-2 mt-4 bg-muted rounded-full overflow-hidden">
-        <div class="h-full bg-primary" style="width: 50%"></div>
-      </div>
     </div>
 
-    <form method="post" action="" class="card p-6 md:p-8 space-y-6" id="written-form">
+    <ol class="pl-stepper" id="pl-stepper">
+      {% for aq in questions %}
+      <li class="pl-dot" data-dot="{{ forloop.counter0 }}"><span class="pl-num">{{ forloop.counter }}</span><i data-lucide="check" class="pl-check h-4 w-4"></i></li>
+      {% if not forloop.last %}<li class="pl-dot-line" data-line="{{ forloop.counter0 }}" aria-hidden="true"></li>{% endif %}
+      {% endfor %}
+    </ol>
+    <div class="pl-progress mb-6"><div class="pl-progress-fill" id="pl-progress-fill"></div></div>
+
+    <form method="post" action="" class="card p-6 md:p-8" id="written-form">
       {% csrf_token %}
       {% for aq in questions %}
-        <div class="border border-border rounded-xl p-5 bg-white">
-          <div class="flex items-start gap-3 mb-3">
-            <span class="badge badge-outline">{{ forloop.counter }}/{{ questions|length }}</span>
-            <p class="font-semibold flex-1" dir="ltr">{{ aq.question.question_text }}</p>
+      <div class="pl-step" data-step="{{ forloop.counter0 }}" {% if not forloop.first %}hidden{% endif %}>
+        <div class="flex items-start gap-3 mb-4">
+          <span class="badge badge-outline">{{ forloop.counter }} / {{ questions|length }}</span>
+          <p class="font-semibold flex-1 text-lg" dir="ltr">{{ aq.question.question_text }}</p>
+        </div>
+
+        {% if aq.question.expected_answer_type == "mcq" %}
+          <div class="space-y-2">
+            {% for opt in aq.question.options %}
+            {% with otext=opt.text|default:opt %}
+            <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/40 cursor-pointer">
+              <input type="radio" name="q_{{ aq.id }}" value="{{ otext }}" {% if aq.user_answer_text == otext %}checked{% endif %} required>
+              <span dir="ltr">{{ otext }}</span>
+            </label>
+            {% endwith %}
+            {% endfor %}
           </div>
 
-          {% if aq.question.expected_answer_type == "mcq" %}
-            <div class="space-y-2">
-              {% for opt in aq.question.options %}
-                {% with otext=opt.text|default:opt %}
-                <label class="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/40 cursor-pointer">
-                  <input type="radio" name="q_{{ aq.id }}" value="{{ otext }}"
-                         {% if aq.user_answer_text == otext %}checked{% endif %} required>
-                  <span dir="ltr">{{ otext }}</span>
-                </label>
-                {% endwith %}
-              {% endfor %}
-            </div>
+        {% elif aq.question.expected_answer_type == "paragraph" %}
+          <textarea name="q_{{ aq.id }}" rows="6" maxlength="1500" minlength="20" dir="ltr" required class="textarea w-full" placeholder="{% t_either 'Write 4-6 sentences in English…' 'اكتب 4-6 جمل بالإنجليزية…' %}">{{ aq.user_answer_text }}</textarea>
 
-          {% elif aq.question.expected_answer_type == "paragraph" %}
-            <textarea name="q_{{ aq.id }}" rows="6" maxlength="1500" minlength="20"
-                      dir="ltr" required
-                      class="textarea w-full"
-                      placeholder="{% t_either 'Write 4-6 sentences in English…' 'اكتب 4-6 جمل بالإنجليزية…' %}">{{ aq.user_answer_text }}</textarea>
-
-          {% else %}
-            <textarea name="q_{{ aq.id }}" rows="3" maxlength="800" minlength="5"
-                      dir="ltr" required
-                      class="textarea w-full"
-                      placeholder="{% t_either 'Type your answer in English…' 'اكتب إجابتك بالإنجليزية…' %}">{{ aq.user_answer_text }}</textarea>
-          {% endif %}
-        </div>
+        {% else %}
+          <textarea name="q_{{ aq.id }}" rows="3" maxlength="800" minlength="5" dir="ltr" required class="textarea w-full" placeholder="{% t_either 'Type your answer in English…' 'اكتب إجابتك بالإنجليزية…' %}">{{ aq.user_answer_text }}</textarea>
+        {% endif %}
+      </div>
       {% endfor %}
 
-      <div class="flex items-center justify-between gap-3 pt-2">
-        <a href="{% url 'dashboard' %}" class="btn btn-ghost">
-          {% t_either "Cancel" "إلغاء" %}
-        </a>
-        <button type="submit" class="btn btn-hero btn-lg">
+      <div class="pl-nav pt-6 mt-2 border-t border-border">
+        <a href="{% url 'dashboard' %}" class="btn btn-ghost" id="pl-cancel">{% t_either "Cancel" "إلغاء" %}</a>
+        <button type="button" class="btn btn-ghost" id="pl-prev" hidden>
+          <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+          {% t_either "Previous" "السابق" %}
+        </button>
+        <div class="pl-nav-spacer"></div>
+        <span class="pl-counter" id="pl-counter"></span>
+        <button type="button" class="btn btn-hero" id="pl-next">
+          {% t_either "Next" "التالي" %}
+          <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
+        </button>
+        <button type="submit" class="btn btn-hero btn-lg" id="pl-submit" hidden>
           {% t_either "Continue to speaking" "تابع إلى التحدث" %}
           <i data-lucide="arrow-right" class="h-4 w-4 rtl-flip"></i>
         </button>
@@ -72,4 +103,75 @@
     </form>
   </main>
 </div>
+
+<script>
+  (function () {
+    var form = document.getElementById('written-form');
+    if (!form) return;
+    var steps = Array.prototype.slice.call(form.querySelectorAll('.pl-step'));
+    var total = steps.length;
+    if (!total) return;
+    var dots = Array.prototype.slice.call(document.querySelectorAll('#pl-stepper .pl-dot'));
+    var lines = Array.prototype.slice.call(document.querySelectorAll('#pl-stepper .pl-dot-line'));
+    var fill = document.getElementById('pl-progress-fill');
+    var prevBtn = document.getElementById('pl-prev');
+    var nextBtn = document.getElementById('pl-next');
+    var submitBtn = document.getElementById('pl-submit');
+    var cancelBtn = document.getElementById('pl-cancel');
+    var counter = document.getElementById('pl-counter');
+    var current = 0;
+
+    function fieldsIn(i) {
+      return Array.prototype.slice.call(steps[i].querySelectorAll('input, textarea'));
+    }
+
+    function stepValid(i) {
+      var f = fieldsIn(i);
+      for (var k = 0; k < f.length; k++) {
+        if (!f[k].checkValidity()) { f[k].reportValidity(); return false; }
+      }
+      return true;
+    }
+
+    function render() {
+      for (var i = 0; i < total; i++) { steps[i].hidden = (i !== current); }
+      dots.forEach(function (d, i) {
+        d.classList.toggle('is-active', i === current);
+        d.classList.toggle('is-done', i < current);
+      });
+      lines.forEach(function (l, i) { l.classList.toggle('is-done', i < current); });
+      if (fill) fill.style.width = (((current + 1) / total) * 100) + '%';
+      var last = current === total - 1;
+      prevBtn.hidden = current === 0;
+      cancelBtn.hidden = current !== 0;
+      nextBtn.hidden = last;
+      submitBtn.hidden = !last;
+      counter.textContent = (current + 1) + ' / ' + total;
+      if (window.lucide) window.lucide.createIcons();
+      var firstField = fieldsIn(current)[0];
+      if (firstField && firstField.type !== 'radio') { try { firstField.focus(); } catch (e) {} }
+    }
+
+    nextBtn.addEventListener('click', function () {
+      if (stepValid(current) && current < total - 1) { current++; render(); }
+    });
+    prevBtn.addEventListener('click', function () {
+      if (current > 0) { current--; render(); }
+    });
+    // Enter key / implicit submit: advance instead of submitting early.
+    form.addEventListener('submit', function (e) {
+      if (current < total - 1) {
+        e.preventDefault();
+        if (stepValid(current)) { current++; render(); }
+        return;
+      }
+      // Final step: make sure every step is answered before leaving.
+      for (var i = 0; i < total; i++) {
+        if (!stepValid(i)) { e.preventDefault(); current = i; render(); return; }
+      }
+    });
+
+    render();
+  })();
+</script>
 {% endblock %}
