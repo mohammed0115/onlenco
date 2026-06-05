@@ -60,6 +60,42 @@ class SeedPlacementTests(TestCase):
         self.assertFalse(answer_key.is_answer_correct("go", options=opts, expected_type="mcq"))
 
 
+class CuratedExactSelectionTests(TestCase):
+    """With only the curated 5+5 active, the attempt must serve EXACTLY
+    those questions, in their code order — not a shuffled / backfilled
+    subset (the bug: 'the selected questions don't appear as they are')."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        call_command("seed_placement_questions", stdout=StringIO())
+        self.user = get_user_model().objects.create_user("ex@x.com", "ex@x.com", "pw12345!")
+
+    def _codes(self, attempt, section):
+        return list(
+            attempt.questions.filter(section=section).order_by("order")
+            .values_list("question__code", flat=True)
+        )
+
+    def test_attempt_serves_exactly_curated_in_order(self):
+        from placement.services.placement_question_selector import create_placement_attempt
+        attempt = create_placement_attempt(self.user)
+        self.assertEqual(
+            self._codes(attempt, "written"),
+            ["wr.v2.001", "wr.v2.002", "wr.v2.003", "wr.v2.004", "wr.v2.005"],
+        )
+        self.assertEqual(
+            self._codes(attempt, "speaking"),
+            ["sp.v2.001", "sp.v2.002", "sp.v2.003", "sp.v2.004", "sp.v2.005"],
+        )
+
+    def test_selection_is_stable_across_attempts(self):
+        from placement.services.placement_question_selector import create_placement_attempt
+        a1 = create_placement_attempt(self.user)
+        a2 = create_placement_attempt(self.user)
+        self.assertEqual(self._codes(a1, "written"), self._codes(a2, "written"))
+        self.assertEqual(self._codes(a1, "speaking"), self._codes(a2, "speaking"))
+
+
 class WrittenPageRenderTests(TestCase):
     """The written test page must show option TEXT only — never the raw dict
     or the is_correct answer key (which would tell the student the answer)."""

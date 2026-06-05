@@ -219,6 +219,30 @@ def _backfill(selected: list[PlacementQuestion], target: int,
     return selected
 
 
+def _serve_exact_if_small(section: str, count: int,
+                          difficulty_ceiling: float | None,
+                          ) -> list[PlacementQuestion] | None:
+    """When the ACTIVE bank for ``section`` is small (<= count), serve it
+    EXACTLY — every active question, in its defined ``code`` order.
+
+    This is the curated-bank case (e.g. the 5 written + 5 speaking v2
+    questions). The stratified-random selector below is for large banks;
+    on a small fixed bank it would shuffle the order and drop questions
+    whose topic doesn't match a distribution bucket, so the admin would
+    NOT see "exactly the questions I activated". Returning here guarantees
+    they do. ``None`` means "bank is large, fall through to sampling".
+    """
+    qs = PlacementQuestion.objects.filter(
+        question_type=section, is_active=True,
+    ).order_by("code")
+    if difficulty_ceiling is not None:
+        qs = qs.filter(difficulty_score__lte=difficulty_ceiling)
+    pool = list(qs)
+    if len(pool) <= count:
+        return pool[:count]
+    return None
+
+
 def select_written_questions(user, count: int = 5,
                              rng: random.Random | None = None,
                              *, difficulty_ceiling: float | None = None,
@@ -227,6 +251,9 @@ def select_written_questions(user, count: int = 5,
     seen = _previously_seen_question_ids(user)
     if difficulty_ceiling is None:
         difficulty_ceiling = _difficulty_ceiling_for_user(user)
+    exact = _serve_exact_if_small("written", count, difficulty_ceiling)
+    if exact is not None:
+        return exact
     buckets = [
         _bucket_pool("written", topic, seen,
                      difficulty_ceiling=difficulty_ceiling)
@@ -247,6 +274,9 @@ def select_speaking_questions(user, count: int = 5,
     seen = _previously_seen_question_ids(user)
     if difficulty_ceiling is None:
         difficulty_ceiling = _difficulty_ceiling_for_user(user)
+    exact = _serve_exact_if_small("speaking", count, difficulty_ceiling)
+    if exact is not None:
+        return exact
     buckets = [
         _bucket_pool("speaking", topic, seen,
                      difficulty_ceiling=difficulty_ceiling)
