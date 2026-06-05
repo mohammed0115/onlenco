@@ -88,8 +88,13 @@
                     {% if lang == "ar" %}اضغط لبدء المكالمة مع {{ tutor_name_ar }}{% else %}Tap to call {{ tutor_name_en }}{% endif %}
                 </h1>
                 <p class="onlenco-call-sub" id="callSub">
-                    {% t_either "Your teacher will greet you and start a real English conversation." "سيرحّب بك معلمك ويبدأ محادثة إنجليزية حقيقية." %}
+                    {% if placement_back_path %}{% t_either "Your teacher asks each question. Listen, then answer." "معلمك يطرح كل سؤال. استمع ثم أجب." %}{% else %}{% t_either "Your teacher will greet you and start a real English conversation." "سيرحّب بك معلمك ويبدأ محادثة إنجليزية حقيقية." %}{% endif %}
                 </p>
+                {% if placement_back_path %}
+                <p class="onlenco-call-sub text-sm text-muted-foreground" id="callHelper" dir="auto">
+                    {% t_either "Listen to the question, then answer with one word or a short sentence." "استمع إلى السؤال ثم أجب بصوتك بكلمة أو جملة قصيرة." %}
+                </p>
+                {% endif %}
                 <div class="onlenco-call-timer" id="callTimer" hidden>00:00</div>
             </div>
 

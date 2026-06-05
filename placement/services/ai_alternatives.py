@@ -23,13 +23,17 @@ logger = logging.getLogger(__name__)
 
 # Built-in suggestions for the official starter questions (Phase 11) — keyed
 # by question ``code`` so no AI call is ever made for the fixed bank.
+#
+# These are sentence FRAMES with a blank ("…"), not fixed names/countries
+# (no "John" / "Egypt"), so the student learns the structure and fills in
+# their own answer instead of being confused into copying a fixed value.
 STARTER_ALTERNATIVES = {
-    "sp.v2.001": ["My name is John.", "I'm John.", "John."],
-    "sp.v2.002": ["I'm 25.", "I am 25 years old.", "25."],
-    "sp.v2.003": ["I come from Egypt.", "I'm originally from Egypt.", "Egypt."],
-    "sp.v2.004": ["I work as a teacher.", "I'm a student.", "I teach."],
-    "sp.v2.005": ["Because I need it for my job.", "For my career.",
-                  "To travel and meet new people."],
+    "sp.v2.001": ["My name is … .", "I'm … .", "… (your name)."],
+    "sp.v2.002": ["I'm … years old.", "I am … .", "… years old."],
+    "sp.v2.003": ["I'm from … .", "I come from … .", "I'm originally from … ."],
+    "sp.v2.004": ["I'm a … .", "I work as a … .", "I'm a student."],
+    "sp.v2.005": ["Because I need it for my job.", "To get a better job.",
+                  "To study and travel."],
 }
 
 _PROMPT = (

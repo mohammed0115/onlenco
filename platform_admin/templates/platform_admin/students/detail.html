@@ -233,6 +233,14 @@
         {% csrf_token %}
         <button class="btn-control btn-warning ta-btn" type="submit"><i data-lucide="rotate-ccw" class="h-4 w-4"></i> {% if lang == "ar" %}إعادة تحديد المستوى{% else %}Reset placement{% endif %}</button>
       </form>
+      <form class="ta-assign-form" method="post" action="{% url 'platform_admin:student_action' student.pk 'finalise-placement' %}" onsubmit="return (this.reason.value || '').trim() !== '' || (alert('{% if lang == "ar" %}يرجى كتابة السبب{% else %}Please enter a reason{% endif %}'), false);">
+        {% csrf_token %}
+        <select name="level" required>
+          <option value="A0">A0</option><option value="A1">A1</option><option value="A2">A2</option><option value="B1">B1</option><option value="B2">B2</option><option value="C1">C1</option><option value="C2">C2</option>
+        </select>
+        <input type="text" name="reason" placeholder="{% if lang == "ar" %}سبب الاعتماد الإداري للمستوى (إلزامي){% else %}Reason for admin override (required){% endif %}" maxlength="2000">
+        <button class="btn-control btn-warning ta-btn" type="submit"><i data-lucide="check-check" class="h-4 w-4"></i> {% if lang == "ar" %}اعتماد نتيجة التحديد يدويًا{% else %}Finalise placement (override){% endif %}</button>
+      </form>
       <form class="ta-assign-form" method="post" action="{% url 'platform_admin:student_action' student.pk 'reset-placement-speaking' %}" onsubmit="return (this.reset_reason.value || '').trim() !== '' || (alert('{% if lang == "ar" %}يرجى كتابة سبب إعادة الفتح{% else %}Please enter a reason{% endif %}'), false);">
         {% csrf_token %}
         <input type="text" name="reset_reason" placeholder="{% if lang == "ar" %}سبب إعادة فتح اختبار التحدث (إلزامي){% else %}Reason to reopen speaking test (required){% endif %}" maxlength="2000">

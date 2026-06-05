@@ -187,6 +187,22 @@ def student_action(request, pk, action):
             return HttpResponseForbidden("Forbidden")
         student_management_service.reset_placement(request, student)
         messages.success(request, "Placement reset.")
+    elif action == "finalise-placement":
+        # Audited admin override of the strict speaking gate: explicitly
+        # assign a final level + course when the student can't complete the
+        # speaking call (requires a reason). Never automatic.
+        if not perms.can_mutate(request.user, perms.CAP_STUDENTS_MANAGE):
+            return HttpResponseForbidden("Forbidden")
+        from placement.services import admin_override
+        reason = (request.POST.get("reason") or "").strip()
+        level = (request.POST.get("level") or "").strip()
+        try:
+            admin_override.admin_finalise_placement(
+                student=student, actor=request.user, reason=reason, level=level)
+        except admin_override.OverrideError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, f"Placement finalised at {level.upper()} (admin override).")
     elif action == "reset-placement-speaking":
         # Audited reopen of the one-lifetime speaking test (Prompt 16.6F).
         # Requires a reason; nothing is deleted — the blocking row is just

@@ -14,6 +14,18 @@ DEFAULT_BANDS = [
     (88, "B2"), (95, "C1"), (100, "C2"),
 ]
 
+LEVEL_ORDER = ["A0", "A1", "A2", "B1", "B2", "C1", "C2"]
+
+
+def cap_level(level: str, ceiling: str) -> str:
+    """Return ``level`` lowered to ``ceiling`` if it sits above it."""
+    try:
+        li = LEVEL_ORDER.index(level)
+        ci = LEVEL_ORDER.index(ceiling)
+    except ValueError:
+        return level
+    return level if li <= ci else ceiling
+
 
 def level_bands() -> list[tuple[int, str]]:
     bands = getattr(settings, "PLACEMENT_LEVEL_MAP", None) or DEFAULT_BANDS

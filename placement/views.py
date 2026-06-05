@@ -468,6 +468,130 @@ def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
         aq.save(update_fields=["transcript", "score"])
 
 
+def _speaking_retry_message(request, answered: int) -> str:
+    """Bilingual friendly message for the strict speaking gate."""
+    lang = getattr(request, "LANGUAGE_CODE", "en") or "en"
+    ar = (
+        "يرجى إكمال جزء التحدث قبل عرض النتيجة النهائية."
+        if answered == 0 else
+        "لم نتمكن من سماع إجابتك بوضوح. حاول مرة أخرى."
+    )
+    en = (
+        "Please complete the speaking section before viewing your final result."
+        if answered == 0 else
+        "We could not hear your answer clearly. Please try again."
+    )
+    return ar if str(lang).startswith("ar") else en
+
+
+def _speaking_system_error_message(request) -> str:
+    lang = getattr(request, "LANGUAGE_CODE", "en") or "en"
+    if str(lang).startswith("ar"):
+        return "حدث خطأ تقني أثناء تقييم إجابتك. لم نخصم أي رصيد. يرجى المحاولة مرة أخرى."
+    return ("A technical problem occurred while scoring your answer. "
+            "Nothing was charged. Please try again.")
+
+
+def _clear_partial_call(conv):
+    """Wipe a partial placement call so the retry starts fresh."""
+    if conv is None:
+        return
+    try:
+        from tutor.models import TutorMessage, VoiceCallEvaluation
+        TutorMessage.objects.filter(conversation=conv).delete()
+        VoiceCallEvaluation.objects.filter(conversation=conv).delete()
+    except Exception:
+        pass
+
+
+def _mark_speaking_failed_system(request, attempt, conv) -> None:
+    """Technical failure path: never finalise, never consume minutes, retry."""
+    from placement.services import speaking_quota
+    if conv is not None:
+        speaking_quota.mark_failed_system(attempt, conv)
+        _clear_partial_call(conv)
+    attempt.questions.filter(section="speaking").update(transcript="", score=None)
+    attempt.status = "written_completed"
+    attempt.save(update_fields=["status"])
+
+
+def _finalise_speaking_unable(request, attempt, conv, answered: int):
+    """The student was asked the questions but couldn't answer after retries.
+
+    This is NOT a technical failure — it's evidence of very low speaking
+    ability. Finalise CONSERVATIVELY (speaking A0, overall capped) so a true
+    beginner is never blocked forever.
+    """
+    import logging
+    from django.conf import settings as _dj
+    from django.utils import timezone
+    from placement.services import speaking_quota
+    from placement.services.level_mapping import level_for_percentage, cap_level
+    log = logging.getLogger(__name__)
+
+    written = grade_written_section(attempt)
+    if written is None:
+        written = attempt.written_score or 0
+    unable_level = getattr(_dj, "PLACEMENT_SPEAKING_UNABLE_LEVEL", "A0")
+    cap = getattr(_dj, "PLACEMENT_FINAL_CAP_WHEN_UNABLE", "A1")
+    level = cap_level(level_for_percentage(written), cap)
+
+    attempt.speaking_score = 0
+    attempt.written_score = written
+    attempt.overall_score = int(round(written / 2))  # speaking counts as 0
+    attempt.recommended_cefr_level = level
+    attempt.feedback = (attempt.feedback or "")
+    attempt.status = "completed"
+    attempt.completed_at = timezone.now()
+    result = PlacementResult.objects.create(
+        user=attempt.user, level=level, written_score=written, speaking_score=0,
+        overall_score=attempt.overall_score,
+        feedback="Speaking: unable to answer after retries — conservative placement.",
+        transcript={"source": "voice_call", "speaking_status": "unable_to_answer_after_retries",
+                    "speaking_level": unable_level, "answered": answered},
+    )
+    attempt.result = result
+    attempt.save(update_fields=[
+        "speaking_score", "written_score", "overall_score",
+        "recommended_cefr_level", "feedback", "status", "completed_at", "result",
+    ])
+    if conv is not None:
+        speaking_quota.mark_unable(attempt, conv, answered)
+    # Profile + course (so the learner moves forward), best-effort.
+    try:
+        profile = attempt.user.profile
+        profile.cefr_level = level
+        if not profile.initial_cefr_level:
+            profile.initial_cefr_level = level
+        profile.placement_completed = True
+        profile.save(update_fields=["cefr_level", "initial_cefr_level", "placement_completed"])
+        from accounts.onboarding import complete_placement_onboarding
+        complete_placement_onboarding(profile, level=level)
+    except Exception:
+        log.warning("placement: unable-finalise profile/course failed", exc_info=True)
+    return redirect("placement_result", attempt_id=attempt.id)
+
+
+def _block_speaking_and_retry(request, attempt, conv, answered: int) -> None:
+    """Strict gate: do NOT finalise. Reset the speaking section for a clean
+    retry and mark the speaking attempt retryable (lifetime attempt kept)."""
+    from placement.services import speaking_quota
+    # Mark the speaking attempt needs_retry / failed_start (is_used=False).
+    if conv is not None:
+        speaking_quota.mark_needs_retry(attempt, conv, answered)
+        # Clear the partial call so the retry starts fresh (placement-only conv).
+        try:
+            from tutor.models import TutorMessage, VoiceCallEvaluation
+            TutorMessage.objects.filter(conversation=conv).delete()
+            VoiceCallEvaluation.objects.filter(conversation=conv).delete()
+        except Exception:
+            pass
+    # Wipe any partial transcripts/scores; keep the attempt at the speaking step.
+    attempt.questions.filter(section="speaking").update(transcript="", score=None)
+    attempt.status = "written_completed"
+    attempt.save(update_fields=["status"])
+
+
 @login_required
 def placement_voice_finalise(request, attempt_id: int):
     """Called from the voice-call screen after the student hangs up.
@@ -485,32 +609,59 @@ def placement_voice_finalise(request, attempt_id: int):
         VoiceCallEvaluation.objects.filter(conversation=conv).first()
         if conv is not None else None
     )
+    import logging
+    log = logging.getLogger(__name__)
+    from placement.services import completion
+
+    # Map whatever was captured so we can BOTH display it and judge whether the
+    # speaking section is complete enough to finalise.
+    map_speaking_transcript(attempt, conv, eval_obj)
+    answered = completion.count_speaking_answers(attempt)
+
+    # STRICT-BUT-SAFE GATE. Three distinct outcomes (the student never starts —
+    # the tutor asks every question; this only judges what came back):
+    if completion.require_speaking():
+        if eval_obj is None:
+            # (6) TECHNICAL failure (STT / provider / system). NOT the student's
+            # fault — never finalise, never consume minutes, always retryable.
+            _mark_speaking_failed_system(request, attempt, conv)
+            messages.warning(request, _speaking_system_error_message(request))
+            return redirect("placement_voice_handoff", attempt_id=attempt.id)
+
+        if answered < completion.min_answers():
+            # The system worked but the student answered too few. Decide between
+            # "give them another try" and "they genuinely can't answer".
+            questions_asked = completion.count_questions_asked(conv)
+            attempt.speaking_retry_count = (attempt.speaking_retry_count or 0) + 1
+            attempt.save(update_fields=["speaking_retry_count"])
+            exhausted = attempt.speaking_retry_count >= completion.max_retries()
+            tutor_asked_all = questions_asked >= completion.min_answers()
+            if tutor_asked_all or exhausted:
+                # (B) unable_to_answer_after_retries → conservative finalise so a
+                # true beginner is NEVER blocked forever.
+                return _finalise_speaking_unable(request, attempt, conv, answered)
+            # Otherwise let them try again.
+            _block_speaking_and_retry(request, attempt, conv, answered)
+            messages.warning(request, _speaking_retry_message(request, answered))
+            return redirect("placement_voice_handoff", attempt_id=attempt.id)
+
     if eval_obj is None:
-        # The call ended too short to produce a transcript. Fall back to
-        # the deterministic rule-based scorer so the student still gets
-        # a level — they can retake from the result screen.
+        # Gate disabled via settings → legacy graceful fallback so the student
+        # still receives a level rather than an error page.
         _score_and_finalise(request, attempt)
         return redirect("placement_result", attempt_id=attempt.id)
 
-    import logging
-    log = logging.getLogger(__name__)
-
-    # Map voice-call eval scores onto the placement attempt schema.
+    # ---- (A) completed_by_answers → finalise (scores, result, course, email) ----
     attempt.speaking_score = eval_obj.overall_score or 0
     attempt.fluency_score = eval_obj.fluency_score
     attempt.vocabulary_score = eval_obj.vocabulary_score
     attempt.grammar_score = eval_obj.grammar_score
     attempt.pronunciation_score = eval_obj.pronunciation_score
-    # Re-grade the written section deterministically (it may never have been
-    # scored), and attach the student's spoken answers to each speaking
-    # question so the result page shows them.
     written = grade_written_section(attempt)
     if written is None:
         written = attempt.written_score or 0
-    map_speaking_transcript(attempt, conv, eval_obj)
-    # Best-effort: make sure each oral question has its "Other possible
-    # answers" suggestions cached (free for the starter bank; never charges
-    # AI-Tutor minutes). Failures are swallowed so they can't block finalise.
+    # Best-effort: cache each oral question's "Other possible answers"
+    # (free for the starter bank; never charges AI-Tutor minutes).
     try:
         from placement.services.ai_alternatives import ensure_alternatives
         for aq in attempt.questions.filter(section="speaking").select_related("question"):
@@ -597,8 +748,17 @@ def placement_voice_finalise(request, attempt_id: int):
 @login_required
 def placement_result(request, attempt_id: int):
     from placement.services.answer_key import correct_answer_for, is_answer_correct
+    from placement.services import completion
 
     attempt = _user_attempt(request, attempt_id)
+
+    # STRICT GATE: the final result requires a completed speaking section.
+    # If it isn't finalised, send the student to complete speaking instead of
+    # showing an empty / partial result.
+    if completion.require_speaking() and not completion.is_finalised(attempt):
+        messages.warning(request, _speaking_retry_message(request, completion.count_speaking_answers(attempt)))
+        return redirect("placement_voice_handoff", attempt_id=attempt.id)
+
     written = list(
         attempt.questions.filter(section="written").select_related("question").order_by("order")
     )

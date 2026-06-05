@@ -13,7 +13,7 @@ from django.urls import reverse
 
 from ai_usage import constants as C
 from placement.models import (
-    PlacementAttempt, PlacementAttemptQuestion, PlacementQuestion,
+    PlacementAttempt, PlacementAttemptQuestion, PlacementQuestion, PlacementResult,
 )
 from placement.services import ai_alternatives
 from placement.services.level_mapping import level_for_percentage
@@ -52,8 +52,12 @@ class AIAlternativesTests(TestCase):
         with patch("ai_usage.services.ai_client.complete_text") as mock_ai:
             alts = ai_alternatives.alternatives_for(q, generate=True)
         mock_ai.assert_not_called()
-        self.assertIn("I come from Egypt.", alts)
         self.assertGreaterEqual(len(alts), 3)
+        # Frames, not fixed names/countries — "from" appears, "Egypt" never.
+        self.assertTrue(any("from" in a.lower() for a in alts))
+        joined = " ".join(alts)
+        self.assertNotIn("Egypt", joined)
+        self.assertNotIn("John", joined)
 
     def test_custom_question_generates_and_caches(self):
         q = PlacementQuestion.objects.create(
@@ -116,9 +120,11 @@ class ResultPageAlternativesTests(TestCase):
         self.client.force_login(self.user)
 
     def test_result_page_shows_other_possible_answers(self):
+        result = PlacementResult.objects.create(user=self.user, level="A2")
         attempt = PlacementAttempt.objects.create(
             user=self.user, status="completed", written_score=80,
             speaking_score=60, overall_score=70, recommended_cefr_level="A2",
+            result=result,  # finalised → passes the strict gate
         )
         q = PlacementQuestion.objects.get(code="sp.v2.003")
         PlacementAttemptQuestion.objects.create(
@@ -129,5 +135,6 @@ class ResultPageAlternativesTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
         self.assertIn("إجابات أخرى مقترحة", body)        # bilingual label renders
-        self.assertIn("I come from Egypt.", body)        # a starter suggestion
+        self.assertIn("I come from", body)               # a starter frame
+        self.assertNotIn("Egypt", body)                  # no fixed country
         self.assertIn("لا تؤثّر على درجتك", body)        # guidance disclaimer

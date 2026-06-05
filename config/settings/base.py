@@ -313,6 +313,33 @@ PLACEMENT_SPEAKING_MAX_MINUTES_PER_ATTEMPT = int(
     env_get("PLACEMENT_SPEAKING_MAX_MINUTES_PER_ATTEMPT", "7") or 7
 )
 PLACEMENT_SPEAKING_ALLOW_ADMIN_RESET = env_bool("PLACEMENT_SPEAKING_ALLOW_ADMIN_RESET", True)
+# Strict completion gate: the student must complete the SPEAKING section
+# before the final result is shown / the course is assigned. Written-only is
+# not enough. A too-short / empty / failed speaking call is retryable (it does
+# not consume the one lifetime attempt). Admins can override explicitly.
+PLACEMENT_REQUIRE_SPEAKING_FOR_FINAL_RESULT = env_bool(
+    "PLACEMENT_REQUIRE_SPEAKING_FOR_FINAL_RESULT", True
+)
+# Minimum spoken answers for the speaking section to count as completed.
+PLACEMENT_SPEAKING_MIN_ANSWERS = int(
+    env_get("PLACEMENT_SPEAKING_MIN_ANSWERS", "3") or 3
+)
+# Tutor-led speaking: the tutor asks each question and retries per question
+# (repeat slowly → hint → move on) before that question is "unable".
+PLACEMENT_SPEAKING_MAX_RETRIES_PER_QUESTION = int(
+    env_get("PLACEMENT_SPEAKING_MAX_RETRIES_PER_QUESTION", "2") or 2
+)
+# Max FAILED call attempts (student attempted but answered < min) before the
+# section is marked unable_to_answer_after_retries and finalised conservatively
+# — so a true beginner is never blocked forever.
+PLACEMENT_SPEAKING_MAX_RETRIES = int(
+    env_get("PLACEMENT_SPEAKING_MAX_RETRIES", "3") or 3
+)
+# Conservative placement when the student couldn't answer after retries:
+# the speaking level and the overall ceiling stay low (this is treated as
+# evidence of very low speaking ability, NOT a technical failure).
+PLACEMENT_SPEAKING_UNABLE_LEVEL = env_get("PLACEMENT_SPEAKING_UNABLE_LEVEL", "A0")
+PLACEMENT_FINAL_CAP_WHEN_UNABLE = env_get("PLACEMENT_FINAL_CAP_WHEN_UNABLE", "A1")
 # Rough per-minute realtime cost (USD) used ONLY for the ai_usage estimate;
 # real billing is reconciled monthly against the provider invoice.
 PLACEMENT_SPEAKING_EST_COST_PER_MIN_USD = env_get(

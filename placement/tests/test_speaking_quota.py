@@ -146,12 +146,15 @@ class PlacementSpeakingPolicyTests(_CallMixin, TestCase):
         self.assertTrue(row.is_used_attempt)
         self.assertEqual(self._post_session(self.conv.id).status_code, 429)
 
-    def test_placement_speaking_one_attempt_used_after_any_answer(self):
+    def test_too_short_speaking_is_retryable(self):
+        # With the strict gate, a too-short call (< PLACEMENT_SPEAKING_MIN_
+        # ANSWERS) is needs_retry and does NOT consume the lifetime attempt.
         self._run_call(conversation_id=self.conv.id, answers=1)
         row = PlacementSpeakingAttempt.objects.get(student=self.user)
-        self.assertEqual(row.status, "insufficient_answers")
-        self.assertTrue(row.is_used_attempt)
-        self.assertEqual(self._post_session(self.conv.id).status_code, 429)
+        self.assertEqual(row.status, "needs_retry")
+        self.assertFalse(row.is_used_attempt)
+        # The student may try again (not blocked).
+        self.assertEqual(self._post_session(self.conv.id).status_code, 200)
 
     def test_failed_start_without_answers_does_not_consume_attempt(self):
         self._run_call(conversation_id=self.conv.id, answers=0, seconds=4)

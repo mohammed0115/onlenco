@@ -213,6 +213,9 @@ class PlacementAttempt(models.Model):
         max_length=2, choices=CEFR_CHOICES, blank=True,
     )
     feedback = models.TextField(blank=True)
+    # How many FAILED speaking call attempts (student attempted but answered
+    # < min) — drives the "unable after retries" conservative finalisation.
+    speaking_retry_count = models.PositiveSmallIntegerField(default=0)
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     result = models.ForeignKey(
@@ -313,12 +316,18 @@ class PlacementSpeakingAttempt(models.Model):
     STATUS_COMPLETED = "completed"
     STATUS_FAILED_START = "failed_start"
     STATUS_INSUFFICIENT = "insufficient_answers"
+    STATUS_NEEDS_RETRY = "needs_retry"
+    STATUS_UNABLE = "unable_to_answer_after_retries"
+    STATUS_FAILED_SYSTEM = "failed_system"
     STATUS_CANCELLED = "cancelled"
     STATUS_CHOICES = [
         (STATUS_STARTED, _("Started")),
         (STATUS_COMPLETED, _("Completed")),
         (STATUS_FAILED_START, _("Failed start — no answers")),
         (STATUS_INSUFFICIENT, _("Insufficient answers")),
+        (STATUS_NEEDS_RETRY, _("Needs retry — too short")),
+        (STATUS_UNABLE, _("Unable to answer after retries")),
+        (STATUS_FAILED_SYSTEM, _("Failed — system/STT error")),
         (STATUS_CANCELLED, _("Cancelled")),
     ]
 
@@ -336,7 +345,7 @@ class PlacementSpeakingAttempt(models.Model):
         null=True, blank=True, related_name="placement_speaking_attempts",
     )
     status = models.CharField(
-        max_length=24, choices=STATUS_CHOICES, default=STATUS_STARTED,
+        max_length=32, choices=STATUS_CHOICES, default=STATUS_STARTED,
     )
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)

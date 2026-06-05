@@ -121,21 +121,26 @@ def finalise_attempt(
 ) -> tuple[PlacementSpeakingAttempt, str]:
     """Finalise an attempt from the call outcome. Returns (row, ended_reason).
 
-    Rules:
-      * 0 answers  → ``failed_start``         → attempt NOT used (retryable).
-      * 1-4 answers → ``insufficient_answers`` → attempt USED.
-      * 5+ answers → ``completed``            → attempt USED.
+    With the strict completion gate, an attempt only "counts" (and so only
+    consumes the one lifetime attempt) when the student actually COMPLETES
+    the speaking section — i.e. answered at least ``PLACEMENT_SPEAKING_MIN_
+    ANSWERS`` questions. Anything short of that is retryable:
+      * 0 answers          → ``failed_start`` → NOT used (retry).
+      * 1..(min-1) answers → ``needs_retry``  → NOT used (retry).
+      * >= min answers     → ``completed``    → USED.
     """
+    from django.conf import settings as _dj
     M = PlacementSpeakingAttempt
     seconds = max(0, int(seconds or 0))
     question_count = max(0, int(question_count or 0))
+    min_answers = int(getattr(_dj, "PLACEMENT_SPEAKING_MIN_ANSWERS", 3))
 
     if question_count <= 0:
         status, used, ended_reason = M.STATUS_FAILED_START, False, "failed_start"
-    elif question_count >= 5:
-        status, used, ended_reason = M.STATUS_COMPLETED, True, "completed"
+    elif question_count < min_answers:
+        status, used, ended_reason = M.STATUS_NEEDS_RETRY, False, "needs_retry"
     else:
-        status, used, ended_reason = M.STATUS_INSUFFICIENT, True, "insufficient_answers"
+        status, used, ended_reason = M.STATUS_COMPLETED, True, "completed"
 
     if killed_by_quota and used:
         ended_reason = "killed_by_quota"
@@ -153,6 +158,65 @@ def finalise_attempt(
         "question_count_answered", "completed_at", "metadata",
     ])
     return row, ended_reason
+
+
+def mark_needs_retry(attempt, conversation, answered: int) -> PlacementSpeakingAttempt:
+    """Mark the speaking attempt as retryable (NOT used) — for the strict gate.
+
+    ``answered == 0`` → ``failed_start``; otherwise ``needs_retry``. Either
+    way ``is_used_attempt=False`` so the student keeps their lifetime attempt
+    and can try again without an admin reset.
+    """
+    M = PlacementSpeakingAttempt
+    row = (
+        M.objects.filter(student=attempt.user, conversation=conversation)
+        .order_by("-started_at").first()
+        or M.objects.create(student=attempt.user, conversation=conversation,
+                            placement_attempt=attempt)
+    )
+    row.status = M.STATUS_FAILED_START if int(answered or 0) <= 0 else M.STATUS_NEEDS_RETRY
+    row.is_used_attempt = False
+    row.question_count_answered = int(answered or 0)
+    row.completed_at = timezone.now()
+    md = dict(row.metadata or {})
+    md.update({"ended_reason": row.status, "is_used_attempt": False})
+    row.metadata = md
+    row.save()
+    return row
+
+
+def _mark(attempt, conversation, *, status, used, answered):
+    M = PlacementSpeakingAttempt
+    row = (
+        M.objects.filter(student=attempt.user, conversation=conversation)
+        .order_by("-started_at").first()
+        or M.objects.create(student=attempt.user, conversation=conversation,
+                            placement_attempt=attempt)
+    )
+    row.status = status
+    row.is_used_attempt = used
+    row.question_count_answered = int(answered or 0)
+    row.completed_at = timezone.now()
+    md = dict(row.metadata or {})
+    md.update({"ended_reason": status, "is_used_attempt": used})
+    row.metadata = md
+    row.save()
+    return row
+
+
+def mark_failed_system(attempt, conversation, answered: int = 0) -> PlacementSpeakingAttempt:
+    """Technical failure (STT/provider) — NOT used, retryable."""
+    return _mark(attempt, conversation,
+                 status=PlacementSpeakingAttempt.STATUS_FAILED_SYSTEM,
+                 used=False, answered=answered)
+
+
+def mark_unable(attempt, conversation, answered: int) -> PlacementSpeakingAttempt:
+    """Student couldn't answer after retries — counts as a USED attempt
+    (they had their chance) and finalises conservatively."""
+    return _mark(attempt, conversation,
+                 status=PlacementSpeakingAttempt.STATUS_UNABLE,
+                 used=True, answered=answered)
 
 
 def result_route(row: PlacementSpeakingAttempt) -> str:
