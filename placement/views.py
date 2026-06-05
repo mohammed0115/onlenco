@@ -28,12 +28,34 @@ Q2_CHOICES = [
 # ---------------------------------------------------------------------------
 
 @login_required
-@require_http_methods(["GET", "POST"])
 def placement(request):
-    """Legacy single-page placement. New users are routed through
-    `/placement/start/` → `/placement/<id>/written/` → speaking → result.
-    This endpoint stays for users mid-flight on the old design."""
+    """Entry point for the placement test.
 
+    The old single-page flow used hard-coded questions that ignored the
+    admin-managed question bank — so the test never showed the ACTIVE
+    questions the admin selected. It is retired: everyone is routed to the
+    curated dynamic flow (`placement_start` → written MCQ from the active
+    bank → speaking voice call → result). Completed students see their
+    latest result instead.
+    """
+    profile = request.user.profile
+    if not profile.placement_completed or request.session.get("placement_retake"):
+        return redirect("placement_start")
+    latest = (
+        PlacementResult.objects.filter(user=request.user)
+        .order_by("-created_at").first()
+    )
+    history = list(
+        PlacementResult.objects.filter(user=request.user)
+        .order_by("-created_at")[:10]
+    )
+    return render(request, "placement/already_taken.html", {
+        "profile": profile, "latest": latest, "history": history,
+    })
+
+
+def _legacy_placement_disabled(request):
+    """Old hard-coded single-page handler — retained only as dead reference."""
     profile = request.user.profile
     result_for_template = None
 
@@ -163,6 +185,9 @@ def placement_start(request):
     already has a placement attempt in progress, they are returned to
     the step they stopped at instead of starting the whole test over.
     """
+    # The retake flag only gated the retired legacy page; clear it so the
+    # entry view doesn't bounce back here forever after a retake.
+    request.session.pop("placement_retake", None)
     existing = (
         PlacementAttempt.objects
         .filter(user=request.user)

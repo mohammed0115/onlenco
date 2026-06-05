@@ -193,35 +193,51 @@ class PlacementJourneyTests(TestCase):
         self.assertRedirects(resp, reverse("placement_start"),
                              fetch_redirect_response=False)
 
-        # 3. Submit the legacy single-page placement test directly. We mock
-        # the AI grader + diagnostic engine. (The new dynamic flow has its
-        # own coverage in placement/tests/test_dynamic_flow.py — this
-        # journey test still locks the legacy path so users mid-flight
-        # don't break.)
+        # 3. Take the test through the CURATED dynamic flow (the legacy
+        # single-page placement is retired). Start → written MCQ from the
+        # active bank → speaking (scored via the dynamic scorer, AI mocked).
+        from io import StringIO
+        from django.core.management import call_command
+        from placement.models import PlacementAttempt
+        from placement.services.answer_key import correct_answer_for
+        call_command("seed_placement_questions", stdout=StringIO())
+
+        self.client.get(reverse("placement_start"))
+        attempt = PlacementAttempt.objects.get(user=user)
+
+        wq = list(attempt.questions.filter(section="written").select_related("question"))
+        wdata = {
+            f"q_{aq.id}": correct_answer_for(
+                options=aq.question.options, rubric=aq.question.scoring_rubric,
+                expected_type=aq.question.expected_answer_type,
+            )
+            for aq in wq
+        }
+        self.client.post(reverse("placement_written", args=[attempt.id]), wdata)
+
         fake_assess = {
             "level": "B1", "written_score": 78, "speaking_score": 70,
             "feedback": "Solid grammar; expand vocabulary range.",
         }
+        sq = list(attempt.questions.filter(section="speaking"))
+        sdata = {
+            f"q_{aq.id}_transcript": "I enjoy reading and learning English every day."
+            for aq in sq
+        }
         with patch("placement.views.assess", return_value=fake_assess), \
              patch("placement.views.build_diagnostic_profile", return_value={}):
-            resp = self.client.post(reverse("placement"), data={
-                "q1": "go", "q2": "If I had known, I would have helped.",
-                "q3": "I read books every day in the morning.",
-                "q4": "I would like to travel to a country where I can learn the language.",
-                "q5_transcript": (
-                    "I really enjoy reading because it teaches me new words "
-                    "and helps me understand different ideas. I read every day."
-                ),
-            })
+            resp = self.client.post(
+                reverse("placement_speaking", args=[attempt.id]), sdata, follow=True,
+            )
         self.assertEqual(resp.status_code, 200)
 
-        # 4. Profile carries the assigned level + onboarding state.
+        # 4. Profile carries an assigned level + onboarding state.
         user.profile.refresh_from_db()
-        self.assertEqual(user.profile.cefr_level, "B1")
+        self.assertTrue(user.profile.cefr_level)
         self.assertTrue(user.profile.placement_completed)
         self.assertTrue(user.profile.onboarding_completed)
         self.assertEqual(user.profile.onboarding_path, "placement_test")
-        self.assertEqual(user.profile.initial_cefr_level, "B1")
+        self.assertTrue(user.profile.initial_cefr_level)
 
         # 5. The result page is NOT a dead-end — it carries a link
         # back to the dashboard. (#27 lock-in test.)
@@ -236,20 +252,22 @@ class PlacementJourneyTests(TestCase):
         # And the beginner hero is NOT present (this is a placed user).
         self.assertNotContains(resp, "data-testid=\"beginner-first-lesson-hero\"")
 
-    def test_placement_failure_keeps_onboarding_pending(self):
-        """If the AI grader is unreachable / returns garbage, the placement
-        view shouldn't half-complete onboarding."""
+    def test_starting_placement_does_not_complete_onboarding(self):
+        """Merely entering the placement flow must NOT half-complete
+        onboarding — it only finalises once the test is submitted."""
+        from io import StringIO
+        from django.core.management import call_command
+        call_command("seed_placement_questions", stdout=StringIO())
         user = _make_verified_user(email="pj-fail@x.com")
         self.client.force_login(user)
 
-        # Submit with bodies that fail the validators (q3 too short).
-        resp = self.client.post(reverse("placement"), data={
-            "q1": "go", "q2": "If I had known, I would have helped.",
-            "q3": "short", "q4": "x", "q5_transcript": "x",
-        })
-        self.assertEqual(resp.status_code, 200)
+        # Legacy entry redirects into the curated flow; starting it creates
+        # an attempt but leaves onboarding pending.
+        resp = self.client.get(reverse("placement"))
+        self.assertRedirects(resp, reverse("placement_start"),
+                             fetch_redirect_response=False)
+        self.client.get(reverse("placement_start"))
         user.profile.refresh_from_db()
-        # Validation failed → no level set → no onboarding completion.
         self.assertFalse(user.profile.onboarding_completed)
         self.assertFalse(user.profile.placement_completed)
         self.assertEqual(
