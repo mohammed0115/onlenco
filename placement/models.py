@@ -138,6 +138,12 @@ class PlacementQuestion(models.Model):
         help_text=_("Free-form JSON used by the assessor."),
     )
     is_active = models.BooleanField(default=True, db_index=True)
+    # Cached AI "Other possible answers" for ORAL questions (guidance only,
+    # never used to grade). Populated once then reused to avoid API cost.
+    ai_alternatives = models.JSONField(
+        default=list, blank=True,
+        help_text=_("Cached alternative answer suggestions (oral guidance)."),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

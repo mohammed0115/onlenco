@@ -508,10 +508,24 @@ def placement_voice_finalise(request, attempt_id: int):
     if written is None:
         written = attempt.written_score or 0
     map_speaking_transcript(attempt, conv, eval_obj)
+    # Best-effort: make sure each oral question has its "Other possible
+    # answers" suggestions cached (free for the starter bank; never charges
+    # AI-Tutor minutes). Failures are swallowed so they can't block finalise.
+    try:
+        from placement.services.ai_alternatives import ensure_alternatives
+        for aq in attempt.questions.filter(section="speaking").select_related("question"):
+            ensure_alternatives(aq.question)
+    except Exception:
+        log.warning("placement: alternatives prefetch failed", exc_info=True)
     speaking = attempt.speaking_score or 0
     attempt.written_score = written
     attempt.overall_score = int(round((written + speaking) / 2))
-    attempt.recommended_cefr_level = eval_obj.cefr_level or "A1"
+    # Level: prefer the speaking-call CEFR estimate; else fall back to the
+    # configurable written/overall percentage → level mapping (Phase 5).
+    from placement.services.level_mapping import level_for_percentage
+    attempt.recommended_cefr_level = (
+        eval_obj.cefr_level or level_for_percentage(attempt.overall_score)
+    )
     attempt.feedback = eval_obj.summary or attempt.feedback
     attempt.status = "completed"
     attempt.completed_at = timezone.now()
@@ -609,6 +623,12 @@ def placement_result(request, attempt_id: int):
             if verdict is None:
                 verdict = (aq.score is not None and aq.score >= 50) if aq.student_answer else False
             aq.is_correct_display = verdict
+            # Oral guidance only: "Other possible answers" (never grading).
+            if aq.section == "speaking":
+                from placement.services.ai_alternatives import alternatives_for
+                aq.alternatives = alternatives_for(q, student_transcript=aq.student_answer)
+            else:
+                aq.alternatives = []
         return rows
 
     return render(request, "placement/result.html", {

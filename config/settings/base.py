@@ -318,6 +318,14 @@ PLACEMENT_SPEAKING_ALLOW_ADMIN_RESET = env_bool("PLACEMENT_SPEAKING_ALLOW_ADMIN_
 PLACEMENT_SPEAKING_EST_COST_PER_MIN_USD = env_get(
     "PLACEMENT_SPEAKING_EST_COST_PER_MIN_USD", "0.30"
 )
+# Configurable written-percentage → CEFR level mapping (Placement Phase 5).
+# Each pair is (inclusive_upper_percentage, level); the first band whose
+# ceiling is >= the score wins. Override in env/settings to retune without
+# touching code or templates.
+PLACEMENT_LEVEL_MAP = [
+    (20, "A0"), (40, "A1"), (60, "A2"), (75, "B1"),
+    (88, "B2"), (95, "C1"), (100, "C2"),
+]
 
 # --- ai_engine local providers -----------------------------------------
 # Set AI_LOCAL_CLASSIFIER_ENABLED=1 in env to let the router try local

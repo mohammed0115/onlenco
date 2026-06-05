@@ -27,6 +27,7 @@ ROLE_CHOICES = [
 # --- feature ------------------------------------------------------------
 FEATURE_PLACEMENT_WRITTEN = "placement_written"
 FEATURE_PLACEMENT_SPEAKING = "placement_speaking"
+FEATURE_PLACEMENT_ALTERNATIVES = "placement_alternatives"
 FEATURE_AI_TUTOR = "ai_tutor"
 FEATURE_LESSON_ASSISTANT = "lesson_assistant"
 FEATURE_VOCABULARY = "vocabulary"
@@ -44,6 +45,7 @@ FEATURE_OTHER = "other"
 FEATURE_CHOICES = [
     (FEATURE_PLACEMENT_WRITTEN, "Placement (written)"),
     (FEATURE_PLACEMENT_SPEAKING, "Placement (speaking)"),
+    (FEATURE_PLACEMENT_ALTERNATIVES, "Placement (answer suggestions)"),
     (FEATURE_AI_TUTOR, "AI Tutor"),
     (FEATURE_LESSON_ASSISTANT, "Lesson assistant"),
     (FEATURE_VOCABULARY, "Vocabulary"),
