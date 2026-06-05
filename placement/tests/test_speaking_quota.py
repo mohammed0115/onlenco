@@ -132,6 +132,14 @@ class PlacementSpeakingPolicyTests(_CallMixin, TestCase):
         self.assertTrue(r.json()["success"])
         self.assertEqual(r.json()["max_session_seconds"], 7 * 60)
 
+    def test_placement_session_forces_english_stt(self):
+        with patch("tutor.services.realtime_session.request_ephemeral_session",
+                   return_value=_FAKE_SESSION) as m:
+            self.client.post(reverse("api_tutor_voice_call_session"),
+                             {"conversation_id": self.conv.id},
+                             content_type="application/json")
+        self.assertEqual(m.call_args.kwargs.get("language"), "en")
+
     def test_placement_speaking_creates_ai_usage_log_feature_placement_speaking(self):
         self._run_call(conversation_id=self.conv.id, answers=2)
         self.assertTrue(
@@ -226,6 +234,15 @@ class RegularAITutorPlanMinutesTests(_CallMixin, TestCase):
         self._run_call(conversation_id=self.plain.id, answers=2, seconds=120)
         quota = UserDailyQuota.objects.get(user=self.user, date=timezone.localdate())
         self.assertEqual(quota.ai_tutor_seconds_used, 120)
+
+    def test_regular_session_does_not_force_language(self):
+        self._subscribe(10)
+        with patch("tutor.services.realtime_session.request_ephemeral_session",
+                   return_value=_FAKE_SESSION) as m:
+            self.client.post(reverse("api_tutor_voice_call_session"),
+                             {"conversation_id": self.plain.id},
+                             content_type="application/json")
+        self.assertIsNone(m.call_args.kwargs.get("language"))
 
     def test_regular_ai_tutor_uses_plan_allowed_minutes(self):
         self._subscribe(10)

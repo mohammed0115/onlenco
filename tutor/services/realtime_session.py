@@ -280,7 +280,8 @@ def coerce_supported_voice(voice: str) -> str:
     return "alloy"
 
 
-def request_ephemeral_session(*, system_prompt: str, voice: str = "alloy") -> dict | None:
+def request_ephemeral_session(*, system_prompt: str, voice: str = "alloy",
+                              language: str | None = None) -> dict | None:
     """Ask OpenAI for a short-lived client_secret for this user's session.
 
     Uses the **GA Realtime API** at ``POST /v1/realtime/client_secrets``
@@ -295,6 +296,12 @@ def request_ephemeral_session(*, system_prompt: str, voice: str = "alloy") -> di
 
     voice = coerce_supported_voice(voice)
     url = f"{settings.AI_API_BASE.rstrip('/')}/realtime/client_secrets"
+    # Force the transcription language when the caller asks (placement is
+    # English-only). When language is None the provider auto-detects, so
+    # regular AI-Tutor sessions (incl. future Arabic ones) are unaffected.
+    transcription = {"model": "whisper-1"}
+    if language:
+        transcription["language"] = language
     payload = {
         "session": {
             "type": "realtime",
@@ -306,7 +313,7 @@ def request_ephemeral_session(*, system_prompt: str, voice: str = "alloy") -> di
                 "input": {
                     # Whisper handles the user's audio → text upstream so the
                     # browser can render the live transcript without local STT.
-                    "transcription": {"model": "whisper-1"},
+                    "transcription": transcription,
                     # Server-side VAD: OpenAI detects end-of-utterance for us
                     # so the model auto-responds when the student stops talking.
                     # Tuned for natural pauses (700 ms) without cutting mid-sentence.

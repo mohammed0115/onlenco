@@ -928,9 +928,17 @@ def voice_call_session(request):
         )
 
     prompt = build_voice_system_prompt(request.user, conv)
+    # Placement speaking is an ENGLISH test — force the STT language so Whisper
+    # never mis-detects a short answer ("36 years old" → "36 yıl sonra").
+    # Regular AI-Tutor calls keep auto-detect (untouched).
+    stt_language = (
+        getattr(dj_settings, "PLACEMENT_STT_LANGUAGE", "en")
+        if is_placement_call else None
+    )
     try:
         with _timer("realtime_session", user_id=request.user.id):
-            session = request_ephemeral_session(system_prompt=prompt, voice=voice)
+            session = request_ephemeral_session(
+                system_prompt=prompt, voice=voice, language=stt_language)
     except Exception:
         logger.exception("Tutor realtime session request failed")
         session_service.cancel_session(tutor_session.pk)

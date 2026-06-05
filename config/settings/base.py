@@ -288,6 +288,10 @@ AI_MODEL = env_get("AI_MODEL", "gpt-4o-mini")
 # ephemeral token request and the final usage stats.
 AI_REALTIME_MODEL = env_get("AI_REALTIME_MODEL", "gpt-realtime")
 AI_REALTIME_VOICE = env_get("AI_REALTIME_VOICE", "alloy")
+# Placement speaking is an English test → force its speech-to-text language so
+# the provider doesn't mis-detect short answers. Only applied to placement
+# voice sessions; regular AI-Tutor sessions keep provider auto-detect.
+PLACEMENT_STT_LANGUAGE = env_get("PLACEMENT_STT_LANGUAGE", "en")
 # Voice↔avatar gender compatibility: a male avatar never pairs with a female
 # voice and vice-versa. For a NEUTRAL / no-image avatar, allow any voice when
 # True; when False, restrict a neutral avatar to neutral voices only.

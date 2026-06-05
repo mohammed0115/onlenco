@@ -128,6 +128,26 @@ class SpeakingMeaningScoringTests(TestCase):
         self.assertEqual(res[0]["score"], 0)
         self.assertEqual(res[0]["verdict"], "empty")
 
+    def test_age_number_answers_score_well(self):
+        from placement.services import speaking_eval
+        with patch("ai_usage.services.ai_client.complete_text", side_effect=RuntimeError("no-ai")):
+            res = speaking_eval.score_speaking_answers([
+                ("How old are you?", "36 years old"),
+                ("How old are you?", "36"),
+                ("How old are you?", "thirty six")])
+        for r in res:
+            self.assertGreaterEqual(r["score"], 70)
+
+    def test_non_english_transcript_is_stt_uncertain_not_wrong(self):
+        # An obvious STT mis-detection must NOT be a confident wrong/zero.
+        from placement.services import speaking_eval
+        res = speaking_eval.score_speaking_answers([("How old are you?", "36 yıl sonra")])
+        self.assertEqual(res[0]["verdict"], "stt_uncertain")
+        self.assertGreater(res[0]["score"], 0)
+        self.assertLess(res[0]["score"], 80)
+        self.assertTrue(speaking_eval.looks_non_english("36 yıl sonra"))
+        self.assertFalse(speaking_eval.looks_non_english("I am thirty six"))
+
     def test_ai_scoring_used_and_charges_no_tutor_minutes(self):
         from placement.services import speaking_eval
         fake = ('{"results":[{"score":85,"verdict":"mostly_correct","feedback":"Good!"},'

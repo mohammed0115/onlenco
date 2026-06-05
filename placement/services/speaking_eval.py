@@ -26,6 +26,29 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
+# Tokens that betray a speech-to-text language mis-detection (Turkish etc.).
+_FOREIGN_TOKENS = {"yil", "yıl", "sonra", "evet", "hayir", "hayır", "naam", "yas", "yaş"}
+
+
+def looks_non_english(text: str) -> bool:
+    """Cheap heuristic: True when the transcript is clearly NOT English — a
+    non-Latin script, a Turkish-specific letter, or a known foreign token.
+
+    Used to flag a likely STT slip so we give partial 'uncertain' credit
+    instead of a confident 'wrong'.
+    """
+    if not text:
+        return False
+    low = text.lower()
+    for ch in low:
+        if ch in "ışğ":              # Turkish dotless-i / ş / ğ
+            return True
+        if ord(ch) > 0x024F:         # beyond Latin → Arabic / Cyrillic / CJK …
+            return True
+    words = set(re.sub(r"[^a-zışğçöü\s]", " ", low).split())
+    return bool(words & _FOREIGN_TOKENS)
+
+
 _BATCH_PROMPT = (
     "You are scoring a beginner's spoken English PLACEMENT test. For each "
     "question and the student's spoken answer (which may contain "
@@ -53,11 +76,15 @@ def score_speaking_answers(pairs: list[tuple[str, str]]) -> list[dict]:
     ``{"score": int, "verdict": str, "feedback": str}``.
     """
     results = [None] * len(pairs)
-    # Empty answers are scored 0 locally (no AI needed).
     to_ai = []
     for i, (q, a) in enumerate(pairs):
         if not (a or "").strip():
             results[i] = {"score": 0, "verdict": "empty", "feedback": ""}
+        elif looks_non_english(a):
+            # Likely STT mis-detection (e.g. "36 yıl sonra"): do NOT mark it a
+            # confident wrong — give partial 'uncertain' credit so the learner
+            # isn't penalised for a transcription error.
+            results[i] = {"score": 50, "verdict": "stt_uncertain", "feedback": ""}
         else:
             to_ai.append(i)
 
@@ -129,9 +156,12 @@ def _heuristic(question: str, answer: str) -> dict:
     if not low:
         return {"score": 0, "verdict": "empty", "feedback": ""}
     n = len([w for w in low.split() if w])
+    has_digit = any(c.isdigit() for c in low)
     if n >= 3:
         score, verdict = 85, "mostly_correct"
     elif n == 2:
+        score, verdict = 75, "mostly_correct"
+    elif has_digit:                 # a bare number like "36" answers an age question
         score, verdict = 75, "mostly_correct"
     else:
         score, verdict = 60, "partial"
