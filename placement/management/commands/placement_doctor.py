@@ -112,19 +112,22 @@ class Command(BaseCommand):
         w("", self)
         w("-" * 70, self)
         if extra_active:
-            w(f"⚠ {len(extra_active)} ACTIVE question(s) are NOT in the curated v2 set:", self)
+            w(f"ℹ {len(extra_active)} ACTIVE question(s) are NOT in the starter v2 set:", self)
             w("    " + ", ".join(extra_active), self)
-            w("  → These leak into the test. Deactivate them by running:", self)
-            w("      python manage.py seed_placement_questions", self)
+            w("  → If a section has more than 5 active, the test picks 5 of them.", self)
+            w("  → Keep exactly 5 written + 5 speaking active in the ADMIN PANEL "
+              "(deactivate the rest) so the test serves exactly your set.", self)
         else:
-            w("✓ Every active question is part of the curated v2 set.", self)
+            w("✓ Every active question is part of the starter v2 set.", self)
         if inactive_curated:
-            w(f"⚠ {len(inactive_curated)} curated question(s) are INACTIVE "
-              f"(won't appear): {', '.join(inactive_curated)}", self)
-            w("  → Re-activate them by running: python manage.py seed_placement_questions", self)
-        if not extra_active and not inactive_curated and CURATED_CODES:
-            w("✓ Active pool == curated 5 written + 5 speaking. The test will serve "
-              "exactly these.", self)
+            w(f"ℹ {len(inactive_curated)} starter question(s) are INACTIVE "
+              f"(admin choice): {', '.join(inactive_curated)}", self)
+        # Report per-section active counts against the target of 5.
+        for section in ("written", "speaking"):
+            n = PlacementQuestion.objects.filter(question_type=section, is_active=True).count()
+            mark = "✓" if n == 5 else "⚠"
+            w(f"{mark} {section}: {n} active (target 5 — the test serves exactly 5 "
+              f"in code order when active <= 5).", self)
         w("-" * 70, self)
 
     # ------------------------------------------------------------------

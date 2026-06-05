@@ -65,11 +65,27 @@ class PlacementResultFixTests(TestCase):
         self.attempt.refresh_from_db()
         conv = self.attempt.voice_conversation
         self.assertIsNotNone(conv)  # the written POST hands off + creates it
-        # Simulate the spoken answers (one user turn per question, in order).
-        answers = ["My name is Sara", "I am twenty years old",
-                   "I am from Sudan", "I am a student", "to get a better job"]
-        for a in answers:
-            TutorMessage.objects.create(conversation=conv, role="user", content=a)
+        # A realistic free-flowing call: greeting, then the assistant asks
+        # each question (with chit-chat), then a goodbye. The mapper must
+        # align each answer to the question the assistant actually asked.
+        script = [
+            ("assistant", "Hi! Welcome. Let's begin when you're ready."),
+            ("user", "Hello"),
+            ("assistant", "Great. First, what is your name?"),
+            ("user", "My name is Sara"),
+            ("assistant", "Nice to meet you. How old are you?"),
+            ("user", "I am twenty years old"),
+            ("assistant", "And where are you from?"),
+            ("user", "I am from Sudan"),
+            ("assistant", "What do you do for a living?"),
+            ("user", "I am a student"),
+            ("assistant", "Last one — why do you want to learn English?"),
+            ("user", "to get a better job"),
+            ("assistant", "Perfect, that's all. Goodbye!"),
+            ("user", "Bye"),
+        ]
+        for role, content in script:
+            TutorMessage.objects.create(conversation=conv, role=role, content=content)
         VoiceCallEvaluation.objects.create(
             conversation=conv, cefr_level=level, overall_score=overall,
             fluency_score=overall, vocabulary_score=overall, grammar_score=overall,
@@ -95,10 +111,17 @@ class PlacementResultFixTests(TestCase):
     def test_speaking_answers_are_recorded(self):
         self._finalise_voice()
         rows = list(self.attempt.questions.filter(section="speaking").order_by("order"))
-        # The student's spoken answers are now attached to the questions.
-        self.assertEqual(rows[0].transcript, "My name is Sara")
-        self.assertEqual(rows[2].transcript, "I am from Sudan")
-        self.assertTrue(all((aq.transcript or "").strip() for aq in rows))
+        # Each answer is aligned to the question the assistant actually asked,
+        # not shifted by the greeting.
+        self.assertEqual(rows[0].transcript, "My name is Sara")        # name
+        self.assertEqual(rows[1].transcript, "I am twenty years old")  # age
+        self.assertEqual(rows[2].transcript, "I am from Sudan")        # where from
+        self.assertEqual(rows[3].transcript, "I am a student")         # living
+        self.assertEqual(rows[4].transcript, "to get a better job")    # why english
+        # The greeting / goodbye must NOT be recorded as answers.
+        recorded = {(aq.transcript or "").strip() for aq in rows}
+        self.assertNotIn("Hello", recorded)
+        self.assertNotIn("Bye", recorded)
         self.assertTrue(all(aq.score is not None for aq in rows))
 
     def test_overall_blends_written_and_speaking(self):

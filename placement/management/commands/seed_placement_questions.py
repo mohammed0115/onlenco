@@ -1,10 +1,14 @@
-"""Seed the curated placement question bank (5 written MCQ + 5 spoken).
+"""Bootstrap the starter placement question bank (5 written MCQ + 5 spoken).
 
-Idempotent and EXCLUSIVE: each row is keyed by ``code`` and upserted, then
-every OTHER placement question is DEACTIVATED (is_active=False) — kept in the
-DB, never deleted — so the active pool is exactly these 10. The placement
-selector draws 5 written + 5 spoken at random from the ACTIVE pool, so any
-leftover active question would otherwise show up in the test.
+CREATE-ONLY / non-destructive: each row is keyed by ``code`` and created only
+if it does not already exist. It NEVER overwrites an existing question's text
+/ options and NEVER changes the active state of any question. The admin panel
+is the single source of truth — admins edit text/options and choose which
+questions are active, and those choices survive every deploy.
+
+(The placement selector serves 5 written + 5 spoken from the ACTIVE pool, and
+when a section has <= 5 active it serves them exactly, in code order. So to
+control the test, the admin keeps exactly 5 written + 5 speaking active.)
 
 Answer keys reviewed/corrected from the source list:
 - Q1 "She ___ to school every day." → **goes** (was "go" — subject-verb agreement).
@@ -53,11 +57,13 @@ SPEAKING = [
 
 
 class Command(BaseCommand):
-    help = "Upsert the curated placement question bank (5 written MCQ + 5 spoken)."
+    help = "Bootstrap the starter placement bank (create-only; admin-managed after)."
 
     def handle(self, *args, **opts):
+        created = existing = 0
+
         for code, en, ar, diff, opts_list in WRITTEN:
-            PlacementQuestion.objects.update_or_create(
+            _, was_created = PlacementQuestion.objects.get_or_create(
                 code=code,
                 defaults={
                     "question_text": en, "question_text_ar": ar,
@@ -68,11 +74,11 @@ class Command(BaseCommand):
                     "scoring_rubric": {}, "is_active": True,
                 },
             )
-
-        new_codes = [w[0] for w in WRITTEN] + [s[0] for s in SPEAKING]
+            created += int(was_created)
+            existing += int(not was_created)
 
         for code, en, ar, diff, topic, rubric in SPEAKING:
-            PlacementQuestion.objects.update_or_create(
+            _, was_created = PlacementQuestion.objects.get_or_create(
                 code=code,
                 defaults={
                     "question_text": en, "question_text_ar": ar,
@@ -82,19 +88,12 @@ class Command(BaseCommand):
                     "options": [], "scoring_rubric": rubric, "is_active": True,
                 },
             )
-
-        # Make the curated set EXCLUSIVE by DEACTIVATING every other question
-        # (kept in the DB, not deleted). The placement selector draws 5 written
-        # + 5 spoken at random from the ACTIVE pool, so leftover active
-        # questions would otherwise appear in the test.
-        deactivated = (
-            PlacementQuestion.objects
-            .exclude(code__in=new_codes)
-            .filter(is_active=True)
-            .update(is_active=False)
-        )
+            created += int(was_created)
+            existing += int(not was_created)
 
         self.stdout.write(self.style.SUCCESS(
-            f"Placement bank set to curated set: active={len(new_codes)} "
-            f"(written=5, speaking=5), deactivated={deactivated} others."
+            f"Placement bank bootstrap (non-destructive): created={created}, "
+            f"already-present={existing}. The admin panel is the source of truth — "
+            f"this command never overwrites edits nor changes active state of "
+            f"existing questions."
         ))

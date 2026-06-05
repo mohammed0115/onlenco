@@ -375,13 +375,38 @@ def grade_written_section(attempt: PlacementAttempt) -> int | None:
     return int(round(100 * correct / counted))
 
 
-def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
-    """Attach the student's spoken answers + a per-question score to each
-    speaking question, so the result page can show what they actually said.
+_SPK_STOP = {
+    "what", "is", "are", "you", "your", "do", "does", "did", "for", "an",
+    "the", "to", "why", "where", "how", "of", "in", "on", "at", "and", "or",
+    "with", "am", "me", "my", "we", "they", "this", "that", "tell", "about",
+    "please", "can", "could", "would", "now", "let", "next", "question",
+    "okay", "great", "good", "thanks", "thank", "hello", "welcome", "start",
+}
 
-    The live call asks the 5 questions in order, so the i-th student turn
-    maps to the i-th speaking question. Per-question score = 100 when the
-    answer hits a rubric keyword, else the call's overall speaking score.
+
+def _spk_keywords(text: str) -> list[str]:
+    """Distinctive content tokens of a question (drops stop words)."""
+    import re
+    toks = re.findall(r"[a-z]+", (text or "").lower())
+    return [t for t in toks if len(t) > 2 and t not in _SPK_STOP]
+
+
+def _spk_overlap(keywords: list[str], text: str) -> int:
+    low = (text or "").lower()
+    return sum(1 for k in keywords if k in low)
+
+
+def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
+    """Attach the student's spoken answer + a per-question score to each
+    speaking question, so the result page shows what they actually said.
+
+    The call is free-flowing (the assistant greets, then asks the 5
+    questions, often with chit-chat / goodbyes around them), so a naive
+    "i-th student turn = i-th question" mapping mis-assigns the greeting and
+    shifts every answer. Instead we pair each ASSISTANT turn with the reply
+    that follows it, then assign each placement question the reply whose
+    assistant prompt best matches that question's wording. Greetings and
+    goodbyes match no question and are ignored.
     """
     from tutor.models import TutorMessage
 
@@ -389,13 +414,46 @@ def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
         attempt.questions.filter(section="speaking")
         .select_related("question").order_by("order")
     )
-    turns = list(
-        TutorMessage.objects.filter(conversation=conv, role="user")
-        .order_by("created_at").values_list("content", flat=True)
-    ) if conv is not None else []
+
+    # Ordered (assistant_prompt, student_reply) pairs.
+    pairs: list[tuple[str, str]] = []
+    pending = None
+    if conv is not None:
+        for t in (TutorMessage.objects.filter(conversation=conv)
+                  .order_by("created_at", "id").values("role", "content")):
+            if t["role"] == "assistant":
+                pending = t["content"] or ""
+            elif t["role"] == "user":
+                pairs.append((pending or "", (t["content"] or "").strip()))
+                pending = None
+
+    # Match each question to the assistant prompt that asked it.
+    answers = [""] * len(rows)
+    used: set[int] = set()
+    matched = False
+    for ri, aq in enumerate(rows):
+        kws = _spk_keywords(aq.question.question_text)
+        best_idx, best = None, 0
+        for idx, (a_text, _reply) in enumerate(pairs):
+            if idx in used:
+                continue
+            s = _spk_overlap(kws, a_text)
+            if s > best:
+                best, best_idx = s, idx
+        if best_idx is not None and best > 0:
+            used.add(best_idx)
+            answers[ri] = pairs[best_idx][1]
+            matched = True
+    if not matched:
+        # Degenerate transcript (no assistant prompts captured): best-effort
+        # in-order alignment of the student replies.
+        for ri in range(len(rows)):
+            if ri < len(pairs):
+                answers[ri] = pairs[ri][1]
+
     overall = float((getattr(eval_obj, "overall_score", None) or 50))
-    for i, aq in enumerate(rows):
-        ans = (turns[i].strip() if i < len(turns) else "")
+    for ri, aq in enumerate(rows):
+        ans = answers[ri]
         rubric = aq.question.scoring_rubric or {}
         kws = [str(k).lower() for k in (rubric.get("voice_keywords") or [])]
         low = ans.lower()
