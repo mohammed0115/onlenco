@@ -198,6 +198,12 @@ def placement_written(request, attempt_id: int):
             answer = (request.POST.get(f"q_{aq.id}") or "").strip()
             aq.user_answer_text = answer[:4000]
             aq.save(update_fields=["user_answer_text"])
+        # Score the written section now (deterministic MCQ grading) so the
+        # result page + dashboard never show 0/100 for a correct sheet.
+        written_score = grade_written_section(attempt)
+        if written_score is not None:
+            attempt.written_score = written_score
+            attempt.save(update_fields=["written_score"])
         if attempt.status == "started":
             attempt.status = "written_completed"
             attempt.save(update_fields=["status"])
@@ -308,6 +314,77 @@ def placement_voice_handoff(request, attempt_id: int):
     )
 
 
+def grade_written_section(attempt: PlacementAttempt) -> int | None:
+    """Grade the written section deterministically and persist per-question
+    scores. Returns the 0-100 aggregate, or ``None`` when nothing gradable.
+
+    MCQ questions are graded against the stored answer key (right=100,
+    wrong=0). Open-ended written questions keep whatever AI/rubric score
+    they already have. This is the single source of truth for
+    ``attempt.written_score`` — without it the written score stays 0.
+    """
+    from placement.services.answer_key import is_answer_correct
+
+    rows = list(
+        attempt.questions.filter(section="written").select_related("question")
+    )
+    correct = counted = 0
+    for aq in rows:
+        q = aq.question
+        verdict = is_answer_correct(
+            (aq.user_answer_text or "").strip(),
+            options=q.options, rubric=q.scoring_rubric,
+            expected_type=q.expected_answer_type,
+        )
+        if verdict is None:
+            if aq.score is not None:
+                counted += 1
+                correct += 1 if aq.score >= 50 else 0
+            continue
+        aq.score = 100.0 if verdict else 0.0
+        aq.save(update_fields=["score"])
+        counted += 1
+        correct += 1 if verdict else 0
+    if counted == 0:
+        return None
+    return int(round(100 * correct / counted))
+
+
+def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
+    """Attach the student's spoken answers + a per-question score to each
+    speaking question, so the result page can show what they actually said.
+
+    The live call asks the 5 questions in order, so the i-th student turn
+    maps to the i-th speaking question. Per-question score = 100 when the
+    answer hits a rubric keyword, else the call's overall speaking score.
+    """
+    from tutor.models import TutorMessage
+
+    rows = list(
+        attempt.questions.filter(section="speaking")
+        .select_related("question").order_by("order")
+    )
+    turns = list(
+        TutorMessage.objects.filter(conversation=conv, role="user")
+        .order_by("created_at").values_list("content", flat=True)
+    ) if conv is not None else []
+    overall = float((getattr(eval_obj, "overall_score", None) or 50))
+    for i, aq in enumerate(rows):
+        ans = (turns[i].strip() if i < len(turns) else "")
+        rubric = aq.question.scoring_rubric or {}
+        kws = [str(k).lower() for k in (rubric.get("voice_keywords") or [])]
+        low = ans.lower()
+        if not ans:
+            score = 0.0
+        elif kws and any(k in low for k in kws):
+            score = 100.0
+        else:
+            score = overall
+        aq.transcript = ans[:4000]
+        aq.score = score
+        aq.save(update_fields=["transcript", "score"])
+
+
 @login_required
 def placement_voice_finalise(request, attempt_id: int):
     """Called from the voice-call screen after the student hangs up.
@@ -332,16 +409,24 @@ def placement_voice_finalise(request, attempt_id: int):
         _score_and_finalise(request, attempt)
         return redirect("placement_result", attempt_id=attempt.id)
 
+    import logging
+    log = logging.getLogger(__name__)
+
     # Map voice-call eval scores onto the placement attempt schema.
     attempt.speaking_score = eval_obj.overall_score or 0
     attempt.fluency_score = eval_obj.fluency_score
     attempt.vocabulary_score = eval_obj.vocabulary_score
     attempt.grammar_score = eval_obj.grammar_score
     attempt.pronunciation_score = eval_obj.pronunciation_score
-    # Written score was already captured during Step 1; recompute overall
-    # as a 50/50 blend so both parts count.
-    written = attempt.written_score or 0
+    # Re-grade the written section deterministically (it may never have been
+    # scored), and attach the student's spoken answers to each speaking
+    # question so the result page shows them.
+    written = grade_written_section(attempt)
+    if written is None:
+        written = attempt.written_score or 0
+    map_speaking_transcript(attempt, conv, eval_obj)
     speaking = attempt.speaking_score or 0
+    attempt.written_score = written
     attempt.overall_score = int(round((written + speaking) / 2))
     attempt.recommended_cefr_level = eval_obj.cefr_level or "A1"
     attempt.feedback = eval_obj.summary or attempt.feedback
@@ -367,6 +452,48 @@ def placement_voice_finalise(request, attempt_id: int):
         "overall_score", "recommended_cefr_level",
         "feedback", "status", "completed_at", "result",
     ])
+
+    # Keep the profile + onboarding + diagnostic email CONSISTENT with what
+    # the dashboard shows: the email must report the SAME level/scores as
+    # this result (previously it ran a separate assessor and could disagree,
+    # e.g. email B1 vs dashboard A2).
+    level = attempt.recommended_cefr_level
+    try:
+        profile = request.user.profile
+        profile.cefr_level = level
+        if not profile.initial_cefr_level:
+            profile.initial_cefr_level = level
+        profile.placement_completed = True
+        profile.save(update_fields=["cefr_level", "initial_cefr_level", "placement_completed"])
+    except Exception:
+        log.exception("placement_voice_finalise: profile update failed")
+    try:
+        from accounts.onboarding import complete_placement_onboarding
+        complete_placement_onboarding(request.user.profile, level=level)
+    except Exception:
+        log.exception("placement_voice_finalise: onboarding failed")
+    try:
+        diag_answers = {
+            "mode": "dynamic",
+            "items": [
+                {"section": "written", "answer": aq.user_answer_text,
+                 "expected_answer_type": aq.question.expected_answer_type}
+                for aq in attempt.questions.filter(section="written").select_related("question")
+            ],
+        }
+        build_diagnostic_profile(request.user, diag_answers, assessment={
+            "level": level,
+            "written_score": written,
+            "speaking_score": speaking,
+            "grammar_score": attempt.grammar_score,
+            "vocabulary_score": attempt.vocabulary_score,
+            "fluency_score": attempt.fluency_score,
+            "pronunciation_score": attempt.pronunciation_score,
+            "overall_score": attempt.overall_score,
+            "feedback": attempt.feedback,
+        })
+    except Exception:
+        log.exception("placement_voice_finalise: diagnostic/email failed")
     return redirect("placement_result", attempt_id=attempt.id)
 
 
