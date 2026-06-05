@@ -6,7 +6,7 @@ import json
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from platform_admin import permissions as control_perms
@@ -147,10 +147,12 @@ class PreferencePageTests(TestCase):
         self.assertContains(response, "omar_male_teacher")
 
     def test_post_saves_preference(self):
+        # Use a gender-compatible pair (male avatar + male voice); a male
+        # avatar + female voice is now rejected by the compatibility rule.
         response = self.client.post(
             reverse("subscriptions:preferences"),
             {
-                "voice_code": "nova_calm",
+                "voice_code": "onyx_professional",
                 "avatar_code": "omar_male_teacher",
                 "speed": "fast",
                 "pitch": "low",
@@ -158,7 +160,7 @@ class PreferencePageTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         pref = UserAIPreference.objects.get(user=self.user)
-        self.assertEqual(pref.voice_profile.code, "nova_calm")
+        self.assertEqual(pref.voice_profile.code, "onyx_professional")
         self.assertEqual(pref.avatar_profile.code, "omar_male_teacher")
         self.assertEqual(pref.speed, "fast")
         self.assertEqual(pref.pitch, "low")
@@ -182,6 +184,145 @@ class PreferencePageTests(TestCase):
         data = response.json()
         self.assertEqual(data["voice"]["code"], "fable_soft")
         self.assertEqual(data["speed"], "slow")
+
+
+class GenderCompatibilityTests(TestCase):
+    """Voice↔avatar gender compatibility (single source of truth + UI + auto-fix).
+
+    Seeded genders: voices alloy_friendly=neutral, nova_calm=female,
+    onyx_professional=male; avatars omar_male_teacher=male,
+    layla_female_teacher=female, anonymous=neutral.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="gc@example.com", email="gc@example.com", password="pw")
+
+    def _set(self, **kw):
+        return preference_service.set_preference(self.user, **kw)
+
+    # 1
+    def test_male_avatar_female_voice_rejected(self):
+        with self.assertRaises(preference_service.IncompatibleVoiceError):
+            self._set(avatar_code="omar_male_teacher", voice_code="nova_calm")
+
+    # 2
+    def test_female_avatar_male_voice_rejected(self):
+        with self.assertRaises(preference_service.IncompatibleVoiceError):
+            self._set(avatar_code="layla_female_teacher", voice_code="onyx_professional")
+
+    # 3
+    def test_male_avatar_male_voice_accepted(self):
+        pref = self._set(avatar_code="omar_male_teacher", voice_code="onyx_professional")
+        self.assertEqual(pref.voice_profile.code, "onyx_professional")
+
+    # 4
+    def test_female_avatar_female_voice_accepted(self):
+        pref = self._set(avatar_code="layla_female_teacher", voice_code="nova_calm")
+        self.assertEqual(pref.voice_profile.code, "nova_calm")
+
+    # 5
+    def test_male_avatar_neutral_voice_accepted(self):
+        pref = self._set(avatar_code="omar_male_teacher", voice_code="alloy_friendly")
+        self.assertEqual(pref.voice_profile.code, "alloy_friendly")
+
+    # 6
+    def test_female_avatar_neutral_voice_accepted(self):
+        pref = self._set(avatar_code="layla_female_teacher", voice_code="alloy_friendly")
+        self.assertEqual(pref.voice_profile.code, "alloy_friendly")
+
+    # 7
+    @override_settings(PREFERENCES_NEUTRAL_AVATAR_ALLOWS_ALL_VOICES=True)
+    def test_neutral_avatar_allows_all_voices(self):
+        self.assertEqual(
+            self._set(avatar_code="anonymous", voice_code="nova_calm").voice_profile.code,
+            "nova_calm")
+        self.assertEqual(
+            self._set(avatar_code="anonymous", voice_code="onyx_professional").voice_profile.code,
+            "onyx_professional")
+
+    @override_settings(PREFERENCES_NEUTRAL_AVATAR_ALLOWS_ALL_VOICES=False)
+    def test_neutral_avatar_restricts_when_setting_off(self):
+        with self.assertRaises(preference_service.IncompatibleVoiceError):
+            self._set(avatar_code="anonymous", voice_code="nova_calm")
+        # Neutral voice is still fine for a neutral avatar.
+        self.assertEqual(
+            self._set(avatar_code="anonymous", voice_code="alloy_friendly").voice_profile.code,
+            "alloy_friendly")
+
+    # 8
+    def test_existing_male_avatar_female_voice_autocorrected(self):
+        omar = AvatarProfile.objects.get(code="omar_male_teacher")
+        nova = VoiceProfile.objects.get(code="nova_calm")
+        UserAIPreference.objects.create(user=self.user, avatar_profile=omar, voice_profile=nova)
+        snap = preference_service.preference_snapshot(self.user)
+        pref = UserAIPreference.objects.get(user=self.user)
+        self.assertNotEqual(pref.voice_profile.code, "nova_calm")
+        self.assertEqual(pref.avatar_profile.code, "omar_male_teacher")  # avatar untouched
+        self.assertTrue(preference_service.is_voice_compatible_with_avatar(
+            pref.voice_profile, pref.avatar_profile))
+        self.assertEqual(snap["voice"]["code"], pref.voice_profile.code)
+
+    # 9
+    def test_existing_female_avatar_male_voice_autocorrected(self):
+        layla = AvatarProfile.objects.get(code="layla_female_teacher")
+        onyx = VoiceProfile.objects.get(code="onyx_professional")
+        UserAIPreference.objects.create(user=self.user, avatar_profile=layla, voice_profile=onyx)
+        preference_service.preference_snapshot(self.user)
+        pref = UserAIPreference.objects.get(user=self.user)
+        self.assertNotEqual(pref.voice_profile.code, "onyx_professional")
+        self.assertEqual(pref.avatar_profile.code, "layla_female_teacher")
+        self.assertTrue(preference_service.is_voice_compatible_with_avatar(
+            pref.voice_profile, pref.avatar_profile))
+
+    def test_avatar_only_change_autoswitches_voice(self):
+        # Valid female avatar + female voice, then change ONLY the avatar to
+        # male (no voice_code) → the voice auto-switches to a compatible one.
+        self._set(avatar_code="layla_female_teacher", voice_code="nova_calm")
+        pref = self._set(avatar_code="omar_male_teacher")
+        self.assertNotEqual(pref.voice_profile.code, "nova_calm")
+        self.assertTrue(preference_service.is_voice_compatible_with_avatar(
+            pref.voice_profile, pref.avatar_profile))
+
+    # 10 (UI)
+    def test_template_exposes_gender_data_attributes(self):
+        self.client.force_login(self.user)
+        body = self.client.get(reverse("subscriptions:preferences")).content.decode()
+        self.assertIn("data-voice-gender", body)
+        self.assertIn("data-avatar-gender", body)
+
+    # 11 (valid save via form + API)
+    def test_valid_pair_saves_via_form_and_api(self):
+        self.client.force_login(self.user)
+        r = self.client.post(reverse("subscriptions:preferences"), {
+            "avatar_code": "omar_male_teacher", "voice_code": "onyx_professional",
+            "speed": "normal", "pitch": "normal"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(
+            UserAIPreference.objects.get(user=self.user).voice_profile.code, "onyx_professional")
+        r2 = self.client.post(
+            reverse("subscriptions:preference_api"),
+            data=json.dumps({"avatar_code": "layla_female_teacher", "voice_code": "nova_calm"}),
+            content_type="application/json")
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(r2.json()["voice"]["code"], "nova_calm")
+
+    def test_api_rejects_incompatible_pair(self):
+        self.client.force_login(self.user)
+        r = self.client.post(
+            reverse("subscriptions:preference_api"),
+            data=json.dumps({"avatar_code": "omar_male_teacher", "voice_code": "nova_calm"}),
+            content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["error"], "voice_incompatible_with_avatar")
+
+    def test_form_rejects_incompatible_pair(self):
+        self.client.force_login(self.user)
+        r = self.client.post(reverse("subscriptions:preferences"), {
+            "avatar_code": "omar_male_teacher", "voice_code": "nova_calm"})
+        self.assertEqual(r.status_code, 302)  # redirect with an error message
+        pref = UserAIPreference.objects.filter(user=self.user).first()
+        self.assertFalse(pref and pref.voice_profile and pref.voice_profile.code == "nova_calm")
 
 
 class ControlCenterVoicesPageTests(TestCase):

@@ -38,24 +38,35 @@ def quota_snapshot_api(request):
 def preferences_page(request):
     """Voice + avatar + speed/pitch preferences. POST to save."""
     if request.method == "POST":
-        preference_service.set_preference(
-            request.user,
-            voice_code=request.POST.get("voice_code"),
-            avatar_code=request.POST.get("avatar_code"),
-            speed=request.POST.get("speed"),
-            pitch=request.POST.get("pitch"),
-            sound_effects_enabled=("sound_effects_enabled" in request.POST),
-        )
-        messages.success(request, "Preferences saved.")
+        try:
+            preference_service.set_preference(
+                request.user,
+                voice_code=request.POST.get("voice_code"),
+                avatar_code=request.POST.get("avatar_code"),
+                speed=request.POST.get("speed"),
+                pitch=request.POST.get("pitch"),
+                sound_effects_enabled=("sound_effects_enabled" in request.POST),
+            )
+            messages.success(request, "Preferences saved.")
+        except preference_service.IncompatibleVoiceError:
+            lang = getattr(request, "LANGUAGE_CODE", "en") or "en"
+            messages.error(request, (
+                "هذا الصوت غير متوافق مع الشخصية المختارة."
+                if str(lang).startswith("ar") else
+                "This voice is not compatible with the selected avatar."
+            ))
         return redirect("subscriptions:preferences")
 
     voices = VoiceProfile.objects.filter(is_active=True).order_by("sort_order", "name_en")
     avatars = AvatarProfile.objects.filter(is_active=True).order_by("sort_order", "name_en")
     snapshot = preference_service.preference_snapshot(request.user)
+    from django.conf import settings as dj_settings
     return render(request, "subscriptions/preferences.html", {
         "voices": voices,
         "avatars": avatars,
         "snapshot": snapshot,
+        "neutral_allows_all": bool(getattr(
+            dj_settings, "PREFERENCES_NEUTRAL_AVATAR_ALLOWS_ALL_VOICES", True)),
     })
 
 
@@ -71,12 +82,23 @@ def preference_api(request):
             payload = json.loads(request.body or "{}")
         except json.JSONDecodeError:
             payload = {}
-        preference_service.set_preference(
-            request.user,
-            voice_code=payload.get("voice_code"),
-            avatar_code=payload.get("avatar_code"),
-            speed=payload.get("speed"),
-            pitch=payload.get("pitch"),
-            sound_effects_enabled=payload.get("sound_effects_enabled"),
-        )
+        try:
+            preference_service.set_preference(
+                request.user,
+                voice_code=payload.get("voice_code"),
+                avatar_code=payload.get("avatar_code"),
+                speed=payload.get("speed"),
+                pitch=payload.get("pitch"),
+                sound_effects_enabled=payload.get("sound_effects_enabled"),
+            )
+        except preference_service.IncompatibleVoiceError:
+            lang = getattr(request, "LANGUAGE_CODE", "en") or "en"
+            return JsonResponse({
+                "error": "voice_incompatible_with_avatar",
+                "message": (
+                    "هذا الصوت غير متوافق مع الشخصية المختارة."
+                    if str(lang).startswith("ar") else
+                    "This voice is not compatible with the selected avatar."
+                ),
+            }, status=400)
     return JsonResponse(preference_service.preference_snapshot(request.user))

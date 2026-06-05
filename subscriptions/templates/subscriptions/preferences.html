@@ -29,10 +29,11 @@
       <h2 class="text-xl font-semibold mb-3">
         {% if lang == "ar" %}الصوت{% else %}Voice{% endif %}
       </h2>
+      <div id="voiceMismatchMsg" role="status" style="display:none;padding:10px 14px;border-radius:10px;background:#fef9c3;border:1px solid #fde047;margin-bottom:10px;font-size:.875rem"></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
         {% for v in voices %}
-          <label style="border:1px solid hsl(var(--border));border-radius:10px;padding:14px;cursor:pointer;{% if snapshot.voice.code == v.code %}border-color:hsl(178 65% 18%);box-shadow:0 0 0 2px hsl(178 65% 18% / 0.15){% endif %}">
-            <input type="radio" name="voice_code" value="{{ v.code }}" {% if snapshot.voice.code == v.code %}checked{% endif %} style="margin-right:6px">
+          <label class="voice-card" data-voice-gender="{{ v.voice_type }}" style="border:1px solid hsl(var(--border));border-radius:10px;padding:14px;cursor:pointer;{% if snapshot.voice.code == v.code %}border-color:hsl(178 65% 18%);box-shadow:0 0 0 2px hsl(178 65% 18% / 0.15){% endif %}">
+            <input type="radio" name="voice_code" value="{{ v.code }}" data-voice-gender="{{ v.voice_type }}" {% if snapshot.voice.code == v.code %}checked{% endif %} style="margin-right:6px">
             <strong>{% if lang == "ar" %}{{ v.name_ar }}{% else %}{{ v.name_en }}{% endif %}</strong>
             <div class="text-xs text-muted-foreground" style="margin-top:4px">
               {{ v.get_voice_type_display }} · {{ v.get_style_display }} · {{ v.get_tone_display }}
@@ -48,8 +49,8 @@
       </h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
         {% for a in avatars %}
-          <label style="border:1px solid hsl(var(--border));border-radius:10px;padding:14px;cursor:pointer;text-align:center;{% if snapshot.avatar.code == a.code %}border-color:hsl(178 65% 18%);box-shadow:0 0 0 2px hsl(178 65% 18% / 0.15){% endif %}">
-            <input type="radio" name="avatar_code" value="{{ a.code }}" {% if snapshot.avatar.code == a.code %}checked{% endif %} style="margin-bottom:6px">
+          <label class="avatar-card" data-avatar-gender="{{ a.gender }}" style="border:1px solid hsl(var(--border));border-radius:10px;padding:14px;cursor:pointer;text-align:center;{% if snapshot.avatar.code == a.code %}border-color:hsl(178 65% 18%);box-shadow:0 0 0 2px hsl(178 65% 18% / 0.15){% endif %}">
+            <input type="radio" name="avatar_code" value="{{ a.code }}" data-avatar-gender="{{ a.gender }}" {% if snapshot.avatar.code == a.code %}checked{% endif %} style="margin-bottom:6px">
             {% if a.image_url %}
               <img src="{{ a.image_url }}" alt="{{ a.name_en }}" style="width:72px;height:72px;border-radius:999px;object-fit:cover;margin:6px auto;display:block">
             {% else %}
@@ -99,4 +100,81 @@
     </div>
   </form>
 </main>
+
+<script>
+(function () {
+  var NEUTRAL_ALLOWS_ALL = {% if neutral_allows_all %}true{% else %}false{% endif %};
+  var SWITCH_MSG = {% if lang == "ar" %}"تم تغيير الصوت تلقائيًا ليتوافق مع الشخصية المختارة."{% else %}"The voice was updated automatically to match the selected avatar."{% endif %};
+  var msgEl = document.getElementById('voiceMismatchMsg');
+  var voiceRadios = Array.prototype.slice.call(document.querySelectorAll('input[name="voice_code"]'));
+  var avatarRadios = Array.prototype.slice.call(document.querySelectorAll('input[name="avatar_code"]'));
+  if (!voiceRadios.length || !avatarRadios.length) return;
+
+  function compatible(voiceGender, avatarGender) {
+    var v = (voiceGender || 'neutral').toLowerCase();
+    var a = (avatarGender || 'neutral').toLowerCase();
+    if (a === 'male') return v === 'male' || v === 'neutral';
+    if (a === 'female') return v === 'female' || v === 'neutral';
+    if (v === 'neutral') return true;          // neutral avatar + neutral voice
+    return NEUTRAL_ALLOWS_ALL;                  // neutral avatar + other voices
+  }
+
+  function selectedAvatarGender() {
+    var a = avatarRadios.find(function (r) { return r.checked; });
+    return a ? (a.getAttribute('data-avatar-gender') || 'neutral') : 'neutral';
+  }
+
+  function setCardEnabled(radio, enabled) {
+    var card = radio.closest('label');
+    radio.disabled = !enabled;
+    if (card) {
+      card.style.opacity = enabled ? '' : '0.4';
+      card.style.pointerEvents = enabled ? '' : 'none';
+      card.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    }
+  }
+
+  function bestCompatibleVoice(avatarGender) {
+    // DOM order follows sort_order; prefer an exact same-gender match, else
+    // the first compatible (covers neutral).
+    var same = voiceRadios.find(function (r) {
+      return (r.getAttribute('data-voice-gender') || '').toLowerCase() === avatarGender.toLowerCase();
+    });
+    if (same && compatible(same.getAttribute('data-voice-gender'), avatarGender)) return same;
+    return voiceRadios.find(function (r) {
+      return compatible(r.getAttribute('data-voice-gender'), avatarGender);
+    });
+  }
+
+  function showMessage(text) {
+    if (!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+    clearTimeout(showMessage._t);
+    showMessage._t = setTimeout(function () { msgEl.style.display = 'none'; }, 5000);
+  }
+
+  function refresh(announceSwitch) {
+    var aGender = selectedAvatarGender();
+    var current = voiceRadios.find(function (r) { return r.checked; });
+    voiceRadios.forEach(function (r) {
+      setCardEnabled(r, compatible(r.getAttribute('data-voice-gender'), aGender));
+    });
+    if (current && current.disabled) {
+      // The selected voice is no longer compatible → switch to the best one.
+      var next = bestCompatibleVoice(aGender);
+      if (next) {
+        current.checked = false;
+        next.checked = true;
+        if (announceSwitch) showMessage(SWITCH_MSG);
+      }
+    }
+  }
+
+  avatarRadios.forEach(function (r) {
+    r.addEventListener('change', function () { refresh(true); });
+  });
+  refresh(false);   // initial state (also covers a healed legacy pref)
+})();
+</script>
 {% endblock %}

@@ -288,6 +288,12 @@ AI_MODEL = env_get("AI_MODEL", "gpt-4o-mini")
 # ephemeral token request and the final usage stats.
 AI_REALTIME_MODEL = env_get("AI_REALTIME_MODEL", "gpt-realtime")
 AI_REALTIME_VOICE = env_get("AI_REALTIME_VOICE", "alloy")
+# Voice↔avatar gender compatibility: a male avatar never pairs with a female
+# voice and vice-versa. For a NEUTRAL / no-image avatar, allow any voice when
+# True; when False, restrict a neutral avatar to neutral voices only.
+PREFERENCES_NEUTRAL_AVATAR_ALLOWS_ALL_VOICES = env_bool(
+    "PREFERENCES_NEUTRAL_AVATAR_ALLOWS_ALL_VOICES", True
+)
 # Soft cap: per-user daily voice-call minutes. Past this threshold the
 # session endpoint refuses with `limit_reached` and the user is nudged
 # back to the text chat (which is unmetered).
