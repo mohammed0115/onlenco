@@ -106,3 +106,21 @@ class PlacementResultFixTests(TestCase):
         self.attempt.refresh_from_db()
         # (100 written + 47 speaking) / 2 = 73 (rounded).
         self.assertEqual(self.attempt.overall_score, 74)
+
+    def test_recompute_command_fixes_stale_result(self):
+        self._finalise_voice(level="A2", overall=47)
+        # Simulate an OLD attempt stored with a wrong 0 written score.
+        self.attempt.refresh_from_db()
+        result = self.attempt.result
+        PlacementAttempt.objects.filter(pk=self.attempt.id).update(
+            written_score=0, overall_score=23)
+        PlacementResult.objects.filter(pk=result.id).update(
+            written_score=0, overall_score=23)
+        call_command("recompute_placement_results", attempt=self.attempt.id,
+                     stdout=StringIO())
+        self.attempt.refresh_from_db()
+        result.refresh_from_db()
+        self.assertEqual(self.attempt.written_score, 100)
+        self.assertEqual(self.attempt.overall_score, 74)
+        self.assertEqual(result.written_score, 100)
+        self.assertEqual(result.overall_score, 74)
