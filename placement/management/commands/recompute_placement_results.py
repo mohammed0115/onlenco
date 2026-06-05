@@ -98,10 +98,14 @@ class Command(BaseCommand):
         new_speaking = attempt.speaking_score or 0
         new_level = attempt.recommended_cefr_level
         if eval_obj is not None:
-            new_speaking = eval_obj.overall_score or new_speaking
             new_level = eval_obj.cefr_level or new_level
             if not dry:
+                from placement.views import compute_speaking_score
                 map_speaking_transcript(attempt, conv, eval_obj)
+                new_speaking = compute_speaking_score(
+                    attempt, fallback=eval_obj.overall_score or new_speaking)
+            else:
+                new_speaking = eval_obj.overall_score or new_speaking
 
         new_overall = int(round((new_written + new_speaking) / 2))
 

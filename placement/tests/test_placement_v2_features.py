@@ -109,6 +109,40 @@ class AIAlternativesTests(TestCase):
         self.assertEqual(aq.score, 70.0)
 
 
+class SpeakingMeaningScoringTests(TestCase):
+    """Speaking is scored by MEANING, not literal keyword matching."""
+
+    def test_heuristic_is_lenient_for_a_valid_answer(self):
+        # Force the offline heuristic: a real answer with a missing article
+        # must NOT be punished down to a near-fail score.
+        from placement.services import speaking_eval
+        with patch("ai_usage.services.ai_client.complete_text",
+                   side_effect=RuntimeError("no-ai")):
+            res = speaking_eval.score_speaking_answers(
+                [("What do you do for a living?", "I'm software developer")])
+        self.assertGreaterEqual(res[0]["score"], 70)
+
+    def test_empty_answer_scores_zero(self):
+        from placement.services import speaking_eval
+        res = speaking_eval.score_speaking_answers([("What is your name?", "")])
+        self.assertEqual(res[0]["score"], 0)
+        self.assertEqual(res[0]["verdict"], "empty")
+
+    def test_ai_scoring_used_and_charges_no_tutor_minutes(self):
+        from placement.services import speaking_eval
+        fake = ('{"results":[{"score":85,"verdict":"mostly_correct","feedback":"Good!"},'
+                '{"score":18,"verdict":"inappropriate","feedback":"That is off topic."}]}')
+        with patch("ai_usage.services.ai_client.complete_text", return_value=fake) as m:
+            res = speaking_eval.score_speaking_answers([
+                ("What do you do for a living?", "I'm software developer"),
+                ("Why do you want to learn English?", "thank you")])
+        self.assertEqual(res[0]["score"], 85)        # correct meaning → high
+        self.assertEqual(res[1]["score"], 18)        # off-topic "thank you" → low
+        kwargs = m.call_args.kwargs
+        self.assertEqual(kwargs.get("feature"), C.FEATURE_PLACEMENT_SPEAKING)
+        self.assertEqual(kwargs.get("enforce_minutes"), False)
+
+
 @override_settings(AXES_ENABLED=False)
 class ResultPageAlternativesTests(TestCase):
     @classmethod
@@ -138,3 +172,6 @@ class ResultPageAlternativesTests(TestCase):
         self.assertIn("I come from", body)               # a starter frame
         self.assertNotIn("Egypt", body)                  # no fixed country
         self.assertIn("لا تؤثّر على درجتك", body)        # guidance disclaimer
+        # Internal "expected / key points" must NOT be shown to the student.
+        self.assertNotIn("المتوقّع / النقاط الأساسية", body)
+        self.assertNotIn("Expected / key points", body)

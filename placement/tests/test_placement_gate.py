@@ -70,7 +70,8 @@ class PlacementSpeakingGateTests(TestCase):
                 conversation=conv, cefr_level="A2", overall_score=55,
                 fluency_score=55, vocabulary_score=55, grammar_score=55,
                 summary="ok", word_count=20, turns_count=n_answers, seconds=90)
-        with patch("placement.views.build_diagnostic_profile", return_value={}):
+        with patch("placement.views.build_diagnostic_profile", return_value={}), \
+             patch("ai_usage.services.ai_client.complete_text", side_effect=RuntimeError("no-ai")):
             return self.client.get(reverse("placement_voice_finalise", args=[self.attempt.id]))
 
     # ---- 1: written done, speaking missing → result blocked ----

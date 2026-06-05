@@ -396,6 +396,34 @@ def _spk_overlap(keywords: list[str], text: str) -> int:
     return sum(1 for k in keywords if k in low)
 
 
+# Pure social pleasantries that are NEVER a real placement answer (greeting /
+# goodbye / thanks). Matched only when they are the WHOLE reply.
+_PLEASANTRIES = {
+    "hi", "hello", "hey", "bye", "goodbye", "ok", "okay", "thanks",
+    "thank you", "thank you so much", "thanks a lot", "good bye",
+    "see you", "nice to meet you", "no problem", "you too",
+}
+
+
+def _is_pleasantry(text: str) -> bool:
+    import re
+    t = re.sub(r"[^a-z\s]", "", (text or "").lower()).strip()
+    t = re.sub(r"\s+", " ", t)
+    return t in _PLEASANTRIES
+
+
+def compute_speaking_score(attempt: PlacementAttempt, *, fallback: int = 0) -> int:
+    """Mean of the per-question speaking scores (0-100), or ``fallback`` when
+    none are scored yet."""
+    scores = [
+        r.score for r in attempt.questions.filter(section="speaking")
+        if r.score is not None
+    ]
+    if not scores:
+        return int(fallback or 0)
+    return int(round(sum(scores) / len(scores)))
+
+
 def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
     """Attach the student's spoken answer + a per-question score to each
     speaking question, so the result page shows what they actually said.
@@ -415,7 +443,9 @@ def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
         .select_related("question").order_by("order")
     )
 
-    # Ordered (assistant_prompt, student_reply) pairs.
+    # Ordered (assistant_prompt, student_reply) pairs. Pure pleasantries
+    # (hello / thanks / bye / ok) are NOT answers — skip them so the closing
+    # "thank you" is never mapped onto a question and the real reply survives.
     pairs: list[tuple[str, str]] = []
     pending = None
     if conv is not None:
@@ -424,7 +454,10 @@ def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
             if t["role"] == "assistant":
                 pending = t["content"] or ""
             elif t["role"] == "user":
-                pairs.append((pending or "", (t["content"] or "").strip()))
+                reply = (t["content"] or "").strip()
+                if reply and _is_pleasantry(reply):
+                    continue  # keep `pending` so the next real reply still pairs
+                pairs.append((pending or "", reply))
                 pending = None
 
     # Match each question to the assistant prompt that asked it.
@@ -451,21 +484,18 @@ def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
             if ri < len(pairs):
                 answers[ri] = pairs[ri][1]
 
-    overall = float((getattr(eval_obj, "overall_score", None) or 50))
+    # Meaning-based scoring (forgives minor grammar / missing-article slips);
+    # one batched AI call, with a lenient heuristic fallback offline.
+    from placement.services.speaking_eval import score_speaking_answers
+    graded = score_speaking_answers(
+        [((aq.question.question_text or ""), answers[ri]) for ri, aq in enumerate(rows)]
+    )
     for ri, aq in enumerate(rows):
-        ans = answers[ri]
-        rubric = aq.question.scoring_rubric or {}
-        kws = [str(k).lower() for k in (rubric.get("voice_keywords") or [])]
-        low = ans.lower()
-        if not ans:
-            score = 0.0
-        elif kws and any(k in low for k in kws):
-            score = 100.0
-        else:
-            score = overall
-        aq.transcript = ans[:4000]
-        aq.score = score
-        aq.save(update_fields=["transcript", "score"])
+        g = graded[ri] if ri < len(graded) else {"score": 0, "feedback": ""}
+        aq.transcript = answers[ri][:4000]
+        aq.score = float(g.get("score") or 0)
+        aq.feedback = (g.get("feedback") or "")[:500]
+        aq.save(update_fields=["transcript", "score", "feedback"])
 
 
 def _speaking_retry_message(request, answered: int) -> str:
@@ -652,7 +682,10 @@ def placement_voice_finalise(request, attempt_id: int):
         return redirect("placement_result", attempt_id=attempt.id)
 
     # ---- (A) completed_by_answers → finalise (scores, result, course, email) ----
-    attempt.speaking_score = eval_obj.overall_score or 0
+    # Speaking score = mean of the per-question MEANING-based scores (set by
+    # map_speaking_transcript), so the headline number matches the per-answer
+    # badges instead of a separate, harsher figure.
+    attempt.speaking_score = compute_speaking_score(attempt, fallback=eval_obj.overall_score or 0)
     attempt.fluency_score = eval_obj.fluency_score
     attempt.vocabulary_score = eval_obj.vocabulary_score
     attempt.grammar_score = eval_obj.grammar_score

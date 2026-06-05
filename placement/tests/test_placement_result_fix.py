@@ -91,7 +91,11 @@ class PlacementResultFixTests(TestCase):
             fluency_score=overall, vocabulary_score=overall, grammar_score=overall,
             summary="Good effort.", word_count=25, turns_count=5, seconds=120,
         )
-        with patch("placement.views.build_diagnostic_profile") as mock_diag:
+        # Force the deterministic heuristic scorer (each multi-word answer = 85)
+        # so the test doesn't depend on a live AI provider.
+        with patch("placement.views.build_diagnostic_profile") as mock_diag, \
+             patch("ai_usage.services.ai_client.complete_text",
+                   side_effect=RuntimeError("no-ai-in-tests")):
             r = self.client.get(reverse("placement_voice_finalise", args=[self.attempt.id]))
         return r, mock_diag
 
@@ -127,8 +131,12 @@ class PlacementResultFixTests(TestCase):
     def test_overall_blends_written_and_speaking(self):
         self._finalise_voice(level="A2", overall=47)
         self.attempt.refresh_from_db()
-        # (100 written + 47 speaking) / 2 = 73 (rounded).
-        self.assertEqual(self.attempt.overall_score, 74)
+        # Speaking score is now the mean of the per-question MEANING-based
+        # scores (heuristic in tests: each multi-word answer ≈ 85), and the
+        # overall is (written + speaking) / 2.
+        self.assertEqual(self.attempt.speaking_score, 85)
+        self.assertEqual(self.attempt.overall_score,
+                         round((100 + self.attempt.speaking_score) / 2))
 
     def test_recompute_command_fixes_stale_result(self):
         self._finalise_voice(level="A2", overall=47)
@@ -143,7 +151,8 @@ class PlacementResultFixTests(TestCase):
                      stdout=StringIO())
         self.attempt.refresh_from_db()
         result.refresh_from_db()
+        expected_overall = round((100 + self.attempt.speaking_score) / 2)
         self.assertEqual(self.attempt.written_score, 100)
-        self.assertEqual(self.attempt.overall_score, 74)
+        self.assertEqual(self.attempt.overall_score, expected_overall)
         self.assertEqual(result.written_score, 100)
-        self.assertEqual(result.overall_score, 74)
+        self.assertEqual(result.overall_score, expected_overall)
