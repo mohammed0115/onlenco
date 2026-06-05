@@ -18,9 +18,67 @@ from django.urls import reverse
 
 from placement.models import PlacementAttempt, PlacementResult
 from placement.services.answer_key import correct_answer_for
-from tutor.models import TutorMessage, VoiceCallEvaluation
+from tutor.models import TutorConversation, TutorMessage, VoiceCallEvaluation
 
 User = get_user_model()
+
+
+@override_settings(AXES_ENABLED=False)
+class SpeakingAlignmentTests(TestCase):
+    """Each spoken answer must bind to the question being asked AT THAT MOMENT
+    — auto-start opening + confirmations must not shift answers by one."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_placement_questions", stdout=StringIO())
+
+    def setUp(self):
+        self.user = User.objects.create_user("al@x.com", "al@x.com", "pw")
+
+    def _build(self, script):
+        from placement.services.placement_question_selector import create_placement_attempt
+        attempt = create_placement_attempt(self.user)
+        conv = TutorConversation.objects.create(user=self.user, topic="placement")
+        attempt.voice_conversation = conv
+        attempt.save(update_fields=["voice_conversation"])
+        for role, content in script:
+            TutorMessage.objects.create(conversation=conv, role=role, content=content)
+        return attempt, conv
+
+    def test_autostart_with_confirmations_aligns_each_answer(self):
+        from placement.views import map_speaking_transcript
+        script = [
+            ("assistant", "Hello! I will ask you a few short questions. Listen and "
+                          "answer with one word or a short sentence. First question: "
+                          "What is your name?"),
+            ("user", "My name is Ahmed"),
+            ("assistant", "Nice to meet you, Ahmed. How old are you?"),
+            ("user", "I am 40 years old"),
+            ("assistant", "Forty, great. Where are you from?"),
+            ("user", "I come from Sudan"),
+            ("assistant", "Sudan is lovely. What do you do for a living?"),
+            ("user", "I am a teacher"),
+            ("assistant", "A teacher! Why do you want to learn English?"),
+            ("user", "To improve my English"),
+            ("assistant", "Perfect, that's all. Goodbye!"),
+            ("user", "Thank you"),
+        ]
+        attempt, conv = self._build(script)
+        with patch("ai_usage.services.ai_client.complete_text", side_effect=RuntimeError("no-ai")):
+            map_speaking_transcript(attempt, conv, None)
+        by_text = {
+            r.question.question_text: r.transcript
+            for r in attempt.questions.filter(section="speaking").select_related("question")
+        }
+        self.assertEqual(by_text["What is your name?"], "My name is Ahmed")
+        self.assertEqual(by_text["How old are you?"], "I am 40 years old")
+        self.assertEqual(by_text["Where are you from?"], "I come from Sudan")
+        self.assertEqual(by_text["What do you do for a living?"], "I am a teacher")
+        self.assertEqual(by_text["Why do you want to learn English?"], "To improve my English")
+        # Tutor opening + closing pleasantry are NEVER stored as answers.
+        answers = list(by_text.values())
+        self.assertNotIn("Thank you", answers)
+        self.assertFalse(any("I will ask you" in a for a in answers))
 
 
 @override_settings(AXES_ENABLED=False)

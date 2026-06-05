@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
@@ -6,6 +8,8 @@ from django.views.decorators.http import require_http_methods, require_POST
 from .models import (
     PlacementAttempt, PlacementAttemptQuestion, PlacementResult,
 )
+
+logger = logging.getLogger(__name__)
 from .services import assess
 from .services.diagnostic_engine import build_diagnostic_profile
 from .services.dynamic_scoring import score_placement_attempt
@@ -412,6 +416,30 @@ def _is_pleasantry(text: str) -> bool:
     return t in _PLEASANTRIES
 
 
+def _question_cues(question) -> set[str]:
+    """Distinctive cue words that identify WHICH fixed placement question a
+    tutor turn is asking. Deliberately avoids generic words (do/where/english)
+    that also appear in the opening so the auto-start greeting can't be
+    mistaken for a later question."""
+    t = (question.question_text or "").lower()
+    if "name" in t:
+        return {"name"}
+    if "old" in t or "age" in t:
+        return {"old", "age"}
+    if "from" in t or "country" in t or "nationality" in t:
+        return {"from", "country", "nationality"}
+    if "living" in t or "do you do" in t or "work" in t or "job" in t:
+        return {"living", "work", "job", "profession", "occupation"}
+    if "learn" in t or "why" in t:
+        return {"learn", "reason", "why"}
+    return set(_spk_keywords(question.question_text))
+
+
+def _question_asked_in(question, text: str) -> bool:
+    low = (text or "").lower()
+    return any(cue in low for cue in _question_cues(question))
+
+
 def compute_speaking_score(attempt: PlacementAttempt, *, fallback: int = 0) -> int:
     """Mean of the per-question speaking scores (0-100), or ``fallback`` when
     none are scored yet."""
@@ -443,46 +471,44 @@ def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
         .select_related("question").order_by("order")
     )
 
-    # Ordered (assistant_prompt, student_reply) pairs. Pure pleasantries
-    # (hello / thanks / bye / ok) are NOT answers — skip them so the closing
-    # "thank you" is never mapped onto a question and the real reply survives.
-    pairs: list[tuple[str, str]] = []
-    pending = None
+    # SEQUENTIAL STATE MACHINE — bind each student answer to the question that
+    # was being asked AT THAT MOMENT, replaying the call in order. This does NOT
+    # rely on end-of-call ordering or fuzzy whole-transcript matching, so the
+    # tutor's auto-start opening / confirmations / pleasantries can't shift the
+    # answers onto the wrong question.
+    #
+    #   * assistant turn that asks the NEXT question (strict order) → advance the
+    #     "current question" pointer by one;
+    #   * student turn (not a pleasantry) → appended to the CURRENT question;
+    #   * tutor turns / openings / "Right?" confirmations are never stored as
+    #     answers; a student turn before any question is asked is logged + dropped.
+    answers = [""] * len(rows)
+    current = -1
     if conv is not None:
         for t in (TutorMessage.objects.filter(conversation=conv)
                   .order_by("created_at", "id").values("role", "content")):
-            if t["role"] == "assistant":
-                pending = t["content"] or ""
-            elif t["role"] == "user":
-                reply = (t["content"] or "").strip()
-                if reply and _is_pleasantry(reply):
-                    continue  # keep `pending` so the next real reply still pairs
-                pairs.append((pending or "", reply))
-                pending = None
-
-    # Match each question to the assistant prompt that asked it.
-    answers = [""] * len(rows)
-    used: set[int] = set()
-    matched = False
-    for ri, aq in enumerate(rows):
-        kws = _spk_keywords(aq.question.question_text)
-        best_idx, best = None, 0
-        for idx, (a_text, _reply) in enumerate(pairs):
-            if idx in used:
+            content = (t["content"] or "").strip()
+            if not content:
                 continue
-            s = _spk_overlap(kws, a_text)
-            if s > best:
-                best, best_idx = s, idx
-        if best_idx is not None and best > 0:
-            used.add(best_idx)
-            answers[ri] = pairs[best_idx][1]
-            matched = True
-    if not matched:
-        # Degenerate transcript (no assistant prompts captured): best-effort
-        # in-order alignment of the student replies.
-        for ri in range(len(rows)):
-            if ri < len(pairs):
-                answers[ri] = pairs[ri][1]
+            if t["role"] == "assistant":
+                nxt = current + 1
+                if nxt < len(rows) and _question_asked_in(rows[nxt].question, content):
+                    current = nxt           # tutor just asked question #nxt
+            elif t["role"] == "user":
+                if _is_pleasantry(content):
+                    continue
+                if current < 0:
+                    # Student spoke before the tutor asked anything — never a
+                    # real answer; record a warning, do NOT misassign it.
+                    logger.warning(
+                        "placement: student turn before any question (attempt=%s): %r",
+                        attempt.id, content[:80],
+                    )
+                    continue
+                answers[current] = (
+                    (answers[current] + " " + content).strip()
+                    if answers[current] else content
+                )
 
     # Meaning-based scoring (forgives minor grammar / missing-article slips);
     # one batched AI call, with a lenient heuristic fallback offline.
