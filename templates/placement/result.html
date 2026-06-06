@@ -28,12 +28,17 @@
         <div class="p-4 rounded-xl bg-muted/50">
           <div class="text-xs text-muted-foreground">{% t_either "Speaking score" "علامة التحدث" %}</div>
           <div class="text-2xl font-bold">{{ attempt.speaking_score|default:0 }}/100</div>
+          {% if speaking_level %}<div class="text-xs text-muted-foreground mt-1">{% t_either "Speaking level" "مستوى التحدث" %}: <span class="font-semibold text-foreground">{{ speaking_level }}</span></div>{% endif %}
         </div>
         <div class="p-4 rounded-xl bg-muted/50">
-          <div class="text-xs text-muted-foreground">{% t_either "Overall" "المجموع" %}</div>
-          <div class="text-2xl font-bold">{{ attempt.overall_score|default:0 }}/100</div>
+          <div class="text-xs text-muted-foreground">{% t_either "Final level" "المستوى النهائي" %}</div>
+          <div class="text-2xl font-bold">{{ attempt.recommended_cefr_level|default:"A1" }}</div>
+          <div class="text-xs text-muted-foreground mt-1">{% t_either "Overall score" "المجموع" %}: {{ attempt.overall_score|default:0 }}/100</div>
         </div>
       </div>
+      <p class="text-xs text-muted-foreground mt-3">
+        {% t_either "Your level is determined directly from your overall score (0–100 mapped to A0–C2)." "يُحدَّد مستواك مباشرةً من درجتك الإجمالية (من 0 إلى 100 مُحوّلة إلى A0–C2)." %}
+      </p>
 
       <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
         <a href="{% url 'dashboard' %}" class="btn btn-hero btn-lg">

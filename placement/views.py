@@ -771,12 +771,12 @@ def placement_voice_finalise(request, attempt_id: int):
     speaking = attempt.speaking_score or 0
     attempt.written_score = written
     attempt.overall_score = int(round((written + speaking) / 2))
-    # Level: prefer the speaking-call CEFR estimate; else fall back to the
-    # configurable written/overall percentage → level mapping (Phase 5).
+    # Product policy: the OVERALL score maps DIRECTLY to the CEFR level
+    # (A0..C2) via PLACEMENT_LEVEL_MAP — score-based placement, no difficulty
+    # cap. e.g. 96-100 → C2, 41-60 → A2. (The AI's own cefr estimate is NOT
+    # used for the final level.)
     from placement.services.level_mapping import level_for_percentage
-    attempt.recommended_cefr_level = (
-        eval_obj.cefr_level or level_for_percentage(attempt.overall_score)
-    )
+    attempt.recommended_cefr_level = level_for_percentage(attempt.overall_score)
     attempt.feedback = eval_obj.summary or attempt.feedback
     attempt.status = "completed"
     attempt.completed_at = timezone.now()
@@ -891,10 +891,14 @@ def placement_result(request, attempt_id: int):
                 aq.alternatives = []
         return rows
 
+    from placement.services.level_mapping import level_for_percentage
     return render(request, "placement/result.html", {
         "attempt": attempt,
         "written": _annotate(written),
         "speaking": _annotate(speaking),
+        # The speaking LEVEL follows the speaking SCORE directly (same A0..C2
+        # mapping as the final level) — score-based, no difficulty cap.
+        "speaking_level": level_for_percentage(attempt.speaking_score or 0),
     })
 
 
@@ -922,7 +926,11 @@ def _score_and_finalise(request, attempt: PlacementAttempt) -> None:
     fluency_score = result.get("fluency_score")
     pronunciation_score = result.get("pronunciation_score")
     overall_score = int(result.get("overall_score") or 0)
-    level = result.get("recommended_cefr_level") or result.get("level") or "A1"
+    # Product policy: the OVERALL score maps DIRECTLY to the CEFR level (A0..C2)
+    # via PLACEMENT_LEVEL_MAP — score-based placement, no difficulty cap. The
+    # assessor's own level estimate is NOT used for the final level.
+    from placement.services.level_mapping import level_for_percentage
+    level = level_for_percentage(overall_score)
 
     attempt.written_score = written_score
     attempt.speaking_score = speaking_score

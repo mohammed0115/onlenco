@@ -158,16 +158,21 @@ class PlacementResultFixTests(TestCase):
         return r, mock_diag
 
     def test_dashboard_and_email_level_match(self):
+        from placement.services.level_mapping import level_for_percentage
         r, mock_diag = self._finalise_voice(level="A2", overall=47)
         self.assertRedirects(r, reverse("placement_result", args=[self.attempt.id]))
-        # The result (dashboard) level.
+        # Score-based placement: the level comes DIRECTLY from the overall
+        # score (written 100 + speaking 85 → overall 92 → C1), NOT from the
+        # AI's own "A2" estimate.
         result = PlacementResult.objects.filter(user=self.user).latest("created_at")
-        self.assertEqual(result.level, "A2")
+        self.attempt.refresh_from_db()
+        self.assertEqual(result.level, level_for_percentage(self.attempt.overall_score))
+        self.assertEqual(result.level, self.attempt.recommended_cefr_level)
         self.assertEqual(result.written_score, 100)          # not 0 anymore
-        # The diagnostic/email got the SAME level + written score.
+        # The diagnostic/email got the SAME (score-based) level + written score.
         self.assertTrue(mock_diag.called)
         assessment = mock_diag.call_args.kwargs["assessment"]
-        self.assertEqual(assessment["level"], "A2")
+        self.assertEqual(assessment["level"], result.level)   # email == dashboard
         self.assertEqual(assessment["written_score"], 100)
 
     def test_speaking_answers_are_recorded(self):

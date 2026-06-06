@@ -99,7 +99,27 @@ def score_speaking_answers(pairs: list[tuple[str, str]]) -> list[dict]:
                 results[i] = ai[n]
             else:
                 results[i] = _heuristic(pairs[i][0], pairs[i][1])
+
+    # Filler / hesitation guard: a rambling answer with fillers shouldn't earn
+    # a perfect score even if a correct phrase is in there.
+    for i, (q, a) in enumerate(pairs):
+        r = results[i]
+        if r and _has_filler(a) and r.get("score", 0) > 80:
+            r["score"] = 80
+            r["feedback"] = r.get("feedback") or "Good answer, but try to answer directly."
     return [r or {"score": 0, "verdict": "empty", "feedback": ""} for r in results]
+
+
+_FILLER_MARKERS = (
+    "i'm not going to finish", "i am not going to finish", "i'm just going to",
+    "i am just going to", "i don't know how to say", "how do you say",
+    "let me think", "um ", " um", "uh ", " uh", "hmm", "wait,", "actually no",
+)
+
+
+def _has_filler(text: str) -> bool:
+    low = (" " + (text or "").lower() + " ")
+    return any(m in low for m in _FILLER_MARKERS)
 
 
 def _ai_score(pairs: list[tuple[str, str]]) -> list[dict] | None:
