@@ -101,7 +101,8 @@ class Command(BaseCommand):
             new_level = eval_obj.cefr_level or new_level
             if not dry:
                 from placement.views import compute_speaking_score
-                map_speaking_transcript(attempt, conv, eval_obj)
+                # Old attempts have no live answers → force fallback reconstruction.
+                map_speaking_transcript(attempt, conv, eval_obj, use_live=False)
                 new_speaking = compute_speaking_score(
                     attempt, fallback=eval_obj.overall_score or new_speaking)
             else:

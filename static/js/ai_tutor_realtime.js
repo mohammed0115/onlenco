@@ -123,6 +123,9 @@
   let maxSessionTimer = null;
   let isMuted = false;
   let openingSent = false;             // one-shot guard: tutor opens the call once
+  let placementQuestions = [];         // [{id, order, cues:[...]}] for live binding
+  let placementAnswerUrl = null;       // POST endpoint to save a per-question answer
+  let pqIndex = -1;                    // index of the question being asked right now
   let activeSessionInfo = null;        // populated by startCall, read by endCall
   // Live transcript collected from data-channel events. Sent to the
   // server on hang-up so the conversation list reflects what was said.
@@ -198,11 +201,14 @@
     transcriptTurns.length = 0;
     itemRoles.clear();
     openingSent = false;   // fresh session → the tutor opens once
+    pqIndex = -1;          // no placement question asked yet
 
     let sessionInfo;
     try {
       sessionInfo = await postJSON(Config.sessionUrl, { conversation_id: Config.conversationId });
       activeSessionInfo = sessionInfo;
+      placementQuestions = (sessionInfo && sessionInfo.placement_questions) || [];
+      placementAnswerUrl = (sessionInfo && sessionInfo.placement_answer_url) || null;
     } catch (e) {
       console.error('[onlenco-call] session request failed:', e);
       const code = e && e.code;
@@ -415,7 +421,10 @@
     // Accumulate user transcript (whisper-1 finalising the input audio).
     if (type === 'conversation.item.input_audio_transcription.completed') {
       const text = (msg.transcript || '').trim();
-      if (text) appendTranscript('user', text);
+      if (text) {
+        appendTranscript('user', text);
+        savePlacementAnswer(text);   // bind FINAL student transcript to the live question
+      }
     }
 
     // Accumulate Layla's text (audio stream has its own text channel).
@@ -423,9 +432,41 @@
       const text = (msg.transcript || '').trim();
       if (text) {
         appendTranscript('assistant', text);
+        maybeAdvancePlacementQuestion(text);   // tutor asked the next question?
         maybeAutoEnd(text);
       }
     }
+  }
+
+  // ----- Placement live answer binding ---------------------------------
+  // The tutor asks the 5 questions in order. When an assistant turn asks the
+  // NEXT question (cue match), advance the pointer; each FINAL student
+  // transcript is then POSTed with that exact question_id, so answers are
+  // bound at listening time — never reconstructed from the whole conversation.
+  function maybeAdvancePlacementQuestion(assistantText) {
+    if (!placementQuestions.length) return;
+    const nxt = pqIndex + 1;
+    if (nxt >= placementQuestions.length) return;
+    const cues = (placementQuestions[nxt] && placementQuestions[nxt].cues) || [];
+    const low = (assistantText || '').toLowerCase();
+    if (cues.some((c) => c && low.indexOf(c) !== -1)) {
+      pqIndex = nxt;
+    }
+  }
+
+  function savePlacementAnswer(studentText, attempt) {
+    if (!placementAnswerUrl || pqIndex < 0 || !placementQuestions.length) return;
+    const q = placementQuestions[pqIndex];
+    if (!q || !q.id) return;
+    postJSON(placementAnswerUrl, { question_id: q.id, transcript: studentText })
+      .catch((e) => {
+        // Do NOT advance on failure — retry once, then warn.
+        if (!attempt) {
+          setTimeout(() => savePlacementAnswer(studentText, true), 800);
+        } else {
+          console.warn('[onlenco-call] placement answer save failed for q', q.id, e);
+        }
+      });
   }
 
   function appendTranscript(role, text) {

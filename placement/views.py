@@ -1,7 +1,9 @@
+import json
 import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -343,6 +345,54 @@ def placement_voice_handoff(request, attempt_id: int):
     )
 
 
+@login_required
+@require_POST
+def placement_speaking_answer(request, attempt_id: int):
+    """LIVE per-question answer save during the speaking call.
+
+    The browser POSTs the FINAL student transcript together with the explicit
+    ``question_id`` that was being asked at that moment, so the answer is bound
+    at listening time — never reconstructed from the whole conversation. Tutor /
+    opening / "Right?" text and answers without a question_id are rejected.
+    """
+    from placement.services import speaking_alignment as sa
+    attempt = _user_attempt(request, attempt_id)
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    qid = payload.get("question_id")
+    transcript = (payload.get("transcript") or "").strip()
+    if not qid:
+        return JsonResponse({"ok": False, "error": "missing_question_id"}, status=400)
+    # The question must belong to THIS user's attempt (ownership first).
+    aq = (
+        attempt.questions.filter(section="speaking", id=qid)
+        .select_related("question").first()
+    )
+    if aq is None:
+        return JsonResponse({"ok": False, "error": "bad_question"}, status=404)
+    if not transcript:
+        return JsonResponse({"ok": False, "error": "empty"}, status=400)
+    # Never store tutor / greeting / "Right?" / "Great" as a student answer.
+    if sa.is_greeting_or_closing(transcript):
+        return JsonResponse({"ok": True, "skipped": "pleasantry"})
+    clause = sa.extract_relevant_answer_for_question(aq.question, transcript)
+    if not clause:
+        return JsonResponse({"ok": True, "skipped": "no_clause"})
+    existing = (aq.transcript or "").strip()
+    if existing and clause.lower() in existing.lower():
+        # Idempotent upsert: the same clause re-sent (network retry) is a no-op.
+        return JsonResponse({"ok": True, "question_id": aq.id, "order": aq.order, "dedup": True})
+    aq.transcript = (existing + " " + clause).strip() if existing else clause
+    aq.save(update_fields=["transcript"])
+    logger.info(
+        "placement live answer saved attempt=%s q=%s order=%s len=%s",
+        attempt.id, aq.id, aq.order, len(aq.transcript),
+    )
+    return JsonResponse({"ok": True, "question_id": aq.id, "order": aq.order})
+
+
 def grade_written_section(attempt: PlacementAttempt) -> int | None:
     """Grade the written section deterministically and persist per-question
     scores. Returns the 0-100 aggregate, or ``None`` when nothing gradable.
@@ -452,67 +502,58 @@ def compute_speaking_score(attempt: PlacementAttempt, *, fallback: int = 0) -> i
     return int(round(sum(scores) / len(scores)))
 
 
-def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj) -> None:
-    """Attach the student's spoken answer + a per-question score to each
-    speaking question, so the result page shows what they actually said.
+def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj, *,
+                            use_live: bool = True) -> None:
+    """Score each speaking question from the student's answer.
 
-    The call is free-flowing (the assistant greets, then asks the 5
-    questions, often with chit-chat / goodbyes around them), so a naive
-    "i-th student turn = i-th question" mapping mis-assigns the greeting and
-    shifts every answer. Instead we pair each ASSISTANT turn with the reply
-    that follows it, then assign each placement question the reply whose
-    assistant prompt best matches that question's wording. Greetings and
-    goodbyes match no question and are ignored.
+    Binding is PER QUESTION (not all-or-nothing): every question that already
+    has a LIVE transcript (saved during the call with its question_id) keeps it
+    untouched; only the MISSING questions are backfilled from their own slot in
+    the fallback state machine. So a partial live capture (only Q1 saved) never
+    leaves Q2-Q5 wrong, and the fallback never smears the whole conversation
+    over the answers that ARE correctly bound.
     """
     from tutor.models import TutorMessage
+    from placement.services import speaking_alignment as sa
+    from placement.services.speaking_eval import score_speaking_answers
 
     rows = list(
         attempt.questions.filter(section="speaking")
         .select_related("question").order_by("order")
     )
 
-    # SEQUENTIAL STATE MACHINE — bind each student answer to the question that
-    # was being asked AT THAT MOMENT, replaying the call in order. This does NOT
-    # rely on end-of-call ordering or fuzzy whole-transcript matching, so the
-    # tutor's auto-start opening / confirmations / pleasantries can't shift the
-    # answers onto the wrong question.
-    #
-    #   * assistant turn that asks the NEXT question (strict order) → advance the
-    #     "current question" pointer by one;
-    #   * student turn (not a pleasantry) → appended to the CURRENT question;
-    #   * tutor turns / openings / "Right?" confirmations are never stored as
-    #     answers; a student turn before any question is asked is logged + dropped.
-    answers = [""] * len(rows)
-    current = -1
-    if conv is not None:
-        for t in (TutorMessage.objects.filter(conversation=conv)
-                  .order_by("created_at", "id").values("role", "content")):
-            content = (t["content"] or "").strip()
-            if not content:
-                continue
-            if t["role"] == "assistant":
-                nxt = current + 1
-                if nxt < len(rows) and _question_asked_in(rows[nxt].question, content):
-                    current = nxt           # tutor just asked question #nxt
-            elif t["role"] == "user":
-                if _is_pleasantry(content):
-                    continue
-                if current < 0:
-                    # Student spoke before the tutor asked anything — never a
-                    # real answer; record a warning, do NOT misassign it.
-                    logger.warning(
-                        "placement: student turn before any question (attempt=%s): %r",
-                        attempt.id, content[:80],
-                    )
-                    continue
-                answers[current] = (
-                    (answers[current] + " " + content).strip()
-                    if answers[current] else content
-                )
+    # --- Live coverage, computed PER QUESTION ---
+    live = [(r.transcript or "").strip() for r in rows]
+    total = len(rows)
+    live_count = sum(1 for a in live if a)
+    missing_idx = [i for i, a in enumerate(live) if not a]
+    logger.info(
+        "placement speaking coverage attempt=%s total=%s live=%s missing_q=%s",
+        attempt.id, total, live_count, [rows[i].id for i in missing_idx],
+    )
+
+    need_fallback = (not use_live) or (live_count == 0) or bool(missing_idx)
+    fb = None
+    if need_fallback:
+        turns = (
+            list(TutorMessage.objects.filter(conversation=conv)
+                 .order_by("created_at", "id").values("role", "content"))
+            if conv is not None else []
+        )
+        fb, warnings = sa.align_answers_by_explicit_question_state(rows, turns)
+        for w in warnings:
+            logger.warning("placement align (attempt=%s): %s", attempt.id, w)
+
+    if not use_live or live_count == 0:
+        # No trustworthy live answers → full fallback for every question.
+        answers = fb
+    else:
+        # Hybrid: keep each correctly-bound live answer; backfill ONLY the
+        # missing questions from their OWN fallback slot.
+        answers = [live[i] if live[i] else (fb[i] if fb else "") for i in range(total)]
 
     # Meaning-based scoring (forgives minor grammar / missing-article slips);
     # one batched AI call, with a lenient heuristic fallback offline.
-    from placement.services.speaking_eval import score_speaking_answers
     graded = score_speaking_answers(
         [((aq.question.question_text or ""), answers[ri]) for ri, aq in enumerate(rows)]
     )

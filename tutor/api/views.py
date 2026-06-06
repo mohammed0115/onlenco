@@ -1019,10 +1019,28 @@ def voice_call_session(request):
             "warmly in one short sentence and ask what they would like to "
             "practice today."
         )
+    # Live per-question answer capture (placement only): give the browser the
+    # ordered questions (id + order + cue words) and the save endpoint so each
+    # student transcript is bound to the right question_id during the call.
+    placement_questions = []
+    placement_answer_url = None
+    if is_placement_call and placement_attempt is not None:
+        from django.urls import reverse as _reverse
+        from placement.services import speaking_alignment as _sa
+        placement_answer_url = _reverse(
+            "placement_speaking_answer", args=[placement_attempt.id])
+        for aq in (placement_attempt.questions.filter(section="speaking")
+                   .select_related("question").order_by("order")):
+            placement_questions.append({
+                "id": aq.id, "order": aq.order,
+                "cues": sorted(_sa.question_cues(aq.question)),
+            })
     return Response({
         "success": True,
         "auto_start": True,
         "opening_instruction": opening_instruction,
+        "placement_questions": placement_questions,
+        "placement_answer_url": placement_answer_url,
         "client_secret": client_secret,
         "session_id": session.get("id"),
         "tutor_session_id": tutor_session.pk,  # NEW — pass back to /voice/log

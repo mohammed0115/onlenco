@@ -12,6 +12,7 @@ urlpatterns = [
     path("<int:attempt_id>/speaking/", views.placement_speaking, name="placement_speaking"),
     # Voice-call replacement for Part 2.
     path("<int:attempt_id>/voice-call/",          views.placement_voice_handoff,  name="placement_voice_handoff"),
+    path("<int:attempt_id>/speaking/answer/",     views.placement_speaking_answer, name="placement_speaking_answer"),
     path("<int:attempt_id>/voice-call/finalise/", views.placement_voice_finalise, name="placement_voice_finalise"),
     path("<int:attempt_id>/result/",   views.placement_result,   name="placement_result"),
 ]
