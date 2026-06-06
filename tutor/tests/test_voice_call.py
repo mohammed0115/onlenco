@@ -104,6 +104,27 @@ class VoiceCallSessionTests(TestCase):
         self.assertIn("system_prompt", kwargs)
         self.assertIn("Layla", kwargs["system_prompt"])
 
+    def test_tutor_first_contract(self):
+        """The browser must be told to make the TUTOR open the call (the
+        student never starts). The JS uses auto_start + opening_instruction to
+        send the opening response.create."""
+        fake_session = {
+            "id": "sess_abc", "client_secret": {"value": "ek_test_123"},
+            "expires_at": 9999999999,
+        }
+        with patch(
+            "tutor.services.realtime_session.request_ephemeral_session",
+            return_value=fake_session,
+        ):
+            r = self.client.post(
+                self.url, {"conversation_id": self.conv.id},
+                content_type="application/json",
+            )
+        body = r.json()
+        self.assertTrue(body["auto_start"])                       # tutor speaks first
+        self.assertIn("opening_instruction", body)
+        self.assertIn("Do not wait for the student", body["opening_instruction"])
+
     def test_daily_cap_blocks_further_sessions(self):
         # Sprint 2: cap is DB-backed (subscription daily quota OR trial).
         # Drain BOTH buckets and verify the endpoint refuses with 402.

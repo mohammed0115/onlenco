@@ -49,6 +49,14 @@
       idle_sub:          "Your teacher will greet you and start a real English conversation.",
       connecting_title:  'Connecting…',
       connecting_sub:    'Setting up your call. Hang on a moment.',
+      tutor_starting_title: 'Getting your tutor ready…',
+      tutor_starting_sub:   '{name} will start and ask the first question. Just listen.',
+      tutor_speaking_title: '{name} is speaking',
+      tutor_speaking_sub:   'Listen to the question…',
+      listening_for_student_title: 'Your turn',
+      listening_for_student_sub:   'Now answer with one word or a short sentence.',
+      student_speaking_title: 'Listening…',
+      student_speaking_sub:   'Go ahead — {name} can hear you.',
       listening_title:   'Listening…',
       listening_sub:     'Go ahead — {name} can hear you.',
       thinking_title:    'Thinking…',
@@ -75,6 +83,14 @@
       idle_sub:          'سيرحّب بك معلمك ويبدأ محادثة إنجليزية حقيقية.',
       connecting_title:  'جارٍ الاتصال…',
       connecting_sub:    'جارٍ تجهيز المكالمة، لحظة من فضلك.',
+      tutor_starting_title: 'جارٍ تجهيز المدرس الذكي…',
+      tutor_starting_sub:   'سيبدأ {name} ويطرح السؤال الأول. فقط استمع.',
+      tutor_speaking_title: 'يتحدّث {name}',
+      tutor_speaking_sub:   'استمع إلى السؤال…',
+      listening_for_student_title: 'دورك الآن',
+      listening_for_student_sub:   'الآن أجب بصوتك بكلمة أو جملة قصيرة.',
+      student_speaking_title: 'جارٍ الاستماع…',
+      student_speaking_sub:   'تفضّل بالحديث — {name} ينصت إليك.',
       listening_title:   'جارٍ الاستماع…',
       listening_sub:     'تفضّل بالحديث — {name} ينصت إليك.',
       thinking_title:    'تفكير…',
@@ -123,6 +139,8 @@
   let maxSessionTimer = null;
   let isMuted = false;
   let openingSent = false;             // one-shot guard: tutor opens the call once
+  let tutorHasSpoken = false;          // the tutor must speak BEFORE we listen
+  let currentPhase = 'idle';           // logical call phase (see PHASE_VISUAL)
   let placementQuestions = [];         // [{id, order, cues:[...]}] for live binding
   let placementAnswerUrl = null;       // POST endpoint to save a per-question answer
   let pqIndex = -1;                    // index of the question being asked right now
@@ -134,20 +152,44 @@
   const itemRoles = new Map();
 
   // ----- State machine --------------------------------------------------
+  // Logical PHASES (call flow) are kept separate from the VISUAL data-state
+  // the CSS keys off, so we can show "the tutor is starting" without entering
+  // the student-listening look. The tutor ALWAYS speaks before we listen.
+  //   connecting → tutor_starting → tutor_speaking → listening_for_student
+  //   → student_speaking → thinking → tutor_speaking → … → ended
+  const PHASE_VISUAL = {
+    idle: 'idle',
+    connecting: 'connecting',
+    tutor_starting: 'connecting',          // warm orb, NO listening rings
+    tutor_speaking: 'speaking',
+    listening_for_student: 'listening',
+    student_speaking: 'listening',
+    thinking: 'thinking',
+    ended: 'ended',
+    error: 'error',
+  };
 
-  function setState(next) {
-    if (els.card) els.card.dataset.state = next;
-    const titleKey = next + '_title';
-    const subKey = next + '_sub';
-    if (els.title) els.title.textContent = t(titleKey);
-    if (els.sub)   els.sub.textContent   = t(subKey);
-    // Toggle the start vs. end button.
-    if (els.startBtn) els.startBtn.hidden = (next !== 'idle' && next !== 'ended' && next !== 'error');
-    if (els.endBtn)   els.endBtn.hidden   = !(next === 'connecting' || next === 'listening'
-                                              || next === 'thinking' || next === 'speaking');
-    if (els.muteBtn)  els.muteBtn.hidden  = els.endBtn ? els.endBtn.hidden : true;
-    if (els.timer)    els.timer.hidden    = !(next === 'listening' || next === 'thinking' || next === 'speaking');
+  function dlog() {
+    if (!(Config.debug || global.__onlencoCallDebug)) return;
+    try { console.log.apply(console, ['[onlenco-call]'].concat([].slice.call(arguments))); } catch (e) {}
   }
+
+  function setPhase(phase) {
+    currentPhase = phase;
+    const visual = PHASE_VISUAL[phase] || phase;
+    if (els.card) { els.card.dataset.state = visual; els.card.dataset.phase = phase; }
+    if (els.title) els.title.textContent = t(phase + '_title');
+    if (els.sub)   els.sub.textContent   = t(phase + '_sub');
+    // Toggle the start vs. end button (driven by the VISUAL state).
+    if (els.startBtn) els.startBtn.hidden = (visual !== 'idle' && visual !== 'ended' && visual !== 'error');
+    if (els.endBtn)   els.endBtn.hidden   = !(visual === 'connecting' || visual === 'listening'
+                                              || visual === 'thinking' || visual === 'speaking');
+    if (els.muteBtn)  els.muteBtn.hidden  = els.endBtn ? els.endBtn.hidden : true;
+    if (els.timer)    els.timer.hidden    = !(visual === 'listening' || visual === 'thinking' || visual === 'speaking');
+  }
+
+  // Back-compat shim: a few call sites still pass visual names directly.
+  function setState(next) { setPhase(next); }
 
   function showError(msg) {
     if (!els.error) return;
@@ -201,6 +243,7 @@
     transcriptTurns.length = 0;
     itemRoles.clear();
     openingSent = false;   // fresh session → the tutor opens once
+    tutorHasSpoken = false; // never enter "listening" before the tutor speaks
     pqIndex = -1;          // no placement question asked yet
 
     let sessionInfo;
@@ -354,8 +397,12 @@
     const answerSdp = await sdpResp.text();
     await peer.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
-    // Connection live — switch to listening + start the timer.
-    setState('listening');
+    // Connection live. The TUTOR opens the call, so we DON'T enter the
+    // student-listening state yet — we show "tutor is starting" until the
+    // tutor's first audio arrives. (Previously this set 'listening' here,
+    // which wrongly told the student to speak first.)
+    setPhase('tutor_starting');
+    dlog('connection live → tutor_starting (waiting for tutor to speak)');
     callStartedAt = Date.now();
     startTimer();
 
@@ -376,11 +423,13 @@
   function maybeSendOpening() {
     if (openingSent || !dataChannel || dataChannel.readyState !== 'open') return;
     const info = activeSessionInfo || {};
+    dlog('auto_start', info.auto_start, '| opening_instruction', info.opening_instruction);
     if (info.auto_start === false) return;
     openingSent = true;
     const response = { modalities: ['audio', 'text'] };
     if (info.opening_instruction) response.instructions = info.opening_instruction;
     try {
+      dlog('dataChannel open → sending opening response.create');
       dataChannel.send(JSON.stringify({ type: 'response.create', response: response }));
     } catch (e) { openingSent = false; }   // allow a retry if the send failed
   }
@@ -399,15 +448,26 @@
     }
 
     // High-frequency lifecycle events let us flip the orb between
-    // listening / thinking / speaking states for visual feedback.
-    if (type === 'input_audio_buffer.speech_started') {
-      setState('listening');
-    } else if (type === 'input_audio_buffer.speech_stopped') {
-      setState('thinking');
-    } else if (type === 'response.audio.delta' || type === 'response.output_audio.delta') {
-      if (els.card && els.card.dataset.state !== 'speaking') setState('speaking');
+    // tutor-speaking / listening / thinking states. CRITICAL: we never enter
+    // a student-listening phase until the tutor has actually spoken — the
+    // tutor opens the call.
+    if (type === 'response.audio.delta' || type === 'response.output_audio.delta') {
+      // The tutor's voice is playing.
+      if (!tutorHasSpoken) { tutorHasSpoken = true; dlog('assistant started (first audio)'); }
+      if (currentPhase !== 'tutor_speaking') setPhase('tutor_speaking');
     } else if (type === 'response.done' || type === 'response.audio.done' || type === 'response.output_audio.done') {
-      setState('listening');
+      // A tutor turn finished. Only NOW is it the student's turn to answer.
+      if (tutorHasSpoken) {
+        dlog('assistant done → switching to listening_for_student');
+        setPhase('listening_for_student');
+      }
+    } else if (type === 'input_audio_buffer.speech_started') {
+      // The student started speaking — but ignore any audio BEFORE the tutor
+      // has spoken (stray noise / early mic), so we never show "your turn"
+      // prematurely.
+      if (tutorHasSpoken) setPhase('student_speaking');
+    } else if (type === 'input_audio_buffer.speech_stopped') {
+      if (tutorHasSpoken) setPhase('thinking');
     }
 
     // Track item creation so we know which role each delta belongs to.
@@ -431,6 +491,7 @@
     if (type === 'response.audio_transcript.done' || type === 'response.output_audio_transcript.done') {
       const text = (msg.transcript || '').trim();
       if (text) {
+        tutorHasSpoken = true;   // a tutor turn was transcribed → it spoke
         appendTranscript('assistant', text);
         maybeAdvancePlacementQuestion(text);   // tutor asked the next question?
         maybeAutoEnd(text);
