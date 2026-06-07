@@ -150,6 +150,18 @@
   const transcriptTurns = [];
   // Map item id → role so we can attach delta events to the right entry.
   const itemRoles = new Map();
+  // Freeze the question pointer at the moment a USER audio item is CREATED
+  // (when they start answering) — not when its transcript later arrives, by
+  // which time the tutor may already have asked + advanced to the next
+  // question. Keyed by item id; consumed when the transcript completes.
+  const itemQuestionIndex = new Map();
+
+  // ----- Robustness timers (ICE recovery + opening retry) --------------
+  let iceRecoveryTimer = null;         // grace window before a 'disconnected' ICE ends the call
+  let openingWatchdog = null;          // re-sends the opening if the tutor never speaks
+  const ICE_RECOVERY_GRACE_MS = 6000;  // a brief network blip should not drop the call
+  const OPENING_WATCHDOG_MS = 3500;    // how long to wait for the tutor's first audio
+  const OPENING_MAX_RETRIES = 3;       // re-send the opening at most this many times
 
   // ----- State machine --------------------------------------------------
   // Logical PHASES (call flow) are kept separate from the VISUAL data-state
@@ -242,6 +254,7 @@
     setState('connecting');
     transcriptTurns.length = 0;
     itemRoles.clear();
+    itemQuestionIndex.clear();
     openingSent = false;   // fresh session → the tutor opens once
     tutorHasSpoken = false; // never enter "listening" before the tutor speaks
     pqIndex = -1;          // no placement question asked yet
@@ -320,10 +333,30 @@
 
     peer.oniceconnectionstatechange = () => {
       const s = peer && peer.iceConnectionState;
-      if (s === 'failed' || s === 'disconnected' || s === 'closed') {
-        // Network dropped or the remote tore down — end gracefully.
-        if (els.card && els.card.dataset.state !== 'idle' && els.card.dataset.state !== 'ended') {
-          endCall(/* userInitiated */ false);
+      const live = els.card && els.card.dataset.state !== 'idle' && els.card.dataset.state !== 'ended';
+      if (s === 'connected' || s === 'completed') {
+        // Recovered — cancel any pending disconnect grace timer.
+        if (iceRecoveryTimer) { clearTimeout(iceRecoveryTimer); iceRecoveryTimer = null; }
+        return;
+      }
+      if (s === 'failed' || s === 'closed') {
+        // Hard failure — end immediately.
+        if (iceRecoveryTimer) { clearTimeout(iceRecoveryTimer); iceRecoveryTimer = null; }
+        if (live) endCall(/* userInitiated */ false);
+      } else if (s === 'disconnected') {
+        // A transient blip. Give the connection a grace window to recover
+        // before tearing the call down — mobile networks flap constantly.
+        if (live && !iceRecoveryTimer) {
+          dlog('ICE disconnected → starting recovery grace', ICE_RECOVERY_GRACE_MS, 'ms');
+          iceRecoveryTimer = setTimeout(() => {
+            iceRecoveryTimer = null;
+            const cur = peer && peer.iceConnectionState;
+            if (cur === 'connected' || cur === 'completed') return;   // recovered
+            if (els.card && els.card.dataset.state !== 'idle' && els.card.dataset.state !== 'ended') {
+              dlog('ICE did not recover within grace → ending call');
+              endCall(/* userInitiated */ false);
+            }
+          }, ICE_RECOVERY_GRACE_MS);
         }
       }
     };
@@ -431,7 +464,29 @@
     try {
       dlog('dataChannel open → sending opening response.create');
       dataChannel.send(JSON.stringify({ type: 'response.create', response: response }));
+      scheduleOpeningWatchdog(response, 0);
     } catch (e) { openingSent = false; }   // allow a retry if the send failed
+  }
+
+  // If the tutor's first audio never arrives (a dropped opening response.create
+  // is the usual ~1-min-stuck cause), re-send the opening a few times before
+  // giving up — so the call starts promptly instead of hanging on a blank orb.
+  function scheduleOpeningWatchdog(response, retries) {
+    if (openingWatchdog) { clearTimeout(openingWatchdog); openingWatchdog = null; }
+    openingWatchdog = setTimeout(() => {
+      openingWatchdog = null;
+      if (tutorHasSpoken) return;                                  // tutor already speaking
+      if (!dataChannel || dataChannel.readyState !== 'open') return;  // channel/call gone
+      if (retries >= OPENING_MAX_RETRIES) {
+        dlog('opening watchdog exhausted retries — giving up');
+        return;
+      }
+      try {
+        dlog('opening watchdog: tutor silent → re-sending opening', retries + 1);
+        dataChannel.send(JSON.stringify({ type: 'response.create', response: response }));
+      } catch (e) { /* channel may be closing; nothing else to do */ }
+      scheduleOpeningWatchdog(response, retries + 1);
+    }, OPENING_WATCHDOG_MS);
   }
 
   // ----- Realtime event router -----------------------------------------
@@ -453,7 +508,12 @@
     // tutor opens the call.
     if (type === 'response.audio.delta' || type === 'response.output_audio.delta') {
       // The tutor's voice is playing.
-      if (!tutorHasSpoken) { tutorHasSpoken = true; dlog('assistant started (first audio)'); }
+      if (!tutorHasSpoken) {
+        tutorHasSpoken = true;
+        dlog('assistant started (first audio)');
+        // The opening succeeded — cancel the re-send watchdog.
+        if (openingWatchdog) { clearTimeout(openingWatchdog); openingWatchdog = null; }
+      }
       if (currentPhase !== 'tutor_speaking') setPhase('tutor_speaking');
     } else if (type === 'response.done' || type === 'response.audio.done' || type === 'response.output_audio.done') {
       // A tutor turn finished. Only NOW is it the student's turn to answer.
@@ -475,6 +535,10 @@
       const item = msg.item || {};
       if (item.id && (item.role === 'user' || item.role === 'assistant')) {
         itemRoles.set(item.id, item.role);
+        // Freeze the question index NOW (when the student's answer item is
+        // created), so a slow Whisper transcript that lands after the tutor
+        // has advanced to the next question still binds to the RIGHT slot.
+        if (item.role === 'user') itemQuestionIndex.set(item.id, pqIndex);
       }
     }
 
@@ -483,7 +547,14 @@
       const text = (msg.transcript || '').trim();
       if (text) {
         appendTranscript('user', text);
-        savePlacementAnswer(text);   // bind FINAL student transcript to the live question
+        // Use the index frozen when this audio item was created; fall back to
+        // the live pointer only if we never saw the item.created event.
+        let boundIndex = pqIndex;
+        if (msg.item_id != null && itemQuestionIndex.has(msg.item_id)) {
+          boundIndex = itemQuestionIndex.get(msg.item_id);
+          itemQuestionIndex.delete(msg.item_id);
+        }
+        savePlacementAnswer(text, false, boundIndex);   // bind to the question asked at answer time
       }
     }
 
@@ -515,15 +586,20 @@
     }
   }
 
-  function savePlacementAnswer(studentText, attempt) {
-    if (!placementAnswerUrl || pqIndex < 0 || !placementQuestions.length) return;
-    const q = placementQuestions[pqIndex];
+  function savePlacementAnswer(studentText, isRetry, boundIndex) {
+    if (!placementAnswerUrl || !placementQuestions.length) return;
+    // Bind to the FROZEN index (captured when the answer audio item was
+    // created); fall back to the live pointer only when none was supplied.
+    const idx = (typeof boundIndex === 'number') ? boundIndex : pqIndex;
+    if (idx < 0) return;
+    const q = placementQuestions[idx];
     if (!q || !q.id) return;
     postJSON(placementAnswerUrl, { question_id: q.id, transcript: studentText })
       .catch((e) => {
-        // Do NOT advance on failure — retry once, then warn.
-        if (!attempt) {
-          setTimeout(() => savePlacementAnswer(studentText, true), 800);
+        // Do NOT advance on failure — retry once (preserving the SAME idx),
+        // then warn.
+        if (!isRetry) {
+          setTimeout(() => savePlacementAnswer(studentText, true, idx), 800);
         } else {
           console.warn('[onlenco-call] placement answer save failed for q', q.id, e);
         }
@@ -641,6 +717,8 @@
 
   function teardownPeer() {
     if (maxSessionTimer) { clearTimeout(maxSessionTimer); maxSessionTimer = null; }
+    if (iceRecoveryTimer) { clearTimeout(iceRecoveryTimer); iceRecoveryTimer = null; }
+    if (openingWatchdog) { clearTimeout(openingWatchdog); openingWatchdog = null; }
     stopTimer();
     stopAiVisualizer();
     if (dataChannel) { try { dataChannel.close(); } catch (e) {} dataChannel = null; }

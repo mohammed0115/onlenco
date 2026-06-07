@@ -27,6 +27,10 @@ ROLE_CHOICES = [
 # --- feature ------------------------------------------------------------
 FEATURE_PLACEMENT_WRITTEN = "placement_written"
 FEATURE_PLACEMENT_SPEAKING = "placement_speaking"
+# Post-call placement answer reconciliation. Kept out of FEATURE_CHOICES on
+# purpose so adding it needs no DB migration; it is still logged verbatim on
+# AIUsageLog.feature and is NOT minute-bearing.
+FEATURE_PLACEMENT_RECONCILE = "placement_reconcile"
 FEATURE_PLACEMENT_ALTERNATIVES = "placement_alternatives"
 FEATURE_AI_TUTOR = "ai_tutor"
 FEATURE_LESSON_ASSISTANT = "lesson_assistant"

@@ -350,6 +350,13 @@ PLACEMENT_SPEAKING_MAX_RETRIES = int(
 # evidence of very low speaking ability, NOT a technical failure).
 PLACEMENT_SPEAKING_UNABLE_LEVEL = env_get("PLACEMENT_SPEAKING_UNABLE_LEVEL", "A0")
 PLACEMENT_FINAL_CAP_WHEN_UNABLE = env_get("PLACEMENT_FINAL_CAP_WHEN_UNABLE", "A1")
+# Post-call AI reconciliation: after a placement speaking call, re-align the
+# captured answers to the right question (ignore noise/tutor/filler, split a
+# turn that holds two answers) BEFORE scoring. Falls back to the live answers
+# if the AI is unavailable. Never consumes paid AI-Tutor minutes.
+PLACEMENT_USE_AI_RECONCILIATION = (
+    env_get("PLACEMENT_USE_AI_RECONCILIATION", "1") == "1"
+)
 # Rough per-minute realtime cost (USD) used ONLY for the ai_usage estimate;
 # real billing is reconciled monthly against the provider invoice.
 PLACEMENT_SPEAKING_EST_COST_PER_MIN_USD = env_get(
@@ -363,6 +370,18 @@ PLACEMENT_LEVEL_MAP = [
     (20, "A0"), (40, "A1"), (60, "A2"), (75, "B1"),
     (88, "B2"), (95, "C1"), (100, "C2"),
 ]
+
+# Overall placement score = weighted blend of the written and speaking
+# sections. Speaking weighs more than written because an easy fill-in-the-blank
+# sheet (often 100) should not drag a near-beginner up to B2/C1 on its own — the
+# spoken section is the stronger signal of real proficiency. Set both weights to
+# 0 to fall back to a plain 50/50 average.
+PLACEMENT_WRITTEN_WEIGHT = float(env_get("PLACEMENT_WRITTEN_WEIGHT", "0.35"))
+PLACEMENT_SPEAKING_WEIGHT = float(env_get("PLACEMENT_SPEAKING_WEIGHT", "0.65"))
+# Safety cap: the FINAL level may sit at most this many CEFR bands above the
+# level implied by the speaking score alone — so a perfect written sheet can
+# nudge, but never override, the spoken-ability signal.
+PLACEMENT_MAX_STEPS_ABOVE_SPEAKING = int(env_get("PLACEMENT_MAX_STEPS_ABOVE_SPEAKING", "1"))
 
 # --- ai_engine local providers -----------------------------------------
 # Set AI_LOCAL_CLASSIFIER_ENABLED=1 in env to let the router try local

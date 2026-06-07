@@ -45,3 +45,64 @@ def level_for_percentage(percentage) -> str:
         if pct <= ceiling:
             return level
     return bands[-1][1] if bands else "A1"
+
+
+def _to_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def weighted_overall(written, speaking) -> int:
+    """Blend the written + speaking percentages using the configured weights.
+
+    Speaking weighs more than written so an easy 100/100 written sheet can't
+    pull a weak speaker up to B2. Falls back to a plain 50/50 average when both
+    weights are 0. Result is clamped to 0-100 and rounded to an int.
+    """
+    w = _to_float(written)
+    s = _to_float(speaking)
+    ww = _to_float(getattr(settings, "PLACEMENT_WRITTEN_WEIGHT", 0.35), 0.35)
+    sw = _to_float(getattr(settings, "PLACEMENT_SPEAKING_WEIGHT", 0.65), 0.65)
+    total = ww + sw
+    if total <= 0:
+        blended = (w + s) / 2.0
+    else:
+        blended = (w * ww + s * sw) / total
+    return int(round(max(0.0, min(100.0, blended))))
+
+
+def cap_to_speaking(final_level: str, speaking_score) -> str:
+    """Lower ``final_level`` so it sits at most ``PLACEMENT_MAX_STEPS_ABOVE_SPEAKING``
+    CEFR bands above the level implied by the speaking score alone.
+
+    A perfect written sheet can nudge the level up a little, but never override
+    the spoken-ability signal. Disabled (returns ``final_level`` unchanged) when
+    the configured step count is >= the number of CEFR bands.
+    """
+    steps = int(getattr(settings, "PLACEMENT_MAX_STEPS_ABOVE_SPEAKING", 1) or 0)
+    if steps >= len(LEVEL_ORDER):
+        return final_level
+    speaking_level = level_for_percentage(speaking_score)
+    try:
+        ceiling_idx = min(LEVEL_ORDER.index(speaking_level) + max(0, steps), len(LEVEL_ORDER) - 1)
+    except ValueError:
+        return final_level
+    return cap_level(final_level, LEVEL_ORDER[ceiling_idx])
+
+
+def consistent_feedback(level: str) -> str:
+    """Short, level-appropriate feedback that NEVER names a different CEFR
+    level — so the result page can't show "B2" next to "Estimated level: A1".
+    """
+    messages = {
+        "A0": "You're just starting out — keep practising the basics and you'll improve quickly.",
+        "A1": "You're at a beginner level. Keep building everyday words and simple sentences.",
+        "A2": "You have an elementary foundation. Practise short conversations to grow your confidence.",
+        "B1": "You're at an intermediate level. Keep expanding vocabulary and speaking more fluently.",
+        "B2": "You're at an upper-intermediate level. Focus on nuance and longer, connected speech.",
+        "C1": "You're at an advanced level. Refine precision and natural, idiomatic expression.",
+        "C2": "You're at a proficient level. Keep polishing subtlety and stylistic range.",
+    }
+    return messages.get(level, "Keep practising — you're making progress.")

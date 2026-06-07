@@ -165,4 +165,35 @@ def align_answers_by_explicit_question_state(rows, turns) -> tuple[list[str], li
     # Trim each bound answer to the clause(s) that actually answer its question.
     out = [extract_relevant_answer_for_question(r.question, answers[i])
            for i, r in enumerate(rows)]
+    # Safety net: repair a residual off-by-one shift (answer landed on the next
+    # question's slot) conservatively, into empty slots only.
+    warnings.extend(_repair_off_by_one(rows, out))
     return out, warnings
+
+
+def _repair_off_by_one(rows, answers) -> list[str]:
+    """Conservatively undo a single backward off-by-one shift IN PLACE.
+
+    Iterates from the end: if ``answers[i]`` actually matches the PREVIOUS
+    question's key (and NOT its own) while the previous slot is empty, the
+    answer almost certainly slipped forward one question — move it back and
+    clear the current slot. Single backward shift into an empty slot only;
+    never overwrites an existing answer. Returns any warnings emitted.
+    """
+    warnings: list[str] = []
+    for i in range(len(answers) - 1, 0, -1):
+        cur = (answers[i] or "").strip()
+        if not cur:
+            continue
+        if (answers[i - 1] or "").strip():
+            continue  # previous slot already filled — never overwrite
+        own_key = question_key(rows[i].question)
+        prev_key = question_key(rows[i - 1].question)
+        if prev_key and _clause_matches_key(cur, prev_key) and not _clause_matches_key(cur, own_key):
+            answers[i - 1] = cur
+            answers[i] = ""
+            warnings.append(
+                f"repaired off-by-one: moved answer from slot {i} to {i - 1} "
+                f"({prev_key!r}): {cur[:40]!r}"
+            )
+    return warnings

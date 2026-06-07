@@ -192,14 +192,16 @@ class PlacementResultFixTests(TestCase):
         self.assertTrue(all(aq.score is not None for aq in rows))
 
     def test_overall_blends_written_and_speaking(self):
+        from placement.services.level_mapping import weighted_overall
         self._finalise_voice(level="A2", overall=47)
         self.attempt.refresh_from_db()
         # Speaking score is now the mean of the per-question MEANING-based
         # scores (heuristic in tests: each multi-word answer ≈ 85), and the
-        # overall is (written + speaking) / 2.
+        # overall is the WEIGHTED blend of written + speaking (speaking weighs
+        # more), not a plain 50/50 average.
         self.assertEqual(self.attempt.speaking_score, 85)
         self.assertEqual(self.attempt.overall_score,
-                         round((100 + self.attempt.speaking_score) / 2))
+                         weighted_overall(100, self.attempt.speaking_score))
 
     def test_recompute_command_fixes_stale_result(self):
         self._finalise_voice(level="A2", overall=47)
@@ -214,7 +216,8 @@ class PlacementResultFixTests(TestCase):
                      stdout=StringIO())
         self.attempt.refresh_from_db()
         result.refresh_from_db()
-        expected_overall = round((100 + self.attempt.speaking_score) / 2)
+        from placement.services.level_mapping import weighted_overall
+        expected_overall = weighted_overall(100, self.attempt.speaking_score)
         self.assertEqual(self.attempt.written_score, 100)
         self.assertEqual(self.attempt.overall_score, expected_overall)
         self.assertEqual(result.written_score, 100)

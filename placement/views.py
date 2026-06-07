@@ -532,28 +532,63 @@ def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj, *,
         attempt.id, total, live_count, [rows[i].id for i in missing_idx],
     )
 
+    # Raw turns: needed by BOTH the fallback state machine and the post-call
+    # AI reconciliation, so we read them once regardless of live coverage.
+    turns = (
+        list(TutorMessage.objects.filter(conversation=conv)
+             .order_by("created_at", "id").values("role", "content"))
+        if conv is not None else []
+    )
+
     need_fallback = (not use_live) or (live_count == 0) or bool(missing_idx)
     fb = None
     if need_fallback:
-        turns = (
-            list(TutorMessage.objects.filter(conversation=conv)
-                 .order_by("created_at", "id").values("role", "content"))
-            if conv is not None else []
-        )
         fb, warnings = sa.align_answers_by_explicit_question_state(rows, turns)
         for w in warnings:
             logger.warning("placement align (attempt=%s): %s", attempt.id, w)
 
     if not use_live or live_count == 0:
         # No trustworthy live answers → full fallback for every question.
-        answers = fb
+        answers = fb or [""] * total
     else:
         # Hybrid: keep each correctly-bound live answer; backfill ONLY the
         # missing questions from their OWN fallback slot.
         answers = [live[i] if live[i] else (fb[i] if fb else "") for i in range(total)]
 
-    # Meaning-based scoring (forgives minor grammar / missing-article slips);
-    # one batched AI call, with a lenient heuristic fallback offline.
+    # --- Post-call AI reconciliation -------------------------------------
+    # Clean + re-align the captured answers to the right question (ignore
+    # noise/tutor/filler, split a turn holding two answers, stop Q5 swallowing
+    # the chat) BEFORE scoring. Falls back to the raw answers on any failure.
+    from django.conf import settings as _dj
+    raw_candidates = list(answers)
+    review_flags = [False] * total
+    recon_meta = [None] * total
+    if getattr(_dj, "PLACEMENT_USE_AI_RECONCILIATION", True):
+        try:
+            from placement.services.speaking_reconciliation import reconcile_speaking_answers
+            recon = reconcile_speaking_answers(attempt, turns, raw_candidates)
+            by_id = {e["question_id"]: e for e in recon.get("answers", [])}
+            for ri, aq in enumerate(rows):
+                e = by_id.get(aq.id)
+                if not e:
+                    continue
+                answers[ri] = e.get("clean_answer") or ""
+                review_flags[ri] = bool(e.get("needs_review"))
+                recon_meta[ri] = {
+                    k: e.get(k) for k in
+                    ("confidence", "source", "ignored_noise",
+                     "needs_review", "question_key")
+                }
+            if recon.get("global_warnings"):
+                logger.warning("placement reconciliation warnings attempt=%s: %s",
+                               attempt.id, recon["global_warnings"])
+        except Exception:
+            logger.warning("placement reconciliation step failed; using raw answers",
+                           exc_info=True)
+
+    # Meaning-based scoring runs on the CLEAN answers only (forgives minor
+    # grammar / missing-article slips); one batched AI call, lenient heuristic
+    # fallback offline.
     graded = score_speaking_answers(
         [((aq.question.question_text or ""), answers[ri]) for ri, aq in enumerate(rows)]
     )
@@ -562,7 +597,15 @@ def map_speaking_transcript(attempt: PlacementAttempt, conv, eval_obj, *,
         aq.transcript = answers[ri][:4000]
         aq.score = float(g.get("score") or 0)
         aq.feedback = (g.get("feedback") or "")[:500]
-        aq.save(update_fields=["transcript", "score", "feedback"])
+        # Preserve the original (pre-reconciliation) answer + reconciliation
+        # metadata without losing data.
+        meta = dict(aq.error_analysis or {})
+        meta["raw_answer"] = (raw_candidates[ri] or "")[:4000]
+        if recon_meta[ri] is not None:
+            meta["reconciliation"] = recon_meta[ri]
+            meta["needs_review"] = review_flags[ri]
+        aq.error_analysis = meta
+        aq.save(update_fields=["transcript", "score", "feedback", "error_analysis"])
 
 
 def _speaking_retry_message(request, answered: int) -> str:
@@ -770,14 +813,19 @@ def placement_voice_finalise(request, attempt_id: int):
         log.warning("placement: alternatives prefetch failed", exc_info=True)
     speaking = attempt.speaking_score or 0
     attempt.written_score = written
-    attempt.overall_score = int(round((written + speaking) / 2))
-    # Product policy: the OVERALL score maps DIRECTLY to the CEFR level
-    # (A0..C2) via PLACEMENT_LEVEL_MAP — score-based placement, no difficulty
-    # cap. e.g. 96-100 → C2, 41-60 → A2. (The AI's own cefr estimate is NOT
-    # used for the final level.)
-    from placement.services.level_mapping import level_for_percentage
-    attempt.recommended_cefr_level = level_for_percentage(attempt.overall_score)
-    attempt.feedback = eval_obj.summary or attempt.feedback
+    # Overall = weighted blend (speaking weighs more) so an easy 100/100 written
+    # sheet can't pull a weak speaker up to B2/C1. The level then follows the
+    # overall score, but is capped so it never sits more than a band above what
+    # the speaking score alone implies — keeping the headline level consistent
+    # with the spoken ability (no more "B2" beside "Estimated level: A1").
+    from placement.services.level_mapping import (
+        level_for_percentage, weighted_overall, cap_to_speaking, consistent_feedback,
+    )
+    attempt.overall_score = weighted_overall(written, speaking)
+    attempt.recommended_cefr_level = cap_to_speaking(
+        level_for_percentage(attempt.overall_score), speaking
+    )
+    attempt.feedback = consistent_feedback(attempt.recommended_cefr_level)
     attempt.status = "completed"
     attempt.completed_at = timezone.now()
     placement_result = PlacementResult.objects.create(
@@ -887,8 +935,12 @@ def placement_result(request, attempt_id: int):
             if aq.section == "speaking":
                 from placement.services.ai_alternatives import alternatives_for
                 aq.alternatives = alternatives_for(q, student_transcript=aq.student_answer)
+                # Reconciliation couldn't pin a clear answer → gentle note,
+                # and never show the raw noisy transcript to the student.
+                aq.needs_review = bool((aq.error_analysis or {}).get("needs_review"))
             else:
                 aq.alternatives = []
+                aq.needs_review = False
         return rows
 
     from placement.services.level_mapping import level_for_percentage

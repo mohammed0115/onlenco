@@ -96,9 +96,7 @@ class Command(BaseCommand):
             new_written = attempt.written_score or 0
 
         new_speaking = attempt.speaking_score or 0
-        new_level = attempt.recommended_cefr_level
         if eval_obj is not None:
-            new_level = eval_obj.cefr_level or new_level
             if not dry:
                 from placement.views import compute_speaking_score
                 # Old attempts have no live answers → force fallback reconstruction.
@@ -108,7 +106,14 @@ class Command(BaseCommand):
             else:
                 new_speaking = eval_obj.overall_score or new_speaking
 
-        new_overall = int(round((new_written + new_speaking) / 2))
+        # Score-based, weighted level — IDENTICAL to the live finalise flow so
+        # the dashboard stays consistent (the AI's own cefr_level estimate is
+        # NOT used as the level source).
+        from placement.services.level_mapping import (
+            level_for_percentage, weighted_overall, cap_to_speaking,
+        )
+        new_overall = weighted_overall(new_written, new_speaking)
+        new_level = cap_to_speaking(level_for_percentage(new_overall), new_speaking)
 
         line = (f"  attempt #{attempt.id} (user={attempt.user_id}): "
                 f"written {old_written}->{new_written}, "
