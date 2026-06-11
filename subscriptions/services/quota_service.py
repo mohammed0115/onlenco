@@ -54,6 +54,36 @@ def daily_library_limit_seconds(user) -> int:
     return int(plan.library_audio_daily_minutes) * 60
 
 
+def ai_tutor_session_cap_seconds(user) -> int:
+    """Per-session AI-Tutor cap in seconds.
+
+    The active plan's ``ai_tutor_session_cap_minutes`` wins when set (>0),
+    so admins can shorten/lengthen a single call from the Control Center.
+    When it is 0 (the default for all seeded plans) we fall back to the
+    global ``AI_REALTIME_MAX_SESSION_SECONDS`` setting — so behaviour is
+    unchanged unless an admin opts in to a per-plan cap.
+    """
+    from django.conf import settings
+    default = int(getattr(settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900))
+    plan = subscription_service.active_plan_for(user)
+    plan_cap = int(getattr(plan, "ai_tutor_session_cap_minutes", 0) or 0) if plan else 0
+    return plan_cap * 60 if plan_cap > 0 else default
+
+
+def library_session_cap_seconds(user) -> int:
+    """Per-session Library reading/listening cap in seconds (read-only today).
+
+    Mirrors ``ai_tutor_session_cap_seconds``: the plan value wins, else the
+    global ``LIBRARY_MAX_SESSION_SECONDS`` setting. The Library reader wires
+    this in 19.0 — the value is already plan-driven and admin-editable now.
+    """
+    from django.conf import settings
+    default = int(getattr(settings, "LIBRARY_MAX_SESSION_SECONDS", 900))
+    plan = subscription_service.active_plan_for(user)
+    plan_cap = int(getattr(plan, "library_session_cap_minutes", 0) or 0) if plan else 0
+    return plan_cap * 60 if plan_cap > 0 else default
+
+
 def get_remaining_ai_tutor_seconds(user) -> int:
     limit = daily_ai_tutor_limit_seconds(user)
     if limit == 0:

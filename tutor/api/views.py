@@ -1123,9 +1123,12 @@ def voice_call_session(request):
 
     # The browser must cap its own session at min(provider_expiry, our quota).
     # Placement uses its own per-attempt cap (already in seconds_remaining).
+    # Regular calls honour the active plan's per-session cap when an admin
+    # sets one; otherwise this resolves to AI_REALTIME_MAX_SESSION_SECONDS,
+    # so unconfigured plans keep the previous behaviour exactly.
     hard_cap = (
         speaking_quota.max_session_seconds() if is_placement_call
-        else int(getattr(dj_settings, "AI_REALTIME_MAX_SESSION_SECONDS", 900))
+        else quota_service.ai_tutor_session_cap_seconds(request.user)
     )
     max_session_seconds = min(hard_cap, seconds_remaining)
     # Auto-start: the TUTOR speaks first when the session is ready — the

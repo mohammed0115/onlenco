@@ -61,11 +61,41 @@ class SubscriptionPlan(models.Model):
 
     ai_tutor_daily_minutes = models.PositiveIntegerField(
         default=0,
-        help_text=_("Daily AI-Tutor minute allowance. 0 = AI Tutor blocked."),
+        help_text=_("Daily AI-Tutor minute allowance / daily cap. 0 = AI Tutor blocked."),
+    )
+    ai_tutor_session_cap_minutes = models.PositiveIntegerField(
+        default=0,
+        help_text=_(
+            "Per-session AI-Tutor cap in minutes. 0 = fall back to the global "
+            "AI_REALTIME_MAX_SESSION_SECONDS setting."
+        ),
     )
     library_audio_daily_minutes = models.PositiveIntegerField(
         default=0,
-        help_text=_("Daily natural-reader audio allowance. 0 = blocked."),
+        help_text=_("Daily natural-reader audio allowance / daily cap. 0 = blocked."),
+    )
+    library_session_cap_minutes = models.PositiveIntegerField(
+        default=0,
+        help_text=_(
+            "Per-session Library reading/listening cap in minutes. 0 = fall back "
+            "to the global LIBRARY_MAX_SESSION_SECONDS setting. Wired in 19.0."
+        ),
+    )
+
+    # --- Feature gates (admin-editable, additive) ----------------------
+    # What this plan unlocks beyond AI-Tutor minutes. All default True so
+    # existing seeded plans behave exactly as before this migration.
+    course_access_enabled = models.BooleanField(
+        default=True,
+        help_text=_("Whether an active subscription on this plan unlocks paid courses."),
+    )
+    daily_quiz_enabled = models.BooleanField(
+        default=True,
+        help_text=_("Whether this plan unlocks the Daily Quiz."),
+    )
+    placement_enabled = models.BooleanField(
+        default=True,
+        help_text=_("Whether this plan unlocks the placement test."),
     )
 
     is_active = models.BooleanField(default=True, db_index=True)
@@ -89,6 +119,16 @@ class SubscriptionPlan(models.Model):
 
     def __str__(self):
         return f"{self.name_en} ({self.ai_tutor_daily_minutes}m/day)"
+
+    # Naming-parity aliases — the daily allowance IS the daily cap in this
+    # product, so reports/specs that ask for "daily_cap" read the same field.
+    @property
+    def ai_tutor_daily_cap_minutes(self) -> int:
+        return self.ai_tutor_daily_minutes
+
+    @property
+    def library_daily_minutes(self) -> int:
+        return self.library_audio_daily_minutes
 
 
 class UserSubscription(models.Model):

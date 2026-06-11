@@ -16,7 +16,10 @@ User = get_user_model()
 class SubscriptionPlanSeedTests(TestCase):
     def test_initial_plans_seeded(self):
         codes = set(SubscriptionPlan.objects.values_list("code", flat=True))
-        self.assertSetEqual(codes, {"free_trial", "starter_5m", "basic_10m", "plus_15m", "pro_30m"})
+        self.assertSetEqual(
+            codes,
+            {"free_trial", "starter_5m", "basic_10m", "plus_15m", "pro_20m", "pro_30m"},
+        )
 
     def test_free_trial_flag_set(self):
         trial = SubscriptionPlan.objects.get(code="free_trial")

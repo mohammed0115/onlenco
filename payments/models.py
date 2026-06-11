@@ -17,6 +17,12 @@ PLANS = [
     ("quarterly", "Quarterly"),
 ]
 
+# SINGLE SERVER-SIDE SOURCE OF TRUTH for the base-subscription billing
+# periods. Both the HTML form (PaymentSubmissionForm.save) and the API
+# (PaymentSubmissionListCreateView.perform_create) read ``price_sdg`` from
+# here, and ``approve()`` reads ``duration_days`` from here — the client
+# NEVER supplies the amount or the duration. Edit prices here only; do not
+# duplicate them in templates, views, or serializers.
 PLAN_DETAILS = {
     "monthly":   {"price_sdg": 30000, "duration_days": 30},
     "quarterly": {"price_sdg": 50000, "duration_days": 90},
