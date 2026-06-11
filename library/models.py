@@ -3,6 +3,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import CEFR_CHOICES
+from courses.models import GeneratedMediaReviewMixin
 from courses.validators import (
     validate_audio, validate_document, validate_image, validate_video_url,
 )
@@ -14,6 +15,19 @@ CATEGORY_CHOICES = [
     ("grammar", _("Grammar reference")),
     ("article", _("Article")),
     ("video",   _("Long video")),
+]
+
+
+# Copyright provenance for a Book — the publish gate for the Novel Reader.
+# A title only becomes student-facing once it is BOTH copyright-cleared and
+# published. Defaults are deliberately conservative (`unknown` + not cleared)
+# so nothing leaks before a human confirms the rights.
+COPYRIGHT_STATUS_CHOICES = [
+    ("unknown",                       _("Unknown / unverified")),
+    ("public_domain",                 _("Public domain")),
+    ("licensed",                      _("Licensed")),
+    ("adapted_original",              _("Adapted / original Onlenco content")),
+    ("school_excerpt_with_permission", _("School excerpt with permission")),
 ]
 
 
@@ -38,6 +52,53 @@ class Book(models.Model):
     code = models.CharField(
         max_length=50, unique=True, blank=True, db_index=True,
         verbose_name=_("Auto code"),
+    )
+
+    # --- Copyright / provenance (Novel Reader MVP) ---------------------
+    # Additive; existing books default to unknown + not-cleared so nothing
+    # is treated as student-facing novel content until a human verifies it.
+    copyright_status = models.CharField(
+        max_length=32, choices=COPYRIGHT_STATUS_CHOICES, default="unknown",
+        db_index=True, verbose_name=_("Copyright status"),
+    )
+    source_title = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Source title"),
+        help_text=_("Original work title, e.g. 'The Black Tulip' (Project Gutenberg)."),
+    )
+    source_url = models.URLField(
+        blank=True, verbose_name=_("Source URL"),
+        help_text=_("Where the source text legitimately comes from."),
+    )
+    license_notes = models.TextField(
+        blank=True, verbose_name=_("License notes"),
+        help_text=_("Permission/license details for licensed or excerpt content."),
+    )
+    is_copyright_cleared = models.BooleanField(
+        default=False, db_index=True, verbose_name=_("Copyright cleared"),
+        help_text=_("Gate: must be True before this title can be published to students."),
+    )
+    content_language = models.CharField(
+        max_length=8, default="en", verbose_name=_("Content language"),
+    )
+    target_cefr_level = models.CharField(
+        max_length=2, choices=CEFR_CHOICES, blank=True,
+        verbose_name=_("Target CEFR level"),
+    )
+
+    # --- School curriculum metadata -----------------------------------
+    is_school_curriculum = models.BooleanField(
+        default=False, db_index=True, verbose_name=_("School curriculum"),
+    )
+    school_country = models.CharField(
+        max_length=64, blank=True, verbose_name=_("School country"),
+        help_text=_("e.g. 'Sudan'."),
+    )
+    school_stage = models.CharField(
+        max_length=64, blank=True, verbose_name=_("School stage"),
+        help_text=_("e.g. 'Secondary — Certificate'."),
+    )
+    curriculum_notes = models.TextField(
+        blank=True, verbose_name=_("Curriculum notes"),
     )
 
     class Meta:
@@ -228,3 +289,154 @@ class LibraryProgress(models.Model):
 
     def __str__(self):
         return f"LibProg<{self.user_id}> ch={self.chapter_id} done={self.completed}"
+
+
+# ---------------------------------------------------------------------------
+# Interactive Novel Reader MVP (Prompt 19.0B) — segment-level structure.
+# These are ADDITIVE: Book/Chapter stay exactly as before. A Chapter is the
+# "part"; NovelSegment breaks the part into small reader cards so the body is
+# no longer a single blob. Reader UI, quizzes, and content land in 19.0C+.
+# ---------------------------------------------------------------------------
+
+
+class NovelSegment(models.Model):
+    """One small reader card inside a Chapter (the novel "part").
+
+    Carries the English text, an optional Arabic translation (translation
+    toggle), and an optional short Arabic explanation. One illustration and
+    a handful of vocabulary highlights hang off each segment.
+    """
+
+    chapter = models.ForeignKey(
+        Chapter, on_delete=models.CASCADE, related_name="segments",
+        verbose_name=_("Chapter"),
+    )
+    order = models.PositiveIntegerField(default=0, verbose_name=_("Order"))
+    title = models.CharField(max_length=200, blank=True, verbose_name=_("Title"))
+    text_en = models.TextField(verbose_name=_("English text"))
+    text_ar = models.TextField(
+        blank=True, verbose_name=_("Arabic translation"),
+        help_text=_("Optional Arabic translation shown via the translation toggle."),
+    )
+    arabic_summary = models.TextField(
+        blank=True, verbose_name=_("Arabic summary"),
+        help_text=_("Short Arabic explanation shown at the end of the segment."),
+    )
+    cefr_level = models.CharField(
+        max_length=2, choices=CEFR_CHOICES, blank=True, verbose_name=_("CEFR level"),
+    )
+    estimated_reading_seconds = models.PositiveIntegerField(
+        default=0, verbose_name=_("Estimated reading seconds"),
+    )
+    estimated_audio_seconds = models.PositiveIntegerField(
+        default=0, verbose_name=_("Estimated audio seconds"),
+    )
+    is_published = models.BooleanField(
+        default=False, db_index=True, verbose_name=_("Published"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["chapter", "order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["chapter", "order"], name="unique_novel_segment_chapter_order",
+            ),
+        ]
+        indexes = [models.Index(fields=["chapter", "order"])]
+        verbose_name = _("Novel segment")
+        verbose_name_plural = _("Novel segments")
+
+    def __str__(self):
+        return f"{self.chapter_id} · seg#{self.order}: {self.title or self.text_en[:30]}"
+
+
+class NovelVocabularyHighlight(models.Model):
+    """A tappable vocabulary word/phrase inside a segment.
+
+    Word/phrase is enough for the MVP — character offsets are optional and
+    nullable on purpose, because the text may be re-edited and offsets would
+    drift. The reader matches by word/phrase, falling back to offsets only
+    when they are present and still valid.
+    """
+
+    segment = models.ForeignKey(
+        NovelSegment, on_delete=models.CASCADE, related_name="vocabulary_highlights",
+        verbose_name=_("Segment"),
+    )
+    word = models.CharField(max_length=120, verbose_name=_("Word"))
+    phrase = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Phrase"),
+        help_text=_("Optional multi-word phrase if the highlight is longer than one word."),
+    )
+    meaning_ar = models.CharField(max_length=200, verbose_name=_("Arabic meaning"))
+    explanation_ar = models.TextField(
+        blank=True, verbose_name=_("Arabic explanation"),
+    )
+    example_sentence = models.TextField(
+        blank=True, verbose_name=_("Example sentence"),
+    )
+    cefr_level = models.CharField(
+        max_length=2, choices=CEFR_CHOICES, blank=True, verbose_name=_("CEFR level"),
+    )
+    start_offset = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name=_("Start offset"),
+    )
+    end_offset = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name=_("End offset"),
+    )
+    order = models.PositiveIntegerField(default=0, verbose_name=_("Order"))
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name=_("Active"))
+
+    class Meta:
+        ordering = ["segment", "order", "id"]
+        indexes = [models.Index(fields=["segment", "order"])]
+        verbose_name = _("Novel vocabulary highlight")
+        verbose_name_plural = _("Novel vocabulary highlights")
+
+    def __str__(self):
+        return self.phrase or self.word
+
+
+class NovelIllustration(GeneratedMediaReviewMixin, models.Model):
+    """One illustration for a segment, on the shared media-review lifecycle.
+
+    Reuses ``GeneratedMediaReviewMixin`` so an illustration is shown to
+    students ONLY when ``approved`` AND an image file exists — pending /
+    failed / rejected images stay hidden behind a placeholder, exactly like
+    lesson media. No generation happens in 19.0B (schema/admin only).
+    """
+
+    segment = models.ForeignKey(
+        NovelSegment, on_delete=models.CASCADE, related_name="illustrations",
+        verbose_name=_("Segment"),
+    )
+    description = models.TextField(
+        blank=True, verbose_name=_("Description / prompt"),
+        help_text=_("Illustration brief or image-generation prompt. Not shown to students."),
+    )
+    image = models.ImageField(
+        upload_to="library/novel_illustrations/%Y/%m/", blank=True, null=True,
+        validators=[validate_image], verbose_name=_("Image"),
+    )
+    alt_text = models.CharField(
+        max_length=200, blank=True, verbose_name=_("Alt text"),
+    )
+    order = models.PositiveIntegerField(default=0, verbose_name=_("Order"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["segment", "order", "id"]
+        indexes = [models.Index(fields=["segment", "order"])]
+        verbose_name = _("Novel illustration")
+        verbose_name_plural = _("Novel illustrations")
+
+    def __str__(self):
+        return f"illustration<{self.pk}> seg={self.segment_id} ({self.generation_status})"
+
+    @property
+    def is_student_visible(self) -> bool:
+        """Show to students ONLY when approved AND an image file exists."""
+        return self.generation_status == "approved" and bool(self.image)
