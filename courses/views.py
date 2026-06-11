@@ -109,6 +109,16 @@ def course_detail(request, pk):
             "pct": round(done * 100 / total) if total else 0,
         }
 
+    # Weekly Review gate (Prompt 18.3D) — read-only recommendation: units whose
+    # 3 lessons are all done. Never writes progress, never blocks the learner.
+    pending_weekly = []
+    if has_access:
+        try:
+            from .services.weekly_review_gate import pending_weekly_reviews
+            pending_weekly = pending_weekly_reviews(request.user, course)
+        except Exception:
+            pending_weekly = []
+
     return render(request, "courses/detail.html", {
         "course": course,
         "lessons": lessons,
@@ -118,6 +128,7 @@ def course_detail(request, pk):
         "enrollment": enrollment,
         "is_a0_world": is_a0_world,
         "a0_world": a0_world,
+        "pending_weekly_reviews": pending_weekly,
     })
 
 

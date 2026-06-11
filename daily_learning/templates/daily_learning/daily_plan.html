@@ -146,17 +146,23 @@
                         {% t_either "Type the word." "اكتب الكلمة." %}
                     </p>
                     <input type="text" data-writing-input="{{ item.id }}"
-                           data-writing-target="{{ item.correct_answer }}"
                            autocomplete="off" autocapitalize="off" spellcheck="false"
                            class="w-full px-3 py-2 rounded border border-border text-base"
-                           placeholder="{{ item.correct_answer }}">
+                           placeholder="{% t_either 'Your answer' 'إجابتك' %}">
                     <p data-writing-feedback="{{ item.id }}" class="text-xs mt-1"></p>
                 {% elif item.item_type == "word_order" %}
+                    {% if item.metadata.listen_build %}
+                    <button type="button" data-listen-build data-testid="listen-build-btn"
+                            data-audio-url="{{ item.audio_url }}"
+                            data-listen-src="{{ item.correct_answer }}"
+                            class="btn btn-outline btn-sm mb-3">
+                        🔊 {% t_either "Listen" "استمع" %}
+                    </button>
+                    {% endif %}
                     <p class="text-xs text-muted-foreground mb-2">
                         {% t_either "Tap each word in the correct order." "اضغط كل كلمة بالترتيب الصحيح." %}
                     </p>
-                    <div class="flex flex-wrap gap-2" data-word-order="{{ item.id }}"
-                         data-word-order-target="{{ item.correct_answer }}">
+                    <div class="flex flex-wrap gap-2" data-word-order="{{ item.id }}">
                         {% for opt in item.options %}
                         <button type="button"
                                 data-word="{{ opt }}"
@@ -171,8 +177,7 @@
                     </button>
                     <p data-word-order-feedback="{{ item.id }}" class="text-xs mt-1"></p>
                 {% elif item.options %}
-                    <div class="space-y-2" data-quiz-options="{{ item.id }}"
-                         data-quiz-target="{{ item.correct_answer }}">
+                    <div class="space-y-2" data-quiz-options="{{ item.id }}">
                         {% for opt in item.options %}
                         <button type="button"
                                 data-option="{{ opt }}"
@@ -382,64 +387,84 @@
     } catch (_) {}
   };
 
-  // ----- Quiz interaction -----
+  // ----- Server-side grading (Prompt 18.3B) -----
+  // The browser NEVER decides correctness and never knows correct_answer —
+  // it submits the student's choice/tokens and renders the server verdict.
+  const T = (en, ar) => (document.documentElement.lang === 'ar' ? ar : en);
+  const gradeItem = async (itemId, payload) => {
+    try {
+      const resp = await fetch('/daily/items/' + itemId + '/complete/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken,
+          'Accept': 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload || {}),
+      });
+      const step = document.querySelector('[data-item-id="' + itemId + '"]');
+      if (resp.ok && step) step.setAttribute('data-completed', '1');
+      return await resp.json().catch(() => ({}));
+    } catch (_) { return {}; }
+  };
+
+  // ----- Quiz interaction (server-graded) -----
   document.querySelectorAll('[data-quiz-options]').forEach((container) => {
     const itemId = container.getAttribute('data-quiz-options');
-    const target = container.getAttribute('data-quiz-target') || '';
     const feedback = document.querySelector('[data-quiz-feedback="' + itemId + '"]');
     const explanation = document.querySelector('[data-explanation="' + itemId + '"]');
     container.querySelectorAll('button[data-option]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const chosen = btn.getAttribute('data-option') || '';
-        const correct = chosen.trim().toLowerCase() === target.trim().toLowerCase();
         container.querySelectorAll('button[data-option]').forEach((b) => {
-          b.disabled = true;
-          b.classList.add('opacity-60');
+          b.disabled = true; b.classList.add('opacity-60');
         });
         btn.classList.remove('opacity-60');
-        btn.style.borderColor = correct ? '#16a34a' : '#dc2626';
+        const res = await gradeItem(itemId, { answer: chosen });
+        const ok = !!res.is_correct;
+        btn.style.borderColor = ok ? '#16a34a' : '#dc2626';
         if (feedback) {
-          feedback.textContent = correct
-            ? '{% t_either "Correct!" "إجابة صحيحة!" %}'
-            : '{% t_either "Try again — see the explanation." "حاول مجدداً — انظر الشرح." %}';
-          feedback.style.color = correct ? '#16a34a' : '#dc2626';
+          feedback.textContent = ok
+            ? T('Correct!', 'إجابة صحيحة!')
+            : T('Not quite — see the explanation.', 'ليست صحيحة — انظر الشرح.');
+          feedback.style.color = ok ? '#16a34a' : '#dc2626';
         }
         if (explanation) explanation.classList.remove('hidden');
       });
     });
   });
 
-  // ----- Word-order interaction (tap to build, reset clears) -----
+  // ----- Word-order / listen-build (server-graded; submits TOKENS, not target) -----
   document.querySelectorAll('[data-word-order]').forEach((container) => {
     const id = container.getAttribute('data-word-order');
-    const target = container.getAttribute('data-word-order-target') || '';
     const answer = document.querySelector('[data-word-order-answer="' + id + '"]');
     const reset = document.querySelector('[data-word-order-reset="' + id + '"]');
     const feedback = document.querySelector('[data-word-order-feedback="' + id + '"]');
-    const buttons = container.querySelectorAll('button[data-word]');
-
-    const refreshFeedback = () => {
-      if (!feedback) return;
-      const got = (answer.value || '').trim();
-      if (!got) { feedback.textContent = ''; return; }
-      if (got.toLowerCase() === target.trim().toLowerCase()) {
-        feedback.textContent = '{% t_either "Correct!" "إجابة صحيحة!" %}';
-        feedback.style.color = '#16a34a';
-      } else {
-        feedback.textContent = '';
+    const buttons = Array.from(container.querySelectorAll('button[data-word]'));
+    const tokens = [];
+    const submit = async () => {
+      const res = await gradeItem(id, { tokens: tokens.slice() });
+      const ok = !!res.is_correct;
+      if (feedback) {
+        feedback.textContent = ok
+          ? T('Correct!', 'إجابة صحيحة!')
+          : T('Wrong order — tap Clear and try again.', 'ترتيب خاطئ — امسح وحاول مجددًا.');
+        feedback.style.color = ok ? '#16a34a' : '#dc2626';
       }
     };
-
     buttons.forEach((b) => {
       b.addEventListener('click', () => {
         if (b.classList.contains('opacity-30')) return;
         b.classList.add('opacity-30');
-        answer.value = (answer.value + ' ' + b.getAttribute('data-word')).trim();
-        refreshFeedback();
+        tokens.push(b.getAttribute('data-word'));
+        answer.value = tokens.join(' ');
+        if (tokens.length === buttons.length) submit();   // all words placed
       });
     });
     if (reset) {
       reset.addEventListener('click', () => {
+        tokens.length = 0;
         answer.value = '';
         buttons.forEach((b) => b.classList.remove('opacity-30'));
         if (feedback) feedback.textContent = '';
@@ -447,21 +472,28 @@
     }
   });
 
-  // ----- Writing interaction -----
+  // ----- Writing interaction (server-graded on blur) -----
   document.querySelectorAll('[data-writing-input]').forEach((input) => {
     const id = input.getAttribute('data-writing-input');
-    const target = (input.getAttribute('data-writing-target') || '').trim();
     const feedback = document.querySelector('[data-writing-feedback="' + id + '"]');
-    input.addEventListener('input', () => {
+    input.addEventListener('change', async () => {
       const got = input.value.trim();
       if (!got) { if (feedback) feedback.textContent = ''; return; }
-      const correct = got.toLowerCase() === target.toLowerCase();
+      const res = await gradeItem(id, { answer: got });
+      const ok = !!res.is_correct;
       if (feedback) {
-        feedback.textContent = correct
-          ? '{% t_either "Correct!" "إجابة صحيحة!" %}'
-          : '';
-        feedback.style.color = correct ? '#16a34a' : '';
+        feedback.textContent = ok ? T('Correct!', 'إجابة صحيحة!') : T('Not quite.', 'ليست صحيحة.');
+        feedback.style.color = ok ? '#16a34a' : '#dc2626';
       }
+    });
+  });
+
+  // ----- Listen-build audio (play the sentence; never shown as text) -----
+  document.querySelectorAll('[data-listen-build]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const url = btn.getAttribute('data-audio-url');
+      if (url) { try { new Audio(url).play(); return; } catch (_) {} }
+      speak(btn.getAttribute('data-listen-src'));
     });
   });
 

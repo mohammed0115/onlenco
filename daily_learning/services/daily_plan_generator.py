@@ -285,6 +285,18 @@ def _generate_leveled_plan(
         template_topic=template_topic,
     )
 
+    # Optional listen_build_sentence item (Prompt 18.3B) — opt-in via setting so
+    # existing plan shapes/tests are unaffected by default. Appended only when
+    # there is a free slot, so the 5..max shape stays valid (non-A0 only).
+    if getattr(settings, "DAILY_LISTEN_BUILD_ENABLED", False):
+        has_lb = any((c.get("metadata") or {}).get("listen_build") for c in composed)
+        if not has_lb and len(composed) < max_items:
+            from . import daily_listen_build
+            composed.append(daily_listen_build.build_listen_build_item(
+                cefr_level=cefr_level, language=language,
+                seed=on_date.toordinal() if on_date else 0,
+            ))
+
     with transaction.atomic():
         plan = DailyLearningPlan.objects.create(
             user=user,

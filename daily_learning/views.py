@@ -6,6 +6,7 @@ setup (LanguagePreferenceMiddleware + base.html `dir` attr).
 """
 from __future__ import annotations
 
+import json
 import logging
 
 from django.contrib.auth.decorators import login_required
@@ -15,7 +16,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import DailyGoal, DailyLearningItem, DailyLearningPlan
-from .services import daily_plan_generator, daily_progress_service
+from .services import daily_grading, daily_plan_generator, daily_progress_service
 
 logger = logging.getLogger(__name__)
 
@@ -74,18 +75,59 @@ def daily_challenge_view(request):
     })
 
 
+def _answer_payload(request) -> dict:
+    """Read the answer payload from a JSON body or form POST.
+
+    Supports {"answer": "<text>"} and {"tokens": [...]} for word-order /
+    listen-build items. Never trusts any client-sent correctness flag.
+    """
+    ctype = (request.content_type or "").lower()
+    if "application/json" in ctype:
+        try:
+            data = json.loads(request.body.decode("utf-8") or "{}")
+            return data if isinstance(data, dict) else {}
+        except (ValueError, UnicodeDecodeError):
+            return {}
+    out: dict = {}
+    if request.POST.get("answer") is not None:
+        out["answer"] = request.POST.get("answer")
+    toks = request.POST.getlist("tokens")
+    if toks:
+        out["tokens"] = toks
+    return out
+
+
 @require_POST
 @login_required
 def complete_item(request, item_id: int):
-    """POST endpoint to mark a single item complete from the HTML page."""
+    """Grade one item on the SERVER and mark it complete (Prompt 18.3B).
+
+    The browser never decides correctness and never sees ``correct_answer`` —
+    it submits the student's choice/tokens and renders the server verdict.
+    """
     item = get_object_or_404(
         DailyLearningItem.objects.select_related("daily_plan"),
         id=item_id,
         daily_plan__user=request.user,
     )
-    answer = (request.POST.get("answer") or "").strip()
-    daily_progress_service.mark_item_complete(item, user_answer=answer)
-    return JsonResponse({"ok": True, "item_id": item.id, "is_completed": True})
+    payload = _answer_payload(request)
+    answer_text = str(payload.get("answer") or "").strip()
+    grade = daily_grading.grade_item(item, payload)   # authoritative
+    # Only gradable items (those with a correct_answer) record a grade — a plain
+    # "Next" on a motivation/speaking card never counts as a wrong answer.
+    daily_progress_service.mark_item_complete(
+        item, user_answer=answer_text,
+        grade=grade if grade.get("gradable") else None,
+    )
+    # NOTE: never expose grade["expected"] / correct_answer to the student.
+    return JsonResponse({
+        "ok": True,
+        "item_id": item.id,
+        "gradable": grade.get("gradable", False),
+        "is_correct": grade["is_correct"] if grade.get("gradable") else None,
+        "score": grade["score"] if grade.get("gradable") else None,
+        "completed": True,
+    })
 
 
 @require_POST

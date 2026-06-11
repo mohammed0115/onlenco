@@ -22,16 +22,27 @@ from . import daily_goal_service
 logger = logging.getLogger(__name__)
 
 
-def mark_item_complete(item: DailyLearningItem, *, user_answer: str = "") -> DailyLearningItem:
-    """Mark a single item as done. Idempotent."""
+def mark_item_complete(
+    item: DailyLearningItem, *, user_answer: str = "", grade: dict | None = None,
+) -> DailyLearningItem:
+    """Mark a single item as done. Idempotent.
+
+    ``grade`` (from ``daily_grading.grade_item``) is stored additively in
+    metadata so ``complete_plan`` can score by correctness (Prompt 18.3B).
+    """
     if item.is_completed:
         return item
     item.is_completed = True
     item.completed_at = timezone.now()
+    meta = dict(item.metadata or {})
     if user_answer:
-        meta = dict(item.metadata or {})
         meta["last_answer"] = user_answer[:200]
-        item.metadata = meta
+    if grade is not None:
+        meta["grade"] = int(grade.get("score", 0))
+        meta["is_correct"] = bool(grade.get("is_correct"))
+        meta["graded_at"] = timezone.now().isoformat()
+        meta["attempt_count"] = int(meta.get("attempt_count", 0)) + 1
+    item.metadata = meta
     item.save(update_fields=["is_completed", "completed_at", "metadata"])
 
     # Tick goals (best-effort)
@@ -59,6 +70,9 @@ def complete_plan(plan: DailyLearningPlan, *, force: bool = False) -> DailyLearn
     items = list(plan.items.all())
     total = len(items)
     done = sum(1 for i in items if i.is_completed)
+    # Score by CORRECTNESS when graded items exist (Prompt 18.3B); fall back to
+    # completion% for legacy plans with no per-item grades.
+    plan_score = _plan_score(items, done, total)
 
     if not force and done < total:
         # Standard finalize: only mark complete when every item is done.
@@ -69,14 +83,14 @@ def complete_plan(plan: DailyLearningPlan, *, force: bool = False) -> DailyLearn
             defaults={
                 "completed_items_count": done,
                 "total_items_count": total,
-                "score": _calc_score(done, total),
+                "score": plan_score,
                 "xp_earned": 0,
                 "streak_updated": False,
             },
         )
         return result
 
-    score = _calc_score(done, total)
+    score = plan_score
     xp = _xp_reward(plan, done, total)
     mistakes_reviewed = sum(
         1 for i in items
@@ -149,6 +163,19 @@ def _calc_score(done: int, total: int) -> float:
     if not total:
         return 0.0
     return round(done / total * 100.0, 1)
+
+
+def _plan_score(items, done: int, total: int) -> float:
+    """Correctness score (Prompt 18.3B): correct_items / graded_items × 100.
+
+    Falls back to completion% when no item carries a backend grade — keeps
+    legacy plans (graded only in the old client-side flow) backward-compatible.
+    """
+    graded = [i for i in items if i.is_completed and "is_correct" in (i.metadata or {})]
+    if not graded:
+        return _calc_score(done, total)
+    correct = sum(1 for i in graded if (i.metadata or {}).get("is_correct"))
+    return round(correct / len(graded) * 100.0, 1)
 
 
 def _xp_reward(plan: DailyLearningPlan, done: int, total: int) -> int:

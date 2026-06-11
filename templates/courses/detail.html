@@ -13,6 +13,26 @@
             {% t_either "Dashboard" "لوحة التعلم" %}
         </a>
 
+        {# Weekly Review recommendation (Prompt 18.3D). Read-only: shows only #}
+        {# when a unit's 3 lessons are all done. Safe disabled CTA — no route #}
+        {# yet, never blocks the learner, never writes progress. #}
+        {% if pending_weekly_reviews %}
+        <section class="card p-4 border border-border rounded-xl bg-card flex items-center justify-between gap-3"
+                 data-testid="weekly-review-card">
+            <div>
+                <strong class="text-base">{% t_either "Weekly Review ready" "مراجعة الأسبوع جاهزة" %}</strong>
+                <p class="text-sm text-muted-foreground">
+                    {% t_either "You finished a unit — a short review is recommended." "أنهيت وحدة — يُنصح بمراجعة قصيرة." %}
+                    ({{ pending_weekly_reviews|length }})
+                </p>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" disabled
+                    aria-disabled="true" title="{% t_either 'Coming soon' 'قريبًا' %}">
+                {% t_either "Review coming soon" "المراجعة قريبًا" %}
+            </button>
+        </section>
+        {% endif %}
+
         {% if is_a0_world and a0_world %}
         <section class="a0-world-hero overflow-hidden" data-testid="a0-world">
             <div class="relative z-10 grid lg:grid-cols-[1.25fr_0.75fr] gap-8 items-center">
@@ -158,7 +178,9 @@
                 {# Right — hero cover image from the first lesson's generated cover #}
                 <div class="relative bg-muted/40 min-h-[220px] lg:min-h-[300px]">
                     {% with hero_cover=first_lesson.image_prompts.all|dictsort:"sort_order"|first %}
-                    {% if hero_cover and hero_cover.generated_image %}
+                    {# Only approved + student-visible covers render (Prompt 18.3E) — #}
+                    {# never a pending/failed image, matching lesson_detail/step. #}
+                    {% if hero_cover and hero_cover.is_student_visible %}
                         <img src="{{ hero_cover.generated_image.url }}" alt="{{ course.title }}" class="absolute inset-0 w-full h-full object-cover">
                     {% else %}
                         <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-100 to-green-100">
@@ -372,7 +394,7 @@
                         <div class="onlenco-lesson-card onlenco-lesson-card--{{ row.state }}" aria-disabled="true">
                     {% endif %}
                         <div class="onlenco-lesson-card__media">
-                            {% if cover and cover.generated_image %}
+                            {% if cover and cover.is_student_visible %}
                                 <img src="{{ cover.generated_image.url }}" alt="{{ lesson.title }}" loading="lazy">
                             {% else %}
                                 <div class="onlenco-lesson-card__media-fallback">
