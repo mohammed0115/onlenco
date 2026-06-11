@@ -244,3 +244,11 @@
   .tp-qb-stepper { grid-template-columns: 1fr; }
   .tp-qb-actions { bottom: 0; }
 }
+
+/* Embedded quick-quiz builder (Lesson Builder, step 4) */
+.tp-quickquiz { display: grid; gap: 14px; }
+.tp-qb-qlist { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.tp-qb-qrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--tp-border, #e5e7eb); border-radius: 12px; background: #fff; }
+.tp-qb-qorder { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; border-radius: 999px; background: color-mix(in srgb, var(--tp-primary, #0d9488) 12%, white); color: var(--tp-primary, #0d9488); font-weight: 700; font-size: 13px; }
+.tp-qb-qtext { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.tp-qb-qdel { margin-inline-start: auto; }

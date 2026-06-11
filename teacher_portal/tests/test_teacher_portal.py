@@ -485,3 +485,131 @@ class TeacherUiAnalyticsTests(TeacherPortalTestMixin):
         # The page shows a human-readable title, not the raw event key.
         self.assertContains(response, "Content needs revision")
         self.assertNotContains(response, C.TEACHER_CONTENT_NEEDS_REVISION)
+
+
+class TeacherQuickQuizInLessonTests(TeacherPortalTestMixin):
+    """Phase 16.7C — quick quiz / questions live INSIDE the Lesson Builder."""
+
+    def _add_url(self):
+        return f"/teacher/lessons/{self.lesson.pk}/quick-quiz/add/"
+
+    def _payload(self, **overrides):
+        data = {
+            "question_type": "multiple_choice",
+            "question_text_ar": "سؤال؟",
+            "question_text_en": "Question?",
+            "option_1": "A", "option_2": "B", "option_3": "", "option_4": "",
+            "correct_option": "1", "correct_answer": "",
+            "explanation_ar": "", "explanation_en": "",
+            "difficulty_score": "0.5", "points": 1, "order": 1,
+        }
+        data.update(overrides)
+        return data
+
+    def _lesson_create_payload(self, **overrides):
+        data = {
+            "title_ar": "درس", "title_en": "Lesson X", "order": 3,
+            "lesson_type": "reading", "cefr_level": "A1", "skill": "reading",
+            "grammar_topic": "", "vocabulary_topic": "",
+            "content_ar": "محتوى", "content_en": "Content",
+            "video_url": "", "transcript": "", "duration_minutes": 10,
+        }
+        data.update(overrides)
+        return data
+
+    def test_lesson_builder_includes_quick_quiz_step(self):
+        self.client.force_login(self.teacher)
+        html = self.client.get(f"/teacher/lessons/{self.lesson.pk}/edit/").content.decode()
+        self.assertIn("data-quickquiz", html)
+        self.assertIn("data-qq-add", html)
+        self.assertIn('data-step-panel="4"', html)
+        self.assertIn("data-answer-builder", html)
+
+    def test_lesson_builder_quick_quiz_has_no_raw_json(self):
+        self.client.force_login(self.teacher)
+        html = self.client.get(f"/teacher/lessons/{self.lesson.pk}/edit/").content.decode()
+        self.assertNotIn("options_json", html)
+        self.assertNotIn("tp-qb-advanced", html)
+
+    def test_lesson_create_redirects_into_builder(self):
+        self.client.force_login(self.teacher)
+        resp = self.client.post(
+            f"/teacher/courses/{self.course.pk}/lessons/create/",
+            self._lesson_create_payload(),
+        )
+        self.assertEqual(resp.status_code, 302)
+        # Continues inside the same lesson so the quiz step is live.
+        self.assertRegex(resp["Location"], r"/teacher/lessons/\d+/edit/")
+
+    def test_quick_quiz_add_creates_quiz_and_question(self):
+        self.client.force_login(self.teacher)
+        resp = self.client.post(self._add_url(), self._payload())
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertTrue(body["ok"])
+        quiz = LessonQuiz.objects.get(lesson=self.lesson)
+        q = LessonQuestion.objects.get(quiz=quiz)
+        self.assertEqual(q.correct_answer, "A")
+        self.assertEqual(q.options, ["A", "B"])
+
+    def test_quick_quiz_requires_question_text(self):
+        self.client.force_login(self.teacher)
+        resp = self.client.post(
+            self._add_url(), self._payload(question_text_ar="", question_text_en="")
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(resp.json()["ok"])
+        self.assertFalse(LessonQuestion.objects.filter(quiz__lesson=self.lesson).exists())
+
+    def test_quick_quiz_requires_correct_answer(self):
+        self.client.force_login(self.teacher)
+        resp = self.client.post(
+            self._add_url(), self._payload(correct_option="", correct_answer="")
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(LessonQuestion.objects.filter(quiz__lesson=self.lesson).exists())
+
+    def test_quick_quiz_requires_question_type(self):
+        self.client.force_login(self.teacher)
+        resp = self.client.post(self._add_url(), self._payload(question_type=""))
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(LessonQuestion.objects.filter(quiz__lesson=self.lesson).exists())
+
+    def test_quick_quiz_add_does_not_publish_lesson(self):
+        self.client.force_login(self.teacher)
+        self.client.post(self._add_url(), self._payload())
+        self.lesson.refresh_from_db()
+        self.assertEqual(self.lesson.status, "draft")
+
+    def test_quick_quiz_add_creates_no_student_progress(self):
+        from courses.models import ChallengeAnswer, ChallengeSession
+        self.client.force_login(self.teacher)
+        self.client.post(self._add_url(), self._payload())
+        self.assertEqual(ChallengeSession.objects.count(), 0)
+        self.assertEqual(ChallengeAnswer.objects.count(), 0)
+
+    def test_student_cannot_add_quick_quiz(self):
+        self.client.force_login(self.student)
+        resp = self.client.post(self._add_url(), self._payload())
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(LessonQuestion.objects.filter(quiz__lesson=self.lesson).exists())
+
+    def test_teacher_cannot_add_to_unowned_lesson(self):
+        self.client.force_login(self.teacher2)
+        resp = self.client.post(self._add_url(), self._payload())
+        self.assertIn(resp.status_code, (403, 404))
+        self.assertFalse(LessonQuestion.objects.filter(quiz__lesson=self.lesson).exists())
+
+    def test_quick_quiz_delete_removes_question(self):
+        quiz = LessonQuiz.objects.create(lesson=self.lesson, title="Q", title_en="Q")
+        q = LessonQuestion.objects.create(
+            quiz=quiz, question_type="fill_blank", question_text_en="Q",
+            correct_answer="x", order=1,
+        )
+        self.client.force_login(self.teacher)
+        resp = self.client.post(
+            f"/teacher/lessons/{self.lesson.pk}/quick-quiz/{q.pk}/delete/"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["ok"])
+        self.assertFalse(LessonQuestion.objects.filter(pk=q.pk).exists())

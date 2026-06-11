@@ -68,14 +68,93 @@
   </section>
 
   <section class="tp-card tp-wizard-panel" data-step-panel="4">
-    <header><span class="tp-step">4</span><h3>{% if lang == "ar" %}إعدادات التدريب{% else %}Practice settings{% endif %}</h3></header>
-    <div class="tp-grid tp-grid-2">
-      <div class="tp-fld tp-check"><input id="id_enable_quiz" name="enable_quiz" type="checkbox" {% if request.POST.enable_quiz %}checked{% endif %}><label for="id_enable_quiz">{% if lang == "ar" %}تفعيل كويز{% else %}Enable quiz{% endif %}</label></div>
-      <div class="tp-fld"><label for="id_question_count">{% if lang == "ar" %}عدد الأسئلة{% else %}Number of questions{% endif %}</label><input id="id_question_count" name="question_count" type="number" min="0" value="{{ request.POST.question_count|default:'5' }}"></div>
-      <div class="tp-fld"><label for="id_practice_difficulty">{% if lang == "ar" %}الصعوبة{% else %}Difficulty{% endif %}</label><select id="id_practice_difficulty" name="practice_difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
-      <div class="tp-fld tp-check"><input id="id_speaking_practice" name="speaking_practice" type="checkbox" {% if request.POST.speaking_practice %}checked{% endif %}><label for="id_speaking_practice">{% if lang == "ar" %}تدريب محادثة{% else %}Speaking practice{% endif %}</label></div>
-      <div class="tp-fld tp-check"><input id="id_listening_practice" name="listening_practice" type="checkbox" {% if request.POST.listening_practice %}checked{% endif %}><label for="id_listening_practice">{% if lang == "ar" %}تدريب استماع{% else %}Listening practice{% endif %}</label></div>
+    <header>
+      <span class="tp-step">4</span>
+      <h3>{% if lang == "ar" %}الاختبار السريع{% else %}Quick quiz{% endif %}</h3>
+      <span class="tp-hint">{% if lang == "ar" %}أضف أسئلة الدرس هنا مباشرةً — بلا صفحات منفصلة وبلا أكواد.{% else %}Add the lesson's questions right here — no separate page, no code.{% endif %}</span>
+    </header>
+
+    {% if lesson %}
+    <div class="tp-quickquiz" data-quickquiz
+         data-add-url="{% url 'teacher_portal:lesson_quick_quiz_add' lesson.pk %}"
+         data-del-url="{% url 'teacher_portal:lesson_quick_quiz_delete' lesson.pk 0 %}">
+
+      <div class="tp-qb-alert" data-qq-errors hidden></div>
+
+      <ol class="tp-qb-qlist" data-qq-list>
+        {% for q in questions %}
+        <li class="tp-qb-qrow" data-question-id="{{ q.pk }}">
+          <span class="tp-qb-qorder">{{ q.order }}</span>
+          <span class="tp-qb-qtext">{{ q.question_text_en|default:q.question_text_ar|default:q.question_text }}</span>
+          <span class="tp-summary-chip">{{ q.get_question_type_display }}</span>
+          <button type="button" class="teacher-btn tp-qb-qdel" data-del-question="{{ q.pk }}">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>
+        </li>
+        {% endfor %}
+      </ol>
+      <p class="tp-help" data-qq-empty {% if questions %}hidden{% endif %}>{% if lang == "ar" %}لا أسئلة بعد. أضف أول سؤال أدناه.{% else %}No questions yet. Add your first below.{% endif %}</p>
+
+      <div class="tp-qb-card">
+        <div class="tp-grid tp-grid-2">
+          <div class="tp-fld"><label>{% if lang == "ar" %}نوع السؤال{% else %}Question type{% endif %}</label>
+            <select data-qb="question_type">{% for val, label in question_type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+          <div class="tp-fld"><label>{% if lang == "ar" %}الترتيب{% else %}Order{% endif %}</label><input type="number" min="0" data-qb="order" value="{{ questions|length|add:'1' }}"></div>
+          <div class="tp-fld"><label>{% if lang == "ar" %}النقاط{% else %}Points{% endif %}</label><input type="number" min="0" data-qb="points" value="1"></div>
+          <div class="tp-fld"><label>{% if lang == "ar" %}درجة الصعوبة{% else %}Difficulty{% endif %}</label><input type="number" min="0" max="1" step="0.1" data-qb="difficulty_score" value="0.5"><small class="tp-help">{% if lang == "ar" %}0 سهل · 0.5 متوسط · 1 متقدم{% else %}0 easy · 0.5 medium · 1 advanced{% endif %}</small></div>
+        </div>
+      </div>
+
+      <div class="tp-qb-card">
+        <div class="tp-fld"><label>{% if lang == "ar" %}السؤال بالعربية{% else %}Question in Arabic{% endif %}</label><textarea rows="2" dir="rtl" data-qb="question_text_ar"></textarea></div>
+        <div class="tp-fld"><label>{% if lang == "ar" %}السؤال بالإنجليزية{% else %}Question in English{% endif %}</label><textarea rows="2" dir="ltr" data-qb="question_text_en"></textarea></div>
+      </div>
+
+      <div class="tp-qb-answer" data-answer-builder>
+        <div class="tp-qb-card tp-qb-group" data-answer-group="mcq">
+          <h3>{% if lang == "ar" %}خيارات الإجابة{% else %}Answer options{% endif %}</h3>
+          <p class="tp-help">{% if lang == "ar" %}اكتب الخيارات ثم اختر الإجابة الصحيحة.{% else %}Type the options, then pick the correct one.{% endif %}</p>
+          <div class="tp-qb-options">
+            <div class="tp-qb-opt"><span class="tp-qb-num">1</span><input type="text" data-qb="option_1"></div>
+            <div class="tp-qb-opt"><span class="tp-qb-num">2</span><input type="text" data-qb="option_2"></div>
+            <div class="tp-qb-opt"><span class="tp-qb-num">3</span><input type="text" data-qb="option_3"></div>
+            <div class="tp-qb-opt"><span class="tp-qb-num">4</span><input type="text" data-qb="option_4"></div>
+          </div>
+          <div class="tp-fld"><label>{% if lang == "ar" %}الإجابة الصحيحة{% else %}Correct answer{% endif %}</label>
+            <select data-qb="correct_option"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+        </div>
+
+        <div class="tp-qb-card tp-qb-group" data-answer-group="text">
+          <h3>{% if lang == "ar" %}الإجابة النصية{% else %}Text answer{% endif %}</h3>
+          <div class="tp-fld"><label>{% if lang == "ar" %}الإجابة الصحيحة{% else %}Correct answer{% endif %}</label><input type="text" data-qb="correct_answer"></div>
+        </div>
+
+        <div class="tp-qb-card tp-qb-group" data-answer-group="open">
+          <h3>{% if lang == "ar" %}تدريب مفتوح{% else %}Open practice{% endif %}</h3>
+          <p class="tp-help">{% if lang == "ar" %}تحدّث/كتابة بلا إجابة واحدة صحيحة — يقيّمه الذكاء الاصطناعي.{% else %}Speaking/writing prompt with no single correct answer — graded by AI.{% endif %}</p>
+        </div>
+      </div>
+
+      <div class="tp-qb-card">
+        <div class="tp-grid tp-grid-2">
+          <div class="tp-fld"><label>{% if lang == "ar" %}الشرح بالعربية{% else %}Explanation (Arabic){% endif %}</label><textarea rows="2" dir="rtl" data-qb="explanation_ar"></textarea></div>
+          <div class="tp-fld"><label>{% if lang == "ar" %}الشرح بالإنجليزية{% else %}Explanation (English){% endif %}</label><textarea rows="2" dir="ltr" data-qb="explanation_en"></textarea></div>
+        </div>
+      </div>
+
+      <div class="tp-qb-card tp-qb-preview" data-preview-root>
+        <div class="tp-qb-badge">{% if lang == "ar" %}معاينة الطالب{% else %}Student preview{% endif %}</div>
+        <h3 data-preview-question-ar dir="rtl"></h3>
+        <p class="muted" data-preview-question-en dir="ltr"></p>
+        <ul class="tp-qb-preview-options" data-preview-options></ul>
+        <div class="tp-qb-admin-answer">{% if lang == "ar" %}الإجابة الصحيحة (للمعلّم):{% else %}Correct answer (teacher only):{% endif %} <strong data-preview-correct></strong></div>
+      </div>
+
+      <div class="tp-qb-actions">
+        <button type="button" class="teacher-btn teacher-btn-primary" data-qq-add><i data-lucide="plus"></i>{% if lang == "ar" %}إضافة السؤال{% else %}Add question{% endif %}</button>
+      </div>
     </div>
+    {% else %}
+    <div class="tp-card"><p class="tp-help">{% if lang == "ar" %}احفظ الدرس أولاً، ثم ستظهر أدوات إضافة الأسئلة هنا مباشرةً.{% else %}Save the lesson first — the question tools will appear here.{% endif %}</p></div>
+    {% endif %}
   </section>
 
   <section class="tp-card tp-wizard-panel" data-step-panel="5">
@@ -165,6 +244,123 @@
     root.querySelectorAll('input, textarea, select').forEach(el => el.addEventListener('input', updateReview));
     root.querySelectorAll('select').forEach(el => el.addEventListener('change', () => { updateMediaPriority(); updateReview(); }));
     showStep(1);
+  })();
+</script>
+
+<script>
+  // Embedded quick-quiz builder (step 4, edit mode). No nested form: inputs are
+  // name-less [data-qb] fields collected into FormData and POSTed via fetch, so
+  // they never submit with the lesson form. Preview is pure DOM — no AI call,
+  // no student progress.
+  (() => {
+    const root = document.querySelector('[data-quickquiz]');
+    if (!root) return;
+    const MCQ = ['multiple_choice','image_choice','listen_and_choose','tap_choice','listening_match','sound_to_word','mini_story_choice','conversation_reply'];
+    const OPEN = ['speaking_prompt','writing_prompt','ai_roleplay_prompt','pronunciation_check','speak_this_sentence'];
+    const addUrl = root.dataset.addUrl;
+    const delUrlTpl = root.dataset.delUrl; // .../quick-quiz/0/delete/
+    const list = root.querySelector('[data-qq-list]');
+    const empty = root.querySelector('[data-qq-empty]');
+    const errors = root.querySelector('[data-qq-errors]');
+    const addBtn = root.querySelector('[data-qq-add]');
+    const qb = (name) => root.querySelector('[data-qb="' + name + '"]');
+    const csrf = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+
+    function groupFor(type) {
+      if (MCQ.includes(type)) return 'mcq';
+      if (OPEN.includes(type)) return 'open';
+      return 'text';
+    }
+
+    function updateGroups() {
+      const g = groupFor(qb('question_type').value);
+      root.querySelectorAll('[data-answer-group]').forEach(el => el.classList.toggle('is-active', el.dataset.answerGroup === g));
+      updatePreview();
+    }
+
+    function updatePreview() {
+      const g = groupFor(qb('question_type').value);
+      root.querySelector('[data-preview-question-ar]').textContent = qb('question_text_ar').value || '';
+      root.querySelector('[data-preview-question-en]').textContent = qb('question_text_en').value || '';
+      const pvOpts = root.querySelector('[data-preview-options]');
+      const pvCorrect = root.querySelector('[data-preview-correct]');
+      pvOpts.innerHTML = '';
+      if (g === 'mcq') {
+        [1,2,3,4].forEach(n => { const v = qb('option_' + n).value.trim(); if (v) { const li = document.createElement('li'); li.textContent = v; pvOpts.appendChild(li); } });
+        const idx = Number(qb('correct_option').value || 0) - 1;
+        const opt = idx >= 0 ? qb('option_' + (idx + 1)) : null;
+        pvCorrect.textContent = opt ? opt.value.trim() : '';
+      } else if (g === 'text') {
+        pvCorrect.textContent = qb('correct_answer').value.trim();
+      } else {
+        pvCorrect.textContent = '{% if lang == "ar" %}تقييم بالذكاء الاصطناعي{% else %}AI-graded{% endif %}';
+      }
+    }
+
+    function showErrors(data) {
+      const msgs = [];
+      const errs = (data && data.errors) || {};
+      Object.keys(errs).forEach(k => (errs[k] || []).forEach(m => msgs.push(typeof m === 'string' ? m : (m.message || ''))));
+      if (data && data.error && !msgs.length) msgs.push(data.error);
+      errors.textContent = msgs.join(' · ') || '{% if lang == "ar" %}تعذّر حفظ السؤال.{% else %}Could not save the question.{% endif %}';
+      errors.hidden = false;
+    }
+
+    function addRow(q) {
+      const li = document.createElement('li');
+      li.className = 'tp-qb-qrow';
+      li.dataset.questionId = q.id;
+      li.innerHTML = '<span class="tp-qb-qorder"></span><span class="tp-qb-qtext"></span><span class="tp-summary-chip"></span><button type="button" class="teacher-btn tp-qb-qdel" data-del-question="' + q.id + '">{% if lang == "ar" %}حذف{% else %}Delete{% endif %}</button>';
+      li.querySelector('.tp-qb-qorder').textContent = q.order;
+      li.querySelector('.tp-qb-qtext').textContent = q.text;
+      li.querySelector('.tp-summary-chip').textContent = q.type_label;
+      list.appendChild(li);
+      empty.hidden = true;
+    }
+
+    async function submitQuestion() {
+      errors.hidden = true;
+      const names = ['question_type','order','points','difficulty_score','question_text_ar','question_text_en','option_1','option_2','option_3','option_4','correct_option','correct_answer','explanation_ar','explanation_en'];
+      const fd = new FormData();
+      names.forEach(n => { const el = qb(n); if (el) fd.append(n, el.value); });
+      addBtn.disabled = true;
+      try {
+        const res = await fetch(addUrl, { method: 'POST', headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' }, body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          addRow(data.question);
+          ['question_text_ar','question_text_en','option_1','option_2','option_3','option_4','correct_answer','explanation_ar','explanation_en'].forEach(n => { const el = qb(n); if (el) el.value = ''; });
+          qb('correct_option').value = '';
+          qb('order').value = (Number(qb('order').value) || list.children.length) + 1;
+          updatePreview();
+        } else {
+          showErrors(data);
+        }
+      } catch (e) {
+        showErrors(null);
+      } finally {
+        addBtn.disabled = false;
+      }
+    }
+
+    async function deleteQuestion(id, li) {
+      const url = delUrlTpl.replace(/0\/delete\/$/, id + '/delete/');
+      try {
+        const res = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) { li.remove(); if (!list.children.length) empty.hidden = false; }
+      } catch (e) { /* keep the row on failure */ }
+    }
+
+    addBtn.addEventListener('click', submitQuestion);
+    qb('question_type').addEventListener('change', updateGroups);
+    root.querySelectorAll('[data-qb]').forEach(el => el.addEventListener('input', updatePreview));
+    qb('correct_option').addEventListener('change', updatePreview);
+    list.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-del-question]');
+      if (btn) deleteQuestion(btn.dataset.delQuestion, btn.closest('.tp-qb-qrow'));
+    });
+    updateGroups();
   })();
 </script>
 {% endblock %}

@@ -1049,7 +1049,7 @@ UNITS.extend([
        arabic_tip="بالإنجليزية الأمريكية: \"pants\"، \"sneakers\"، \"sweater\". (البريطانية: trousers، trainers، jumper.)",
        common_mistake_ar="\"pants\" دائمًا بالجمع. \"a pants\" خطأ — قل \"a pair of pants\" أو \"these pants\"."),
 
-    _u(34, "R4", "At the Store", "في المتجر", "A1", 25, "speaking",
+    _u(34, "R4", "At the shops", "في المتجر", "A1", 25, "speaking",
        new_language_en="too / fit — 'This is too big.', 'It doesn't fit.'",
        new_language_ar="too / fit — \"This is too big.\"، \"It doesn't fit.\"",
        vocabulary_en="Sizes (small, medium, large, XL); shopping verbs (try on, buy, pay, return).",

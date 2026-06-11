@@ -20,6 +20,34 @@ from ai_usage.services import ai_client
 
 logger = logging.getLogger(__name__)
 
+# Beginner-friendly TTS settings (Prompt 18.2C). Applied to FUTURE generation
+# only — existing clips are untouched. tts-1 honours `speed`; the instruction
+# is kept for instruction-capable models (e.g. gpt-4o-mini-tts).
+BEGINNER_TTS_INSTRUCTION = (
+    "Speak slowly and clearly for absolute beginner English learners. "
+    "Use natural pauses."
+)
+
+
+def is_beginner_lesson(lesson) -> bool:
+    cefr = (getattr(lesson, "cefr_level", "") or "")[:2].upper()
+    slug = getattr(getattr(lesson, "course", None), "slug", "") or ""
+    return cefr in ("A0", "A1") or slug == "onlenco-beginner"
+
+
+def beginner_tts_speed(lesson):
+    """Source playback speed for a lesson's TTS, or None for non-beginners.
+
+    Default 0.9 (slightly slower than natural) — configurable via
+    ``AI_TTS_BEGINNER_SPEED``. None means "use the provider default".
+    """
+    if is_beginner_lesson(lesson):
+        try:
+            return float(getattr(settings, "AI_TTS_BEGINNER_SPEED", 0.9))
+        except (TypeError, ValueError):
+            return 0.9
+    return None
+
 
 def _est(name: str, default: str) -> Decimal:
     try:
@@ -69,6 +97,35 @@ def _role_for(actor) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Grammar quality guard (Prompt 18.2F-Batch-Next)
+# ---------------------------------------------------------------------------
+_GRAMMAR_GUARD = (
+    "This is a GRAMMAR illustration for absolute-beginner (A0) English learners. "
+    "It MUST depict EXACTLY the grammar point of the lesson '{title}'"
+    "{topic}. Do NOT show a near-miss or a different rule — e.g. never show "
+    "plural -s for a possessive/apostrophe lesson, and never swap possessive for "
+    "plural. Use ONE simple, clear visual scene that makes the rule obvious, with "
+    "very little text. No watermark, no logos, no technical symbols."
+)
+
+
+def effective_image_prompt(prompt_obj) -> str:
+    """The prompt actually sent to the provider. For grammar images we append a
+    precision guard so the picture matches the lesson's exact grammar point
+    (Prompt 18.2F-Batch-Next). Existing images are never affected — this only
+    shapes NEW generations. Other types are unchanged."""
+    base = prompt_obj.prompt or ""
+    if prompt_obj.prompt_type != "grammar":
+        return base
+    lesson = prompt_obj.lesson
+    title = lesson.title_en or lesson.title or ""
+    gt = (getattr(lesson, "grammar_topic", "") or "").strip()
+    topic = f" (grammar focus: {gt})" if gt else ""
+    guard = _GRAMMAR_GUARD.format(title=title, topic=topic)
+    return f"{base}\n\n{guard}".strip()
+
+
+# ---------------------------------------------------------------------------
 # Single-item generation
 # ---------------------------------------------------------------------------
 
@@ -86,7 +143,8 @@ def generate_lesson_image(prompt_obj, *, actor=None, replace=False) -> tuple[str
     model = "gpt-image-1-mini"
     try:
         png = ai_client.generate_image(
-            prompt_obj.prompt, size=getattr(settings, "ONLENCO_MEDIA_IMAGE_SIZE", "1024x1024"),
+            effective_image_prompt(prompt_obj),
+            size=getattr(settings, "ONLENCO_MEDIA_IMAGE_SIZE", "1024x1024"),
             model=model, user=actor, role=_role_for(actor),
             feature=AC.FEATURE_MEDIA_GENERATION, lesson_id=lesson.id,
             metadata={"purpose": prompt_obj.prompt_type, "kind": "image"},
@@ -123,12 +181,24 @@ def generate_lesson_audio(script_obj, *, actor=None, replace=False) -> tuple[str
         return ("failed", bad)
     model = getattr(settings, "AI_TTS_MODEL", "tts-1")
     voice = getattr(settings, "AI_TTS_VOICE", "alloy")
+    # Sanitise the script before TTS so underscores / JSON / technical tokens
+    # are never read aloud (Prompt 18.2C). Beginner lessons also generate at a
+    # slightly slower source speed.
+    try:
+        from core.services.text_humanizer import humanize_for_speech
+        spoken = humanize_for_speech(script_obj.script_text[:3000], language="en")
+    except Exception:
+        spoken = None
+    spoken = spoken or script_obj.script_text[:3000]
+    speed = beginner_tts_speed(lesson)
+    speed_kwargs = {"speed": speed} if speed is not None else {}
     try:
         audio = ai_client.synthesize_speech(
-            script_obj.script_text[:3000], voice=voice, model=model,
+            spoken, voice=voice, model=model,
             user=actor, role=_role_for(actor), feature=AC.FEATURE_TTS,
             lesson_id=lesson.id,
             metadata={"purpose": script_obj.script_type, "kind": "audio"},
+            **speed_kwargs,
         )
     except Exception as exc:
         script_obj.generation_status = "failed"

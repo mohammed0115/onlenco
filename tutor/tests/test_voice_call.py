@@ -187,3 +187,126 @@ class VoiceCallLogTests(TestCase):
             "seconds": 5,
         }, content_type="application/json")
         self.assertEqual(r.status_code, 403)
+
+
+@override_settings(AXES_ENABLED=False)
+class CallResponseConsistencyTests(TestCase):
+    """Prompt 17.4 D/E/H — unified call start/end responses + backend protection.
+
+    The no-plan active user falls back to the one-shot 5-minute trial, so the
+    daily allowance here is 300 seconds.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(username="ccs@x.com", password="pw")
+        _activate_subscription(self.user)
+        self.client.login(username="ccs@x.com", password="pw")
+        self.conv = TutorConversation.objects.create(user=self.user)
+        self.start_url = reverse("api_tutor_voice_call_session")
+        self.log_url = reverse("api_tutor_voice_call_log")
+        self._fake = {"id": "sess_x", "client_secret": {"value": "ek_x"},
+                      "expires_at": 9999999999}
+
+    def _start(self):
+        with patch("tutor.services.realtime_session.request_ephemeral_session",
+                   return_value=self._fake):
+            return self.client.post(
+                self.start_url, {"conversation_id": self.conv.id},
+                content_type="application/json",
+            )
+
+    def _open_call(self):
+        from tutor.services import usage_limits as ul
+        return ul.start_ai_tutor_usage(self.user, ul.MODE_REGULAR_AI_TUTOR_CALL).session_id
+
+    # H1
+    def test_start_returns_remaining_and_daily_limit(self):
+        body = self._start().json()
+        self.assertIn("remaining_seconds", body)
+        self.assertEqual(body["daily_limit_seconds"], 300)
+        self.assertIn("max_session_seconds", body)
+        self.assertEqual(body["status"], "ok")
+
+    # H2
+    def test_start_blocked_with_daily_limit_reached(self):
+        from subscriptions.services.quota_service import consume_free_trial_seconds
+        consume_free_trial_seconds(self.user, 300)
+        r = self.client.post(self.start_url, {"conversation_id": self.conv.id},
+                             content_type="application/json")
+        self.assertEqual(r.status_code, 402)
+        body = r.json()
+        self.assertEqual(body["error_code"], "DAILY_LIMIT_REACHED")
+        self.assertIn("اليومي", body["message_ar"])
+        self.assertEqual(body["remaining_seconds"], 0)
+
+    # H8
+    def test_start_provider_failure_returns_error_code(self):
+        with patch("tutor.services.realtime_session.request_ephemeral_session",
+                   side_effect=RuntimeError("boom")):
+            r = self.client.post(self.start_url, {"conversation_id": self.conv.id},
+                                 content_type="application/json")
+        self.assertEqual(r.status_code, 503)
+        body = r.json()
+        self.assertEqual(body["error_code"], "CALL_PROVIDER_UNAVAILABLE")
+        self.assertIn("المكالمة", body["message_ar"])
+
+    # H3
+    def test_end_returns_used_and_remaining(self):
+        sid = self._open_call()
+        body = self.client.post(
+            self.log_url,
+            {"conversation_id": self.conv.id, "seconds": 60, "tutor_session_id": sid},
+            content_type="application/json",
+        ).json()
+        self.assertEqual(body["used_seconds"], 60)
+        self.assertEqual(body["remaining_seconds"], 240)
+        self.assertEqual(body["daily_limit_seconds"], 300)
+        self.assertEqual(body["status"], "ended")
+
+    # H4
+    def test_end_killed_by_quota_is_safe(self):
+        from tutor.services import usage_limits as ul
+        sid = self._open_call()
+        body = self.client.post(
+            self.log_url,
+            {"conversation_id": self.conv.id, "seconds": 50,
+             "tutor_session_id": sid, "killed_by_quota": True},
+            content_type="application/json",
+        ).json()
+        self.assertTrue(body["killed_by_quota"])
+        self.assertEqual(ul.get_daily_used_seconds(self.user), 50)
+
+    # H5
+    def test_end_twice_does_not_double_charge(self):
+        from tutor.services import usage_limits as ul
+        sid = self._open_call()
+        for _ in range(2):
+            self.client.post(
+                self.log_url,
+                {"conversation_id": self.conv.id, "seconds": 60, "tutor_session_id": sid},
+                content_type="application/json",
+            )
+        self.assertEqual(ul.get_daily_used_seconds(self.user), 60)
+
+    # H6
+    def test_negative_client_duration_is_clamped(self):
+        from tutor.services import usage_limits as ul
+        sid = self._open_call()
+        body = self.client.post(
+            self.log_url,
+            {"conversation_id": self.conv.id, "seconds": -50, "tutor_session_id": sid},
+            content_type="application/json",
+        ).json()
+        self.assertEqual(body["used_seconds"], 0)
+        self.assertEqual(ul.get_daily_used_seconds(self.user), 0)
+
+    def test_huge_client_duration_cannot_exceed_daily_allowance(self):
+        from tutor.services import usage_limits as ul
+        sid = self._open_call()
+        self.client.post(
+            self.log_url,
+            {"conversation_id": self.conv.id, "seconds": 999999999, "tutor_session_id": sid},
+            content_type="application/json",
+        )
+        self.assertLessEqual(ul.get_daily_used_seconds(self.user), 300)

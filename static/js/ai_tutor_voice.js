@@ -92,24 +92,72 @@
       timeout:        'That took too long — please try again.',
     },
     ar: {
-      idle:           'اضغط للتحدث',
+      idle:           'اضغط للتسجيل',
       listening:      'أستمع إليك…',
-      recording:      'جارٍ التسجيل…',
-      transcribing:   'جارٍ تحويل الصوت إلى نص…',
-      thinking:       'المعلم الذكي يفكر…',
-      speaking:       'المعلم الذكي يتحدث…',
+      recording:      'جاري التسجيل...',
+      ready_to_send:  'تم التسجيل',
+      uploading:      'جاري إرسال الصوت...',
+      transcribing:   'جاري فهم صوتك...',
+      thinking:       'المساعد يرد الآن...',
+      speaking:       'المساعد يرد الآن...',
       error:          'حدث خطأ، يمكنك المحاولة مرة أخرى.',
-      ready:          'جاهز',
-      empty_audio:    'لم أسمع شيئًا واضحًا. حاول مرة أخرى.',
-      mic_blocked:    'لم يتم السماح باستخدام الميكروفون. يمكنك الكتابة بدلًا من ذلك.',
-      network:        'يوجد مشكلة في الاتصال. تحقق من الإنترنت.',
-      ai_unavailable: 'المعلم الذكي غير متاح مؤقتًا. حاول مرة أخرى.',
+      ready:          'تم التسجيل',
+      empty_audio:    'لم أستطع فهم الصوت بوضوح. حاول مرة أخرى بجملة قصيرة.',
+      mic_blocked:    'لم يتم السماح باستخدام الميكروفون. فعّل الإذن وحاول مرة أخرى.',
+      no_mic:         'لم يتم العثور على ميكروفون.',
+      too_short:      'الصوت قصير جدًا، حاول مرة أخرى.',
+      too_long:       'وصلت للحد الأقصى للتسجيل.',
+      daily_limit:    'انتهى وقت المساعد الذكي اليومي في خطتك.',
+      provider_error: 'لم أستطع فهم الصوت بوضوح. حاول مرة أخرى بجملة قصيرة.',
+      unsupported:    'المتصفح لا يدعم التسجيل الصوتي. جرّب متصفحًا آخر.',
+      network:        'تعذر إرسال الصوت. تحقق من الاتصال وحاول مرة أخرى.',
+      ai_unavailable: 'المساعد الذكي غير متاح مؤقتًا. حاول مرة أخرى.',
       auth_expired:   'انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.',
       confirm_delete_voice: 'حذف كل تسجيلاتك الصوتية؟ سيبقى النص المكتوب.',
       voice_history_deleted: 'تم حذف التسجيلات الصوتية.',
       timeout:        'استغرق الأمر وقتًا طويلًا، حاول مرة أخرى.',
+      remaining_label: 'الوقت المتبقي اليوم',
     },
   };
+
+  // Backend error_code → STRINGS key, so the student always sees a clear
+  // Arabic message and never a raw code (Prompt 17.3 C/G).
+  const ERROR_CODE_KEYS = {
+    DAILY_LIMIT_REACHED:        'daily_limit',
+    MICROPHONE_TOO_SHORT:       'too_short',
+    TRANSCRIPTION_FAILED:       'provider_error',
+    NETWORK_OR_PROVIDER_ERROR:  'network',
+  };
+
+  function formatClock(totalSeconds) {
+    const s = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    return mm + ':' + ss;
+  }
+
+  // Update the "remaining time today" display + lock the mic at zero, using
+  // the backend usage snapshot — the single source of truth (Prompt 17.3 E).
+  function applyUsage(resp) {
+    if (!resp || resp.remaining_seconds == null) return;
+    const remaining = Number(resp.remaining_seconds) || 0;
+    const el = document.getElementById('voiceRemaining');
+    if (el) {
+      el.textContent = t('remaining_label') + ': ' + formatClock(remaining);
+      el.hidden = false;
+    }
+    const mic = els.mic || document.getElementById('micButton');
+    if (mic) {
+      if (remaining <= 0) {
+        mic.setAttribute('disabled', 'disabled');
+        mic.setAttribute('aria-disabled', 'true');
+        toast(t('daily_limit'));
+      } else {
+        mic.removeAttribute('disabled');
+        mic.removeAttribute('aria-disabled');
+      }
+    }
+  }
 
   function t(key) {
     const lang = Config.language === 'ar' ? 'ar' : 'en';
@@ -640,6 +688,7 @@
         Config.conversationId = resp.conversation_id;
         openBroadcast();
       }
+      applyUsage(resp);   // refresh remaining-time display (Prompt 17.3 E)
       const ai = resp.ai_message || {};
       const content = ai.content_humanized || ai.content || '';
       appendAIMessage(content, { last: true });
@@ -746,6 +795,7 @@
         Config.conversationId = j.conversation_id;
         openBroadcast();
       }
+      applyUsage(j);   // refresh remaining-time display (Prompt 17.3 E)
       const ai = j.ai_message || {};
       const content = ai.content_humanized || ai.content || '';
       appendAIMessage(content, { last: true });
@@ -755,8 +805,17 @@
       return speakReply(speech, lang);
     }).catch((err) => {
       if (err && err.code === 401) return;
-      const code = err && err.body && err.body.error;
+      const body = (err && err.body) || {};
+      // Prefer the backend's explicit error_code + Arabic message so the
+      // student never sees a raw code (Prompt 17.3 C/G).
+      if (body.error_code && ERROR_CODE_KEYS[body.error_code]) {
+        if (body.error_code === 'DAILY_LIMIT_REACHED') applyUsage({ remaining_seconds: 0 });
+        handleError(err, ERROR_CODE_KEYS[body.error_code]);
+        return;
+      }
+      const code = body.error;
       const key = err && err.code === 'timeout' ? 'timeout'
+                : code === 'daily_limit_reached' ? 'daily_limit'
                 : code === 'ai_unavailable' ? 'ai_unavailable'
                 : code === 'subscription_required' ? 'auth_expired'
                 : 'error';
@@ -1054,17 +1113,15 @@
       const name = err && err.name;
       let msg;
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        msg = 'Microphone permission was denied. Click the mic/lock icon in the address bar to allow.';
+        msg = t('mic_blocked');
       } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        msg = 'No microphone found. Plug one in or use the typed input.';
+        msg = t('no_mic');
       } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-        msg = 'The microphone is in use by another app. Close it and try again.';
-      } else if (name === 'OverconstrainedError') {
-        msg = 'Mic constraints were too strict. Refresh and retry.';
+        msg = t('no_mic');
       } else if (name === 'SecurityError') {
-        msg = 'Browser blocked mic access (security). Use HTTPS or http://localhost.';
+        msg = t('unsupported');
       } else {
-        msg = 'Could not start recording: ' + (name || err && err.message || 'unknown error');
+        msg = t('error');
       }
       toastPersistent(msg);
       setState('error');

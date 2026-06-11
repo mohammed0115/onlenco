@@ -81,37 +81,55 @@
     ar: {
       idle_title:        'اضغط لبدء المكالمة مع {name}',
       idle_sub:          'سيرحّب بك معلمك ويبدأ محادثة إنجليزية حقيقية.',
-      connecting_title:  'جارٍ الاتصال…',
+      connecting_title:  'جاري الاتصال بالمساعد...',
       connecting_sub:    'جارٍ تجهيز المكالمة، لحظة من فضلك.',
-      tutor_starting_title: 'جارٍ تجهيز المدرس الذكي…',
-      tutor_starting_sub:   'سيبدأ {name} ويطرح السؤال الأول. فقط استمع.',
-      tutor_speaking_title: 'يتحدّث {name}',
+      tutor_starting_title: 'جاري تجهيز المعلّم...',
+      tutor_starting_sub:   'سيبدأ المعلّم ويطرح السؤال الأول. فقط استمع.',
+      tutor_speaking_title: 'المعلّم يتحدث الآن...',
       tutor_speaking_sub:   'استمع إلى السؤال…',
-      listening_for_student_title: 'دورك الآن',
+      listening_for_student_title: 'المعلّم يستمع إليك...',
       listening_for_student_sub:   'الآن أجب بصوتك بكلمة أو جملة قصيرة.',
-      student_speaking_title: 'جارٍ الاستماع…',
-      student_speaking_sub:   'تفضّل بالحديث — {name} ينصت إليك.',
-      listening_title:   'جارٍ الاستماع…',
-      listening_sub:     'تفضّل بالحديث — {name} ينصت إليك.',
-      thinking_title:    'تفكير…',
-      thinking_sub:      'جارٍ تحضير الرد…',
-      speaking_title:    'يتحدّث {name}',
+      student_speaking_title: 'المعلّم يستمع إليك...',
+      student_speaking_sub:   'تفضّل بالحديث — المعلّم ينصت إليك.',
+      listening_title:   'المعلّم يستمع إليك...',
+      listening_sub:     'تفضّل بالحديث — المعلّم ينصت إليك.',
+      thinking_title:    'جاري التفكير في ردّك...',
+      thinking_sub:      'لحظة من فضلك…',
+      speaking_title:    'المعلّم يتحدث الآن...',
       speaking_sub:      'استمع — دورك بعدها.',
-      live_title:        'مكالمة مع {name}',
+      reconnecting_title: 'جاري إعادة الاتصال...',
+      reconnecting_sub:   'لا تُغلق الصفحة، نحاول استعادة المكالمة.',
+      live_title:        'مكالمة مع المعلّم',
       live_sub:          'تحدّث بطبيعية. معلمك ينصت ويردّ أثناء كلامك.',
       ended_title:       'انتهت المكالمة',
       ended_sub:         'اضغط للاتصال مرة أخرى.',
-      error_title:       'حدث خطأ',
+      error_title:       'تعذر بدء المكالمة. حاول مرة أخرى.',
       error_sub:         'راجع الرسالة أدناه وحاول مرة أخرى.',
-      mic_blocked:       'تم رفض إذن الميكروفون. اسمح به من المتصفح ثم حاول مرة أخرى.',
+      mic_blocked:       'لم يتم السماح باستخدام الميكروفون. فعّل الإذن وحاول مرة أخرى.',
       no_mic:            'لم يتم العثور على ميكروفون. وصّل واحدًا وحاول مجدداً.',
-      ai_unavailable:    'المعلم الصوتي غير متاح مؤقتًا. جرّب المحادثة النصية.',
-      limit_reached:     'لقد استهلكت دقائق المكالمة اليومية. استخدم المحادثة النصية.',
-      concurrent_session: 'مكالمة سابقة لم تُغلق. تم إغلاقها — اضغط ابدأ مرة أخرى.',
-      network:           'مشكلة في الشبكة. تحقق من الاتصال وحاول مرة أخرى.',
+      ai_unavailable:    'تعذر تجهيز المكالمة الآن. حاول مرة أخرى.',
+      provider_unavailable: 'تعذر تجهيز المكالمة الآن. حاول مرة أخرى.',
+      webrtc_failed:     'تعذر الاتصال الصوتي. تحقق من الإنترنت وحاول مرة أخرى.',
+      call_dropped:      'انقطعت المكالمة. يمكنك المحاولة مرة أخرى إذا كان لديك وقت متبقٍ.',
+      limit_reached:     'انتهى وقت المساعد الذكي اليومي في خطتك.',
+      daily_limit:       'انتهى وقت المساعد الذكي اليومي في خطتك.',
+      concurrent_session: 'توجد مكالمة أخرى نشطة في تبويب آخر. أنهِها أولًا.',
+      network:           'تعذر الاتصال الصوتي. تحقق من الإنترنت وحاول مرة أخرى.',
+      remaining_label:   'الوقت المتبقي',
       mute_on:           'كتم',
       mute_off:          'إلغاء الكتم',
     },
+  };
+
+  // Backend error_code → STRINGS key, so the student always sees a clear
+  // Arabic message and never a raw code (Prompt 17.4 D/F).
+  const CALL_ERROR_CODE_KEYS = {
+    DAILY_LIMIT_REACHED:          'daily_limit',
+    CALL_PROVIDER_UNAVAILABLE:    'provider_unavailable',
+    MICROPHONE_PERMISSION_REQUIRED: 'mic_blocked',
+    WEBRTC_CONNECTION_FAILED:     'webrtc_failed',
+    SESSION_NOT_FOUND:            'call_dropped',
+    SESSION_ALREADY_ENDED:        'concurrent_session',
   };
 
   function t(key) {
@@ -238,6 +256,12 @@
         const err = new Error(body && body.error || 'http ' + r.status);
         err.code = (body && body.error) || r.status;
         err.status = r.status;
+        // Canonical machine-readable code + Arabic message (Prompt 17.4 D/F).
+        err.errorCode = body && body.error_code ? String(body.error_code) : '';
+        err.messageAr = body && body.message_ar ? String(body.message_ar) : '';
+        err.remaining = body && typeof body.remaining_seconds === 'number'
+          ? body.remaining_seconds : null;
+        err.body = body || null;
         // Server may include a human-readable, already-localised message
         // (e.g. placement safety-quota limits) — surface it verbatim.
         err.detail = body && body.message ? String(body.message) : '';
@@ -267,6 +291,16 @@
       placementAnswerUrl = (sessionInfo && sessionInfo.placement_answer_url) || null;
     } catch (e) {
       console.error('[onlenco-call] session request failed:', e);
+      // Prefer the backend's canonical error_code + Arabic message so the
+      // student never sees a raw code (Prompt 17.4 F). The concurrent-session
+      // case is left to the retry path below.
+      if (e && e.errorCode && CALL_ERROR_CODE_KEYS[e.errorCode]
+          && e.errorCode !== 'SESSION_ALREADY_ENDED') {
+        showError(e.messageAr || t(CALL_ERROR_CODE_KEYS[e.errorCode]));
+        if (e.errorCode === 'DAILY_LIMIT_REACHED') disableStartForToday();
+        setState('error');
+        return;
+      }
       const code = e && e.code;
       const placementCodes = [
         'placement_disabled', 'placement_max_attempts',
@@ -691,10 +725,30 @@
 
   function updateTimer() {
     if (!els.timer) return;
-    const sec = Math.max(0, Math.floor((Date.now() - callStartedAt) / 1000));
-    const m = Math.floor(sec / 60).toString().padStart(2, '0');
-    const s = (sec % 60).toString().padStart(2, '0');
-    els.timer.textContent = `${m}:${s}`;
+    // Countdown of the remaining seconds, not elapsed (Prompt 17.4 C). The
+    // backend hard-stop (maxSessionTimer) is the real source of truth; this is
+    // the visible mirror. When it hits zero we end and lock the call.
+    const elapsed = Math.max(0, Math.floor((Date.now() - callStartedAt) / 1000));
+    const remaining = Math.max(0, maxSessionSeconds - elapsed);
+    const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+    const s = (remaining % 60).toString().padStart(2, '0');
+    els.timer.textContent = `${t('remaining_label')}: ${m}:${s}`;
+    if (remaining <= 0) {
+      stopTimer();
+      // Daily seconds are spent — end the call and prevent a fresh start until
+      // tomorrow / an upgrade.
+      showError(t('daily_limit'));
+      disableStartForToday();
+      try { endCall(true); } catch (e) {}
+    }
+  }
+
+  // Lock the call button after the daily allowance is exhausted (Prompt 17.4 C/G).
+  function disableStartForToday() {
+    if (els.startBtn) {
+      els.startBtn.setAttribute('disabled', 'disabled');
+      els.startBtn.setAttribute('aria-disabled', 'true');
+    }
   }
 
   function stopTimer() {

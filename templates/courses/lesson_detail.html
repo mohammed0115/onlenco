@@ -19,7 +19,9 @@
         {% with cover_prompt=lesson.image_prompts.all|dictsort:"sort_order"|first %}
         <section class="onlenco-hero">
             <div class="onlenco-hero__cover">
-                {% if cover_prompt and cover_prompt.generated_image %}
+                {# Only approved + student-visible covers render (Prompt 18.2G) — #}
+                {# never a pending/failed image, matching the lesson_step gate. #}
+                {% if cover_prompt and cover_prompt.is_student_visible %}
                     <img src="{{ cover_prompt.generated_image.url }}" alt="{{ lesson.title }}">
                 {% else %}
                     <div class="onlenco-hero__cover-fallback"><i data-lucide="book-open"></i></div>

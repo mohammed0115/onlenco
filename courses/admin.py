@@ -199,11 +199,12 @@ class CourseUnitAdmin(admin.ModelAdmin):
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ("title", "course", "cefr_level", "skill", "lesson_type",
+    list_display = ("title", "course", "book_unit_number", "book_page",
+                    "cefr_level", "skill", "lesson_type",
                     "status", "created_by", "created_at")
     list_filter = ("status", "lesson_type", "cefr_level", "skill",
                    "course__level", "course")
-    search_fields = ("title", "content_html", "course__title")
+    search_fields = ("title", "content_html", "course__title", "book_unit_number")
     raw_id_fields = ("course", "unit", "created_by", "reviewed_by")
     inlines = [LessonResourceInline]
     actions = ["submit_for_review_action", "approve_action",
@@ -230,6 +231,14 @@ class LessonAdmin(admin.ModelAdmin):
         }),
         (_("Content"), {
             "fields": ("content_html", "duration_minutes", "is_active"),
+        }),
+        (_("Book reference"), {
+            "fields": ("book_unit_number", "book_page", "book_reference"),
+            "classes": ("collapse",),
+            "description": _(
+                "Optional source-book references. order stays the platform "
+                "sequence; book_unit_number ties the lesson to the book unit."
+            ),
         }),
         (_("Review"), {
             "fields": ("status", "created_by", "reviewed_by", "reviewed_at",

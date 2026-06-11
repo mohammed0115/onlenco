@@ -14,3 +14,4 @@ local_models/**/model.joblib
 .DS_Store
 .idea/
 .vscode/
+tmp/

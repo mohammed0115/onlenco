@@ -1,5 +1,10 @@
 """Seed the Onlenco Beginner course — 48 Learning Units, all original content.
 
+CANONICAL SOURCE (Prompt 18.2): this command is the single owner of the
+``onlenco-beginner`` course (16 CourseUnits × 3 Lessons = 48). Other beginner
+seeds (e.g. ``seed_beginner_48_topics``) skip this slug when this 16×3 structure
+is present, to avoid duplicate lessons. Keep the 16×3 layout here.
+
 Reads from `courses.services.onlenco_beginner_seed_data.UNITS` and persists:
 
   * One `Course` (idempotent by slug `onlenco-beginner`).
@@ -32,6 +37,10 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+import csv
+from pathlib import Path
+
+from django.conf import settings
 from django.db import transaction
 
 from courses.models import (
@@ -45,6 +54,8 @@ from courses.services.onlenco_beginner_seed_data import (
 
 User = get_user_model()
 
+
+BOOK_REFERENCE = "English for Everyone — Level 1 (Beginner), DK 2016"
 
 COURSE_SLUG = "onlenco-beginner"
 COURSE_TITLE_EN = "Onlenco Beginner English Foundation"
@@ -89,6 +100,10 @@ class Command(BaseCommand):
                 f"DRY RUN — no DB changes. Would seed {len(UNITS)} units."
             ))
             return
+
+        # Book page numbers come from book_structure.csv (best-effort; the
+        # seed still fills book_unit_number from the data file if CSV is absent).
+        self.book_pages = self._load_book_pages()
 
         # --- Course + level + (system) teacher -----------------------------
         level, _ = CourseLevel.objects.get_or_create(
@@ -189,11 +204,34 @@ class Command(BaseCommand):
         )
         return user
 
+    def _load_book_pages(self) -> dict:
+        """Map book unit_number -> page from book_structure.csv (best-effort)."""
+        pages = {}
+        path = Path(settings.BASE_DIR) / "book_structure.csv"
+        if not path.exists():
+            return pages
+        try:
+            with path.open(newline="", encoding="utf-8") as fh:
+                for raw in csv.DictReader(fh):
+                    try:
+                        n = int((raw.get("unit_number") or "").strip())
+                        page = int((raw.get("book_page") or "").strip())
+                    except (TypeError, ValueError):
+                        continue
+                    pages[n] = page
+        except Exception:
+            return {}
+        return pages
+
     def _upsert_lesson(self, course, course_unit, unit_data: dict) -> Lesson:
+        n = unit_data["n"]
         lesson, _ = Lesson.objects.update_or_create(
-            course=course, order=unit_data["n"],
+            course=course, order=n,
             defaults={
                 "unit": course_unit,
+                "book_unit_number": n,
+                "book_page": getattr(self, "book_pages", {}).get(n),
+                "book_reference": BOOK_REFERENCE,
                 "title": unit_data["title_en"],
                 "title_en": unit_data["title_en"],
                 "title_ar": unit_data["title_ar"],

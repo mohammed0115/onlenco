@@ -159,3 +159,106 @@ class VoiceTtsTests(TestCase):
     def test_empty_text_returns_400(self):
         r = self.client.post(self.url, {"text": "  "}, content_type="application/json")
         self.assertEqual(r.status_code, 400)
+
+
+@override_settings(AXES_ENABLED=False)
+class VoiceMessageUsageGateTests(TestCase):
+    """Prompt 17.2 — voice messages enforce + deduct daily AI-Tutor seconds."""
+
+    def setUp(self):
+        from datetime import timedelta
+        from django.core.cache import cache
+        from subscriptions.models import SubscriptionPlan, UserSubscription
+        cache.clear()
+        self.user = User.objects.create_user(username="vu@x.com", password="pw")
+        prof = self.user.profile
+        prof.subscription_status = "active"
+        prof.subscription_expires_at = timezone.now() + timedelta(days=30)
+        prof.save()
+        now = timezone.now()
+        self.plan = SubscriptionPlan.objects.create(
+            code="vu-2m", name_en="P", name_ar="خطة", price_sdg=0,
+            ai_tutor_daily_minutes=2, library_audio_daily_minutes=0,
+        )
+        UserSubscription.objects.create(
+            user=self.user, plan=self.plan, status="active",
+            start_date=now - timedelta(days=1), end_date=now + timedelta(days=29),
+        )
+        self.conv = TutorConversation.objects.create(user=self.user)
+        self.client.login(username="vu@x.com", password="pw")
+        self.url = reverse("api_tutor_voice_respond")
+
+    def test_voice_message_deducts_seconds(self):
+        from tutor.services import usage_limits as ul
+        with patch("tutor.api.views.chat", return_value="ok"):
+            r = self.client.post(
+                self.url,
+                {"transcript": "hi", "conversation_id": self.conv.id, "speaking_seconds": 45},
+                content_type="application/json",
+            )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(ul.get_daily_used_seconds(self.user), 45)
+
+    def test_voice_message_blocked_when_limit_reached(self):
+        from tutor.services import usage_limits as ul
+        ul.deduct_voice_message_usage(self.user, 120)  # exhaust the 2-min plan
+        with patch("tutor.api.views.chat", return_value="ok") as mock_chat:
+            r = self.client.post(
+                self.url,
+                {"transcript": "hi", "conversation_id": self.conv.id, "speaking_seconds": 10},
+                content_type="application/json",
+            )
+        self.assertEqual(r.status_code, 402)
+        self.assertIn("اليومي", r.json().get("message", ""))
+        # Backend cannot be bypassed: the AI was never even called.
+        mock_chat.assert_not_called()
+
+    # ---- Prompt 17.3 G: API response consistency ----------------------------
+    def test_success_returns_usage_snapshot(self):
+        with patch("tutor.api.views.chat", return_value="ok"):
+            r = self.client.post(
+                self.url,
+                {"transcript": "hi", "conversation_id": self.conv.id, "speaking_seconds": 45},
+                content_type="application/json",
+            )
+        body = r.json()
+        self.assertEqual(body["used_seconds"], 45)
+        self.assertEqual(body["remaining_seconds"], 75)
+        self.assertEqual(body["daily_limit_seconds"], 120)
+
+    def test_blocked_returns_error_code_and_arabic(self):
+        from tutor.services import usage_limits as ul
+        ul.deduct_usage_seconds(self.user, 120)  # exhaust 2-min plan
+        with patch("tutor.api.views.chat", return_value="ok"):
+            r = self.client.post(
+                self.url, {"transcript": "hi", "conversation_id": self.conv.id},
+                content_type="application/json",
+            )
+        self.assertEqual(r.status_code, 402)
+        body = r.json()
+        self.assertEqual(body["error_code"], "DAILY_LIMIT_REACHED")
+        self.assertIn("اليومي", body["message_ar"])
+        self.assertEqual(body["remaining_seconds"], 0)
+
+    def test_empty_transcript_returns_friendly_arabic(self):
+        with patch("tutor.api.views.chat", return_value="ok"):
+            r = self.client.post(
+                self.url, {"transcript": "   ", "conversation_id": self.conv.id},
+                content_type="application/json",
+            )
+        self.assertEqual(r.status_code, 400)
+        body = r.json()
+        self.assertEqual(body["error_code"], "MICROPHONE_TOO_SHORT")
+        self.assertIn("قصير", body["message_ar"])
+
+    def test_idempotency_key_prevents_double_deduct(self):
+        from tutor.services import usage_limits as ul
+        with patch("tutor.api.views.chat", return_value="ok"):
+            for _ in range(2):
+                self.client.post(
+                    self.url,
+                    {"transcript": "hi", "conversation_id": self.conv.id,
+                     "speaking_seconds": 30, "idempotency_key": "dup-1"},
+                    content_type="application/json",
+                )
+        self.assertEqual(ul.get_daily_used_seconds(self.user), 30)

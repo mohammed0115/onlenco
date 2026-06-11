@@ -469,6 +469,22 @@ class Lesson(models.Model):
         default=list, blank=True,
         verbose_name=_("Latest quality flag list"),
     )
+    # --- Explicit book references (Prompt 18.3, additive/optional) ---------
+    # ``order`` stays the platform sequence; ``book_unit_number`` ties a lesson
+    # to its source unit in the course book (1..48 for the Beginner course).
+    book_unit_number = models.PositiveIntegerField(
+        null=True, blank=True, db_index=True,
+        verbose_name=_("Book unit number"),
+        help_text=_("Source unit number in the course book (e.g. 1–48)."),
+    )
+    book_page = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name=_("Book page"),
+        help_text=_("Page in the source course book."),
+    )
+    book_reference = models.CharField(
+        max_length=255, blank=True, verbose_name=_("Book reference"),
+        help_text=_("Free-text source reference (book title / edition)."),
+    )
     is_active = models.BooleanField(default=True, verbose_name=_("Active"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

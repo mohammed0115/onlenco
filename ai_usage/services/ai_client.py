@@ -401,11 +401,15 @@ def transcribe_audio(audio_bytes, *, filename="audio.webm", context=None,
 
 
 def synthesize_speech(text, *, voice="alloy", context=None, response_format="mp3",
-                      timeout=30, **ctx_kwargs):
+                      timeout=30, speed=None, **ctx_kwargs):
     """Text-to-speech. Returns raw audio bytes.
 
     No usage is returned by the endpoint; we estimate spoken seconds from the
     input length (~14 chars/sec) so the per-minute audio-output price applies.
+
+    ``speed`` (optional, ~0.25–4.0) sets the provider playback rate at the
+    SOURCE — e.g. 0.9 for absolute-beginner clips. Omitted → provider default
+    (1.0). Sent only when provided, so providers without speed never break.
     """
     ctx = _coerce_context(context, ctx_kwargs)
     ctx.model = ctx.model or getattr(settings, "AI_TTS_MODEL", "tts-1")
@@ -419,12 +423,15 @@ def synthesize_speech(text, *, voice="alloy", context=None, response_format="mp3
 
     est_seconds = max(1, int(len(text or "") / 14)) if text else 0
     started = time.monotonic()
+    payload = {"model": ctx.model, "voice": voice, "input": text or "",
+               "response_format": response_format}
+    if speed is not None:
+        payload["speed"] = float(speed)
     try:
         resp = requests.post(
             f"{_api_base()}/audio/speech",
             headers=_headers(),
-            json={"model": ctx.model, "voice": voice, "input": text or "",
-                  "response_format": response_format},
+            json=payload,
             timeout=timeout,
         )
         resp.raise_for_status()

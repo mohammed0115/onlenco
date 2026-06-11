@@ -5,12 +5,20 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from courses.models import Course, CourseEnrollment, DigitalCertificate, Lesson, LessonQuestion, LessonQuiz
+from courses.models import (
+    QUESTION_TYPE_CHOICES,
+    Course,
+    CourseEnrollment,
+    DigitalCertificate,
+    Lesson,
+    LessonQuestion,
+    LessonQuiz,
+)
 from notifications import constants as notification_constants
 from notifications.models import NotificationEvent
 
@@ -333,8 +341,11 @@ def lesson_create(request, course_id):
         form = TeacherLessonForm(request.POST, request.FILES)
         if form.is_valid():
             lesson = lesson_service.create_lesson(request, form, course)
-            messages.success(request, "Lesson created.")
-            return redirect("teacher_portal:lessons", course_id=course.pk)
+            # Continue inside the same builder so the teacher can add the quick
+            # quiz (step 4) without hunting for a separate page. A LessonQuiz is
+            # OneToOne to a saved Lesson, so the quiz step only goes live here.
+            messages.success(request, "Lesson saved as draft. Add a quick quiz below.")
+            return redirect("teacher_portal:lesson_edit", lesson_id=lesson.pk)
     else:
         form = TeacherLessonForm(initial={"cefr_level": course.level.code})
     return _render(request, "teacher_portal/lessons/form.html", "lessons", {"form": form, "course": course, "lesson": None})
@@ -353,7 +364,22 @@ def lesson_edit(request, lesson_id):
             return redirect("teacher_portal:lessons", course_id=lesson.course_id)
     else:
         form = TeacherLessonForm(instance=lesson)
-    return _render(request, "teacher_portal/lessons/form.html", "lessons", {"form": form, "course": lesson.course, "lesson": lesson})
+    quiz = getattr(lesson, "quiz", None)
+    questions = list(quiz.questions.order_by("order", "id")) if quiz else []
+    return _render(
+        request,
+        "teacher_portal/lessons/form.html",
+        "lessons",
+        {
+            "form": form,
+            "course": lesson.course,
+            "lesson": lesson,
+            "quiz": quiz,
+            "questions": questions,
+            # Drives the embedded quick-quiz builder in step 4 (edit mode only).
+            "question_type_choices": QUESTION_TYPE_CHOICES,
+        },
+    )
 
 
 @require_POST
@@ -417,6 +443,74 @@ def question_edit(request, question_id):
     else:
         form = TeacherQuestionForm(instance=question, user=request.user)
     return _render(request, "teacher_portal/quizzes/question_edit.html", "quizzes", {"question": question, "quiz": question.quiz, "form": form})
+
+
+def _question_summary(question):
+    """JSON-safe row used by the embedded quick-quiz builder to render the
+    live questions list without a page reload."""
+    return {
+        "id": question.pk,
+        "order": question.order,
+        "points": question.points,
+        "type_label": question.get_question_type_display(),
+        "text": (
+            question.question_text_en
+            or question.question_text_ar
+            or question.question_text
+            or ""
+        ),
+    }
+
+
+@require_POST
+@teacher_required
+def lesson_quick_quiz_add(request, lesson_id):
+    """Add one question to a lesson's quick quiz from inside the Lesson Builder.
+
+    The LessonQuiz is created lazily on the first question so the teacher never
+    visits a separate page. Validation reuses ``TeacherQuestionForm`` (no JSON)
+    and saving never touches the lesson's status — a draft stays a draft.
+    """
+    lesson = get_object_or_404(
+        teacher_perms.teacher_lesson_queryset(request.user).select_related("course"),
+        pk=lesson_id,
+    )
+    if not teacher_perms.teacher_can_edit_lesson(request.user, lesson):
+        return JsonResponse({"ok": False, "error": "not_editable"}, status=403)
+    quiz = getattr(lesson, "quiz", None)
+    if quiz is None:
+        quiz = LessonQuiz.objects.create(
+            lesson=lesson,
+            title=(lesson.title_en or lesson.title_ar or lesson.title or "Quiz"),
+            title_en=lesson.title_en or "",
+            title_ar=lesson.title_ar or "",
+        )
+    form = TeacherQuestionForm(request.POST, user=request.user)
+    if not form.is_valid():
+        return JsonResponse(
+            {"ok": False, "errors": form.errors.get_json_data()}, status=400
+        )
+    question = quiz_service.save_question(request, form, quiz)
+    return JsonResponse(
+        {"ok": True, "quiz_id": quiz.pk, "question": _question_summary(question)}
+    )
+
+
+@require_POST
+@teacher_required
+def lesson_quick_quiz_delete(request, lesson_id, question_id):
+    """Remove one question from a lesson's quick quiz (AJAX, no page reload)."""
+    lesson = get_object_or_404(
+        teacher_perms.teacher_lesson_queryset(request.user), pk=lesson_id
+    )
+    if not teacher_perms.teacher_can_edit_lesson(request.user, lesson):
+        return JsonResponse({"ok": False, "error": "not_editable"}, status=403)
+    quiz = getattr(lesson, "quiz", None)
+    if quiz is None:
+        return JsonResponse({"ok": False, "error": "no_quiz"}, status=404)
+    question = get_object_or_404(LessonQuestion, pk=question_id, quiz=quiz)
+    question.delete()
+    return JsonResponse({"ok": True})
 
 
 @teacher_required

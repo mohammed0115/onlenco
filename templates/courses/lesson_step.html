@@ -241,9 +241,9 @@
     var btn = root.querySelector(".onlenco-mega-player__play");
     var fill = root.querySelector(".onlenco-mega-player__fill");
 
-    // Compensate for the 0.95-speed clip generation by playing at 1.05
-    // so the student hears it at natural conversational pace.
-    audio.playbackRate = 1.05;
+    // Beginner audio must never play faster than natural (Prompt 18.2C).
+    // Keep playback at 1.0 — A0 learners need a calm, clear pace.
+    audio.playbackRate = 1.0;
     function sync() { root.classList.toggle("is-playing", !audio.paused); }
     btn.addEventListener("click", function () {
         if (audio.paused) { var p = audio.play(); if (p && p.catch) p.catch(function () {}); }

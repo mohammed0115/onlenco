@@ -33,6 +33,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Count
 
 # Statuses whose lessons are LIVE / reviewed — the seed must never silently
 # overwrite their status or review/audit fields (Prompt 14.5 hardening).
@@ -92,6 +93,11 @@ class Command(BaseCommand):
         parser.add_argument("--i-understand-this-can-unpublish", action="store_true",
                             dest="ack_unpublish",
                             help="Required acknowledgement for --reset-status.")
+        # Seed lock (Prompt 18.2): override the canonical-owner guard below.
+        parser.add_argument("--force-shared-slug", action="store_true",
+                            dest="force_shared_slug",
+                            help="Seed even when the canonical seed_onlenco_beginner_48_units "
+                                 "course (16×3) already owns this slug.")
 
     def _content_defaults(self, topic: dict) -> dict:
         return {
@@ -110,6 +116,27 @@ class Command(BaseCommand):
                 f"Data file missing: {DATA_FILE}. Run the workflow first.",
             ))
             return
+
+        # --- Seed lock (Prompt 18.2) ---------------------------------------
+        # `seed_onlenco_beginner_48_units` is the CANONICAL owner of slug
+        # `onlenco-beginner` (16 units × 3 = 48). If that structure already
+        # exists, writing here would re-introduce duplicate lessons (the
+        # documented root cause of the 95-lesson dev DB). Skip unless forced.
+        if not options.get("force_shared_slug"):
+            canonical_present = (
+                CourseUnit.objects
+                .filter(course__slug=COURSE_SLUG)
+                .annotate(_n=Count("lessons"))
+                .filter(_n=CourseUnit.MAX_LESSONS_PER_UNIT)
+                .exists()
+            )
+            if canonical_present:
+                self.stdout.write(self.style.WARNING(
+                    f"'{COURSE_SLUG}' already carries the canonical 16×3 structure "
+                    "(seed_onlenco_beginner_48_units owns it). Skipping to avoid "
+                    "duplicate lessons. Pass --force-shared-slug to override."
+                ))
+                return
 
         with DATA_FILE.open("r", encoding="utf-8") as fh:
             topics_data = json.load(fh)

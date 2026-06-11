@@ -1,0 +1,49 @@
+unit_number,type,title,book_page,new_language,vocabulary,new_skill
+1,lesson,Introducing yourself,12,"Using ""to be"" with names","Names and letters",Saying your name
+2,vocab,Vocabulary Countries,16,,Countries,
+3,lesson,Talking about yourself,18,"""To be"" with ages and nationalities","Numbers and nationalities",Talking about yourself
+4,vocab,Vocabulary Family and pets,22,,Family and pets,
+5,lesson,Things you have,24,"Possessive adjectives; ""this"" and ""that""","Animals and family",Talking about who things belong to
+6,lesson,Using apostrophes,28,Possessive apostrophe,Family and pets,Talking about belonging
+7,vocab,Vocabulary Everyday things,30,,Everyday things,
+8,lesson,Talking about your things,32,"""These"" and ""those""",Possessions,Using determiners and pronouns
+9,vocab,Vocabulary Jobs,36,,Jobs,
+10,lesson,Talking about your job,38,"Using ""I am"" for your job","Jobs and workplaces",Describing your job
+11,lesson,Telling the time,42,Times of day,Words for time,Saying what the time is
+12,vocab,Vocabulary Daily routines,44,,Daily routines,
+13,lesson,Describing your day,46,The present simple,Routine activities,Talking about your daily routine
+14,lesson,Describing your week,50,Days and prepositions,Days of the week,Talking about your weekly routine
+15,lesson,"Negatives with ""to be""",54,"Negatives with ""to be""","""Not""",Saying what things are not
+16,lesson,More negatives,58,Present simple negative,Daily activities,Saying what you don't do
+17,lesson,Simple questions,62,Simple questions,Jobs and routine activities,Asking simple questions
+18,lesson,Answering questions,66,Short answers,Jobs and routines,Answering spoken questions
+19,lesson,Asking questions,68,Open questions,Question words,Asking for details
+20,vocab,Vocabulary Around town,74,,Around town,
+21,lesson,Talking about your town,76,"""There is"" and ""there are""","Towns and buildings",Describing a town
+22,lesson,"Using ""a"" and ""the""",80,Definite and indefinite articles,Places in town,Using articles
+23,lesson,Orders and directions,84,Imperatives,Directions,Finding your way
+24,lesson,Joining sentences,88,"Using ""and"" and ""but""","Town, jobs, and family",Joining sentences
+25,lesson,Describing places,92,Adjectives,Place adjectives and nouns,Describing places
+26,lesson,Giving reasons,98,"""Because""","Places and jobs",Giving reasons
+27,vocab,Vocabulary Around the house,100,,Around the house,
+28,lesson,The things I have,102,"Using ""have""","Household objects",Talking about possessions
+29,lesson,What do you have?,106,"""Have"" questions","House and furniture",Asking about household objects
+30,vocab,Vocabulary Food and drink,110,,Food and drink,
+31,lesson,Counting,112,Uncountable nouns,Food containers,Talking about food
+32,lesson,Measuring,116,Measurements,Ingredients and quantities,Talking about amounts
+33,vocab,Vocabulary Clothes,118,,Clothes,
+34,lesson,At the shops,120,"Using ""too"" and ""fit""","Shopping and clothes",Describing clothes
+35,lesson,Describing things,124,Opinion adjectives,Shopping and materials,Giving opinions
+36,vocab,Vocabulary Sports,128,,Sports,
+37,lesson,Talking about sports,130,"""Go"" and ""play""",Sports,Talking about sports
+38,vocab,Vocabulary Hobbies and pastimes,134,,Hobbies and pastimes,
+39,lesson,Free time,136,Adverbs of frequency,Pastimes,Talking about your free time
+40,lesson,Likes and dislikes,140,"""Love,"" ""like,"" and ""hate""","Food, sports, and pastimes",Talking about what you like
+41,vocab,Vocabulary Music,146,,Music,
+42,lesson,Expressing preference,148,"Using ""favorite""",Food and music,Talking about your favorite things
+43,vocab,Vocabulary Abilities,152,,Abilities,
+44,lesson,What you can and can't do,154,"""Can,"" ""can't,"" and ""cannot""","Talents and abilities",Saying what you can and can't do
+45,lesson,Describing actions,158,Regular and irregular adverbs,Hobbies and activities,Describing activities
+46,lesson,Describing ability,162,Modifying adverbs,Skills and abilities,Saying how well you do things
+47,lesson,Wishes and desires,164,"""Would"" and ""want""","Leisure activities",Talking about ambitions
+48,lesson,Studying,168,Adverbs and articles,Academic subjects,Talking about your studies

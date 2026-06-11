@@ -98,6 +98,26 @@ def _require_subscription(user):
     )
 
 
+def _usage_fields(user):
+    """Daily AI-Tutor usage snapshot for voice-message UI (Prompt 17.3 G).
+
+    Sourced from the single usage facade so the client can render the
+    remaining-time display and disable recording at zero — never a second
+    limit system.
+    """
+    try:
+        from tutor.services import usage_limits
+        snap = usage_limits.usage_snapshot(user)
+        return {
+            "remaining_seconds": snap["remaining_seconds"],
+            "used_seconds": snap["used_seconds"],
+            "daily_limit_seconds": snap["allowed_seconds"],
+        }
+    except Exception:
+        logger.exception("Tutor: usage snapshot failed")
+        return {}
+
+
 def _get_conversation_for(user, conversation_id):
     """Look up a conversation, enforce ownership, return (conv, error_response)."""
     try:
@@ -147,9 +167,30 @@ def chat_send(request):
         return locked
 
     payload = request.data or {}
+    voice = bool(payload.get("voice"))
+
+    # Backend usage gate (Prompt 17.2B): route text chat through the single
+    # usage facade — never core.services.ai_usage. A text message is NOT
+    # minute-bearing by default, so this passes unless the product config
+    # (TUTOR_TEXT_MESSAGE_CONSUMES_MINUTES) turns it on AND the student is out.
+    from tutor.services import usage_limits
+    _chat_mode = (
+        usage_limits.MODE_REGULAR_AI_TUTOR_VOICE_MESSAGE if voice
+        else usage_limits.MODE_REGULAR_AI_TUTOR_MESSAGE
+    )
+    try:
+        usage_limits.assert_can_use_ai_tutor(request.user, _chat_mode)
+    except usage_limits.UsageLimitError as exc:
+        return Response(
+            {"success": False, "error": "daily_limit_reached",
+             "error_code": "DAILY_LIMIT_REACHED",
+             "message": exc.message_ar, "message_ar": exc.message_ar,
+             "message_en": exc.message_en, "remaining_seconds": exc.remaining},
+            status=status.HTTP_402_PAYMENT_REQUIRED,
+        )
+
     text = (payload.get("message") or "").strip()
     conversation_id = payload.get("conversation_id")
-    voice = bool(payload.get("voice"))
 
     if not text:
         return Response(
@@ -186,6 +227,15 @@ def chat_send(request):
         conversation=conv, role="assistant", content=reply,
     )
 
+    # Only charge seconds when this mode actually consumes minutes (voice, or
+    # text when explicitly configured). Default text chat deducts nothing.
+    if usage_limits.is_minute_bearing_mode(_chat_mode):
+        _spoken = max(0, min(int(payload.get("speaking_seconds") or 0), 3600))
+        usage_limits.deduct_usage_seconds(
+            request.user, _spoken,
+            idempotency_key=(payload.get("idempotency_key") or f"chat:{user_msg.id}"),
+        )
+
     try:
         from motivation.services import activity_collector
         snap = activity_collector.collect_daily_activity(request.user)
@@ -218,6 +268,8 @@ def chat_send(request):
             "created_at": ai_msg.created_at.isoformat(),
         },
         "state": "completed",
+        # Daily usage snapshot for the remaining-time display (Prompt 17.3 G).
+        **_usage_fields(request.user),
     })
 
 
@@ -368,6 +420,17 @@ def voice_respond_stream(request):
             {"success": False, "error": "subscription_required"},
             status=402,
         )
+    # Backend usage gate (Prompt 17.2) — block voice messages when out of time.
+    from tutor.services import usage_limits
+    try:
+        usage_limits.assert_can_use_ai_tutor(
+            request.user, usage_limits.MODE_REGULAR_AI_TUTOR_VOICE_MESSAGE,
+        )
+    except usage_limits.UsageLimitError as exc:
+        return JsonResponse(
+            {"success": False, "error": "daily_limit_reached", "message": exc.message_ar},
+            status=402,
+        )
     try:
         payload = json.loads(request.body.decode("utf-8") or "{}")
     except (ValueError, UnicodeDecodeError):
@@ -410,6 +473,16 @@ def voice_respond_stream(request):
         snap.save(update_fields=["speaking_minutes", "writing_attempts", "updated_at"])
     except Exception:
         logger.exception("voice_respond_stream: activity stats failed")
+
+    # Charge the voice message's seconds once (Prompt 17.2), before streaming.
+    try:
+        _spoken = max(0, min(int(payload.get("speaking_seconds") or 0), 3600))
+    except (TypeError, ValueError):
+        _spoken = 0
+    usage_limits.deduct_voice_message_usage(
+        request.user, _spoken,
+        idempotency_key=(payload.get("idempotency_key") or f"voicestream:{user_msg.id}"),
+    )
 
     response = StreamingHttpResponse(
         _live_stream_response(
@@ -454,11 +527,30 @@ def voice_respond(request):
     if locked is not None:
         return locked
 
+    # Backend usage gate (Prompt 17.2): a voice message is minute-bearing, so
+    # block it here when the student's daily AI-Tutor seconds are exhausted —
+    # never rely on the frontend.
+    from tutor.services import usage_limits
+    try:
+        usage_limits.assert_can_use_ai_tutor(
+            request.user, usage_limits.MODE_REGULAR_AI_TUTOR_VOICE_MESSAGE,
+        )
+    except usage_limits.UsageLimitError as exc:
+        return Response(
+            {"success": False, "error": "daily_limit_reached",
+             "error_code": "DAILY_LIMIT_REACHED",
+             "message": exc.message_ar, "message_ar": exc.message_ar,
+             "message_en": exc.message_en, "remaining_seconds": exc.remaining},
+            status=status.HTTP_402_PAYMENT_REQUIRED,
+        )
+
     payload = request.data or {}
     transcript = (payload.get("transcript") or "").strip()
     if not transcript:
         return Response(
-            {"success": False, "error": "empty_transcript"},
+            {"success": False, "error": "empty_transcript",
+             "error_code": "MICROPHONE_TOO_SHORT",
+             "message_ar": "الصوت قصير جدًا، حاول مرة أخرى."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     transcript = transcript[:MAX_MESSAGE_CHARS]
@@ -491,6 +583,15 @@ def voice_respond(request):
         conversation=conv, role="assistant", content=reply,
     )
 
+    # Charge the voice message's seconds once (Prompt 17.2). Uses the spoken
+    # duration when the client reports it, else a conservative fallback. The
+    # idempotency key stops a retried request from double-billing.
+    _spoken = max(0, min(int(payload.get("speaking_seconds") or 0), 3600))
+    usage_limits.deduct_voice_message_usage(
+        request.user, _spoken,
+        idempotency_key=(payload.get("idempotency_key") or f"voice:{user_msg.id}"),
+    )
+
     try:
         speaking_seconds = max(0, min(int(payload.get("speaking_seconds") or 0), 3600))
         from motivation.services import activity_collector
@@ -521,6 +622,8 @@ def voice_respond(request):
             "created_at": ai_msg.created_at.isoformat(),
         },
         "state": "completed",
+        # Daily usage snapshot for the remaining-time display (Prompt 17.3 G).
+        **_usage_fields(request.user),
     })
 
 
@@ -875,15 +978,24 @@ def voice_call_session(request):
             request.user, conversation=conv, placement_attempt=placement_attempt,
         )
         seconds_remaining = speaking_quota.max_session_seconds()
-    elif seconds_remaining <= 0:
-        return Response(
-            {
-                "success": False, "error": "limit_reached",
-                "message": _ai_tutor_exhausted_message(request),
-                "upgrade_url": "/subscriptions/upgrade/",
-            },
-            status=status.HTTP_402_PAYMENT_REQUIRED,
-        )
+    else:
+        # Unified strict remaining (Prompt 17.2): plan allowance minus used,
+        # without bleeding leftover free-trial seconds into an exhausted plan.
+        # This is also the value the UI countdown uses, so the timer is exact.
+        from tutor.services import usage_limits
+        seconds_remaining = usage_limits.get_remaining_seconds(request.user)
+        if seconds_remaining <= 0:
+            return Response(
+                {
+                    "success": False, "error": "limit_reached",
+                    "error_code": "DAILY_LIMIT_REACHED",
+                    "message": _ai_tutor_exhausted_message(request),
+                    "message_ar": "انتهى وقت المساعد الذكي اليومي في خطتك.",
+                    "remaining_seconds": 0,
+                    "upgrade_url": "/subscriptions/upgrade/",
+                },
+                status=status.HTTP_402_PAYMENT_REQUIRED,
+            )
 
     # Resolve the user's preferred voice + avatar (Sprint 3). The client
     # may override the voice for this single session by passing ``voice``
@@ -913,7 +1025,10 @@ def voice_call_session(request):
         return Response(
             {
                 "success": False, "error": "limit_reached",
+                "error_code": "DAILY_LIMIT_REACHED",
                 "message": _ai_tutor_exhausted_message(request),
+                "message_ar": "انتهى وقت المساعد الذكي اليومي في خطتك.",
+                "remaining_seconds": 0,
                 "upgrade_url": "/subscriptions/upgrade/",
             },
             status=status.HTTP_402_PAYMENT_REQUIRED,
@@ -922,7 +1037,9 @@ def voice_call_session(request):
         return Response(
             {
                 "success": False, "error": "concurrent_session",
+                "error_code": "SESSION_ALREADY_ENDED",
                 "message": "Another AI Tutor session is already active in another tab. Please end it first.",
+                "message_ar": "توجد مكالمة أخرى نشطة في تبويب آخر. أنهِها أولًا.",
             },
             status=status.HTTP_409_CONFLICT,
         )
@@ -944,7 +1061,9 @@ def voice_call_session(request):
         session_service.cancel_session(tutor_session.pk)
         return Response(
             {"success": False, "error": "ai_unavailable",
-             "message": "Voice tutor is temporarily unavailable. Please try the chat instead."},
+             "error_code": "CALL_PROVIDER_UNAVAILABLE",
+             "message": "Voice tutor is temporarily unavailable. Please try the chat instead.",
+             "message_ar": "تعذر تجهيز المكالمة الآن. حاول مرة أخرى."},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
@@ -952,7 +1071,9 @@ def voice_call_session(request):
         session_service.cancel_session(tutor_session.pk)
         return Response(
             {"success": False, "error": "ai_unavailable",
-             "message": "Voice tutor is not configured."},
+             "error_code": "CALL_PROVIDER_UNAVAILABLE",
+             "message": "Voice tutor is not configured.",
+             "message_ar": "تعذر تجهيز المكالمة الآن. حاول مرة أخرى."},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
@@ -961,7 +1082,9 @@ def voice_call_session(request):
         logger.error("Tutor realtime: no client_secret in upstream response")
         session_service.cancel_session(tutor_session.pk)
         return Response(
-            {"success": False, "error": "ai_unavailable"},
+            {"success": False, "error": "ai_unavailable",
+             "error_code": "CALL_PROVIDER_UNAVAILABLE",
+             "message_ar": "تعذر تجهيز المكالمة الآن. حاول مرة أخرى."},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
@@ -1007,18 +1130,13 @@ def voice_call_session(request):
     max_session_seconds = min(hard_cap, seconds_remaining)
     # Auto-start: the TUTOR speaks first when the session is ready — the
     # student (often an A0 beginner) should never have to start the call.
-    if is_placement_call:
-        opening_instruction = (
-            "Begin the placement test NOW. Do not wait for the student to "
-            "speak first. Greet them in one short sentence, then immediately "
-            "ask the first question from your list. Keep it slow and simple."
-        )
-    else:
-        opening_instruction = (
-            "Begin NOW. Do not wait for the student to speak first. Greet them "
-            "warmly in one short sentence and ask what they would like to "
-            "practice today."
-        )
+    # The opening copy is centralised in prompt_builder (Prompt 17.5).
+    from tutor.services import prompt_builder
+    opening_instruction = prompt_builder.build_opening_instruction(
+        request.user,
+        prompt_builder.MODE_PLACEMENT_SPEAKING_CALL if is_placement_call
+        else prompt_builder.MODE_REGULAR_AI_TUTOR_CALL,
+    )
     # Live per-question answer capture (placement only): give the browser the
     # ordered questions (id + order + cue words) and the save endpoint so each
     # student transcript is bound to the right question_id during the call.
@@ -1066,6 +1184,12 @@ def voice_call_session(request):
         "minutes_remaining": seconds_remaining // 60,
         "seconds_remaining": seconds_remaining,
         "language": getattr(getattr(request.user, "profile", None), "preferred_language", "en"),
+        # Canonical fields for the call UI (Prompt 17.4 D). The countdown starts
+        # from max_session_seconds; remaining_seconds/daily_limit_seconds drive
+        # the "remaining today" display. Sourced from the single usage facade.
+        "status": "ok",
+        "provider_expires_at": session.get("expires_at"),
+        **_usage_fields(request.user),
     })
 
 
@@ -1083,8 +1207,11 @@ def voice_call_log(request):
       * Credit speaking-minutes on today's activity snapshot.
     """
     from subscriptions.models import AITutorSession
-    from subscriptions.services import quota_service, session_service
+    from subscriptions.services import session_service
+    from tutor.services import usage_limits
 
+    # actual_seconds is bounded here (no negatives, None→0, hard 24h cap) so a
+    # client bug can't over-charge the daily quota (Prompt 17.2B).
     try:
         seconds = max(0, min(int(request.data.get("seconds") or 0), 24 * 60 * 60))
     except (TypeError, ValueError):
@@ -1145,26 +1272,28 @@ def voice_call_log(request):
 
     killed_by_quota = bool(request.data.get("killed_by_quota"))
     if open_session is not None:
-        closed = session_service.end_session(
-            open_session.pk,
-            actual_seconds=seconds,
-            killed_by_quota=killed_by_quota,
+        # Finalise the regular AI-Tutor call through the single usage facade
+        # (Prompt 17.2B). finalize_ai_tutor_usage delegates to the idempotent
+        # session_service.end_session, so a duplicated hang-up log of the same
+        # session can't double-charge.
+        closed = usage_limits.finalize_ai_tutor_usage(
+            open_session, seconds, killed_by_quota=killed_by_quota,
         )
         remaining_after = closed.remaining_after_seconds
         quota_source = closed.quota_source
     elif is_placement_call:
         # Placement call with no matching open session (race / old client):
         # never deduct AI-Tutor minutes for it.
-        remaining_after, quota_source = quota_service.effective_ai_tutor_remaining(request.user)
+        remaining_after, quota_source = usage_limits.remaining_and_source(request.user)
     else:
         # No matching open session (race / old client). Still deduct so we
         # don't leak free minutes.
         if seconds > 0:
-            remaining_after, quota_source = quota_service.deduct_session_seconds(
+            remaining_after, quota_source = usage_limits.deduct_usage_seconds(
                 request.user, seconds,
             )
         else:
-            remaining_after, quota_source = quota_service.effective_ai_tutor_remaining(request.user)
+            remaining_after, quota_source = usage_limits.remaining_and_source(request.user)
 
     # Placement speaking: finalise the one-lifetime attempt and log it under
     # placement_speaking (NOT ai_tutor) with minutes + a rough cost estimate
@@ -1280,9 +1409,14 @@ def voice_call_log(request):
 
     return Response({
         "success": True,
+        "status": "ended",
         "logged_seconds": seconds,
+        "used_seconds": seconds,
         "seconds_remaining": remaining_after,
+        "killed_by_quota": killed_by_quota,
         "quota_source": quota_source,
+        # Canonical usage snapshot for the UI (Prompt 17.4 D).
+        **_usage_fields(request.user),
     })
 
 

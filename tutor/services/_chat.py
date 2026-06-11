@@ -323,10 +323,21 @@ def _over_limit_reply() -> str:
     )
 
 
-def _is_within_limit(user) -> bool:
+def _within_ai_tutor_limit(user, *, voice: bool) -> bool:
+    """Daily-limit gate, routed through the single usage facade (Prompt 17.2B).
+
+    ``tutor.services.usage_limits`` is the official AI-Tutor entry point — we no
+    longer consult ``core.services.ai_usage.is_within_limit`` here. A text
+    message is non-minute-bearing by default, so it only blocks when a voice
+    message (or, if configured, a text message) is actually out of seconds.
+    """
     try:
-        from core.services.ai_usage import is_within_limit
-        return is_within_limit(user, "tutor")
+        from tutor.services import usage_limits
+        mode = (
+            usage_limits.MODE_REGULAR_AI_TUTOR_VOICE_MESSAGE if voice
+            else usage_limits.MODE_REGULAR_AI_TUTOR_MESSAGE
+        )
+        return usage_limits.can_start_ai_tutor_usage(user, mode)
     except Exception:
         return True
 
@@ -345,7 +356,7 @@ def chat(conversation, user_message: str, *, voice: bool = False) -> str:
     if not settings.AI_API_KEY:
         fire_post_chat_hooks(user, user_message)
         return _stub_reply(user_message)
-    if not _is_within_limit(user):
+    if not _within_ai_tutor_limit(user, voice=voice):
         logger.info("Tutor: user %s over daily AI limit", getattr(user, "id", None))
         return _over_limit_reply()
 
@@ -371,13 +382,18 @@ def chat(conversation, user_message: str, *, voice: bool = False) -> str:
         # preserves punctuation; the TTS path runs `humanize_for_speech`
         # separately on the speech_text field at the API layer.
         try:
-            from core.services.text_humanizer import humanize_text
+            # Centralised tutor-output sanitiser (Prompt 17.5) — wraps the
+            # humaniser and applies a level-aware fallback, so text and voice
+            # replies are cleaned through one door.
+            from tutor.services.prompt_builder import sanitize_tutor_output_text
             user_lang = (
                 "ar" if getattr(getattr(user, "profile", None),
                                 "preferred_language", "en") == "ar"
                 else "en"
             )
-            cleaned = humanize_text(content.strip(), language=user_lang, mode="display")
+            level = getattr(getattr(user, "profile", None), "cefr_level", None)
+            cleaned = sanitize_tutor_output_text(
+                content.strip(), level=level, language=user_lang)
         except Exception:
             cleaned = content.strip()
         return cleaned or "Could you say a bit more? What do you mean?"
@@ -409,7 +425,7 @@ def chat_stream_tokens(conversation, user_message: str, *, voice: bool = False) 
         yield _stub_reply(user_message)
         fire_post_chat_hooks(user, user_message)
         return
-    if not _is_within_limit(user):
+    if not _within_ai_tutor_limit(user, voice=voice):
         logger.info("Tutor stream: user %s over daily AI limit",
                     getattr(user, "id", None))
         yield _over_limit_reply()

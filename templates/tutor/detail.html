@@ -47,8 +47,10 @@
                 <div class="onlenco-tutor-toolbar">
                     <span class="onlenco-status" id="voiceStatus" data-state="idle">
                         <span class="onlenco-status-dot"></span>
-                        <span class="onlenco-status-label">{% t_either "Tap to talk" "اضغط للتحدث" %}</span>
+                        <span class="onlenco-status-label">{% t_either "Tap to record" "اضغط للتسجيل" %}</span>
                     </span>
+                    {# Remaining daily AI-Tutor time — filled by JS from the backend usage snapshot (Prompt 17.3 E). #}
+                    <span class="onlenco-remaining" id="voiceRemaining" aria-live="polite" hidden></span>
                     <label class="onlenco-toggle" title="{% t_either 'Use higher-quality server-side voice (uses AI tokens)' 'استخدام صوت خادم بجودة أعلى (يستهلك رصيد الذكاء الاصطناعي)' %}">
                         <input type="checkbox" id="serverTtsToggle">
                         <span>{% t_either "Premium voice" "صوت متميّز" %}</span>
@@ -144,7 +146,7 @@
                         <div id="voiceAnimation" class="contents">
                             {# Spec-required addressable wrapper. `display: contents` keeps the flex layout intact. #}
                             <button type="button" id="micButton" class="onlenco-mic" data-state="idle"
-                                    aria-label="{% t_either 'Tap to talk' 'اضغط للتحدث' %}">
+                                    aria-label="{% t_either 'Tap to record' 'اضغط للتسجيل' %}">
                                 <span class="onlenco-mic-ring"></span>
                                 <span class="onlenco-mic-ring"></span>
                                 <span class="onlenco-mic-ring"></span>
