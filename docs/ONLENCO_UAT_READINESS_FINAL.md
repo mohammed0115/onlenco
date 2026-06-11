@@ -6,7 +6,11 @@ _آخر تحديث: مرحلة 18.4C (توحيد). يجمّع تقارير 16.7C
 وثائق مرجعية مفصّلة:
 [Daily/Weekly](ONLENCO_DAILY_WEEKLY_UAT_READINESS.md) ·
 [Beginner Journey](ONLENCO_BEGINNER_STUDENT_JOURNEY_UAT.md) ·
-[AI Tutor + Course](ONLENCO_AI_TUTOR_BEGINNER_INTEGRATION_UAT.md).
+[AI Tutor + Course](ONLENCO_AI_TUTOR_BEGINNER_INTEGRATION_UAT.md) ·
+[Browser/Mobile Manual QA Runbook](ONLENCO_BROWSER_MOBILE_MANUAL_QA_RUNBOOK.md) ·
+[Production Media Sync](ONLENCO_PRODUCTION_MEDIA_SYNC_RUNBOOK.md) ·
+[Deployment Readiness](ONLENCO_DEPLOYMENT_READINESS_RUNBOOK.md) ·
+[UAT Deployment Dry-Run Checklist](ONLENCO_UAT_DEPLOYMENT_DRY_RUN_CHECKLIST.md).
 
 ---
 
@@ -160,6 +164,21 @@ runbook نشر).
 2. **18.4E — Production Media Sync & Deployment Readiness** (مزامنة `media/`، runbook، backup، monitoring).
 3. **18.5A — Payment/Subscription UAT** (إن لم تكن مغلقة).
 4. **19.0 — Novels Module** أو **Mobile/PWA** لاحقًا.
+
+---
+
+## 10-b. Deployment Readiness Status (18.4E)
+
+- ✅ **Production Media Sync runbook** أُنشئ ([رابط](ONLENCO_PRODUCTION_MEDIA_SYNC_RUNBOOK.md)) —
+  المصدر المحلي معتمَد: **480 ملفًا** (48 غلاف + 144 رسم + 288 صوت)، **0 مفقود**، ~284 MB.
+- ✅ **Deployment Readiness runbook** أُنشئ ([رابط](ONLENCO_DEPLOYMENT_READINESS_RUNBOOK.md)).
+- ⛔ **الإنتاج ما زال HOLD** حتى يكتمل فعليًا:
+  - [ ] مزامنة media الفعلية إلى تخزين الإنتاج (`media_data` volume).
+  - [ ] أخذ نسخ احتياطية للإنتاج (DB + media).
+  - [ ] Real OpenAI/audio runtime QA في بيئة آمنة.
+  - [ ] Browser/Mobile QA على أجهزة حقيقية.
+  - [ ] فحص/تفعيل مراقبة استخدام الدقائق.
+  - [ ] تأكيد payment/subscription.
 
 ---
 
