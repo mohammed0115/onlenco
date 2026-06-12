@@ -122,9 +122,32 @@
 
                 {# Examples → numbered list, one example per line (parsed in the view) #}
                 {% elif step_kind == "examples" and example_lines %}
-                <ol class="onlenco-example-list">
-                    {% for line in example_lines %}<li>{{ line }}</li>{% endfor %}
+                <ol class="onlenco-example-list" data-listen-repeat
+                    data-pause="{{ examples_pause_seconds|default:1.5 }}"
+                    data-rate="{{ examples_audio_rate|default:0.8 }}"
+                    data-tts-url="{% url 'courses:lesson_tts_clip' %}">
+                    {% for line in example_lines %}<li data-lr-item>{{ line }}</li>{% endfor %}
                 </ol>
+
+                {# Vocabulary + Intro → word-by-word "listen and repeat". Topics on #}
+                {# separate lines; each word inside "(...)" or a comma list is its own #}
+                {# spoken item. Narrative sentences are spoken whole. Tap to replay. #}
+                {% elif listen_repeat_groups %}
+                <div class="onlenco-vocab" data-listen-repeat
+                    data-pause="{{ examples_pause_seconds|default:1.5 }}"
+                    data-rate="{{ examples_audio_rate|default:0.8 }}"
+                    data-tts-url="{% url 'courses:lesson_tts_clip' %}">
+                    {% for group in listen_repeat_groups %}
+                        {% if group.kind == "words" %}
+                        <div class="onlenco-vocab__group">
+                            {% if group.label %}<span class="onlenco-vocab__label" data-lr-item>{{ group.label }}</span>{% endif %}
+                            <span class="onlenco-vocab__words">{% for word in group.words %}<button type="button" class="onlenco-vocab__word" data-lr-item>{{ word }}</button>{% endfor %}</span>
+                        </div>
+                        {% else %}
+                        <p class="onlenco-vocab__line" data-lr-item>{{ group.text }}</p>
+                        {% endif %}
+                    {% endfor %}
+                </div>
 
                 {# Everything else → paragraph that respects \n in the source #}
                 {% else %}
@@ -256,8 +279,11 @@
         if (fill && audio.duration) fill.style.width = (audio.currentTime / audio.duration * 100) + "%";
     });
 
-    // Try autoplay — silent failure on browser block
-    if (root.dataset.onlencoAutoplay === "true") {
+    // Try autoplay — silent failure on browser block. On the Examples step the
+    // per-example "listen and repeat" sequencer (below) plays each example with
+    // gaps, so we don't also autoplay the combined recording (button still works).
+    var hasExamplesSequence = !!document.querySelector('[data-listen-repeat]');
+    if (root.dataset.onlencoAutoplay === "true" && !hasExamplesSequence) {
         var p = audio.play();
         if (p && p.catch) p.catch(function () {});
     }
@@ -278,6 +304,77 @@
             btn.click();
         }
     });
+})();
+
+// --- "Listen and repeat" sequencer (GLOBAL, all courses/lessons) ---------
+// Works for BOTH the Examples step (one sentence per item) and the Vocabulary
+// step (one word per item). Plays each item as its OWN natural voice clip,
+// slightly slowed, waiting the configured gap between items so the learner can
+// repeat. Tap any item to hear it again. Clips are fetched from the server
+// (cached) so the voice stays natural.
+(function () {
+    var box = document.querySelector('[data-listen-repeat]');
+    if (!box) return;
+    var items = Array.prototype.slice.call(box.querySelectorAll('[data-lr-item]'));
+    if (!items.length) return;
+    var pauseMs = (parseFloat(box.dataset.pause) || 1.5) * 1000;
+    var rate = parseFloat(box.dataset.rate); if (!(rate > 0 && rate <= 1)) rate = 0.8;
+    var ttsUrl = box.dataset.ttsUrl;
+    function csrf() { var m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : ''; }
+
+    var clipCache = {};   // text -> clip URL (cache so replays are instant)
+    function fetchClip(text) {
+        if (clipCache[text]) return Promise.resolve(clipCache[text]);
+        if (!ttsUrl || !text) return Promise.resolve('');
+        return fetch(ttsUrl, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+            body: JSON.stringify({ text: text })
+        }).then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) { var u = (j && j.ok) ? j.url : ''; if (u) clipCache[text] = u; return u; })
+          .catch(function () { return ''; });
+    }
+    function playClip(url) {
+        return new Promise(function (resolve) {
+            if (!url) { setTimeout(resolve, 1400); return; }
+            try {
+                var a = new Audio(url);
+                a.playbackRate = rate;                       // natural voice, slowed
+                var done = false;
+                function fin() { if (done) return; done = true; resolve(); }
+                a.onended = fin; a.onerror = fin;
+                var p = a.play(); if (p && p.catch) p.catch(fin);
+                setTimeout(fin, 12000);                       // safety net
+            } catch (e) { setTimeout(resolve, 1400); }
+        });
+    }
+    function itemText(el) { return (el.textContent || '').trim(); }
+
+    // Tap any item to hear it on its own (doesn't disturb the auto sequence).
+    items.forEach(function (el) {
+        el.addEventListener('click', function () {
+            fetchClip(itemText(el)).then(function (url) {
+                if (!url) return;
+                var a = new Audio(url);
+                a.playbackRate = rate; var p = a.play(); if (p && p.catch) p.catch(function () {});
+            });
+        });
+    });
+
+    function play(i) {
+        if (i >= items.length) return;
+        if (i > 0) items[i - 1].classList.remove('onl-lr-active');
+        items[i].classList.add('onl-lr-active');
+        if (i + 1 < items.length) { fetchClip(itemText(items[i + 1])); }   // prefetch next
+        fetchClip(itemText(items[i])).then(playClip).then(function () {
+            if (i >= items.length - 1) {
+                setTimeout(function () { items[i].classList.remove('onl-lr-active'); }, pauseMs);
+                return;
+            }
+            setTimeout(function () { play(i + 1); }, pauseMs);   // gap between items
+        });
+    }
+    play(0);
 })();
 </script>
 
@@ -432,6 +529,25 @@
 }
 [dir="rtl"] .onlenco-example-list li { padding: 14px 52px 14px 16px; }
 [dir="rtl"] .onlenco-example-list li::before { left: auto; right: 14px; }
+/* "Listen and repeat" highlight (added by JS; no-JS = everything visible). */
+.onlenco-example-list li, [data-lr-item] { transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
+.onl-lr-active { outline: 2px solid var(--accent); outline-offset: 1px; }
+.onlenco-example-list li.onl-lr-active { transform: translateY(-1px) scale(1.01); box-shadow: 0 6px 18px rgba(0,0,0,.10); }
+
+/* Vocabulary "listen and repeat" — topics on separate lines, tappable words. */
+.onlenco-vocab { display: grid; gap: 14px; }
+.onlenco-vocab__group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.onlenco-vocab__label { font-weight: 800; color: var(--accent-dark); margin-inline-end: 4px; cursor: pointer; }
+.onlenco-vocab__line { line-height: 1.6; cursor: pointer; }
+.onlenco-vocab__line.onl-lr-active, .onlenco-vocab__label.onl-lr-active { background: var(--accent-soft); border-radius: 8px; padding: 2px 6px; }
+.onlenco-vocab__words { display: flex; flex-wrap: wrap; gap: 8px; }
+.onlenco-vocab__word {
+  cursor: pointer; border: 1px solid var(--accent); background: var(--accent-soft);
+  color: var(--accent-dark); border-radius: 9999px; padding: 8px 16px;
+  font-size: 1rem; font-weight: 700; line-height: 1;
+}
+.onlenco-vocab__word:hover { filter: brightness(0.97); }
+.onlenco-vocab__word.onl-lr-active { background: var(--accent); color: #fff; transform: scale(1.06); }
 
 /* Dialogue — alternating chat bubbles */
 .onlenco-dialogue { display: grid; gap: 14px; padding: 4px 0; }

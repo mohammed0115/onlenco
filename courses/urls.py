@@ -24,6 +24,9 @@ urlpatterns = [
     path("<int:course_pk>/lessons/<int:lesson_pk>/step/<slug:step_kind>/",
          views.lesson_step, name="lesson_step"),
 
+    # Natural per-item TTS clip for the Examples "listen and repeat" player.
+    path("lesson-tts-clip/", views.lesson_tts_clip, name="lesson_tts_clip"),
+
     # Game Challenge Engine (Phase 1). Each route is one page that
     # renders exactly one card or feedback frame, never the whole
     # quiz at once. Legacy /quiz/ above stays untouched.

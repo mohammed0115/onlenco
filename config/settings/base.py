@@ -298,6 +298,14 @@ AI_TTS_DIALOGUE_TWO_VOICES = (env_get("AI_TTS_DIALOGUE_TWO_VOICES", "true") or "
 AI_TTS_MALE_VOICE = env_get("AI_TTS_MALE_VOICE", "onyx")
 AI_TTS_FEMALE_VOICE = env_get("AI_TTS_FEMALE_VOICE", "nova")
 
+# --- Examples "listen and repeat" playback (global, all courses) -------
+# The Examples step plays each example as its own NATURAL OpenAI TTS clip,
+# slightly slowed, with a configurable gap between examples for repeating.
+# Affects ONLY the lesson Examples player — never AI Tutor or Placement.
+EXAMPLES_AUDIO_PLAYBACK_RATE = float(env_get("EXAMPLES_AUDIO_PLAYBACK_RATE", "0.8") or 0.8)
+EXAMPLES_PAUSE_SECONDS = float(env_get("EXAMPLES_PAUSE_SECONDS", "1.5") or 1.5)
+EXAMPLES_TTS_VOICE = env_get("EXAMPLES_TTS_VOICE", env_get("AI_TTS_VOICE", "alloy"))
+
 # --- Realtime voice tutor (OpenAI Realtime API) ------------------------
 # Drives the live phone-call style tutoring page. Browser opens a
 # WebRTC peer to OpenAI Realtime; the server only ever sees the

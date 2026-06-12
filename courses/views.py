@@ -225,6 +225,60 @@ LESSON_STEP_KINDS = (
 )
 
 
+def _parse_vocabulary(text: str) -> list[dict]:
+    """Parse a vocabulary script into per-topic groups of individual words.
+
+    Each topic is separated by ";" (rendered on its own line). The words to
+    "listen and repeat" are the comma-separated tokens, taken from:
+      1. inside "(...)" when present, else
+      2. after the last ":" (e.g. "...objects: laptop, charger, ..."), else
+      3. a bare comma list, else
+      4. the whole segment as a single item (no list at all).
+    Trailing "Listen and repeat ..." instructions are stripped from the words.
+    Works for ANY vocabulary script — no per-course assumptions.
+
+    Example: "16 daily objects: laptop, charger, glasses. Listen and repeat."
+        → [{"label": "16 daily objects", "words": ["laptop","charger","glasses"]}]
+    """
+    import re
+
+    _instr = re.compile(r"[.,]?\s*listen\s+and\s+repeat\b[^.]*\.?\s*$", re.IGNORECASE)
+
+    def _clean_word(w: str) -> str:
+        w = w.strip().strip(".…").strip()
+        # Drop placeholder tokens ("…", "...", "etc") — not real words to speak.
+        if not w or not any(ch.isalnum() for ch in w) or w.lower() in {"etc", "and so on"}:
+            return ""
+        return w
+
+    groups: list[dict] = []
+    for segment in (s.strip() for s in text.split(";")):
+        if not segment:
+            continue
+        seg = _instr.sub("", segment).strip()   # drop a trailing "Listen and repeat …"
+        if not seg:
+            continue
+        words_str = None
+        label = ""
+        m = re.search(r"\(([^)]*)\)", seg)
+        if m:
+            label = seg[: m.start()].strip().rstrip(":").strip()
+            words_str = m.group(1)
+        elif ":" in seg and "," in seg.rsplit(":", 1)[1]:
+            label, words_str = seg.rsplit(":", 1)
+            label = label.strip()
+        elif "," in seg:
+            words_str = seg
+        words = [w for w in (_clean_word(x) for x in (words_str or "").split(",")) if w]
+        if len(words) >= 2:
+            # A real word list → speak the (optional) label, then each word.
+            groups.append({"kind": "words", "label": label, "words": words, "text": ""})
+        else:
+            # Plain sentence → render and speak it as one line.
+            groups.append({"kind": "line", "label": "", "words": [], "text": seg})
+    return groups
+
+
 @login_required
 def lesson_step(request, course_pk, lesson_pk, step_kind):
     """Render ONE step of a lesson stepper as its own page.
@@ -260,6 +314,7 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
     script = None
     dialogue_turns: list[tuple[str, str]] = []
     example_lines: list[str] = []
+    listen_repeat_groups: list[dict] = []
     if step_kind != "finish":
         script = lesson.audio_scripts.filter(script_type=step_kind).first()
         if script and script.script_text:
@@ -280,6 +335,12 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
             # Examples: one example sentence per line.
             elif step_kind == "examples":
                 example_lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+            # Vocabulary + Intro: parse into "listen and repeat" groups so each
+            # vocabulary WORD (inside "(...)" or a comma list) is spoken on its
+            # own with a gap, while narrative sentences stay whole. Global —
+            # works for any script in any course/lesson.
+            elif step_kind in ("vocabulary", "intro"):
+                listen_repeat_groups = _parse_vocabulary(text)
 
     # Compute prev/next step kinds for the navigation pills.
     idx = LESSON_STEP_KINDS.index(step_kind)
@@ -339,6 +400,7 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
         .order_by("order").first()
     )
 
+    from django.conf import settings as _dj_settings
     return render(request, "courses/lesson_step.html", {
         "course": course,
         "lesson": lesson,
@@ -347,6 +409,10 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
         "audio_ready": audio_ready,
         "dialogue_turns": dialogue_turns,
         "example_lines": example_lines,
+        "listen_repeat_groups": listen_repeat_groups,
+        # Examples "listen and repeat" pacing (global, configurable via settings).
+        "examples_audio_rate": getattr(_dj_settings, "EXAMPLES_AUDIO_PLAYBACK_RATE", 0.8),
+        "examples_pause_seconds": getattr(_dj_settings, "EXAMPLES_PAUSE_SECONDS", 3),
         "step_kind": step_kind,
         "step_index": idx,
         "step_total": len(LESSON_STEP_KINDS),
@@ -358,6 +424,71 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
         "quiz": quiz,
         "next_lesson": next_lesson,
     })
+
+
+@login_required
+@require_POST
+def lesson_tts_clip(request):
+    """Return the URL of a NATURAL TTS clip (mp3) for one short lesson item.
+
+    Powers the "listen and repeat" sequencer: each word/example is spoken in a
+    natural voice as its own clip, so the player can pause between them.
+
+    Clips are stored as FILES keyed by (voice, text) hash. This is shared across
+    gunicorn workers and survives restarts — so each unique item is generated
+    ONCE in production (unlike per-process in-memory caching). Failures are NOT
+    cached, so a transient TTS hiccup self-heals on the next request (this is
+    what caused a one-off "word with no sound").
+    """
+    import base64
+    import hashlib
+    import json as _json
+
+    from django.conf import settings as _s
+    from django.core.cache import cache
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    try:
+        payload = _json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+    text = (payload.get("text") or "").strip()
+    if not text or len(text) > 240:
+        return JsonResponse({"ok": False, "error": "bad_text"}, status=400)
+
+    voice = getattr(_s, "EXAMPLES_TTS_VOICE", None) or getattr(_s, "AI_TTS_VOICE", "alloy")
+    digest = hashlib.sha256(f"{voice}|{text}".encode("utf-8")).hexdigest()
+    path = f"lesson_tts/{digest}.mp3"
+
+    if not default_storage.exists(path):
+        # Light anti-abuse: cap FRESH syntheses per user per hour (existing
+        # files are free). Protects the TTS bill from unique-text spam.
+        cap = int(getattr(_s, "LESSON_TTS_HOURLY_CAP_PER_USER", 200) or 200)
+        gen_key = f"ttsclip_gen:{request.user.id}"
+        used = cache.get(gen_key, 0)
+        if used >= cap:
+            return JsonResponse({"ok": False, "error": "rate_limited"}, status=429)
+        cache.set(gen_key, used + 1, 3600)
+        try:
+            from subscriptions.services import library_audio_service
+            res = library_audio_service.synthesize_chunk(text, voice=voice, language="en")
+            b64 = res.get("audio_b64") or ""
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("lesson_tts_clip synth failed")
+            b64 = ""
+        if not b64:
+            # Do NOT persist failures — retry cleanly next time.
+            return JsonResponse({"ok": False, "error": "tts_unavailable"}, status=502)
+        try:
+            default_storage.save(path, ContentFile(base64.b64decode(b64)))
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("lesson_tts_clip save failed")
+            return JsonResponse({"ok": False, "error": "tts_unavailable"}, status=502)
+
+    return JsonResponse({"ok": True, "url": default_storage.url(path)})
 
 
 @login_required
