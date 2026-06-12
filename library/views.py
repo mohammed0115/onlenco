@@ -213,6 +213,54 @@ def submit_comprehension(request, chapter_id):
 
 
 # ---------------------------------------------------------------------------
+# Interactive Novel Reader (Prompt 19.0C) — segment-level student reader.
+#
+# Student-facing gate: a chapter is readable only when its book is published
+# AND copyright-cleared, the user is subscribed, and only PUBLISHED segments
+# are shown. Illustrations render only when ``is_student_visible``.
+# ---------------------------------------------------------------------------
+
+@login_required
+def chapter_reader(request, chapter_id):
+    """Interactive reader for a chapter's published NovelSegments."""
+    if not request.user.profile.is_subscribed:
+        messages.warning(request, "Subscribe to read from the library.")
+        return redirect("subscribe")
+
+    # Copyright gate: only published AND copyright-cleared books are readable.
+    chapter = get_object_or_404(
+        Chapter.objects.select_related("book"),
+        pk=chapter_id,
+        book__is_published=True,
+        book__is_copyright_cleared=True,
+    )
+
+    segments = list(
+        chapter.segments.filter(is_published=True)
+        .prefetch_related("vocabulary_highlights", "illustrations")
+    )
+    for seg in segments:
+        seg.active_highlights = [h for h in seg.vocabulary_highlights.all() if h.is_active]
+        # First approved illustration with a real file; else None → placeholder.
+        seg.visible_illustration = next(
+            (i for i in seg.illustrations.all() if i.is_student_visible), None
+        )
+
+    from subscriptions.services import preference_service, quota_service
+    voice = preference_service.resolve_voice_for(request.user)
+    remaining = quota_service.get_remaining_library_seconds(request.user)
+
+    return render(request, "library/chapter_reader.html", {
+        "book": chapter.book,
+        "chapter": chapter,
+        "segments": segments,
+        "voice": voice,
+        "remaining_seconds": remaining,
+        "remaining_minutes": remaining // 60,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Natural Reader (Sprint 4) — TTS-on-demand for chapter text.
 #
 # Pipeline: prepare → start session → synthesize chunk(s) → finish session.

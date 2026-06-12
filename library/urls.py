@@ -27,6 +27,11 @@ urlpatterns = [
         name="library_chapter_summary",
     ),
     path(
+        "chapters/<int:chapter_id>/reader/",
+        views.chapter_reader,
+        name="library_chapter_reader",
+    ),
+    path(
         "chapters/<int:chapter_id>/listen/",
         views.chapter_listen,
         name="library_chapter_listen",

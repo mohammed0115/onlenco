@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load i18n_dict %}
+
+{% block title %}{% t_either "Reader" "القارئ" %} · {{ chapter.title }} — Onlenco{% endblock %}
+
+{% block body %}
+{% include "_app_header.html" %}
+
+<main class="container py-8">
+  <div class="max-w-3xl mx-auto">
+
+    <nav class="mb-4">
+      <a href="{% url 'library_book' chapter.book.pk %}" class="text-muted-foreground text-sm inline-flex items-center gap-1">
+        <i data-lucide="arrow-left" class="h-4 w-4 rtl-flip"></i>
+        <span>{{ chapter.book.title }}</span>
+      </a>
+    </nav>
+
+    <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="font-display text-2xl font-bold">{{ chapter.title }}</h1>
+        <p class="text-sm text-muted-foreground">{% t_either "Interactive reader" "القارئ التفاعلي" %}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="{% url 'library_chapter_listen' chapter.pk %}" class="btn btn-hero btn-sm" data-testid="reader-listen-link">
+          <i data-lucide="volume-2" class="h-4 w-4"></i>
+          <span>{% t_either "Listen" "استمع" %}</span>
+        </a>
+      </div>
+    </header>
+
+    <p class="mb-6 text-xs text-muted-foreground" data-testid="reader-remaining-minutes">
+      {% t_either "Library listening left today" "المتبقي من وقت الاستماع اليوم" %}: <strong>{{ remaining_minutes }}</strong> {% t_either "min" "دقيقة" %}
+    </p>
+
+    {% if not segments %}
+      <div class="card p-6 text-center text-muted-foreground">
+        {% t_either "This chapter has no reader segments yet." "لا توجد مقاطع قراءة بعد لهذا الفصل." %}
+      </div>
+    {% endif %}
+
+    {% for segment in segments %}
+      <article class="card p-5 sm:p-6 mb-5" data-testid="reader-segment">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="badge">{% t_either "Part" "مقطع" %} {{ segment.order }}</span>
+          {% if segment.title %}<h2 class="font-semibold text-lg">{{ segment.title }}</h2>{% endif %}
+        </div>
+
+        {% if segment.visible_illustration %}
+          <img src="{{ segment.visible_illustration.image.url }}" alt="{{ segment.visible_illustration.alt_text }}" class="w-full rounded-lg mb-4 object-cover" loading="lazy">
+        {% endif %}
+
+        <div class="prose max-w-none leading-relaxed text-base" data-testid="segment-text-en">{{ segment.text_en|linebreaks }}</div>
+
+        {% if segment.text_ar %}
+          <details class="mt-4 rounded-lg border border-border/60 bg-muted/30" data-testid="segment-translation">
+            <summary class="cursor-pointer select-none px-4 py-2 text-sm font-medium">{% t_either "Show Arabic translation" "إظهار الترجمة العربية" %}</summary>
+            <div class="px-4 pb-3 text-base leading-relaxed" dir="rtl" lang="ar">{{ segment.text_ar|linebreaks }}</div>
+          </details>
+        {% endif %}
+
+        {% if segment.active_highlights %}
+          <div class="mt-4">
+            <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{% t_either "Vocabulary" "مفردات" %}</p>
+            <div class="flex flex-wrap gap-2">
+              {% for word in segment.active_highlights %}
+                <details class="group" data-testid="vocab-highlight">
+                  <summary class="cursor-pointer select-none list-none badge badge-popular">{{ word.phrase|default:word.word }}</summary>
+                  <div class="mt-2 w-full rounded-lg border border-border/60 bg-background p-3 text-sm" dir="rtl" lang="ar">
+                    <div class="font-semibold" data-testid="vocab-meaning">{{ word.meaning_ar }}</div>
+                    {% if word.explanation_ar %}<div class="mt-1 text-muted-foreground">{{ word.explanation_ar }}</div>{% endif %}
+                    {% if word.example_sentence %}<div class="mt-2 text-foreground/80" dir="ltr" lang="en">“{{ word.example_sentence }}”</div>{% endif %}
+                  </div>
+                </details>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if segment.arabic_summary %}
+          <div class="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4" dir="rtl" lang="ar" data-testid="segment-summary">
+            <p class="text-xs font-semibold text-primary mb-1">{% t_either "Explanation in Arabic" "الشرح بالعربي" %}</p>
+            <p class="text-sm leading-relaxed">{{ segment.arabic_summary }}</p>
+          </div>
+        {% endif %}
+      </article>
+    {% endfor %}
+
+  </div>
+</main>
+{% endblock %}

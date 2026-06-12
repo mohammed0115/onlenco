@@ -32,6 +32,12 @@
                   <span class="hidden sm:inline">{% t_either "Student Mode" "وضع الطالب" %}</span>
                 </a>
               {% endif %}
+              <a href="{% url 'library' %}" class="btn btn-ghost btn-sm"
+                 title="{% t_either 'Library' 'المكتبة' %}"
+                 data-testid="header-library-link">
+                <i data-lucide="book-open" class="h-4 w-4"></i>
+                <span class="hidden sm:inline">{% t_either "Library" "المكتبة" %}</span>
+              </a>
               <a href="{% url 'profile' %}" class="btn btn-ghost btn-sm"
                  title="{% t_either 'Profile & settings' 'الحساب والإعدادات' %}"
                  data-testid="header-profile-link">

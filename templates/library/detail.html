@@ -69,6 +69,11 @@
                 <section class="card p-7 lg:col-span-3" id="chapter-section">
                     {% if chapter %}
                         <h2 class="font-display text-2xl font-bold mb-4">{{ chapter.title }}</h2>
+                        {% if book.is_copyright_cleared and chapter.segments.exists %}
+                        <a href="{% url 'library_chapter_reader' chapter.pk %}" class="btn btn-hero w-full mb-4 text-center" data-testid="open-reader-link">
+                            📖 {% t_either "Read interactively" "اقرأ تفاعليًا" %}
+                        </a>
+                        {% endif %}
                         <div class="mb-5 rounded-lg border border-border bg-muted/30 p-4">
                             <div class="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                                 🎧 {% t_either "Listen to this chapter" "استمع إلى هذا الفصل" %}
