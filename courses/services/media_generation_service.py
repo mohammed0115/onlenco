@@ -8,6 +8,7 @@ students until ``approved``. Budget-gated; failures never crash the batch.
 from __future__ import annotations
 
 import logging
+import re
 from decimal import Decimal
 
 from django.conf import settings
@@ -47,6 +48,86 @@ def beginner_tts_speed(lesson):
         except (TypeError, ValueError):
             return 0.9
     return None
+
+
+# Sentence boundary: end punctuation followed by whitespace + a capital letter
+# or an opening quote. Abbreviations may occasionally split — acceptable for
+# beginner course copy.
+_SENTENCE_BOUNDARY_RE = re.compile(r'([.!?])\s+(?=[A-Z"\'(])')
+
+
+def add_sentence_pauses(text: str) -> str:
+    """Put each sentence on its own line so the TTS takes a clear breath
+    between sentences (tts-1 lengthens its pause at line breaks).
+
+    Applied to FUTURE audio generation only — existing clips must be
+    regenerated to gain the gaps. Controlled by ``AI_TTS_SENTENCE_PAUSE``.
+    """
+    if not text:
+        return text
+    return _SENTENCE_BOUNDARY_RE.sub(r"\1\n\n", text).strip()
+
+
+# --- Two-voice dialogue (a male and a female speaker) -----------------------
+# Known beginner-course speaker names mapped to a gender so each speaker keeps
+# a consistent gendered voice. Unknown names alternate by first appearance.
+_FEMALE_NAMES = {
+    "amani", "salma", "layla", "hala", "noor", "nour", "sara", "sarah", "rosa",
+    "huda", "mariam", "maryam", "fatima", "aisha", "hana", "hanan", "rana",
+}
+_MALE_NAMES = {
+    "kareem", "karim", "yusuf", "yousef", "omar", "tarek", "tariq", "rashid",
+    "ali", "ahmed", "ahmad", "hassan", "khaled", "sami", "cornelius", "isaac",
+}
+
+
+def _dialogue_gender_for(name: str, speaker_order: int) -> str:
+    key = (name or "").strip().lower().split()[0] if name and name.strip() else ""
+    if key in _FEMALE_NAMES:
+        return "female"
+    if key in _MALE_NAMES:
+        return "male"
+    # Unknown speaker → alternate: first distinct speaker female, second male.
+    return "female" if speaker_order % 2 == 0 else "male"
+
+
+def _voice_for_gender(gender: str) -> str:
+    if gender == "male":
+        return getattr(settings, "AI_TTS_MALE_VOICE", "onyx")
+    return getattr(settings, "AI_TTS_FEMALE_VOICE", "nova")
+
+
+def parse_dialogue_turns(text: str) -> list[tuple[str, str]]:
+    """Parse "Speaker: line" lines into ``[(speaker, line)]``; a line without a
+    short "Name:" prefix is narration (speaker = "")."""
+    turns: list[tuple[str, str]] = []
+    for raw in (text or "").splitlines():
+        raw = raw.strip()
+        if not raw:
+            continue
+        if ":" in raw and len(raw.split(":", 1)[0]) <= 24:
+            spk, line = raw.split(":", 1)
+            turns.append((spk.strip(), line.strip()))
+        else:
+            turns.append(("", raw))
+    return turns
+
+
+def build_dialogue_voice_plan(text: str, *, narration_voice: str = "alloy") -> list[tuple[str, str]]:
+    """Return ``[(voice, line)]`` assigning a consistent gendered voice to each
+    distinct speaker so the dialogue is spoken male-vs-female."""
+    order: dict[str, int] = {}
+    plan: list[tuple[str, str]] = []
+    for spk, line in parse_dialogue_turns(text):
+        if spk:
+            low = spk.lower()
+            if low not in order:
+                order[low] = len(order)
+            voice = _voice_for_gender(_dialogue_gender_for(spk, order[low]))
+        else:
+            voice = narration_voice
+        plan.append((voice, line))
+    return plan
 
 
 def _est(name: str, default: str) -> Decimal:
@@ -190,16 +271,46 @@ def generate_lesson_audio(script_obj, *, actor=None, replace=False) -> tuple[str
     except Exception:
         spoken = None
     spoken = spoken or script_obj.script_text[:3000]
+    # Insert a pause between sentences so beginner audio doesn't run them
+    # together (configurable; on by default).
+    if getattr(settings, "AI_TTS_SENTENCE_PAUSE", True):
+        spoken = add_sentence_pauses(spoken)
     speed = beginner_tts_speed(lesson)
     speed_kwargs = {"speed": speed} if speed is not None else {}
-    try:
-        audio = ai_client.synthesize_speech(
-            spoken, voice=voice, model=model,
+
+    def _synth(text_in, voice_in):
+        return ai_client.synthesize_speech(
+            text_in, voice=voice_in, model=model,
             user=actor, role=_role_for(actor), feature=AC.FEATURE_TTS,
             lesson_id=lesson.id,
             metadata={"purpose": script_obj.script_type, "kind": "audio"},
             **speed_kwargs,
         )
+
+    two_voices = (
+        script_obj.script_type == "dialogue"
+        and getattr(settings, "AI_TTS_DIALOGUE_TWO_VOICES", True)
+    )
+    try:
+        if two_voices:
+            # Each speaker keeps a consistent male/female voice; lines are
+            # synthesised per-turn and concatenated (tts-1 mp3 plays joined).
+            from core.services.text_humanizer import humanize_for_speech
+            parts = []
+            for turn_voice, line in build_dialogue_voice_plan(
+                script_obj.script_text[:3000], narration_voice=voice
+            ):
+                try:
+                    spoken_line = humanize_for_speech(line, language="en") or line
+                except Exception:
+                    spoken_line = line
+                if getattr(settings, "AI_TTS_SENTENCE_PAUSE", True):
+                    spoken_line = add_sentence_pauses(spoken_line)
+                if spoken_line.strip():
+                    parts.append(_synth(spoken_line, turn_voice))
+            audio = b"".join(parts) if parts else _synth(spoken, voice)
+        else:
+            audio = _synth(spoken, voice)
     except Exception as exc:
         script_obj.generation_status = "failed"
         script_obj.gen_error_message = str(exc)[:500]

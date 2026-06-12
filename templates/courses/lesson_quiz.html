@@ -294,8 +294,8 @@
         var src = btn.dataset.audioSrc;
         if (!src) return;
         var audio = new Audio(src);
-        // Never faster than natural for beginners (Prompt 18.2C).
-        audio.playbackRate = 1.0;
+        // Slowed to 0.8 for a calm, clear beginner pace (Prompt 18.2C).
+        audio.playbackRate = 0.8;
         btn.addEventListener("click", function () {
             audio.currentTime = 0;
             audio.play();

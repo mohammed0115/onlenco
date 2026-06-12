@@ -242,8 +242,8 @@
     var fill = root.querySelector(".onlenco-mega-player__fill");
 
     // Beginner audio must never play faster than natural (Prompt 18.2C).
-    // Keep playback at 1.0 — A0 learners need a calm, clear pace.
-    audio.playbackRate = 1.0;
+    // Slowed to 0.8 — A0 learners need a calm, clear pace.
+    audio.playbackRate = 0.8;
     function sync() { root.classList.toggle("is-playing", !audio.paused); }
     btn.addEventListener("click", function () {
         if (audio.paused) { var p = audio.play(); if (p && p.catch) p.catch(function () {}); }

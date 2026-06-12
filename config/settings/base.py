@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -282,12 +283,38 @@ AI_API_BASE = env_get("AI_API_BASE", "https://api.openai.com/v1")
 SPEECH_AUDIO_RETENTION_DAYS = int(env_get("SPEECH_AUDIO_RETENTION_DAYS", "7") or 7)
 AI_MODEL = env_get("AI_MODEL", "gpt-4o-mini")
 
+# --- Lesson TTS (course audio generation) ------------------------------
+# Applied to FUTURE audio generation only — existing clips must be
+# regenerated to pick up these settings. Browser playback speed lives in the
+# lesson templates (currently 0.8).
+AI_TTS_MODEL = env_get("AI_TTS_MODEL", "tts-1")
+AI_TTS_VOICE = env_get("AI_TTS_VOICE", "alloy")
+AI_TTS_BEGINNER_SPEED = float(env_get("AI_TTS_BEGINNER_SPEED", "0.9") or 0.9)
+# Insert a pause between sentences so beginner audio doesn't run together.
+AI_TTS_SENTENCE_PAUSE = (env_get("AI_TTS_SENTENCE_PAUSE", "true") or "true").lower() in ("1", "true", "yes")
+# Speak dialogues with two gendered voices (male line → male voice, female
+# line → female voice) instead of one narrator voice.
+AI_TTS_DIALOGUE_TWO_VOICES = (env_get("AI_TTS_DIALOGUE_TWO_VOICES", "true") or "true").lower() in ("1", "true", "yes")
+AI_TTS_MALE_VOICE = env_get("AI_TTS_MALE_VOICE", "onyx")
+AI_TTS_FEMALE_VOICE = env_get("AI_TTS_FEMALE_VOICE", "nova")
+
 # --- Realtime voice tutor (OpenAI Realtime API) ------------------------
 # Drives the live phone-call style tutoring page. Browser opens a
 # WebRTC peer to OpenAI Realtime; the server only ever sees the
 # ephemeral token request and the final usage stats.
 AI_REALTIME_MODEL = env_get("AI_REALTIME_MODEL", "gpt-realtime")
 AI_REALTIME_VOICE = env_get("AI_REALTIME_VOICE", "alloy")
+# Extra WebRTC ICE servers (TURN especially). Restrictive networks that block
+# UDP — common on student mobile data — cannot establish the voice call's media
+# path with STUN alone and need a TURN relay (TCP/443). Provide a JSON array,
+# e.g. AI_REALTIME_ICE_SERVERS='[{"urls":["turn:turn.example.com:443?transport=tcp"],"username":"u","credential":"p"}]'
+# The client always also includes public Google STUN servers.
+try:
+    AI_REALTIME_ICE_SERVERS = json.loads(env_get("AI_REALTIME_ICE_SERVERS", "") or "[]")
+    if not isinstance(AI_REALTIME_ICE_SERVERS, list):
+        AI_REALTIME_ICE_SERVERS = []
+except Exception:
+    AI_REALTIME_ICE_SERVERS = []
 # Placement speaking is an English test → force its speech-to-text language so
 # the provider doesn't mis-detect short answers. Only applied to placement
 # voice sessions; regular AI-Tutor sessions keep provider auto-detect.

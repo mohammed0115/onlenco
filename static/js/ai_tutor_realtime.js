@@ -34,7 +34,43 @@
     language:       'en',
     tutorNameEn:    'Layla',
     tutorNameAr:    'ليلى',
+    iceServers:     null,  // optional extra ICE servers (TURN) from the server
   };
+
+  // The OpenAI /realtime/calls SDP exchange is a ONE-SHOT HTTP POST — there is
+  // no trickle-ICE channel to send candidates after the offer. So we MUST wait
+  // for ICE gathering to finish (all srflx/relay candidates in the SDP) before
+  // sending the offer, or OpenAI gets an offer with no reachable candidates and
+  // the media path never connects (the classic "tutor never speaks" hang).
+  function waitForIceGathering(pc, timeoutMs) {
+    if (!pc || pc.iceGatheringState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        try { pc.removeEventListener('icegatheringstatechange', check); } catch (e) {}
+        resolve();
+      };
+      const check = () => { if (pc.iceGatheringState === 'complete') finish(); };
+      pc.addEventListener('icegatheringstatechange', check);
+      // Safety net: some networks never reach 'complete' — proceed with whatever
+      // candidates we have after the timeout rather than blocking forever.
+      setTimeout(finish, timeoutMs);
+    });
+  }
+
+  // Default public STUN + any server-provided TURN/STUN. TURN is what lets the
+  // call connect on networks that block UDP (common on student mobile data).
+  function buildIceServers() {
+    const servers = [
+      { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+    ];
+    if (Array.isArray(Config.iceServers) && Config.iceServers.length) {
+      for (const s of Config.iceServers) { if (s && s.urls) servers.push(s); }
+    }
+    return servers;
+  }
 
   let autoEndScheduled = false;
   let isUnloading = false;
@@ -177,9 +213,13 @@
   // ----- Robustness timers (ICE recovery + opening retry) --------------
   let iceRecoveryTimer = null;         // grace window before a 'disconnected' ICE ends the call
   let openingWatchdog = null;          // re-sends the opening if the tutor never speaks
+  let connectWatchdog = null;          // hard cap on the "preparing tutor" connecting phase
   const ICE_RECOVERY_GRACE_MS = 6000;  // a brief network blip should not drop the call
   const OPENING_WATCHDOG_MS = 3500;    // how long to wait for the tutor's first audio
   const OPENING_MAX_RETRIES = 3;       // re-send the opening at most this many times
+  // If WebRTC media never connects (e.g. UDP blocked by a firewall) the call
+  // would otherwise spin on "preparing the tutor" forever. Fail gracefully.
+  const CONNECT_WATCHDOG_MS = 20000;
 
   // ----- State machine --------------------------------------------------
   // Logical PHASES (call flow) are kept separate from the VISUAL data-state
@@ -356,7 +396,42 @@
     // Build the peer connection. Audio flows in both directions over a
     // single RTCPeerConnection — OpenAI sends Layla's voice on the
     // remote audio track; we add the user's mic on a sender.
-    peer = new RTCPeerConnection();
+    peer = new RTCPeerConnection({ iceServers: buildIceServers() });
+
+    // Diagnostics: surface the exact point a connection stalls.
+    let _candCount = 0;
+    peer.addEventListener('icecandidate', (e) => {
+      if (e.candidate) {
+        _candCount++;
+        const c = e.candidate.candidate || '';
+        const typ = (c.match(/typ (\w+)/) || [])[1] || '?';
+        dlog('ICE candidate #' + _candCount, 'type=' + typ);
+      } else {
+        dlog('ICE candidate gathering COMPLETE, total=' + _candCount);
+      }
+    });
+    peer.addEventListener('connectionstatechange', () => {
+      dlog('PeerConnection state:', peer && peer.connectionState);
+    });
+
+    // Watchdog: if the tutor never starts speaking within the cap (media path
+    // blocked, or the model produced no audio), stop the infinite "preparing
+    // tutor" spinner and let the student retry instead of waiting forever.
+    if (connectWatchdog) { clearTimeout(connectWatchdog); }
+    connectWatchdog = setTimeout(() => {
+      connectWatchdog = null;
+      if (tutorHasSpoken) return;  // tutor actually started — all good
+      const st = els.card && els.card.dataset.state;
+      if (st === 'idle' || st === 'ended' || st === 'error') return;
+      const dc = dataChannel && dataChannel.readyState;
+      const ice = peer && peer.iceConnectionState;
+      console.error('[onlenco-call] connect watchdog fired — tutor never spoke.',
+                    'iceConnectionState=', ice, 'dataChannel=', dc);
+      showError(Config.language === 'ar'
+        ? 'تعذّر بدء المكالمة الصوتية. قد تمنع شبكتك الاتصال الصوتي (UDP). جرّب شبكة أخرى أو أعد المحاولة.'
+        : 'Could not start the voice call. Your network may block real-time audio. Try another network or retry.');
+      endCall(/* userInitiated */ false);
+    }, CONNECT_WATCHDOG_MS);
 
     peer.ontrack = (ev) => {
       if (els.audio && ev.streams && ev.streams[0]) {
@@ -367,9 +442,12 @@
 
     peer.oniceconnectionstatechange = () => {
       const s = peer && peer.iceConnectionState;
+      dlog('ICE connection state:', s);
       const live = els.card && els.card.dataset.state !== 'idle' && els.card.dataset.state !== 'ended';
       if (s === 'connected' || s === 'completed') {
-        // Recovered — cancel any pending disconnect grace timer.
+        // ICE connected ≠ tutor speaking. We deliberately keep the connect
+        // watchdog running until the tutor's first audio actually arrives
+        // (tutorHasSpoken), so a connected-but-silent session still fails fast.
         if (iceRecoveryTimer) { clearTimeout(iceRecoveryTimer); iceRecoveryTimer = null; }
         return;
       }
@@ -401,7 +479,8 @@
 
     // Open a data channel for events (transcripts, response.done, etc).
     dataChannel = peer.createDataChannel('oai-events');
-    dataChannel.onopen = () => { maybeSendOpening(); };
+    dataChannel.onopen = () => { dlog('dataChannel OPEN'); maybeSendOpening(); };
+    dataChannel.onclose = () => { dlog('dataChannel CLOSED'); };
     dataChannel.onmessage = handleRealtimeEvent;
     dataChannel.onerror = (e) => console.warn('[onlenco-call] data channel error:', e);
 
@@ -414,6 +493,11 @@
     //     generic "ai_unavailable" toast
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
+    // Wait for ICE candidates to be gathered into the SDP before the one-shot
+    // exchange (see waitForIceGathering). Then send the *complete* local SDP.
+    await waitForIceGathering(peer, 4000);
+    const offerSdp = (peer.localDescription && peer.localDescription.sdp) || offer.sdp;
+    dlog('ICE gathering done → sending offer with candidates, sdp_len=', offerSdp.length);
 
     let sdpResp;
     const sdpUrl = Config.sdpRelayUrl || REALTIME_BASE;
@@ -431,13 +515,13 @@
           body: JSON.stringify({
             client_secret: sessionInfo.client_secret,
             model:         sessionInfo.model || '',
-            sdp:           offer.sdp,
+            sdp:           offerSdp,
           }),
         });
       } else {
         sdpResp = await fetch(sdpUrl, {
           method: 'POST',
-          body: offer.sdp,
+          body: offerSdp,
           headers: {
             'Authorization': `Bearer ${sessionInfo.client_secret}`,
             'Content-Type':  'application/sdp',
@@ -493,7 +577,10 @@
     dlog('auto_start', info.auto_start, '| opening_instruction', info.opening_instruction);
     if (info.auto_start === false) return;
     openingSent = true;
-    const response = { modalities: ['audio', 'text'] };
+    // NOTE: the GA Realtime API rejects `response.modalities` ("unknown
+    // parameter") — sending it makes the tutor never speak. The session is
+    // already configured for audio output, so we omit modalities entirely.
+    const response = {};
     if (info.opening_instruction) response.instructions = info.opening_instruction;
     try {
       dlog('dataChannel open → sending opening response.create');
@@ -540,16 +627,24 @@
     // tutor-speaking / listening / thinking states. CRITICAL: we never enter
     // a student-listening phase until the tutor has actually spoken — the
     // tutor opens the call.
-    if (type === 'response.audio.delta' || type === 'response.output_audio.delta') {
-      // The tutor's voice is playing.
+    // The tutor's voice is playing. Match BOTH the legacy Beta event names and
+    // the GA Realtime names (output_audio_buffer.started /
+    // response.output_audio_transcript.delta) — otherwise the UI never leaves
+    // "preparing tutor" and the watchdog kills a call that is actually working.
+    if (type === 'response.audio.delta' || type === 'response.output_audio.delta'
+        || type === 'output_audio_buffer.started'
+        || type === 'response.output_audio_transcript.delta') {
       if (!tutorHasSpoken) {
         tutorHasSpoken = true;
         dlog('assistant started (first audio)');
-        // The opening succeeded — cancel the re-send watchdog.
+        // The opening succeeded — cancel the re-send + connect watchdogs.
         if (openingWatchdog) { clearTimeout(openingWatchdog); openingWatchdog = null; }
+        if (connectWatchdog) { clearTimeout(connectWatchdog); connectWatchdog = null; }
       }
       if (currentPhase !== 'tutor_speaking') setPhase('tutor_speaking');
-    } else if (type === 'response.done' || type === 'response.audio.done' || type === 'response.output_audio.done') {
+    } else if (type === 'response.done' || type === 'response.audio.done'
+               || type === 'response.output_audio.done'
+               || type === 'output_audio_buffer.stopped') {
       // A tutor turn finished. Only NOW is it the student's turn to answer.
       if (tutorHasSpoken) {
         dlog('assistant done → switching to listening_for_student');
@@ -773,6 +868,7 @@
     if (maxSessionTimer) { clearTimeout(maxSessionTimer); maxSessionTimer = null; }
     if (iceRecoveryTimer) { clearTimeout(iceRecoveryTimer); iceRecoveryTimer = null; }
     if (openingWatchdog) { clearTimeout(openingWatchdog); openingWatchdog = null; }
+    if (connectWatchdog) { clearTimeout(connectWatchdog); connectWatchdog = null; }
     stopTimer();
     stopAiVisualizer();
     if (dataChannel) { try { dataChannel.close(); } catch (e) {} dataChannel = null; }

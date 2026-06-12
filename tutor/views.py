@@ -239,6 +239,8 @@ def voice_call_page(request, pk):
             )
         except Exception:
             placement_back_path = ""
+    import json as _json
+    from django.conf import settings as _settings
     return render(request, "tutor/voice_call.html", {
         "conversation": conv,
         "minutes_remaining": daily_minute_cap_remaining(request.user),
@@ -248,6 +250,9 @@ def voice_call_page(request, pk):
         "tutor_name_ar": tutor_name_ar,
         "placement_attempt_id": placement_attempt_id,
         "placement_back_path": placement_back_path,
+        "realtime_ice_servers_json": _json.dumps(
+            getattr(_settings, "AI_REALTIME_ICE_SERVERS", []) or []
+        ),
     })
 
 
