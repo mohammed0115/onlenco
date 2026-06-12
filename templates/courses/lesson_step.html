@@ -65,7 +65,7 @@
                     {% endif %}
                 </p>
 
-                {# Mega audio player — only for non-finish steps #}
+                {# Audio control — only for non-finish steps #}
                 {% if step_kind != "finish" %}
                     {% if audio_ready %}
                     <div class="onlenco-mega-player" data-onlenco-autoplay="true">
@@ -77,6 +77,13 @@
                         <div class="onlenco-mega-player__bar"><div class="onlenco-mega-player__fill"></div></div>
                         <audio class="onlenco-mega-player__el" src="{{ script.generated_audio.url }}" preload="auto"></audio>
                     </div>
+                    {% elif example_lines or listen_repeat_groups %}
+                    {# No pre-rendered recording yet → play each word/example as its own #}
+                    {# natural clip. A tap starts playback (browsers block autoplay). #}
+                    <button type="button" class="onlenco-lr-start" data-lr-start aria-label="{% t_either 'Listen and repeat' 'استمع وكرّر' %}">
+                        <span class="onlenco-lr-start__icon"><i data-lucide="play"></i><i data-lucide="volume-2"></i></span>
+                        <span class="onlenco-lr-start__label">{% t_either "Listen and repeat" "استمع وكرّر" %}</span>
+                    </button>
                     {% else %}
                     <div class="onlenco-stage__pending">
                         <i data-lucide="hourglass"></i>
@@ -279,11 +286,8 @@
         if (fill && audio.duration) fill.style.width = (audio.currentTime / audio.duration * 100) + "%";
     });
 
-    // Try autoplay — silent failure on browser block. On the Examples step the
-    // per-example "listen and repeat" sequencer (below) plays each example with
-    // gaps, so we don't also autoplay the combined recording (button still works).
-    var hasExamplesSequence = !!document.querySelector('[data-listen-repeat]');
-    if (root.dataset.onlencoAutoplay === "true" && !hasExamplesSequence) {
+    // Try autoplay — silent failure on browser block.
+    if (root.dataset.onlencoAutoplay === "true") {
         var p = audio.play();
         if (p && p.catch) p.catch(function () {});
     }
@@ -361,20 +365,39 @@
         });
     });
 
-    function play(i) {
-        if (i >= items.length) return;
+    var startBtn = document.querySelector('[data-lr-start]');
+    var runId = 0;   // bump to cancel an in-flight sequence on restart
+
+    function play(i, myRun) {
+        if (myRun !== runId) return;                    // a newer run took over
+        if (i >= items.length) { if (startBtn) startBtn.classList.remove('is-playing'); return; }
         if (i > 0) items[i - 1].classList.remove('onl-lr-active');
         items[i].classList.add('onl-lr-active');
         if (i + 1 < items.length) { fetchClip(itemText(items[i + 1])); }   // prefetch next
         fetchClip(itemText(items[i])).then(playClip).then(function () {
+            if (myRun !== runId) return;
             if (i >= items.length - 1) {
-                setTimeout(function () { items[i].classList.remove('onl-lr-active'); }, pauseMs);
+                setTimeout(function () {
+                    items[i].classList.remove('onl-lr-active');
+                    if (startBtn) startBtn.classList.remove('is-playing');
+                }, pauseMs);
                 return;
             }
-            setTimeout(function () { play(i + 1); }, pauseMs);   // gap between items
+            setTimeout(function () { play(i + 1, myRun); }, pauseMs);   // gap between items
         });
     }
-    play(0);
+    function startSequence() {
+        items.forEach(function (el) { el.classList.remove('onl-lr-active'); });
+        runId += 1;
+        if (startBtn) startBtn.classList.add('is-playing');
+        play(0, runId);
+    }
+
+    // Browsers block audio autoplay until the user interacts — so the sequence
+    // starts on a tap of the "Listen and repeat" button (a real user gesture).
+    // When a pre-rendered recording exists instead, there is no start button and
+    // the words simply stay tappable (no auto sequence, no double audio).
+    if (startBtn) { startBtn.addEventListener('click', startSequence); }
 })();
 </script>
 
@@ -466,6 +489,23 @@
 }
 .onlenco-stage__pending i { width: 22px; height: 22px; }
 .onlenco-stage__pending p { margin: 0; }
+
+/* "Listen & repeat" start button — gesture trigger for per-item audio. */
+.onlenco-lr-start {
+  display: inline-flex; align-items: center; gap: 12px; cursor: pointer;
+  background: #fff; color: var(--accent-dark, #b45309); border: 0;
+  padding: 14px 26px; border-radius: 9999px;
+  font-size: 1.05rem; font-weight: 800; width: max-content;
+  box-shadow: 0 8px 22px rgba(0,0,0,.18);
+}
+.onlenco-lr-start:hover { transform: translateY(-1px); }
+.onlenco-lr-start__icon { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent, #f59e0b); color: #fff; }
+.onlenco-lr-start__icon i { width: 20px; height: 20px; }
+.onlenco-lr-start__icon i[data-lucide="volume-2"] { display: none; }
+.onlenco-lr-start.is-playing .onlenco-lr-start__icon i[data-lucide="play"] { display: none; }
+.onlenco-lr-start.is-playing .onlenco-lr-start__icon i[data-lucide="volume-2"] { display: inline; }
+.onlenco-lr-start.is-playing .onlenco-lr-start__icon { animation: onlPulse 1s ease-in-out infinite; }
+@keyframes onlPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 
 /* Mega play button */
 .onlenco-mega-player {
