@@ -187,6 +187,52 @@ def dashboard(request):
         import logging
         logging.getLogger(__name__).exception("Today's daily plan lookup failed")
 
+    # --- Read-only dashboard extras (best-effort; never block the page) -----
+    # AI Tutor minutes left today (subscription quota first, then free trial).
+    ai_tutor_minutes_remaining = None
+    try:
+        from subscriptions.services import quota_service
+        secs, _src = quota_service.effective_ai_tutor_remaining(request.user)
+        ai_tutor_minutes_remaining = int(secs) // 60
+    except Exception:
+        ai_tutor_minutes_remaining = None
+
+    # Per-skill mastery (Listening / Speaking / Reading / Writing) for the
+    # progress summary. Empty dict → the template shows a friendly fallback.
+    skills_progress = {}
+    try:
+        from django.db.models import Avg
+        from learning_core.models import SkillMastery
+        for row in (
+            SkillMastery.objects.filter(user=request.user)
+            .values("skill__category")
+            .annotate(avg=Avg("mastery_score"))
+        ):
+            cat = (row.get("skill__category") or "").lower()
+            if cat:
+                skills_progress[cat] = int(round(row.get("avg") or 0))
+    except Exception:
+        skills_progress = {}
+
+    # Most recently read library chapter for the "Continue reading" card.
+    library_last = None
+    try:
+        from library.models import LibraryProgress
+        lp = (
+            LibraryProgress.objects.filter(user=request.user)
+            .select_related("chapter", "chapter__book")
+            .order_by("-updated_at")
+            .first()
+        )
+        if lp and lp.chapter_id:
+            library_last = {
+                "book": lp.chapter.book,
+                "chapter": lp.chapter,
+                "completed": lp.completed,
+            }
+    except Exception:
+        library_last = None
+
     return render(request, "lessons/dashboard.html", {
         "profile": profile,
         "lessons": lessons,
@@ -200,6 +246,9 @@ def dashboard(request):
         "motivation": motivation_widget,
         "today_plan": today_plan,
         "a0_dashboard_world": a0_dashboard_world,
+        "ai_tutor_minutes_remaining": ai_tutor_minutes_remaining,
+        "skills_progress": skills_progress,
+        "library_last": library_last,
     })
 
 
