@@ -17,3 +17,6 @@ local_models/**/model.joblib
 .idea/
 .vscode/
 tmp/
+# Local novel/content source files — must NEVER be committed (copyright + size).
+local_content_sources/
+*.pdf
