@@ -75,8 +75,9 @@ class LessonStepAudioRenderingTests(TestCase):
 
     def test_audio_placeholder_when_audio_not_generated(self):
         body = self._body("intro")
-        self.assertIn('class="onlenco-stage__pending"', body)      # clean placeholder
-        self.assertNotIn('class="onlenco-mega-player"', body)      # no player
+        self.assertNotIn('class="onlenco-mega-player"', body)      # no unapproved player leaks
+        # intro is a listen-and-repeat step → tappable Listen button (per-item audio).
+        self.assertTrue('data-lr-start' in body or 'onlenco-stage__pending' in body)
 
     def test_audio_player_renders_when_approved_audio_file_exists(self):
         s = self._intro_script()
@@ -89,14 +90,18 @@ class LessonStepAudioRenderingTests(TestCase):
     def test_audio_placeholder_when_audio_needs_review(self):
         self._attach_audio(self._intro_script(), "needs_review")
         body = self._body("intro")
-        self.assertIn('class="onlenco-stage__pending"', body)
-        self.assertNotIn('class="onlenco-mega-player"', body)
+        self.assertNotIn('class="onlenco-mega-player"', body)   # no unapproved player leaks
+        # Listen-and-repeat steps (intro) offer per-item audio, so a tappable
+        # Listen button replaces the "audio being prepared" placeholder.
+        self.assertTrue('data-lr-start' in body or 'onlenco-stage__pending' in body)
 
     def test_audio_placeholder_when_audio_rejected(self):
         self._attach_audio(self._intro_script(), "rejected")
         body = self._body("intro")
-        self.assertIn('class="onlenco-stage__pending"', body)
-        self.assertNotIn('class="onlenco-mega-player"', body)
+        self.assertNotIn('class="onlenco-mega-player"', body)   # no unapproved player leaks
+        # Listen-and-repeat steps (intro) offer per-item audio, so a tappable
+        # Listen button replaces the "audio being prepared" placeholder.
+        self.assertTrue('data-lr-start' in body or 'onlenco-stage__pending' in body)
 
     def test_audio_placeholder_when_approved_file_missing(self):
         # Approved status but NO file -> is_student_visible False -> placeholder, no crash.
@@ -105,8 +110,10 @@ class LessonStepAudioRenderingTests(TestCase):
         s.generated_audio = ""
         s.save()
         body = self._body("intro")
-        self.assertIn('class="onlenco-stage__pending"', body)
-        self.assertNotIn('class="onlenco-mega-player"', body)
+        self.assertNotIn('class="onlenco-mega-player"', body)   # no unapproved player leaks
+        # Listen-and-repeat steps (intro) offer per-item audio, so a tappable
+        # Listen button replaces the "audio being prepared" placeholder.
+        self.assertTrue('data-lr-start' in body or 'onlenco-stage__pending' in body)
 
 
 class ScrubInternalLessonTextTests(TestCase):
