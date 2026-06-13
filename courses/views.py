@@ -336,11 +336,14 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
             # Examples: one example sentence per line.
             elif step_kind == "examples":
                 example_lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-            # Vocabulary + Intro: parse into "listen and repeat" groups so each
-            # vocabulary WORD (inside "(...)" or a comma list) is spoken on its
-            # own with a gap, while narrative sentences stay whole. Global —
-            # works for any script in any course/lesson.
-            elif step_kind in ("vocabulary", "intro"):
+            # Vocabulary + Intro + Listening + Speaking: parse into "listen and
+            # repeat" groups so each vocabulary WORD (inside "(...)" or a comma
+            # list) is spoken on its own with a gap, while narrative sentences /
+            # task instructions stay whole. Listening & speaking carry an
+            # instruction sentence — without this branch their step rendered
+            # silent (no Listen button, no audio). Global — works for any
+            # script in any course/lesson.
+            elif step_kind in ("vocabulary", "intro", "listening", "speaking"):
                 listen_repeat_groups = _parse_vocabulary(text)
 
     # Compute prev/next step kinds for the navigation pills.

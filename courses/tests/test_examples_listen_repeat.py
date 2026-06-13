@@ -63,6 +63,45 @@ class ExamplesTemplateTests(TestCase):
             self.assertNotIn(needle, self.src)
 
 
+class ListeningSpeakingHaveAudioTests(TestCase):
+    """Regression: the listening + speaking steps used to render silent
+    (no Listen button) because the view only built audio items for
+    intro/vocabulary/examples/dialogue. Every step with script text must
+    now offer a playable clip. Reuses the seeded beginner course/lesson 1
+    so the drip gate / A0 world allow the first lesson to open."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from courses.models import CourseEnrollment
+        from courses.tests.test_super_lesson_01 import (
+            _get_lesson_quiz, _make_student, _seed_all,
+        )
+        _seed_all()
+        cls.course, cls.lesson, _ = _get_lesson_quiz()
+        cls.student = _make_student("snd-listen")
+        CourseEnrollment.objects.get_or_create(user=cls.student, course=cls.course)
+
+    def _body(self, step):
+        from courses.tests.test_super_lesson_01 import _login
+        r = _login(self.student).get(
+            reverse("courses:lesson_step", args=[self.course.pk, self.lesson.pk, step]),
+            HTTP_HOST="127.0.0.1")
+        self.assertEqual(r.status_code, 200, step)
+        return r.content.decode()
+
+    def test_listening_step_offers_audio(self):
+        # The Listen button only renders when the step produced playable
+        # audio items (example_lines or listen_repeat_groups).
+        body = self._body("listening")
+        self.assertIn("data-lr-start", body)
+        self.assertIn("data-listen-repeat", body)
+
+    def test_speaking_step_offers_audio(self):
+        body = self._body("speaking")
+        self.assertIn("data-lr-start", body)
+        self.assertIn("data-listen-repeat", body)
+
+
 class VocabularyParserTests(TestCase):
     def test_splits_topics_by_semicolon_and_pulls_words(self):
         from courses.views import _parse_vocabulary
