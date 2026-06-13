@@ -9,11 +9,22 @@ lesson order) and skips user/file/timestamp fields entirely, so it imports
 cleanly into any environment.
 
 What travels: Course, CourseUnit, Lesson, LessonAudioScript,
-LessonImagePrompt, LessonChecklist, LessonQuiz + LessonQuestion — i.e. all
-the text content. The "listen and repeat" AUDIO is generated on-demand from
-each lesson's audio-script text, so it comes with the lesson automatically
-(no media files to copy). Uploaded media (video/pdf/generated images) is
-NOT transferred.
+LessonImagePrompt, LessonChecklist, LessonQuiz + LessonQuestion — all the
+text content PLUS the media path references (generated audio MP3s, generated
+images, worksheets). The "listen and repeat" audio also regenerates on-demand
+from each lesson's audio-script text.
+
+Media files (the bytes) travel separately — copy the media/ directory to the
+production volume so the path references resolve, e.g.::
+
+    # local → server
+    rsync -avz media/lessons/ root@onlenco.academy:/tmp/media_lessons/
+    # server → web container's media volume
+    docker compose -f docker-compose.yml -f docker-compose.deploy.yml \
+        cp /tmp/media_lessons/. web:/app/media/lessons/
+
+Rows whose file is missing fall back to a clean placeholder (the views check
+storage.exists()), so a partial media sync never shows a broken image/player.
 
 Export (local)::
 
@@ -41,18 +52,28 @@ from courses.models import (
 
 # Fields never serialised: surrogate key, audit timestamps.
 _SKIP = {"id", "created_at", "updated_at"}
-# Field TYPES never serialised: files (media doesn't transfer across hosts),
-# dates (avoid tz/parse pitfalls — none are content-critical here).
-_SKIP_TYPES = (models.FileField, models.DateField)
+# Field TYPES never serialised: dates (avoid tz/parse pitfalls — none are
+# content-critical here). File fields ARE serialised, but as their relative
+# PATH string (not bytes) so the DB row keeps pointing at the media file —
+# copy the media/ directory separately (see module docstring).
+_SKIP_TYPES = (models.DateField,)
 
 
 def _scalars(obj) -> dict:
-    """Concrete, non-relational, non-file, non-date fields of a model row."""
+    """Concrete, non-relational, non-date fields of a model row.
+
+    File fields are emitted as their stored path string so references to
+    generated images / audio survive the transfer; the bytes travel via a
+    separate media sync.
+    """
     out = {}
     for f in obj._meta.concrete_fields:
         if f.is_relation or f.name in _SKIP or isinstance(f, _SKIP_TYPES):
             continue
-        out[f.name] = f.value_from_object(obj)
+        if isinstance(f, models.FileField):
+            out[f.name] = getattr(obj, f.name).name or ""
+        else:
+            out[f.name] = f.value_from_object(obj)
     return out
 
 

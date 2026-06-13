@@ -30,9 +30,11 @@ def _build_course():
         course=course, unit=unit, title="L2", content_html="<p>two</p>",
         status="published", is_active=True, order=2, code="XL2")
     LessonAudioScript.objects.create(
-        lesson=l1, script_type="vocabulary", script_text="Hello. Hi.")
+        lesson=l1, script_type="vocabulary", script_text="Hello. Hi.",
+        generated_audio="lessons/audio_scripts/2026/05/x.mp3")
     LessonImagePrompt.objects.create(
-        lesson=l1, prompt_type="cover", prompt="a friendly classroom")
+        lesson=l1, prompt_type="cover", prompt="a friendly classroom",
+        generated_image="lessons/image_prompts/2026/05/cover.png")
     LessonChecklist.objects.create(lesson=l1, text_en="Say hi", text_ar="قل مرحبا")
     quiz = LessonQuiz.objects.create(
         lesson=l1, code="XQ1", title="Q", title_ar="ا", title_en="Q")
@@ -70,6 +72,13 @@ class TransferCoursesTests(TestCase):
         self.assertEqual(l1.unit.code, "XU1")           # unit re-linked by natural key
         self.assertEqual(l1.audio_scripts.count(), 1)   # audio text travels with lesson
         self.assertEqual(l1.image_prompts.count(), 1)
+        # Media path references survive (bytes synced separately).
+        self.assertEqual(
+            l1.audio_scripts.first().generated_audio.name,
+            "lessons/audio_scripts/2026/05/x.mp3")
+        self.assertEqual(
+            l1.image_prompts.first().generated_image.name,
+            "lessons/image_prompts/2026/05/cover.png")
         self.assertEqual(l1.checklist_items.count(), 1)
         self.assertEqual(l1.quiz.questions.count(), 2)
 
