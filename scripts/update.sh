@@ -343,6 +343,24 @@ else
             warn "$cmd skipped (command unavailable or errored)"
         fi
     done
+
+    # --- Canonical Beginner course (onlenco-beginner) -------------------
+    # The polished 48-topic listen-and-repeat course that matches local.
+    # Kept OUT of the loop above because these need arguments. Order matters:
+    # this runs AFTER import_a0_curriculum so the archive step can hide the
+    # legacy a0-unit-* courses it (re)creates, leaving students one clean
+    # canonical course per level.
+    note "→ seed_beginner_48_topics --confirm"
+    if ! dc "exec -T web python manage.py seed_beginner_48_topics --confirm"; then
+        SEED_SKIPPED+=("seed_beginner_48_topics")
+        warn "seed_beginner_48_topics skipped"
+    fi
+    note "→ set_course_access onlenco-beginner --free  (ensure unlocked)"
+    dc "exec -T web python manage.py set_course_access onlenco-beginner --free" \
+        || warn "set_course_access skipped"
+    note "→ archive_noncanonical_courses --confirm  (hide a0-unit-* + cruft)"
+    dc "exec -T web python manage.py archive_noncanonical_courses --confirm" \
+        || warn "archive_noncanonical_courses skipped"
 fi
 
 # === [9/9] Restart web + healthcheck ====================================
