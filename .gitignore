@@ -20,3 +20,9 @@ tmp/
 # Local novel/content source files — must NEVER be committed (copyright + size).
 local_content_sources/
 *.pdf
+
+# Course transfer export files (large data dumps — never commit).
+onlenco_courses_full.json
+*courses_export*.json
+courses_export.json
+beginner.json
