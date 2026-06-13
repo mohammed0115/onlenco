@@ -327,16 +327,28 @@
     function csrf() { var m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : ''; }
 
     var clipCache = {};   // text -> clip URL (cache so replays are instant)
-    function fetchClip(text) {
-        if (clipCache[text]) return Promise.resolve(clipCache[text]);
-        if (!ttsUrl || !text) return Promise.resolve('');
+    function _post(text) {
         return fetch(ttsUrl, {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
             body: JSON.stringify({ text: text })
         }).then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (j) { var u = (j && j.ok) ? j.url : ''; if (u) clipCache[text] = u; return u; })
+          .then(function (j) { return (j && j.ok) ? j.url : ''; })
           .catch(function () { return ''; });
+    }
+    // Generation can fail transiently (provider hiccup / brief rate-limit) so a
+    // word occasionally had no sound. Retry a few times with backoff; once a
+    // clip is stored server-side it's instant + reliable on every later play.
+    function fetchClip(text, tries) {
+        if (clipCache[text]) return Promise.resolve(clipCache[text]);
+        if (!ttsUrl || !text) return Promise.resolve('');
+        if (tries == null) tries = 3;
+        return _post(text).then(function (u) {
+            if (u) { clipCache[text] = u; return u; }
+            if (tries <= 1) return '';
+            return new Promise(function (res) { setTimeout(res, 800); })
+                .then(function () { return fetchClip(text, tries - 1); });
+        });
     }
     function playClip(url) {
         return new Promise(function (resolve) {
