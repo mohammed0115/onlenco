@@ -145,6 +145,30 @@ def add_note(*, actor, lesson: Lesson, note: str) -> LessonReviewEvent:
     )
 
 
+@transaction.atomic
+def set_access_override(*, actor, lesson: Lesson, access: str, note: str = "") -> Lesson:
+    """Admin lock/unlock for a single lesson.
+
+    ``access`` is one of ``Lesson.ACCESS_INHERIT`` / ``ACCESS_FREE`` /
+    ``ACCESS_LOCKED``. Writes a ``LessonReviewEvent`` so the change shows
+    up in the lesson's audit trail. Does NOT touch the publish status.
+    """
+    valid = {Lesson.ACCESS_INHERIT, Lesson.ACCESS_FREE, Lesson.ACCESS_LOCKED}
+    if access not in valid:
+        raise WorkflowError(f"Unknown access value '{access}'.")
+    prev = lesson.access_override
+    if prev != access:
+        lesson.access_override = access
+        lesson.save(update_fields=["access_override", "updated_at"])
+    LessonReviewEvent.objects.create(
+        lesson=lesson, actor=actor,
+        from_status=lesson.status, to_status="",
+        action="set_access", note=note or "",
+        metadata={"from_access": prev, "to_access": access},
+    )
+    return lesson
+
+
 def record_quality_check(
     *, actor, lesson: Lesson, score: int, flags_count: int,
 ) -> LessonReviewEvent:

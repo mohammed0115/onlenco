@@ -485,6 +485,27 @@ class Lesson(models.Model):
         max_length=255, blank=True, verbose_name=_("Book reference"),
         help_text=_("Free-text source reference (book title / edition)."),
     )
+    # --- Per-lesson access override (admin lock/unlock) --------------------
+    # By default a lesson inherits its course's access rule (free course =
+    # open; paid course = needs subscription). An admin/teacher can pin a
+    # single lesson:
+    #   * ``free``   — always open, even inside a paid course (preview lesson).
+    #   * ``locked`` — always needs a subscription, even inside a free course
+    #                  (lock specific lessons in the free Beginner course).
+    ACCESS_INHERIT = "inherit"
+    ACCESS_FREE = "free"
+    ACCESS_LOCKED = "locked"
+    ACCESS_OVERRIDE_CHOICES = [
+        (ACCESS_INHERIT, _("Inherit from course")),
+        (ACCESS_FREE, _("Free — always open")),
+        (ACCESS_LOCKED, _("Locked — subscription required")),
+    ]
+    access_override = models.CharField(
+        max_length=12, choices=ACCESS_OVERRIDE_CHOICES, default=ACCESS_INHERIT,
+        db_index=True, verbose_name=_("Access override"),
+        help_text=_("Per-lesson lock/unlock. 'Inherit' follows the course's "
+                    "free/paid rule."),
+    )
     is_active = models.BooleanField(default=True, verbose_name=_("Active"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

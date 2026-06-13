@@ -13,6 +13,7 @@ from .services.a0_world import build_a0_world, is_a0_course
 from .services.lesson_gate import annotate_lesson_states, can_open_lesson
 from .services.student_flow import (
     can_access_course,
+    can_access_lesson,
     ensure_course_enrollment,
     published_course_queryset,
     published_lesson_queryset,
@@ -135,14 +136,14 @@ def course_detail(request, pk):
 @login_required
 def course_lesson_detail(request, course_pk, lesson_pk):
     course = get_object_or_404(published_course_queryset(), pk=course_pk)
-    if not can_access_course(request.user, course):
-        return HttpResponseForbidden(_("An active subscription is required for this course."))
-
-    enrollment = ensure_course_enrollment(request.user, course)
     lesson = get_object_or_404(
         published_lesson_queryset().filter(course=course),
         pk=lesson_pk,
     )
+    if not can_access_lesson(request.user, lesson):
+        return HttpResponseForbidden(_("An active subscription is required for this lesson."))
+
+    enrollment = ensure_course_enrollment(request.user, course)
     drip_redirect = _drip_gate(request, course, lesson)
     if drip_redirect:
         return drip_redirect
@@ -295,13 +296,13 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
         raise Http404("Unknown step")
 
     course = get_object_or_404(published_course_queryset(), pk=course_pk)
-    if not can_access_course(request.user, course):
-        return HttpResponseForbidden(_("An active subscription is required for this course."))
-
     lesson = get_object_or_404(
         published_lesson_queryset().filter(course=course),
         pk=lesson_pk,
     )
+    if not can_access_lesson(request.user, lesson):
+        return HttpResponseForbidden(_("An active subscription is required for this lesson."))
+
     drip_redirect = _drip_gate(request, course, lesson)
     if drip_redirect:
         return drip_redirect
@@ -501,12 +502,12 @@ def mark_lesson_complete(request, course_pk, lesson_pk):
     update without waiting for the nightly cron.
     """
     course = get_object_or_404(published_course_queryset(), pk=course_pk)
-    if not can_access_course(request.user, course):
-        return HttpResponseForbidden(_("An active subscription is required for this course."))
     lesson = get_object_or_404(
         published_lesson_queryset().filter(course=course),
         pk=lesson_pk,
     )
+    if not can_access_lesson(request.user, lesson):
+        return HttpResponseForbidden(_("An active subscription is required for this lesson."))
     drip_redirect = _drip_gate(request, course, lesson)
     if drip_redirect:
         return drip_redirect
@@ -539,12 +540,12 @@ def lesson_quiz_attempt(request, course_pk, lesson_pk):
     """Sit and grade the lesson's quiz; mirrors lessons.quiz_attempt
     for the courses-app schema."""
     course = get_object_or_404(published_course_queryset(), pk=course_pk)
-    if not can_access_course(request.user, course):
-        return HttpResponseForbidden(_("An active subscription is required for this course."))
     lesson = get_object_or_404(
         published_lesson_queryset().filter(course=course),
         pk=lesson_pk,
     )
+    if not can_access_lesson(request.user, lesson):
+        return HttpResponseForbidden(_("An active subscription is required for this lesson."))
     drip_redirect = _drip_gate(request, course, lesson)
     if drip_redirect:
         return drip_redirect
@@ -659,13 +660,13 @@ def lesson_quiz_attempt(request, course_pk, lesson_pk):
 def _get_challenge_context(request, course_pk, lesson_pk):
     """Common owner/access checks for every challenge view."""
     course = get_object_or_404(published_course_queryset(), pk=course_pk)
-    if not can_access_course(request.user, course):
-        return None, None, HttpResponseForbidden(
-            _("An active subscription is required for this course.")
-        )
     lesson = get_object_or_404(
         published_lesson_queryset().filter(course=course), pk=lesson_pk,
     )
+    if not can_access_lesson(request.user, lesson):
+        return None, None, HttpResponseForbidden(
+            _("An active subscription is required for this lesson.")
+        )
     drip_redirect = _drip_gate(request, course, lesson)
     if drip_redirect:
         return None, None, drip_redirect

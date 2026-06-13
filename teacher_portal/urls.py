@@ -74,4 +74,7 @@ urlpatterns = [
     path("content-review/lessons/<int:lesson_id>/note/",
          views_content_review.action_add_note,
          name="content_review_add_note"),
+    path("content-review/lessons/<int:lesson_id>/set-access/",
+         views_content_review.action_set_access,
+         name="content_review_set_access"),
 ]

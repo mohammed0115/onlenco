@@ -64,6 +64,35 @@
         </form>
     </div>
 
+    {# ===== Access control (lock / unlock this lesson) ===== #}
+    <section class="onlenco-review-detail__panel onlenco-access">
+        <h3>Access control · التحكّم في الوصول</h3>
+        <p class="onlenco-access__state">
+            Current · الحالة الحالية:
+            {% if lesson.access_override == "free" %}<span class="onlenco-access__badge onlenco-access__badge--free">🔓 Free — always open · مفتوح دائمًا</span>
+            {% elif lesson.access_override == "locked" %}<span class="onlenco-access__badge onlenco-access__badge--locked">🔒 Locked — subscription required · مقفل (يتطلب اشتراكًا)</span>
+            {% else %}<span class="onlenco-access__badge onlenco-access__badge--inherit">↘ Inherit from course · يتبع الكورس</span>{% endif %}
+        </p>
+        <div class="onlenco-access__actions">
+            <form method="post" action="{% url 'teacher_portal:content_review_set_access' lesson.pk %}">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                <input type="hidden" name="access" value="free">
+                <button class="onlenco-access__btn onlenco-access__btn--free" {% if lesson.access_override == "free" %}disabled{% endif %}>🔓 Unlock (Free) · فتح</button>
+            </form>
+            <form method="post" action="{% url 'teacher_portal:content_review_set_access' lesson.pk %}">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                <input type="hidden" name="access" value="locked">
+                <button class="onlenco-access__btn onlenco-access__btn--locked" {% if lesson.access_override == "locked" %}disabled{% endif %}>🔒 Lock (Subscription) · قفل</button>
+            </form>
+            <form method="post" action="{% url 'teacher_portal:content_review_set_access' lesson.pk %}">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                <input type="hidden" name="access" value="inherit">
+                <button class="onlenco-access__btn onlenco-access__btn--inherit" {% if lesson.access_override == "inherit" %}disabled{% endif %}>↘ Inherit · افتراضي</button>
+            </form>
+        </div>
+        <p class="onlenco-access__hint">Free = open even in a paid course. Locked = needs a subscription even in the free Beginner course.</p>
+    </section>
+
     {# ===== Quality flags ===== #}
     <section class="onlenco-review-detail__panel">
         <h3>Quality flags ({{ quality.flags|length }})</h3>
@@ -205,5 +234,17 @@
 .onlenco-review-detail__events { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: .88rem; }
 .onlenco-review-detail__events li { padding: 6px 10px; background: #F8FAFC; border-radius: 6px; }
 .onlenco-review-detail__events small { color: #6B7280; margin-left: 8px; }
+.onlenco-access__state { margin: 0 0 12px; font-size: .9rem; color: #374151; }
+.onlenco-access__badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-weight: 800; font-size: .82rem; margin-inline-start: 6px; }
+.onlenco-access__badge--free { background: #DCFCE7; color: #15803D; }
+.onlenco-access__badge--locked { background: #FEE2E2; color: #B91C1C; }
+.onlenco-access__badge--inherit { background: #E5E7EB; color: #374151; }
+.onlenco-access__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.onlenco-access__btn { border: 0; padding: 9px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; color: #fff; }
+.onlenco-access__btn--free { background: #22C55E; }
+.onlenco-access__btn--locked { background: #EF4444; }
+.onlenco-access__btn--inherit { background: #6B7280; }
+.onlenco-access__btn:disabled { opacity: .45; cursor: default; }
+.onlenco-access__hint { margin: 12px 0 0; font-size: .8rem; color: #6B7280; }
 </style>
 {% endblock %}

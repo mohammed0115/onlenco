@@ -109,6 +109,23 @@ def can_access_course(user, course: Course) -> bool:
     return bool(profile and profile.is_subscribed)
 
 
+def can_access_lesson(user, lesson: Lesson) -> bool:
+    """Per-lesson access = the lesson's override, falling back to its course.
+
+    An admin can pin a single lesson ``free`` (always open) or ``locked``
+    (always needs a subscription); otherwise the lesson inherits the
+    course's free/paid rule via :func:`can_access_course`.
+    """
+    override = getattr(lesson, "access_override", Lesson.ACCESS_INHERIT)
+    if override == Lesson.ACCESS_FREE:
+        return True
+    if override == Lesson.ACCESS_LOCKED:
+        profile = getattr(user, "profile", None)
+        return bool(profile and profile.is_subscribed)
+    course = getattr(lesson, "course", None)
+    return can_access_course(user, course) if course is not None else False
+
+
 def ensure_course_enrollment(user, course: Course) -> CourseEnrollment:
     """Create the student's enrollment row once they enter an accessible course."""
     enrollment, _ = CourseEnrollment.objects.get_or_create(

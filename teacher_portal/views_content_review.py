@@ -174,3 +174,25 @@ def action_unpublish(request, lesson_id):
 @require_POST
 def action_add_note(request, lesson_id):
     return _do_action(request, lesson_id, workflow.add_note)
+
+
+@teacher_required
+@require_POST
+def action_set_access(request, lesson_id):
+    """Lock / unlock a single lesson (per-lesson access override)."""
+    lesson = get_object_or_404(Lesson, pk=lesson_id)
+    access = (request.POST.get("access") or "").strip()
+    note = (request.POST.get("note") or "").strip()
+    try:
+        workflow.set_access_override(
+            actor=request.user, lesson=lesson, access=access, note=note,
+        )
+        label = {
+            Lesson.ACCESS_INHERIT: "inherits the course rule",
+            Lesson.ACCESS_FREE: "unlocked (free — always open)",
+            Lesson.ACCESS_LOCKED: "locked (subscription required)",
+        }.get(access, access)
+        messages.success(request, f"Lesson access updated — now {label}.")
+    except workflow.WorkflowError as exc:
+        messages.error(request, str(exc))
+    return redirect("teacher_portal:content_review_detail", lesson_id=lesson.pk)
