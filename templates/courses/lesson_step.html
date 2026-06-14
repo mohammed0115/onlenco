@@ -214,11 +214,11 @@
             {% endwith %}
 
             {% if quiz %}
-            <a href="{% url 'courses:lesson_quiz_attempt' course.pk lesson.pk %}" class="onlenco-finish__quiz">
-                <i data-lucide="award"></i>
+            <a href="{% url 'courses:challenge_start' course.pk lesson.pk %}" class="onlenco-finish__quiz">
+                <i data-lucide="zap"></i>
                 <div>
-                    <div class="onlenco-finish__quiz-title">{% t_either "Take the quiz" "ابدأ الاختبار" %}</div>
-                    <div class="onlenco-finish__quiz-sub">{% t_either "Pass to unlock the next unit." "اجتز لفتح الوحدة التالية." %}</div>
+                    <div class="onlenco-finish__quiz-title">{% t_either "Start the challenge" "ابدأ التحدّي" %}</div>
+                    <div class="onlenco-finish__quiz-sub">{% t_either "Score 70% to complete this lesson and unlock the next." "احصل على 70% لإكمال الدرس وفتح التالي." %}</div>
                 </div>
                 <i data-lucide="arrow-right" class="rtl-flip onlenco-finish__quiz-arrow"></i>
             </a>

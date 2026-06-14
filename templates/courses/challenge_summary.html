@@ -270,13 +270,11 @@
                 {% endif %}
 
                 {% if session.wrong_count %}
-                    {# Placeholder for Phase 5 — back to lesson for now. #}
-                    <a href="{% url 'courses:lesson_detail' course.pk lesson.pk %}"
+                    <a href="{% url 'courses:mistakes_review' %}"
                        class="onlenco-ch-btn onlenco-ch-btn--ghost"
-                       data-action="review-mistakes" data-placeholder="1"
-                       title="{% t_either 'Mistake review coming in a later release.' 'مراجعة الأخطاء قادمة في إصدار لاحق.' %}">
+                       data-action="review-mistakes">
                         <i data-lucide="book-open" aria-hidden="true"></i>
-                        {% t_either "Review mistakes (soon)" "مراجعة الأخطاء (قريباً)" %}
+                        {% t_either "Review mistakes" "مراجعة الأخطاء" %}
                     </a>
                 {% endif %}
 

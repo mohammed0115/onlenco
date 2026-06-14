@@ -12,6 +12,10 @@ urlpatterns = [
     path("certificates/", views.certificates_list, name="certificates"),
     path("certificate/<uuid:cert_uuid>/", views.certificate_detail, name="certificate_detail"),
     path("verify/<uuid:cert_uuid>/", views.certificate_verify, name="certificate_verify"),
+    # Mistake review (spaced repetition) — string prefixes before <int:pk>.
+    path("mistakes/review/", views.mistakes_review, name="mistakes_review"),
+    path("mistakes/review/<int:mistake_id>/record/",
+         views.mistakes_review_record, name="mistakes_review_record"),
     path("<int:pk>/", views.course_detail, name="course_detail"),
     path("<int:course_pk>/lessons/<int:lesson_pk>/",
          views.course_lesson_detail, name="lesson_detail"),

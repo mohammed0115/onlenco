@@ -1108,6 +1108,55 @@ def _build_rewards_context(request, session) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Mistake review (spaced repetition) — recall cards for the student's
+# wrong challenge answers. Backend (StudentMistake + smart_review_service)
+# is written by the Challenge engine; this is the student-facing review UI.
+# ---------------------------------------------------------------------------
+
+@login_required
+def mistakes_review(request):
+    """Review the student's due mistakes as recall cards (spaced repetition)."""
+    from learning_core.services import smart_review_service
+
+    queue = smart_review_service.build_review_queue(request.user, limit=20)
+    cards = []
+    for item in queue:
+        q = item["question"]
+        m = item["mistake"]
+        cards.append({
+            "mistake_id": m.pk,
+            "question_en": q.question_text_en or q.question_text,
+            "question_ar": q.question_text_ar or q.question_text,
+            "correct_answer": m.correct_answer or q.correct_answer,
+            "your_answer": m.user_answer or "",
+            "explanation_en": m.explanation_en or q.explanation_en or q.explanation,
+            "explanation_ar": m.explanation_ar or q.explanation_ar or "",
+            "skill": getattr(item.get("skill"), "name", "") or "",
+        })
+    return render(request, "courses/mistakes_review.html", {
+        "cards": cards,
+        "total": len(cards),
+    })
+
+
+@login_required
+@require_POST
+def mistakes_review_record(request, mistake_id):
+    """Record a recall result for one mistake and reschedule it."""
+    from learning_core.models import StudentMistake
+    from learning_core.services import mastery_service, smart_review_service
+
+    mistake = get_object_or_404(StudentMistake, pk=mistake_id, user=request.user)
+    correct = request.POST.get("result") == "got_it"
+    mastery_service.record_manual_review(mistake, correct=correct)
+    return JsonResponse({
+        "ok": True,
+        "mastered": mistake.mastered,
+        "remaining": smart_review_service.count_due_now(request.user),
+    })
+
+
+# ---------------------------------------------------------------------------
 # Digital certificates (Marketplace prompt 5)
 # ---------------------------------------------------------------------------
 from .models import DigitalCertificate  # noqa: E402

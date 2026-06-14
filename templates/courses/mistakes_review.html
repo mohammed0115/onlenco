@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% load static i18n_dict %}
+
+{% block title %}{% t_either "Review mistakes" "مراجعة الأخطاء" %} — Onlenco{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-muted/20 flex flex-col">
+    {% include "_app_header.html" %}
+
+    <main class="onlenco-review-wrap">
+        <header class="onlenco-review-head">
+            <h1 class="onlenco-review-title">{% t_either "Review your mistakes" "راجع أخطاءك" %}</h1>
+            <p class="onlenco-review-sub">{% t_either "Recall the answer, then tell us how it went. We bring hard ones back sooner." "تذكّر الإجابة ثم أخبرنا كيف كان أداؤك. نعيد الصعبة أبكر." %}</p>
+            <div class="onlenco-review-progress"><div class="onlenco-review-progress__fill" id="reviewFill"></div></div>
+            <div class="onlenco-review-count"><span id="reviewDone">0</span> / {{ total }}</div>
+        </header>
+
+        {% if cards %}
+        <section class="onlenco-review-stage" id="reviewStage" data-record-url="{% url 'courses:mistakes_review_record' 0 %}">
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            {% for c in cards %}
+            <article class="onlenco-rcard" data-rcard data-mistake-id="{{ c.mistake_id }}"{% if not forloop.first %} hidden{% endif %}>
+                {% if c.skill %}<div class="onlenco-rcard__skill">{{ c.skill }}</div>{% endif %}
+                <div class="onlenco-rcard__q" dir="auto">{% if lang == "ar" and c.question_ar %}{{ c.question_ar }}{% else %}{{ c.question_en }}{% endif %}</div>
+
+                <button type="button" class="onlenco-rcard__reveal" data-reveal>{% t_either "Show answer" "أظهر الإجابة" %}</button>
+
+                <div class="onlenco-rcard__answer" data-answer hidden>
+                    <div class="onlenco-rcard__answer-label">{% t_either "Correct answer" "الإجابة الصحيحة" %}</div>
+                    <div class="onlenco-rcard__answer-text" dir="auto">{{ c.correct_answer }}</div>
+                    {% if c.your_answer %}<div class="onlenco-rcard__yours" dir="auto">{% t_either "You wrote" "كتبت" %}: {{ c.your_answer }}</div>{% endif %}
+                    {% if c.explanation_en or c.explanation_ar %}<div class="onlenco-rcard__explain" dir="auto">{% if lang == "ar" and c.explanation_ar %}{{ c.explanation_ar }}{% else %}{{ c.explanation_en }}{% endif %}</div>{% endif %}
+
+                    <div class="onlenco-rcard__actions">
+                        <button type="button" class="onlenco-rcard__btn onlenco-rcard__btn--again" data-result="again">{% t_either "Review again" "راجع لاحقاً" %}</button>
+                        <button type="button" class="onlenco-rcard__btn onlenco-rcard__btn--got" data-result="got_it">{% t_either "Got it" "أتقنته" %}</button>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+
+            <article class="onlenco-rcard onlenco-rcard--done" id="reviewDoneCard" hidden>
+                <div class="onlenco-rcard__done-emoji">🎉</div>
+                <div class="onlenco-rcard__q">{% t_either "All done for now!" "انتهيت الآن!" %}</div>
+                <p class="onlenco-review-sub">{% t_either "Great work reviewing your mistakes." "أحسنت في مراجعة أخطائك." %}</p>
+                <a href="{% url 'dashboard' %}" class="onlenco-rcard__btn onlenco-rcard__btn--got">{% t_either "Back to dashboard" "العودة للوحة" %}</a>
+            </article>
+        </section>
+        {% else %}
+        <section class="onlenco-review-empty">
+            <div class="onlenco-rcard__done-emoji">✅</div>
+            <h2>{% t_either "No mistakes to review" "لا أخطاء للمراجعة" %}</h2>
+            <p class="onlenco-review-sub">{% t_either "You're all caught up. Finish a lesson challenge to practice more." "أنت محدّث بالكامل. أكمل تحدّي درس لتتدرّب أكثر." %}</p>
+            <a href="{% url 'dashboard' %}" class="onlenco-rcard__btn onlenco-rcard__btn--got">{% t_either "Back to dashboard" "العودة للوحة" %}</a>
+        </section>
+        {% endif %}
+    </main>
+</div>
+
+<style>
+.onlenco-review-wrap { max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; width: 100%; }
+.onlenco-review-head { text-align: center; margin-bottom: 20px; }
+.onlenco-review-title { font-size: 1.5rem; font-weight: 800; color: #111827; margin: 0 0 6px; }
+.onlenco-review-sub { color: #6B7280; font-size: .92rem; margin: 0; }
+.onlenco-review-progress { height: 8px; background: #E5E7EB; border-radius: 999px; margin: 16px 0 6px; overflow: hidden; }
+.onlenco-review-progress__fill { height: 100%; width: 0; background: #22C55E; border-radius: 999px; transition: width .3s ease; }
+.onlenco-review-count { font-size: .82rem; color: #6B7280; font-weight: 700; }
+.onlenco-review-stage { position: relative; }
+.onlenco-rcard { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 28px 22px; box-shadow: 0 6px 24px rgba(0,0,0,.05); text-align: center; }
+.onlenco-rcard__skill { display: inline-block; background: #DBEAFE; color: #1E40AF; font-size: .72rem; font-weight: 800; padding: 3px 12px; border-radius: 999px; margin-bottom: 14px; }
+.onlenco-rcard__q { font-size: 1.25rem; font-weight: 700; color: #111827; line-height: 1.5; margin-bottom: 20px; }
+.onlenco-rcard__reveal { background: #2563EB; color: #fff; border: 0; border-radius: 10px; padding: 12px 22px; font-weight: 700; cursor: pointer; font-size: .95rem; }
+.onlenco-rcard__answer-label { font-size: .75rem; font-weight: 800; color: #15803D; text-transform: uppercase; letter-spacing: .04em; }
+.onlenco-rcard__answer-text { font-size: 1.3rem; font-weight: 800; color: #15803D; margin: 6px 0 12px; }
+.onlenco-rcard__yours { font-size: .9rem; color: #B91C1C; margin-bottom: 8px; }
+.onlenco-rcard__explain { font-size: .9rem; color: #374151; background: #F9FAFB; border-radius: 10px; padding: 12px; margin-bottom: 18px; line-height: 1.6; }
+.onlenco-rcard__actions { display: flex; gap: 12px; }
+.onlenco-rcard__btn { flex: 1; border: 0; border-radius: 12px; padding: 14px; font-weight: 800; cursor: pointer; font-size: .95rem; text-decoration: none; display: inline-block; text-align: center; }
+.onlenco-rcard__btn--again { background: #FEE2E2; color: #B91C1C; }
+.onlenco-rcard__btn--got { background: #22C55E; color: #fff; }
+.onlenco-rcard--done, .onlenco-review-empty { text-align: center; }
+.onlenco-review-empty { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 40px 22px; max-width: 640px; margin: 0 auto; }
+.onlenco-rcard__done-emoji { font-size: 3rem; margin-bottom: 10px; }
+</style>
+
+<script>
+(function () {
+  var stage = document.getElementById('reviewStage');
+  if (!stage) return;
+  var recordUrlTpl = stage.getAttribute('data-record-url');
+  var csrf = stage.querySelector('[name=csrfmiddlewaretoken]').value;
+  var cards = Array.prototype.slice.call(stage.querySelectorAll('[data-rcard]'));
+  var doneCard = document.getElementById('reviewDoneCard');
+  var fill = document.getElementById('reviewFill');
+  var doneCount = document.getElementById('reviewDone');
+  var total = cards.length;
+  var idx = 0, done = 0;
+
+  function show(i) {
+    cards.forEach(function (c, j) { c.hidden = (j !== i); });
+    if (i >= total) { cards.forEach(function (c) { c.hidden = true; }); doneCard.hidden = false; }
+  }
+  function progress() {
+    fill.style.width = total ? Math.round(done * 100 / total) + '%' : '0%';
+    doneCount.textContent = done;
+  }
+  function record(mistakeId, result) {
+    var url = recordUrlTpl.replace(/0\/record\/$/, mistakeId + '/record/');
+    var body = new URLSearchParams(); body.append('result', result); body.append('csrfmiddlewaretoken', csrf);
+    return fetch(url, { method: 'POST', headers: { 'X-CSRFToken': csrf }, body: body, credentials: 'same-origin' }).catch(function () {});
+  }
+
+  stage.addEventListener('click', function (e) {
+    var revealBtn = e.target.closest('[data-reveal]');
+    if (revealBtn) {
+      var card = revealBtn.closest('[data-rcard]');
+      revealBtn.hidden = true;
+      card.querySelector('[data-answer]').hidden = false;
+      return;
+    }
+    var actBtn = e.target.closest('[data-result]');
+    if (actBtn) {
+      var c = actBtn.closest('[data-rcard]');
+      record(c.getAttribute('data-mistake-id'), actBtn.getAttribute('data-result'));
+      done += 1; idx += 1; progress(); show(idx);
+    }
+  });
+  progress();
+})();
+</script>
+{% endblock %}

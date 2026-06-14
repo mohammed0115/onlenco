@@ -206,6 +206,28 @@ def _maybe_mark_existing_mistake_improved(user, question) -> None:
     mistake.save()
 
 
+def record_manual_review(mistake, *, correct: bool) -> None:
+    """Update a mistake's spaced-repetition schedule from a manual review card.
+
+    Used by the student-facing "Review mistakes" page (recall cards). Three
+    clean recalls mark the mistake mastered; a wrong recall brings it back
+    soon. Self-contained so the review UI doesn't depend on session state.
+    """
+    from datetime import timedelta
+    now = timezone.now()
+    mistake.review_count = (mistake.review_count or 0) + 1
+    if correct:
+        if mistake.review_count >= 3:
+            mistake.mastered = True
+            mistake.next_review_at = now + timedelta(days=7)
+        else:
+            mistake.next_review_at = now + timedelta(days=1 if mistake.review_count == 1 else 3)
+    else:
+        mistake.mastered = False
+        mistake.next_review_at = now + timedelta(hours=4)
+    mistake.save(update_fields=["review_count", "mastered", "next_review_at", "updated_at"])
+
+
 # ---------------------------------------------------------------------------
 # Convenience: per-session breakdown for the Summary view.
 # ---------------------------------------------------------------------------
