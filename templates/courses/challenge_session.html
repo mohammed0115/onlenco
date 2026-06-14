@@ -383,6 +383,19 @@
     .onlenco-qr__image-grid { grid-template-columns: 1fr 1fr; }
     .onlenco-qr__match-grid { grid-template-columns: 1fr; }
     .onlenco-qr__bubble { max-width: 92%; }
+    /* Touch targets: word-bank words + audio pills comfortably >= 44px. */
+    .onlenco-qr__word { padding: 12px 16px; }
+    .onlenco-qr__pill { padding: 12px 18px; }
 }
+
+/* ===== Immersive quiz shell (Phase 20.0E — UI only) =====
+   The sticky "Check" button owns the bottom of the screen, so on the quiz
+   player we hide the global App-Shell bottom nav (the exit "X" handles
+   leaving) — otherwise the fixed nav (z-50) would cover the Check button.
+   This <style> only loads on the quiz page, so it is page-scoped. */
+.onl-shell-nav { display: none; }
+body.student-shell { padding-bottom: 0; }
+/* Keep the sticky Check button clear of the iPhone home indicator. */
+.onlenco-ch-footer { bottom: calc(12px + env(safe-area-inset-bottom)); }
 </style>
 {% endblock %}
