@@ -355,6 +355,9 @@ else
         SEED_SKIPPED+=("seed_beginner_48_topics")
         warn "seed_beginner_48_topics skipped"
     fi
+    note "→ seed_onlenco_beginner_quiz_bank  (9 questions per lesson)"
+    dc "exec -T web python manage.py seed_onlenco_beginner_quiz_bank" \
+        || warn "seed_onlenco_beginner_quiz_bank skipped"
     note "→ set_course_access onlenco-beginner --free  (ensure unlocked)"
     dc "exec -T web python manage.py set_course_access onlenco-beginner --free" \
         || warn "set_course_access skipped"
