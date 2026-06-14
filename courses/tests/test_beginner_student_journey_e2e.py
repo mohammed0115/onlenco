@@ -104,10 +104,13 @@ class BeginnerStudentJourneyE2ETests(TestCase):
     def test_lesson_step_shows_approved_cover_and_audio(self):
         lesson = self._lesson(1)
         cover = self._approve_image(lesson, "cover")
-        audio = self._approve_audio(lesson, "intro")
         html = self.client.get(self._step_url(lesson, "intro")).content.decode()
         self.assertIn(cover.generated_image.url, html)
-        self.assertIn(audio.generated_audio.url, html)
+        # Listen-repeat steps (intro/examples) use natural per-item clips; the
+        # combined recording plays on the dialogue step (no per-item content).
+        audio = self._approve_audio(lesson, "dialogue")
+        dlg = self.client.get(self._step_url(lesson, "dialogue")).content.decode()
+        self.assertIn(audio.generated_audio.url, dlg)
 
     def test_lesson_step_hides_pending_media(self):
         lesson = self._lesson(6)

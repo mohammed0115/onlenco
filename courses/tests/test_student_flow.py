@@ -110,27 +110,34 @@ class StudentCourseFlowTests(TestCase):
         self.assertNotContains(response, "Draft Lesson")
         self.assertNotContains(response, "Inactive Lesson")
 
-    def test_b1_student_sees_b1_course_not_a1_course(self):
+    def test_b1_student_sees_all_levels_up_to_b1(self):
+        # A B1 student sees every level from A0 through B1 (cumulative), but
+        # not B2 and above.
         self.user.profile.cefr_level = "B1"
         self.user.profile.save(update_fields=["cefr_level"])
-        self._course(title="A1 Course", slug="a1-course", level_code="A1")
+        a1_course, _ = self._course(title="A1 Course", slug="a1-course", level_code="A1")
         b1_course, _ = self._course(title="B1 Course", slug="b1-course", level_code="B1")
+        self._course(title="B2 Course", slug="b2-course", level_code="B2")
 
         courses = dashboard_courses_for_user(self.user)
 
-        self.assertEqual([course.pk for course in courses], [b1_course.pk])
+        pks = [course.pk for course in courses]
+        self.assertIn(a1_course.pk, pks)        # lower level visible
+        self.assertIn(b1_course.pk, pks)        # current level visible
+        self.assertEqual(pks, [a1_course.pk, b1_course.pk])  # B2 hidden, ordered
 
     def test_learning_profile_current_level_overrides_profile_level(self):
         StudentLearningProfile.objects.create(
             user=self.user,
             current_cefr_level="B1",
         )
-        self._course(title="A1 Course", slug="a1-profile", level_code="A1")
+        a1_course, _ = self._course(title="A1 Course", slug="a1-profile", level_code="A1")
         b1_course, _ = self._course(title="B1 Course", slug="b1-learning-profile", level_code="B1")
 
         courses = dashboard_courses_for_user(self.user)
 
-        self.assertEqual([course.pk for course in courses], [b1_course.pk])
+        # current level comes from the learning profile (B1) → A0..B1 visible.
+        self.assertEqual([course.pk for course in courses], [a1_course.pk, b1_course.pk])
 
     def test_beginner_student_gets_first_beginner_course_recommendation(self):
         self.user.profile.cefr_level = "A0"

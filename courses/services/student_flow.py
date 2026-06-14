@@ -34,18 +34,28 @@ def current_level_for_user(user) -> str:
     return current
 
 
+def levels_up_to(level_code: str) -> tuple[str, ...]:
+    """Every CEFR level from A0 up to (and including) ``level_code``.
+
+    A student placed at B1 should see — and, when subscribed, open — every
+    course from A0 through B1. Returns ``()`` for an unknown code.
+    """
+    if level_code not in CEFR_ORDER:
+        return ()
+    return CEFR_ORDER[: CEFR_ORDER.index(level_code) + 1]
+
+
 def visible_level_codes_for_user(user) -> tuple[str, ...]:
     """Return the CEFR levels the student may see on the dashboard.
 
     Order of precedence:
       1. If the student is **enrolled** across two or more CEFR levels,
-         show all of those levels. This naturally widens the dashboard
-         for "preview" or all-access accounts without needing a per-user
-         flag — staff just enroll the account in every course they want
-         visible.
+         show all of those levels (preview / all-access accounts).
       2. Beginners on the `beginner_start` onboarding path with no level
          yet (or A0) see A0+A1, so they can taste both.
-      3. Otherwise show only the student's current CEFR level.
+      3. Otherwise show **every level from A0 up to the student's current
+         CEFR level** — a B1 student sees A0, A1, A2, B1. This mirrors
+         the access rule in :func:`can_access_course`.
     """
     enrolled_levels = tuple(
         Course.objects
@@ -57,12 +67,12 @@ def visible_level_codes_for_user(user) -> tuple[str, ...]:
     if len(enrolled_levels) >= 2:
         return tuple(c for c in CEFR_ORDER if c in enrolled_levels)
     profile = getattr(user, "profile", None)
-    if getattr(profile, "onboarding_path", "") == "beginner_start":
-        current = current_level_for_user(user)
-        if current == "A0" or not current:
-            return BEGINNER_LEVELS
     current = current_level_for_user(user)
-    return (current,) if current else ()
+    if getattr(profile, "onboarding_path", "") == "beginner_start" and current in ("A0", ""):
+        return BEGINNER_LEVELS
+    if not current:
+        return ("A0",)
+    return levels_up_to(current)
 
 
 def published_lesson_queryset():
@@ -102,11 +112,21 @@ def visible_course_queryset_for_user(user):
 
 
 def can_access_course(user, course: Course) -> bool:
-    """Free courses are open; paid courses require an active subscription."""
+    """Free courses are open. Paid courses require an active subscription AND
+    sit at or below the student's placement level — a student placed at B1
+    can open every course from A0 through B1, but B2/C1/C2 stay locked until
+    they level up. A subscribed student with no placement yet is not
+    restricted (they'll be placed soon)."""
     if course.is_free:
         return True
     profile = getattr(user, "profile", None)
-    return bool(profile and profile.is_subscribed)
+    if not (profile and profile.is_subscribed):
+        return False
+    current = current_level_for_user(user)
+    code = course.level.code if course.level_id else None
+    if not current or code not in CEFR_ORDER:
+        return True
+    return CEFR_ORDER.index(code) <= CEFR_ORDER.index(current)
 
 
 def can_access_lesson(user, lesson: Lesson) -> bool:
