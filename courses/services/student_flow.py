@@ -57,22 +57,25 @@ def visible_level_codes_for_user(user) -> tuple[str, ...]:
          CEFR level** — a B1 student sees A0, A1, A2, B1. This mirrors
          the access rule in :func:`can_access_course`.
     """
-    enrolled_levels = tuple(
+    enrolled_levels = set(
         Course.objects
         .filter(enrollments__user=user, status="published",
                 is_active=True, level__is_active=True)
         .values_list("level__code", flat=True)
         .distinct()
     )
-    if len(enrolled_levels) >= 2:
-        return tuple(c for c in CEFR_ORDER if c in enrolled_levels)
     profile = getattr(user, "profile", None)
     current = current_level_for_user(user)
     if getattr(profile, "onboarding_path", "") == "beginner_start" and current in ("A0", ""):
-        return BEGINNER_LEVELS
-    if not current:
-        return ("A0",)
-    return levels_up_to(current)
+        base = set(BEGINNER_LEVELS)
+    elif current:
+        base = set(levels_up_to(current))
+    else:
+        base = {"A0"}
+    # Admin-assigned (enrolled) courses widen what the student sees, even when
+    # their level is below them — so an A0 student assigned A1/B1 sees those too.
+    base |= enrolled_levels
+    return tuple(c for c in CEFR_ORDER if c in base)
 
 
 def published_lesson_queryset():
@@ -122,6 +125,10 @@ def can_access_course(user, course: Course) -> bool:
     profile = getattr(user, "profile", None)
     if not (profile and profile.is_subscribed):
         return False
+    # An admin-assigned (enrolled) course is always open to a subscribed
+    # student, regardless of placement level — the assignment IS the grant.
+    if CourseEnrollment.objects.filter(user=user, course=course).exists():
+        return True
     current = current_level_for_user(user)
     code = course.level.code if course.level_id else None
     if not current or code not in CEFR_ORDER:

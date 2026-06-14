@@ -4,7 +4,7 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from courses.models import Course, CourseLevel
+from courses.models import Course, CourseEnrollment, CourseLevel
 from courses.services.student_flow import (
     can_access_course, levels_up_to, visible_level_codes_for_user,
 )
@@ -67,3 +67,39 @@ class PlacementAccessTests(TestCase):
     def test_visible_levels_are_cumulative(self):
         self.assertEqual(visible_level_codes_for_user(self.user),
                          ("A0", "A1", "A2", "B1"))
+
+
+class AdminAssignedCourseAccessTests(TestCase):
+    """An admin-assigned (enrolled) course is accessible + visible even when it
+    sits above the student's placement level."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="a0", password="pw")
+        self.user.profile.cefr_level = "A0"
+        self.user.profile.subscription_status = "active"
+        self.user.profile.save()
+
+    def test_enrolled_higher_level_course_is_accessible(self):
+        b1 = _course("B1")
+        # Without enrollment, an A0 student can't open a B1 course.
+        self.assertFalse(can_access_course(self.user, b1))
+        # Admin assigns it → enrollment → now accessible.
+        CourseEnrollment.objects.create(user=self.user, course=b1, status="active")
+        self.assertTrue(can_access_course(self.user, b1))
+
+    def test_enrolled_levels_are_visible(self):
+        a1 = _course("A1")
+        b1 = _course("B1")
+        CourseEnrollment.objects.create(user=self.user, course=a1, status="active")
+        CourseEnrollment.objects.create(user=self.user, course=b1, status="active")
+        visible = visible_level_codes_for_user(self.user)
+        self.assertIn("A0", visible)   # own level
+        self.assertIn("A1", visible)   # assigned
+        self.assertIn("B1", visible)   # assigned
+
+    def test_enrollment_still_needs_subscription(self):
+        self.user.profile.subscription_status = "none"
+        self.user.profile.save(update_fields=["subscription_status"])
+        b1 = _course("B1")
+        CourseEnrollment.objects.create(user=self.user, course=b1, status="active")
+        self.assertFalse(can_access_course(self.user, b1))
