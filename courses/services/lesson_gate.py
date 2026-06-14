@@ -40,8 +40,8 @@ def annotate_lesson_states(*, course, lessons, user, has_access):
         }
 
     Drip rule (``course.drip_enabled``): lesson N (N > 1) unlocks once
-    lesson N-1 is completed AND that completion happened on an earlier
-    calendar day. A completed lesson is always re-openable for review.
+    lesson N-1 is completed (score ≥ 70%) — immediately, with no day wait.
+    A completed lesson is always re-openable for review.
     """
     lesson_list = list(lessons)
     drip = getattr(course, "drip_enabled", True)
@@ -55,28 +55,20 @@ def annotate_lesson_states(*, course, lessons, user, has_access):
             .select_related("lesson")
         }
 
-    today = timezone.localdate()
     rows = []
     prev_completed = True            # lesson 1 has no predecessor
-    prev_completed_date = None
     for index, lesson in enumerate(lesson_list):
         progress = progress_by_lesson.get(lesson.id)
         completed = _is_complete(progress)
-        available_on = None
 
         if not has_access:
             unlocked = False
         elif not drip or index == 0:
             unlocked = True
-        elif not prev_completed:
-            unlocked = False
-        elif prev_completed_date is None:
-            # Previous lesson is done but carries no completion date
-            # (legacy row) — don't punish the student, open it now.
-            unlocked = True
         else:
-            available_on = prev_completed_date + timedelta(days=1)
-            unlocked = today >= available_on
+            # Sequential unlock: the next lesson opens as soon as the previous
+            # one is completed (score ≥ 70%) — no calendar-day wait.
+            unlocked = prev_completed
 
         can_open = bool(has_access and (completed or unlocked))
         state = "completed" if completed else ("unlocked" if unlocked else "locked")
@@ -89,7 +81,7 @@ def annotate_lesson_states(*, course, lessons, user, has_access):
             "is_unlocked": state == "unlocked",
             "is_locked": state == "locked",
             "can_open": can_open,
-            "available_on": available_on if state == "locked" else None,
+            "available_on": None,
             "lesson_url": (
                 reverse("courses:lesson_detail", args=[course.pk, lesson.pk])
                 if can_open else ""
@@ -97,10 +89,6 @@ def annotate_lesson_states(*, course, lessons, user, has_access):
         })
 
         prev_completed = completed
-        prev_completed_date = (
-            timezone.localdate(progress.completed_at)
-            if progress and progress.completed_at else None
-        )
     return rows
 
 

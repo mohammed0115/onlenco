@@ -52,9 +52,10 @@ class LessonGateTests(TestCase):
         self._complete(self.lessons[0], days_ago=1)
         self.assertEqual(self._states(), ["completed", "unlocked", "locked"])
 
-    def test_same_day_completion_keeps_next_locked(self):
+    def test_completing_a_lesson_unlocks_the_next_immediately(self):
+        # No calendar-day wait: finishing lesson 1 opens lesson 2 right away.
         self._complete(self.lessons[0], days_ago=0)
-        self.assertEqual(self._states(), ["completed", "locked", "locked"])
+        self.assertEqual(self._states(), ["completed", "unlocked", "locked"])
 
     def test_two_days_of_progress_open_third_lesson(self):
         self._complete(self.lessons[0], days_ago=2)
@@ -73,13 +74,15 @@ class LessonGateTests(TestCase):
         )
         self.assertTrue(all(not r["can_open"] for r in rows))
 
-    def test_locked_lesson_carries_available_date(self):
-        self._complete(self.lessons[0], days_ago=0)
+    def test_locked_lesson_has_no_available_date(self):
+        # With unlock-on-completion there is no scheduled "available on" date —
+        # a lesson is simply locked until its predecessor is finished.
         rows = annotate_lesson_states(
             course=self.course, lessons=self.lessons,
             user=self.user, has_access=True,
         )
-        self.assertEqual(rows[1]["available_on"], timezone.localdate() + timedelta(days=1))
+        self.assertEqual(rows[1]["state"], "locked")
+        self.assertIsNone(rows[1]["available_on"])
 
     def test_can_open_lesson_guard(self):
         self.assertTrue(can_open_lesson(

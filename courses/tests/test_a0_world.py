@@ -104,9 +104,9 @@ class A0WorldCoursePageTests(TestCase):
         self.assertEqual(self._mission_state(html, 1), "completed")
         self.assertEqual(self._mission_state(html, 2), "unlocked")
 
-    def test_same_day_completion_keeps_next_mission_locked(self):
-        # Daily drip: finishing a lesson today does NOT open the next one
-        # until the following calendar day.
+    def test_completing_a_mission_unlocks_the_next_immediately(self):
+        # Unlock-on-completion: finishing a lesson opens the next one right
+        # away (no calendar-day wait).
         CourseLessonProgress.objects.create(
             user=self.user,
             lesson=self.lesson_one,
@@ -117,7 +117,7 @@ class A0WorldCoursePageTests(TestCase):
         html = self._page()
 
         self.assertEqual(self._mission_state(html, 1), "completed")
-        self.assertEqual(self._mission_state(html, 2), "locked")
+        self.assertEqual(self._mission_state(html, 2), "unlocked")
 
     def test_a0_page_avoids_complex_grammar_terms(self):
         html = self._page().lower()
