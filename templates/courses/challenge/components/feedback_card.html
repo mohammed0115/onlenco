@@ -44,8 +44,7 @@ Picks a rotating, encouraging headline so it doesn't feel canned.
                     <strong>{{ question.correct_answer }}</strong>
                 </p>
             {% endif %}
-            {# Phase 7: optional AI Tutor explanation. Hidden if AI is off
-               via JS check on response; visible state shows the help text. #}
+            {# Phase 7: optional AI Tutor explanation, toggled via JS on the response. #}
             <div class="onlenco-ch-result__ai" data-ai-explain-wrap>
                 <button type="button" class="onlenco-ch-ai-btn" data-ai-explain
                         data-ai-explain-url="{% url 'courses:ai_explain_wrong_answer' course.pk lesson.pk session.pk answered.pk %}"

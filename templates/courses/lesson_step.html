@@ -408,11 +408,44 @@
         play(0, runId);
     }
 
-    // Browsers block audio autoplay until the user interacts — so the sequence
-    // starts on a tap of the "Listen and repeat" button (a real user gesture).
-    // When a pre-rendered recording exists instead, there is no start button and
-    // the words simply stay tappable (no auto sequence, no double audio).
-    if (startBtn) { startBtn.addEventListener('click', startSequence); }
+    // Try to start the audio the moment the step opens. Browsers block UNMUTED
+    // autoplay unless the user has enough engagement with the site, so we probe
+    // by actually starting the first clip: if play() resolves, autoplay is
+    // allowed and we continue the sequence from item 2; if it rejects, we leave
+    // the "Listen and repeat" button for the user to tap (a real gesture).
+    function tryAutoplay() {
+        if (!items.length) return;
+        fetchClip(itemText(items[0])).then(function (url) {
+            if (!url) return;
+            var a;
+            try { a = new Audio(url); } catch (e) { return; }
+            a.playbackRate = rate;
+            var pr = a.play();
+            if (!pr || !pr.then) return;                // old browser → use button
+            pr.then(function () {
+                runId += 1; var myRun = runId;           // own this run
+                if (startBtn) startBtn.classList.add('is-playing');
+                items[0].classList.add('onl-lr-active');
+                var advanced = false;
+                function next() {
+                    if (advanced || myRun !== runId) return; advanced = true;
+                    items[0].classList.remove('onl-lr-active');
+                    if (items.length > 1) { setTimeout(function () { play(1, myRun); }, pauseMs); }
+                    else if (startBtn) { startBtn.classList.remove('is-playing'); }
+                }
+                a.onended = next; a.onerror = next;
+                setTimeout(next, 12000);                  // safety net
+            }).catch(function () { /* autoplay blocked — the button stays */ });
+        });
+    }
+
+    // The sequence also starts on a tap of the "Listen and repeat" button (a real
+    // user gesture). When a pre-rendered recording exists instead, there is no
+    // start button and the words simply stay tappable (no auto sequence).
+    if (startBtn) {
+        startBtn.addEventListener('click', startSequence);
+        tryAutoplay();
+    }
 })();
 </script>
 
