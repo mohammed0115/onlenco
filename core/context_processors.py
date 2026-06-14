@@ -56,7 +56,60 @@ def site_context(request):
         "can_access_teacher_portal": _can_access_teacher_portal(request),
         "show_student_mode": _show_student_mode(request),
         "primary_role_label": _primary_role_label(request, lang),
+        # Student Mobile App Shell (Phase 20.0B): which bottom-nav tab is
+        # active + the resolved "my course" link. Presentation only — no
+        # content/logic change.
+        "student_nav": _student_nav(request),
         **_seo_context(request, lang),
+    }
+
+
+def _active_student_tab(request) -> str:
+    """Resolve the active bottom-nav tab from the request path (no DB)."""
+    path = getattr(request, "path", "") or ""
+    if path.startswith("/tutor"):
+        return "tutor"
+    if path.startswith("/library"):
+        return "library"
+    if "/exam" in path or path.startswith("/daily"):
+        return "quiz"
+    if path.startswith("/courses"):
+        return "course"
+    if path.startswith("/dashboard"):
+        return "quiz" if "/exam" in path else "home"
+    return ""
+
+
+def _student_course_url(request) -> str:
+    """Best 'my course' link for the bottom nav — the student's most recent
+    enrolled course, else '' (template falls back to the dashboard). One light,
+    indexed query, only for authenticated users."""
+    user = getattr(request, "user", None)
+    if not (user and getattr(user, "is_authenticated", False)):
+        return ""
+    try:
+        from django.urls import reverse
+        from courses.models import CourseEnrollment
+        course_id = (
+            CourseEnrollment.objects
+            .filter(user=user, course__status="published", course__is_active=True)
+            .order_by("-updated_at")
+            .values_list("course_id", flat=True)
+            .first()
+        )
+        if course_id:
+            return reverse("courses:course_detail", args=[course_id])
+    except Exception:
+        pass
+    return ""
+
+
+def _student_nav(request) -> dict:
+    user = getattr(request, "user", None)
+    return {
+        "show": bool(user and getattr(user, "is_authenticated", False)),
+        "active": _active_student_tab(request),
+        "course_url": _student_course_url(request),
     }
 
 

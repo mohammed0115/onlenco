@@ -21,7 +21,7 @@
                        class="onlenco-step-dot {% if forloop.counter0 == step_index %}is-current{% endif %} {% if forloop.counter0 < step_index %}is-done{% endif %}"
                        title="{{ kind|title }}">
                         <span class="onlenco-step-dot__num">{{ forloop.counter }}</span>
-                        <span class="onlenco-step-dot__label">{% if kind == "intro" %}{% t_either "Intro" "مقدمة" %}{% elif kind == "vocabulary" %}{% t_either "Vocab" "مفردات" %}{% elif kind == "examples" %}{% t_either "Examples" "أمثلة" %}{% elif kind == "dialogue" %}{% t_either "Dialogue" "حوار" %}{% elif kind == "listening" %}{% t_either "Listen" "استماع" %}{% elif kind == "speaking" %}{% t_either "Speak" "محادثة" %}{% else %}{% t_either "Done" "إنهاء" %}{% endif %}</span>
+                        <span class="onlenco-step-dot__label">{% if kind == "intro" %}{% t_either "Intro" "مقدمة" %}{% elif kind == "vocabulary" %}{% t_either "Vocab" "مفردات" %}{% elif kind == "examples" %}{% t_either "Examples" "أمثلة" %}{% elif kind == "dialogue" %}{% t_either "Dialogue" "حوار" %}{% elif kind == "listening" %}{% t_either "Listen" "استماع" %}{% elif kind == "speaking" %}{% t_either "Speak" "محادثة" %}{% elif kind == "video" %}{% t_either "Video" "فيديو" %}{% else %}{% t_either "Done" "إنهاء" %}{% endif %}</span>
                     </a>
                 </li>
                 {% endfor %}
@@ -761,13 +761,27 @@
 .onlenco-btn--ghost:hover { background: hsl(var(--muted)/.4); }
 .onlenco-btn i { width: 18px; height: 18px; }
 
-/* Mobile polish */
+/* Mobile polish (Phase 20.0D — spacing/touch only, no content change) */
 @media (max-width: 640px) {
   .onlenco-stage { padding: 24px 22px; min-height: 280px; }
   .onlenco-stage__title { font-size: 1.6rem; }
   .onlenco-mega-player__play { width: 76px; height: 76px; }
   .onlenco-mega-player__play i { width: 30px; height: 30px; }
   .onlenco-panel__transcript { padding: 16px 18px; }
+
+  /* Touch targets — keep step tabs, buttons and tap-words >= 44px on phones. */
+  .onlenco-step-dot { min-height: 44px; padding: 8px 12px; }
+  .onlenco-step-dots__home { width: 44px; height: 44px; }
+  .onlenco-step-dots__home i { width: 18px; height: 18px; }
+  .onlenco-btn { min-height: 48px; }
+  .onlenco-lr-start { min-height: 48px; }
+  .onlenco-vocab__word { padding: 11px 18px; }
+
+  /* Bottom step nav: make "Next" the comfortable primary target + clear the
+     App-Shell bottom bar (safe-area aware). */
+  .onlenco-step-nav { gap: 10px; }
+  .onlenco-step-nav .onlenco-btn--primary { flex: 1; justify-content: center; }
+  .onlenco-step-main { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 }
 
 /* Visual placeholder styles (shown while an image awaits generation) */

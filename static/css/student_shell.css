@@ -1,0 +1,56 @@
+/* Student Mobile App Shell — Phase 20.0B
+   Mobile-only persistent bottom navigation + safe-area + header de-clutter.
+   Presentation only; desktop (>=768px) is unchanged (nav hidden). */
+
+/* ---- Bottom navigation (mobile only) ---- */
+.onl-shell-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: stretch;
+  background: hsl(var(--background) / 0.97);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid hsl(var(--border));
+  /* iPhone home-indicator / Android gesture bar */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.onl-shell-nav__link {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;            /* >= 44px touch target */
+  padding: 0.4rem 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.1;
+  text-decoration: none;
+  color: hsl(var(--muted-foreground));
+  -webkit-tap-highlight-color: transparent;
+}
+.onl-shell-nav__link i { width: 22px; height: 22px; }
+.onl-shell-nav__link[aria-current="page"] {
+  color: hsl(var(--primary));
+  font-weight: 800;
+}
+.onl-shell-nav__link:active { background: hsl(var(--muted) / 0.6); }
+
+/* Reserve space so the fixed nav never covers page content (mobile only). */
+@media (max-width: 767px) {
+  body.student-shell {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+  /* Header links duplicated by the bottom nav are hidden on mobile to
+     de-clutter the top bar (kept on desktop where there's no bottom nav). */
+  .onl-hdr-dup { display: none !important; }
+}
+
+/* Desktop / tablet: no bottom nav, no extra body padding. */
+@media (min-width: 768px) {
+  .onl-shell-nav { display: none; }
+}

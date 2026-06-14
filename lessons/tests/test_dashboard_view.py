@@ -56,9 +56,10 @@ class DashboardRedesignTests(TestCase):
         self.assertContains(self.resp, reverse("library"))
 
     def test_mobile_bottom_nav_present(self):
-        self.assertContains(self.resp, "onl-bottomnav")
+        # The bottom nav is now the shared Student App Shell (base.html).
+        self.assertContains(self.resp, "onl-shell-nav")
         self.assertContains(self.resp, 'aria-current="page"')
-        for url_name in ("dashboard", "exam_daily", "tutor", "profile"):
+        for url_name in ("dashboard", "exam_daily", "tutor", "library"):
             self.assertContains(self.resp, reverse(url_name))
 
     def test_no_inline_gradient_style_attrs(self):

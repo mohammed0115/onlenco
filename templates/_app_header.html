@@ -8,7 +8,7 @@
         </a>
         <div class="flex items-center gap-2">
             {% if request.user.is_authenticated %}
-              <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm"
+              <a href="{% url 'dashboard' %}" class="btn btn-ghost btn-sm onl-hdr-dup"
                  title="{% t_either 'Home — my lessons' 'الرئيسية — دروسي' %}"
                  data-testid="header-home-link">
                 <i data-lucide="home" class="h-4 w-4"></i>
@@ -38,13 +38,13 @@
                   <span class="hidden sm:inline">{% t_either "Student Mode" "وضع الطالب" %}</span>
                 </a>
               {% endif %}
-              <a href="{% url 'tutor' %}" class="btn btn-ghost btn-sm"
+              <a href="{% url 'tutor' %}" class="btn btn-ghost btn-sm onl-hdr-dup"
                  title="{% t_either 'AI Tutor' 'المعلّم الذكي' %}"
                  data-testid="header-tutor-link">
                 <i data-lucide="bot" class="h-4 w-4"></i>
                 <span class="hidden sm:inline">{% t_either "AI Tutor" "المعلّم الذكي" %}</span>
               </a>
-              <a href="{% url 'library' %}" class="btn btn-ghost btn-sm"
+              <a href="{% url 'library' %}" class="btn btn-ghost btn-sm onl-hdr-dup"
                  title="{% t_either 'Library' 'المكتبة' %}"
                  data-testid="header-library-link">
                 <i data-lucide="book-open" class="h-4 w-4"></i>

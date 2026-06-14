@@ -1,0 +1,32 @@
+{% load i18n_dict %}
+{% comment %}
+  Student Mobile App Shell — persistent bottom navigation (Phase 20.0B).
+  Mobile-only (hidden ≥768px via CSS). Active tab comes from
+  `student_nav.active` (resolved from request.path in the context processor).
+  Presentation only — links point at existing student URLs; no content change.
+{% endcomment %}
+{% if student_nav.show %}
+<nav class="onl-shell-nav" aria-label="{% t_either 'Primary' 'التنقل الأساسي' %}">
+    <a href="{% url 'dashboard' %}" class="onl-shell-nav__link"
+       {% if student_nav.active == "home" %}aria-current="page"{% endif %}>
+        <i data-lucide="home"></i><span>{% t_either "Home" "الرئيسية" %}</span>
+    </a>
+    <a href="{% if student_nav.course_url %}{{ student_nav.course_url }}{% else %}{% url 'dashboard' %}{% endif %}"
+       class="onl-shell-nav__link"
+       {% if student_nav.active == "course" %}aria-current="page"{% endif %}>
+        <i data-lucide="graduation-cap"></i><span>{% t_either "Course" "الكورس" %}</span>
+    </a>
+    <a href="{% url 'exam_daily' %}" class="onl-shell-nav__link"
+       {% if student_nav.active == "quiz" %}aria-current="page"{% endif %}>
+        <i data-lucide="zap"></i><span>{% t_either "Quiz" "الاختبار" %}</span>
+    </a>
+    <a href="{% url 'tutor' %}" class="onl-shell-nav__link"
+       {% if student_nav.active == "tutor" %}aria-current="page"{% endif %}>
+        <i data-lucide="bot"></i><span>{% t_either "AI Tutor" "المعلّم" %}</span>
+    </a>
+    <a href="{% url 'library' %}" class="onl-shell-nav__link"
+       {% if student_nav.active == "library" %}aria-current="page"{% endif %}>
+        <i data-lucide="book-open"></i><span>{% t_either "Library" "المكتبة" %}</span>
+    </a>
+</nav>
+{% endif %}

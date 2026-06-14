@@ -254,8 +254,7 @@
                     </div>
                 </div>
 
-                {# Sample audio: first lesson's intro script. Lets students hear American
-                   English before subscribing. preload="none" so it doesn't auto-fetch. #}
+                {# Sample audio: first lesson's intro script (preview before subscribing); preload=none. #}
                 {% with first_lesson=lesson_rows.0.lesson sample_audio=lesson_rows.0.lesson.audio_scripts.all|dictsort:"sort_order"|first %}
                 {% if sample_audio and sample_audio.generated_audio %}
                 <div class="card p-6 onlenco-sample-audio">

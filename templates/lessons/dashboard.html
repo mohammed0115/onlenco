@@ -5,8 +5,10 @@
 
 {% block body %}
 <style>
-  /* Dashboard-scoped styles — gradients + mobile bottom nav. Kept here (not
-     inline style attributes) so cards stay clean and consistent. */
+  /* Dashboard-scoped styles — gradients only. Mobile bottom nav + safe-area
+     come from the shared Student App Shell (base.html / student_shell.css).
+     Phase 20.0C reordered the cards for a mobile-first "what do I do now?" flow;
+     no content/link/logic changed. */
   .onl-hero-primary { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; border:0; }
   .onl-hero-warm    { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color:#fff; border:0; }
   .onl-hero-green   { background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%); color:#fff; border:0; }
@@ -14,19 +16,16 @@
   .onl-iconbox      { background: rgba(255,255,255,0.2); }
   .onl-bar          { height:.5rem; border-radius:9999px; background:var(--muted,#e5e7eb); overflow:hidden; }
   .onl-bar > span   { display:block; height:100%; border-radius:9999px; background:var(--primary,#4f46e5); transition:width .4s ease; }
-  /* Mobile bottom nav */
-  .onl-bottomnav { position:fixed; inset-inline:0; bottom:0; z-index:40; }
-  @media (min-width:768px){ .onl-bottomnav{ display:none; } }
-  .onl-navlink { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:.5rem 0; font-size:.7rem; min-height:56px; justify-content:center; }
-  .onl-navlink[aria-current="page"] { color:var(--primary,#4f46e5); font-weight:700; }
+  /* A clearer divider between the primary action flow and the secondary tools. */
+  .onl-secondary-start { border-top:1px solid hsl(var(--border)); padding-top:1.25rem; margin-top:.25rem; }
 </style>
 
-<div class="min-h-screen bg-muted/20 pb-24 md:pb-10">
+<div class="min-h-screen bg-muted/20 md:pb-10">
     {% include "_app_header.html" %}
 
     <main class="container py-5 md:py-8 space-y-5 md:space-y-6">
 
-        {# ---------- 1. Student header ---------- #}
+        {# ---------- 1. Greeting + status chips ---------- #}
         <section class="flex items-center justify-between gap-3">
             <div class="min-w-0">
                 <p class="text-muted-foreground text-sm">{% t "dash.welcome" %},</p>
@@ -82,7 +81,7 @@
         </div>
         {% endif %}
 
-        {# ---------- A0 world hero ---------- #}
+        {# ---------- A0 world hero (the A0 "continue" entry) ---------- #}
         {% if a0_dashboard_world %}
         <a href="{% url 'courses:course_detail' learning_plan.recommended_course.pk %}" class="card onl-hero-a0 p-6 block transition-smooth hover:shadow-elegant hover:-translate-y-1" data-testid="beginner-a0-dashboard">
             <div class="grid lg:grid-cols-[1fr_auto] gap-5 items-center">
@@ -103,7 +102,7 @@
         </a>
         {% endif %}
 
-        {# ---------- 2. Continue learning (primary action) ---------- #}
+        {# ---------- 2. Continue learning (PRIMARY action) ---------- #}
         {% if learning_plan.recommended_course %}
         <a href="{{ learning_plan.continue_url }}" class="card onl-hero-primary p-6 sm:p-7 block transition-smooth hover:shadow-elegant hover:-translate-y-1" data-testid="recommended-course-hero">
             <div class="flex items-start justify-between gap-4">
@@ -121,62 +120,7 @@
         </a>
         {% endif %}
 
-        {# ---------- 3. Today's tasks ---------- #}
-        <section aria-label="{% t_either 'Today’s tasks' 'مهام اليوم' %}">
-            <h2 class="font-display text-lg font-bold mb-3">{% t_either "Today’s tasks" "مهام اليوم" %}</h2>
-            {% if today_plan %}
-                {% include "daily_learning/_today_partial.html" %}
-            {% else %}
-                <a href="{% url 'daily_learning:daily_plan' %}" class="card onl-hero-warm p-6 block transition-smooth hover:shadow-elegant hover:-translate-y-1" data-testid="daily-plan-cta">
-                    <div class="flex items-start justify-between gap-4 flex-wrap">
-                        <div class="min-w-0">
-                            <span class="badge badge-popular mb-2">{% t_either "Today's plan" "خطة اليوم" %}</span>
-                            <div class="font-display text-xl sm:text-2xl font-bold mb-1">{% t_either "Start today's plan" "ابدأ خطة اليوم" %}</div>
-                            <div class="text-sm opacity-90">{% t_either "A short daily lesson made for you. About 10 minutes." "درس يومي قصير مُعدّ لك. حوالي 10 دقائق." %}</div>
-                        </div>
-                        <span class="h-12 w-12 rounded-xl onl-iconbox flex items-center justify-center shrink-0"><i data-lucide="play" class="h-6 w-6"></i></span>
-                    </div>
-                </a>
-            {% endif %}
-
-            {# Quick-practice chips — direct routes to each skill activity #}
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-                <a href="{% url 'exam_daily' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="zap" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Daily Quiz" "اختبار اليوم" %}</span></a>
-                <a href="{% url 'dictionary' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="book-a" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Vocabulary" "المفردات" %}</span></a>
-                <a href="{% url 'tutor' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="headphones" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Listening" "الاستماع" %}</span></a>
-                <a href="{% url 'tutor_voice_call_quick' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="mic" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Speaking" "المحادثة" %}</span></a>
-                <a href="{% url 'library' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="book-open" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Reading" "القراءة" %}</span></a>
-                <a href="{% url 'tutor' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="bot" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "AI Tutor" "المعلّم الذكي" %}</span></a>
-            </div>
-        </section>
-
-        {# ---------- 4. AI Tutor card (minutes remaining) ---------- #}
-        <section class="card p-5">
-            <div class="flex items-center justify-between gap-4 flex-wrap">
-                <div class="flex items-start gap-3 min-w-0">
-                    <span class="h-11 w-11 rounded-xl gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="bot" class="h-5 w-5 text-primary-foreground"></i></span>
-                    <div class="min-w-0">
-                        <div class="font-display text-lg font-bold">{% t_either "AI Tutor" "المعلّم الذكي" %}</div>
-                        {% if ai_tutor_minutes_remaining is not None %}
-                            {% if ai_tutor_minutes_remaining > 0 %}
-                                <div class="text-sm text-muted-foreground">{% t_either "Minutes left today" "الدقائق المتبقية اليوم" %}: <strong class="text-foreground">{{ ai_tutor_minutes_remaining }}</strong></div>
-                            {% else %}
-                                <div class="text-sm text-muted-foreground">{% t_either "Today’s minutes are used. Come back tomorrow or upgrade." "انتهت دقائق اليوم. عُد غداً أو رقِّ باقتك." %}</div>
-                            {% endif %}
-                        {% else %}
-                            <div class="text-sm text-muted-foreground">{% t_either "Practice speaking with your AI tutor." "تدرّب على المحادثة مع معلّمك الذكي." %}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                {% if ai_tutor_minutes_remaining == 0 %}
-                    <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-outline shrink-0"><i data-lucide="arrow-up-circle" class="h-4 w-4"></i> {% t_either "Upgrade" "ترقية" %}</a>
-                {% else %}
-                    <a href="{% url 'tutor_voice_call_quick' %}" class="btn btn-hero shrink-0"><i data-lucide="phone-call" class="h-4 w-4"></i> {% t_either "Start Speaking" "ابدأ المحادثة" %}</a>
-                {% endif %}
-            </div>
-        </section>
-
-        {# ---------- 5. Daily Quiz + Weekly Test ---------- #}
+        {# ---------- 3. Daily Quiz + Weekly Test ---------- #}
         {% if profile.placement_completed %}
         <div class="grid sm:grid-cols-2 gap-4">
             <a href="{% url 'exam_daily' %}" class="card onl-hero-green p-5 transition-smooth hover:shadow-elegant hover:-translate-y-1 block">
@@ -210,7 +154,47 @@
         </div>
         {% endif %}
 
-        {# ---------- 6. Skill progress summary ---------- #}
+        {# ---------- 4. AI Tutor card (minutes remaining) ---------- #}
+        <section class="card p-5">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div class="flex items-start gap-3 min-w-0">
+                    <span class="h-11 w-11 rounded-xl gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="bot" class="h-5 w-5 text-primary-foreground"></i></span>
+                    <div class="min-w-0">
+                        <div class="font-display text-lg font-bold">{% t_either "AI Tutor" "المعلّم الذكي" %}</div>
+                        {% if ai_tutor_minutes_remaining is not None %}
+                            {% if ai_tutor_minutes_remaining > 0 %}
+                                <div class="text-sm text-muted-foreground">{% t_either "Minutes left today" "الدقائق المتبقية اليوم" %}: <strong class="text-foreground">{{ ai_tutor_minutes_remaining }}</strong></div>
+                            {% else %}
+                                <div class="text-sm text-muted-foreground">{% t_either "Today’s minutes are used. Come back tomorrow or upgrade." "انتهت دقائق اليوم. عُد غداً أو رقِّ باقتك." %}</div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-sm text-muted-foreground">{% t_either "Practice speaking with your AI tutor." "تدرّب على المحادثة مع معلّمك الذكي." %}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if ai_tutor_minutes_remaining == 0 %}
+                    <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-outline shrink-0"><i data-lucide="arrow-up-circle" class="h-4 w-4"></i> {% t_either "Upgrade" "ترقية" %}</a>
+                {% else %}
+                    <a href="{% url 'tutor_voice_call_quick' %}" class="btn btn-hero shrink-0"><i data-lucide="phone-call" class="h-4 w-4"></i> {% t_either "Start Speaking" "ابدأ المحادثة" %}</a>
+                {% endif %}
+            </div>
+        </section>
+
+        {# ---------- 5. Library / interactive novels ---------- #}
+        <a href="{% if library_last %}{% url 'library_book' library_last.book.pk %}{% else %}{% url 'library' %}{% endif %}" class="card p-5 block transition-smooth hover:shadow-elegant hover:-translate-y-1">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-start gap-3 min-w-0">
+                    <span class="h-11 w-11 rounded-xl gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="library" class="h-5 w-5 text-primary-foreground"></i></span>
+                    <div class="min-w-0">
+                        <div class="font-display text-lg font-bold truncate">{% if library_last %}{{ library_last.book.title }}{% else %}{% t "library.title" %}{% endif %}</div>
+                        <div class="text-sm text-muted-foreground truncate">{% if library_last %}{{ library_last.chapter.title }}{% else %}{% t "library.subtitle" %}{% endif %}</div>
+                    </div>
+                </div>
+                <span class="btn btn-outline btn-sm shrink-0">{% if library_last %}{% t_either "Continue Reading" "تابع القراءة" %}{% else %}{% t_either "Open" "افتح" %}{% endif %}</span>
+            </div>
+        </a>
+
+        {# ---------- 6. Progress summary (My English level) ---------- #}
         <section class="card p-5">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <h2 class="font-display text-lg font-bold">{% t_either "My English level" "مستواي بالإنجليزية" %}</h2>
@@ -246,19 +230,61 @@
             {% endif %}
         </section>
 
-        {# ---------- 7. Library / interactive novels ---------- #}
-        <a href="{% if library_last %}{% url 'library_book' library_last.book.pk %}{% else %}{% url 'library' %}{% endif %}" class="card p-5 block transition-smooth hover:shadow-elegant hover:-translate-y-1">
-            <div class="flex items-center justify-between gap-4">
-                <div class="flex items-start gap-3 min-w-0">
-                    <span class="h-11 w-11 rounded-xl gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="library" class="h-5 w-5 text-primary-foreground"></i></span>
-                    <div class="min-w-0">
-                        <div class="font-display text-lg font-bold truncate">{% if library_last %}{{ library_last.book.title }}{% else %}{% t "library.title" %}{% endif %}</div>
-                        <div class="text-sm text-muted-foreground truncate">{% if library_last %}{{ library_last.chapter.title }}{% else %}{% t "library.subtitle" %}{% endif %}</div>
+        {# ---------- 7. Courses (secondary course list) ---------- #}
+        {% if student_courses %}
+        <section>
+            <h2 class="font-display text-lg font-bold mb-3">{% t_either "Courses" "الكورسات" %}</h2>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for course in student_courses %}
+                <a href="{% url 'courses:course_detail' course.pk %}" class="card gradient-card p-5 transition-smooth block relative hover:shadow-elegant hover:-translate-y-1">
+                    <div class="flex items-start justify-between mb-3"><span class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center"><i data-lucide="layers" class="h-5 w-5 text-primary-foreground"></i></span><span class="badge badge-secondary text-xs">{{ course.level.code }}</span></div>
+                    <h3 class="font-display text-base font-bold mb-1">{{ course.title }}</h3>
+                    {% if course.description %}<p class="text-sm text-muted-foreground mb-3">{{ course.description|truncatewords:14 }}</p>{% endif %}
+                    <div class="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{{ course.published_lessons_count }} {% t_either "lessons" "دروس" %}</span>
+                        {% if course.student_enrollment %}<span>{{ course.student_enrollment.progress_percentage|floatformat:0 }}%</span>{% elif course.student_has_access %}<span>{% t_either "Ready" "جاهز" %}</span>{% else %}<span class="inline-flex items-center gap-1"><i data-lucide="lock" class="h-3 w-3"></i> {% t_either "Locked" "مقفل" %}</span>{% endif %}
                     </div>
-                </div>
-                <span class="btn btn-outline btn-sm shrink-0">{% if library_last %}{% t_either "Continue Reading" "تابع القراءة" %}{% else %}{% t_either "Open" "افتح" %}{% endif %}</span>
+                </a>
+                {% endfor %}
             </div>
-        </a>
+        </section>
+        {% endif %}
+
+        {% if not student_courses and profile.onboarding_completed %}
+        <div class="card p-8 text-center text-muted-foreground">{% t_either "No published courses are available for your level yet — check back soon!" "لا توجد كورسات منشورة لمستواك بعد — تابع لاحقاً!" %}</div>
+        {% endif %}
+
+        {# Secondary tools & motivation — below the primary action flow. #}
+        <div class="onl-secondary-start space-y-5 md:space-y-6">
+
+        {# ---------- Today's tasks (daily plan) ---------- #}
+        <section aria-label="{% t_either 'Today’s tasks' 'مهام اليوم' %}">
+            <h2 class="font-display text-lg font-bold mb-3">{% t_either "Today’s tasks" "مهام اليوم" %}</h2>
+            {% if today_plan %}
+                {% include "daily_learning/_today_partial.html" %}
+            {% else %}
+                <a href="{% url 'daily_learning:daily_plan' %}" class="card onl-hero-warm p-6 block transition-smooth hover:shadow-elegant hover:-translate-y-1" data-testid="daily-plan-cta">
+                    <div class="flex items-start justify-between gap-4 flex-wrap">
+                        <div class="min-w-0">
+                            <span class="badge badge-popular mb-2">{% t_either "Today's plan" "خطة اليوم" %}</span>
+                            <div class="font-display text-xl sm:text-2xl font-bold mb-1">{% t_either "Start today's plan" "ابدأ خطة اليوم" %}</div>
+                            <div class="text-sm opacity-90">{% t_either "A short daily lesson made for you. About 10 minutes." "درس يومي قصير مُعدّ لك. حوالي 10 دقائق." %}</div>
+                        </div>
+                        <span class="h-12 w-12 rounded-xl onl-iconbox flex items-center justify-center shrink-0"><i data-lucide="play" class="h-6 w-6"></i></span>
+                    </div>
+                </a>
+            {% endif %}
+
+            {# Quick-practice chips — direct routes to each skill activity #}
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+                <a href="{% url 'exam_daily' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="zap" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Daily Quiz" "اختبار اليوم" %}</span></a>
+                <a href="{% url 'dictionary' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="book-a" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Vocabulary" "المفردات" %}</span></a>
+                <a href="{% url 'tutor' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="headphones" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Listening" "الاستماع" %}</span></a>
+                <a href="{% url 'tutor_voice_call_quick' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="mic" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Speaking" "المحادثة" %}</span></a>
+                <a href="{% url 'library' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="book-open" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "Reading" "القراءة" %}</span></a>
+                <a href="{% url 'tutor' %}" class="card p-3 flex items-center gap-2 transition-smooth hover:shadow-elegant"><span class="h-9 w-9 rounded-lg gradient-sunset flex items-center justify-center shrink-0"><i data-lucide="bot" class="h-4 w-4 text-primary-foreground"></i></span><span class="text-sm font-medium truncate">{% t_either "AI Tutor" "المعلّم الذكي" %}</span></a>
+            </div>
+        </section>
 
         {# ---------- More tools (secondary) ---------- #}
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -352,41 +378,10 @@
         </section>
         {% endif %}
 
-        {# ---------- Courses ---------- #}
-        {% if student_courses %}
-        <section>
-            <h2 class="font-display text-lg font-bold mb-3">{% t_either "Courses" "الكورسات" %}</h2>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for course in student_courses %}
-                <a href="{% url 'courses:course_detail' course.pk %}" class="card gradient-card p-5 transition-smooth block relative hover:shadow-elegant hover:-translate-y-1">
-                    <div class="flex items-start justify-between mb-3"><span class="h-10 w-10 rounded-xl gradient-sunset flex items-center justify-center"><i data-lucide="layers" class="h-5 w-5 text-primary-foreground"></i></span><span class="badge badge-secondary text-xs">{{ course.level.code }}</span></div>
-                    <h3 class="font-display text-base font-bold mb-1">{{ course.title }}</h3>
-                    {% if course.description %}<p class="text-sm text-muted-foreground mb-3">{{ course.description|truncatewords:14 }}</p>{% endif %}
-                    <div class="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{{ course.published_lessons_count }} {% t_either "lessons" "دروس" %}</span>
-                        {% if course.student_enrollment %}<span>{{ course.student_enrollment.progress_percentage|floatformat:0 }}%</span>{% elif course.student_has_access %}<span>{% t_either "Ready" "جاهز" %}</span>{% else %}<span class="inline-flex items-center gap-1"><i data-lucide="lock" class="h-3 w-3"></i> {% t_either "Locked" "مقفل" %}</span>{% endif %}
-                    </div>
-                </a>
-                {% endfor %}
-            </div>
-        </section>
-        {% endif %}
-
-        {% if not student_courses and profile.onboarding_completed %}
-        <div class="card p-8 text-center text-muted-foreground">{% t_either "No published courses are available for your level yet — check back soon!" "لا توجد كورسات منشورة لمستواك بعد — تابع لاحقاً!" %}</div>
-        {% endif %}
+        </div>{# /onl-secondary-start #}
     </main>
 
-    {# ---------- 8. Mobile bottom navigation ---------- #}
-    <nav class="onl-bottomnav border-t border-border bg-background/95 backdrop-blur" aria-label="{% t_either 'Primary' 'التنقل الأساسي' %}">
-        <div class="flex items-stretch">
-            <a href="{% url 'dashboard' %}" class="onl-navlink" aria-current="page"><i data-lucide="home" class="h-5 w-5"></i><span>{% t_either "Home" "الرئيسية" %}</span></a>
-            <a href="{% if learning_plan.continue_url %}{{ learning_plan.continue_url }}{% else %}{% url 'dashboard' %}{% endif %}" class="onl-navlink"><i data-lucide="graduation-cap" class="h-5 w-5"></i><span>{% t_either "Course" "الكورس" %}</span></a>
-            <a href="{% url 'exam_daily' %}" class="onl-navlink"><i data-lucide="zap" class="h-5 w-5"></i><span>{% t_either "Quiz" "اختبار" %}</span></a>
-            <a href="{% url 'tutor' %}" class="onl-navlink"><i data-lucide="bot" class="h-5 w-5"></i><span>{% t_either "Tutor" "المعلّم" %}</span></a>
-            <a href="{% url 'profile' %}" class="onl-navlink"><i data-lucide="user" class="h-5 w-5"></i><span>{% t_either "Profile" "حسابي" %}</span></a>
-        </div>
-    </nav>
+    {# Mobile bottom navigation now provided by the shared Student App Shell (base.html). #}
 </div>
 
 <script>

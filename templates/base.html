@@ -2,7 +2,7 @@
 <html lang="{{ lang }}" dir="{{ dir }}">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   {% comment %}
     SEO head. `seo_title` / `seo_description` come from the
     site_context processor (sensible bilingual defaults) and are
@@ -109,6 +109,8 @@
   <link rel="stylesheet" href="{% static 'css/onlenco-tokens.css' %}?v=figma-20260521">
   <link rel="stylesheet" href="{% static 'css/onlenco-components.css' %}?v=figma-20260521">
   <link rel="stylesheet" href="{% static 'css/onlenco.css' %}?v=figma-20260521">
+  {# Student Mobile App Shell (Phase 20.0B) — bottom nav + safe-area (mobile only). #}
+  <link rel="stylesheet" href="{% static 'css/student_shell.css' %}?v=shell-20260614">
 
   {# Lucide icons #}
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -153,7 +155,7 @@
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ google_analytics_id }}');</script>
   {% endif %}
 </head>
-<body>
+<body class="{% if user.is_authenticated %}student-shell{% endif %}">
 
 {% comment %}
   Skip to main content — keyboard-only and screen-reader users tab
@@ -185,6 +187,9 @@
 <div id="main-content" tabindex="-1">
 {% block body %}{% endblock %}
 </div>
+
+{% comment %}Student Mobile App Shell — persistent bottom nav (mobile only).{% endcomment %}
+{% include "_student_bottom_nav.html" %}
 
 {% include "_gamification_toast.html" %}
 
