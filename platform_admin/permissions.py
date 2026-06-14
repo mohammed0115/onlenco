@@ -45,6 +45,8 @@ CAP_PLANS_VIEW = "plans.view"
 CAP_PLANS_MANAGE = "plans.manage"
 CAP_AUDIT_VIEW = "audit.view"
 CAP_EXPORT = "data.export"
+CAP_LIBRARY_VIEW = "library.view"
+CAP_LIBRARY_MANAGE = "library.manage"
 
 VIEW_CAPS = {
     CAP_DASHBOARD,
@@ -57,6 +59,7 @@ VIEW_CAPS = {
     CAP_SETTINGS_VIEW,
     CAP_PLANS_VIEW,
     CAP_AUDIT_VIEW,
+    CAP_LIBRARY_VIEW,
 }
 
 ROLE_CAPABILITIES = {
@@ -74,6 +77,8 @@ ROLE_CAPABILITIES = {
         CAP_ANALYTICS_VIEW,
         CAP_AUDIT_VIEW,
         CAP_EXPORT,
+        CAP_LIBRARY_VIEW,
+        CAP_LIBRARY_MANAGE,
     },
     GROUP_TEACHER: {
         CAP_DASHBOARD,
@@ -252,6 +257,7 @@ def nav_items_for(user) -> list[dict]:
         (CAP_STUDENTS_VIEW, "Student Approvals", "موافقات الطلاب", "user-check", "platform_admin:student_approvals"),
         (CAP_TEACHERS_VIEW, "Teachers", "المعلمون", "graduation-cap", "platform_admin:teachers"),
         (CAP_COURSES_VIEW, "Courses", "الكورسات", "book-open", "platform_admin:courses"),
+        (CAP_LIBRARY_VIEW, "Library Management", "إدارة المكتبة", "book", "platform_admin:library"),
         (CAP_PAYMENTS_VIEW, "Payments", "المدفوعات", "wallet", "platform_admin:payments"),
         (CAP_PLANS_VIEW, "Plans", "الخطط", "package", "platform_admin:plans"),
         (CAP_PLANS_VIEW, "Payment Methods", "حسابات الدفع", "credit-card", "platform_admin:payment_methods"),

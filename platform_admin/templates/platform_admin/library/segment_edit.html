@@ -1,0 +1,78 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}مراجعة المقطع{% else %}Segment review{% endif %}{% endblock %}
+{% block control_subtitle %}{{ book.title }} — {{ segment.chapter.title }}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <a class="btn-control" href="{% url 'platform_admin:library_book' book.pk %}"><i data-lucide="arrow-left" class="h-4 w-4"></i> {% if lang == "ar" %}الكتاب{% else %}Back to book{% endif %}</a>
+</div>
+
+{% if messages %}
+<div class="control-card" style="margin-bottom:12px">
+  {% for m in messages %}<div class="badge {% if m.tags == 'success' %}badge-green{% elif m.tags == 'error' %}badge-red{% elif m.tags == 'warning' %}badge-yellow{% else %}badge-blue{% endif %}" style="display:block;margin:2px 0">{{ m }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{# ===== Segment form ===== #}
+<div class="control-card" style="margin-bottom:16px">
+  <h3 style="margin-top:0">{% if lang == "ar" %}محتوى المقطع{% else %}Segment content{% endif %}</h3>
+  <form method="post" class="control-form">
+    {% csrf_token %}
+    {% for fld in form %}
+      <div class="control-field" style="margin-bottom:10px">
+        <label for="{{ fld.id_for_label }}"><strong>{{ fld.label }}</strong></label>
+        {{ fld }}
+        {% if fld.errors %}<div class="badge badge-red">{{ fld.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    {% if can_manage %}
+      <button class="btn-control btn-primary" type="submit"><i data-lucide="save" class="h-4 w-4"></i> {% if lang == "ar" %}حفظ المقطع{% else %}Save segment{% endif %}</button>
+    {% else %}<p class="muted">{% if lang == "ar" %}للعرض فقط.{% else %}View only.{% endif %}</p>{% endif %}
+  </form>
+</div>
+
+{# ===== Vocabulary review ===== #}
+<div class="control-card" style="margin-bottom:16px">
+  <h3 style="margin-top:0">{% if lang == "ar" %}المفردات{% else %}Vocabulary{% endif %} ({{ vocab|length }})</h3>
+  {% for v in vocab %}
+  <form method="post" action="{% url 'platform_admin:library_vocab_edit' v.pk %}" class="control-form" style="border-top:1px solid #e5e7eb;padding-top:10px;margin-top:10px">
+    {% csrf_token %}
+    <div style="font-weight:600" dir="ltr">{{ v.word }}{% if v.phrase %} — {{ v.phrase }}{% endif %}</div>
+    <div class="control-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+      <label>{% if lang == "ar" %}المعنى{% else %}Meaning (AR){% endif %}<input name="meaning_ar" value="{{ v.meaning_ar }}" dir="rtl"></label>
+      <label>{% if lang == "ar" %}المستوى{% else %}CEFR{% endif %}<input name="cefr_level" value="{{ v.cefr_level }}"></label>
+      <label style="grid-column:1/-1">{% if lang == "ar" %}الشرح{% else %}Explanation (AR){% endif %}<textarea name="explanation_ar" rows="2" dir="rtl">{{ v.explanation_ar }}</textarea></label>
+      <label style="grid-column:1/-1">{% if lang == "ar" %}مثال{% else %}Example{% endif %}<textarea name="example_sentence" rows="2" dir="ltr">{{ v.example_sentence }}</textarea></label>
+      <label><input type="checkbox" name="is_active" {% if v.is_active %}checked{% endif %}> {% if lang == "ar" %}فعّال{% else %}Active{% endif %}</label>
+    </div>
+    {% if can_manage %}<button class="btn-control btn-primary" type="submit" style="margin-top:6px"><i data-lucide="save" class="h-4 w-4"></i> {% if lang == "ar" %}حفظ{% else %}Save{% endif %}</button>{% endif %}
+  </form>
+  {% empty %}
+  <p class="muted">{% if lang == "ar" %}لا مفردات.{% else %}No vocabulary highlights.{% endif %}</p>
+  {% endfor %}
+</div>
+
+{# ===== Illustrations review ===== #}
+<div class="control-card">
+  <h3 style="margin-top:0">{% if lang == "ar" %}الصور{% else %}Illustrations{% endif %} ({{ illustrations|length }})</h3>
+  {% for il in illustrations %}
+  <form method="post" action="{% url 'platform_admin:library_illustration_edit' il.pk %}" class="control-form" style="border-top:1px solid #e5e7eb;padding-top:10px;margin-top:10px">
+    {% csrf_token %}
+    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div style="width:120px">
+        {% if il.image %}<img src="{{ il.image.url }}" alt="{{ il.alt_text }}" style="width:120px;border-radius:8px">{% else %}<div class="muted">{% if lang == "ar" %}لا صورة{% else %}No image{% endif %}</div>{% endif %}
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div>{% if il.is_student_visible %}<span class="badge badge-green">{% if lang == "ar" %}ظاهرة للطالب{% else %}Student-visible{% endif %}</span>{% else %}<span class="badge badge-yellow">{{ il.generation_status }}</span>{% endif %}</div>
+        <label style="display:block;margin-top:6px">{% if lang == "ar" %}نص بديل{% else %}Alt text{% endif %}<input name="alt_text" value="{{ il.alt_text }}"></label>
+        <label style="display:block;margin-top:6px">{% if lang == "ar" %}الترتيب{% else %}Order{% endif %}<input name="order" type="number" value="{{ il.order }}" style="width:90px"></label>
+        {% if can_manage %}<button class="btn-control btn-primary" type="submit" style="margin-top:6px"><i data-lucide="save" class="h-4 w-4"></i> {% if lang == "ar" %}حفظ{% else %}Save{% endif %}</button>{% endif %}
+      </div>
+    </div>
+  </form>
+  {% empty %}
+  <p class="muted">{% if lang == "ar" %}لا صور.{% else %}No illustrations.{% endif %}</p>
+  {% endfor %}
+</div>
+{% endblock %}

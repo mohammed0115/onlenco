@@ -1,0 +1,93 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}الكتب{% else %}Books{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}مراجعة حقوق النشر والحالة، ثم النشر أو الإخفاء.{% else %}Review copyright + status, then publish or hide.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <form method="get" class="filters">
+    <input name="q" value="{{ filters.q }}" placeholder="{% if lang == 'ar' %}عنوان / مصدر / مرحلة{% else %}title / source / stage{% endif %}">
+    <select name="copyright_status" aria-label="copyright">
+      <option value="">{% if lang == "ar" %}حقوق النشر{% else %}Copyright{% endif %}</option>
+      {% for value, label in copyright_choices %}
+        <option value="{{ value }}" {% if filters.copyright_status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="cleared" aria-label="cleared">
+      <option value="">{% if lang == "ar" %}الإجازة{% else %}Cleared{% endif %}</option>
+      <option value="1" {% if filters.cleared == "1" %}selected{% endif %}>{% if lang == "ar" %}مُجاز{% else %}Cleared{% endif %}</option>
+      <option value="0" {% if filters.cleared == "0" %}selected{% endif %}>{% if lang == "ar" %}غير مُجاز{% else %}Not cleared{% endif %}</option>
+    </select>
+    <select name="published" aria-label="published">
+      <option value="">{% if lang == "ar" %}النشر{% else %}Published{% endif %}</option>
+      <option value="1" {% if filters.published == "1" %}selected{% endif %}>{% if lang == "ar" %}منشور{% else %}Published{% endif %}</option>
+      <option value="0" {% if filters.published == "0" %}selected{% endif %}>{% if lang == "ar" %}مخفي{% else %}Hidden{% endif %}</option>
+    </select>
+    <select name="level" aria-label="level">
+      <option value="">{% if lang == "ar" %}المستوى{% else %}Level{% endif %}</option>
+      <option value="A0" {% if filters.level == "A0" %}selected{% endif %}>A0</option>
+      <option value="A1" {% if filters.level == "A1" %}selected{% endif %}>A1</option>
+      <option value="A2" {% if filters.level == "A2" %}selected{% endif %}>A2</option>
+      <option value="B1" {% if filters.level == "B1" %}selected{% endif %}>B1</option>
+      <option value="B2" {% if filters.level == "B2" %}selected{% endif %}>B2</option>
+      <option value="C1" {% if filters.level == "C1" %}selected{% endif %}>C1</option>
+      <option value="C2" {% if filters.level == "C2" %}selected{% endif %}>C2</option>
+    </select>
+    <select name="school" aria-label="school">
+      <option value="">{% if lang == "ar" %}منهج مدرسي{% else %}Curriculum{% endif %}</option>
+      <option value="1" {% if filters.school == "1" %}selected{% endif %}>{% if lang == "ar" %}منهج{% else %}School{% endif %}</option>
+      <option value="0" {% if filters.school == "0" %}selected{% endif %}>{% if lang == "ar" %}غير منهج{% else %}Not school{% endif %}</option>
+    </select>
+    <input name="country" value="{{ filters.country }}" placeholder="{% if lang == 'ar' %}الدولة{% else %}Country{% endif %}">
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="filter" class="h-4 w-4"></i> {% if lang == "ar" %}تصفية{% else %}Filter{% endif %}</button>
+  </form>
+</div>
+
+<div class="control-panel">
+  <div class="table-wrap">
+  <table class="control-table">
+    <thead>
+      <tr>
+        <th>{% if lang == "ar" %}العنوان{% else %}Title{% endif %}</th>
+        <th>{% if lang == "ar" %}المؤلف{% else %}Author{% endif %}</th>
+        <th>{% if lang == "ar" %}المستوى{% else %}CEFR{% endif %}</th>
+        <th>{% if lang == "ar" %}الحقوق{% else %}Copyright{% endif %}</th>
+        <th>{% if lang == "ar" %}الإجازة{% else %}Cleared{% endif %}</th>
+        <th>{% if lang == "ar" %}النشر{% else %}Published{% endif %}</th>
+        <th>{% if lang == "ar" %}منهج{% else %}School{% endif %}</th>
+        <th>{% if lang == "ar" %}فصول{% else %}Ch.{% endif %}</th>
+        <th>{% if lang == "ar" %}مقاطع{% else %}Seg.{% endif %}</th>
+        <th>{% if lang == "ar" %}منشورة{% else %}Pub.seg{% endif %}</th>
+        <th>{% if lang == "ar" %}إجراء{% else %}Action{% endif %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in rows %}
+      <tr>
+        <td>{{ b.title }}</td>
+        <td><span dir="ltr">{{ b.author|default:"—" }}</span></td>
+        <td>{{ b.target_cefr_level|default:b.level|default:"—" }}</td>
+        <td>{{ b.get_copyright_status_display }}</td>
+        <td>
+          {% if b.is_copyright_cleared %}<span class="badge badge-green">{% if lang == "ar" %}مُجاز{% else %}Cleared{% endif %}</span>
+          {% else %}<span class="badge badge-red">{% if lang == "ar" %}مراجعة حقوق{% else %}Needs review{% endif %}</span>{% endif %}
+        </td>
+        <td>
+          {% if b.is_published %}<span class="badge badge-blue">{% if lang == "ar" %}منشور{% else %}Published{% endif %}</span>
+          {% else %}<span class="badge badge-yellow">{% if lang == "ar" %}مخفي{% else %}Hidden{% endif %}</span>{% endif %}
+        </td>
+        <td>{% if b.is_school_curriculum %}<span class="badge">{{ b.school_country|default:"—" }}{% if b.school_stage %} · {{ b.school_stage }}{% endif %}</span>{% else %}—{% endif %}</td>
+        <td>{{ b.chapters_count }}</td>
+        <td>{{ b.segments_count }}</td>
+        <td>{{ b.pub_segments_count }}</td>
+        <td><a class="btn-control" href="{% url 'platform_admin:library_book' b.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> {% if lang == "ar" %}مراجعة{% else %}Review{% endif %}</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="11" class="muted">{% if lang == "ar" %}لا توجد كتب.{% else %}No books found.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% include "platform_admin/pagination.html" %}
+</div>
+{% endblock %}

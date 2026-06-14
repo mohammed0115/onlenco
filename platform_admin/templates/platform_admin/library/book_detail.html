@@ -1,0 +1,102 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{{ book.title }}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}مراجعة الكتاب وحقوق النشر والنشر للطلاب.{% else %}Book review, copyright, and publishing.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <a class="btn-control" href="{% url 'platform_admin:library_books' %}"><i data-lucide="arrow-left" class="h-4 w-4"></i> {% if lang == "ar" %}كل الكتب{% else %}All books{% endif %}</a>
+</div>
+
+{% if messages %}
+<div class="control-card" style="margin-bottom:12px">
+  {% for m in messages %}<div class="badge {% if m.tags == 'success' %}badge-green{% elif m.tags == 'error' %}badge-red{% elif m.tags == 'warning' %}badge-yellow{% else %}badge-blue{% endif %}" style="display:block;margin:2px 0">{{ m }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{# ===== Publishing gate ===== #}
+<div class="control-card" style="margin-bottom:16px">
+  <h3 style="margin-top:0">{% if lang == "ar" %}حالة النشر{% else %}Publishing{% endif %}
+    {% if book.is_published %}<span class="badge badge-blue">{% if lang == "ar" %}منشور{% else %}Published{% endif %}</span>
+    {% else %}<span class="badge badge-yellow">{% if lang == "ar" %}مخفي{% else %}Hidden{% endif %}</span>{% endif %}
+  </h3>
+  {% if publish_check.allowed %}
+    <p><span class="badge badge-green">{% if lang == "ar" %}جاهز للنشر{% else %}Ready to publish{% endif %}</span></p>
+  {% else %}
+    <p><span class="badge badge-red">{% if lang == "ar" %}غير جاهز للنشر{% else %}Not ready to publish{% endif %}</span></p>
+    <ul class="muted">{% for r in publish_check.reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if can_manage %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+    {% if not book.is_published %}
+      <form method="post" action="{% url 'platform_admin:library_book_action' book.pk 'publish' %}">{% csrf_token %}
+        <button class="btn-control btn-primary" type="submit" {% if not publish_check.allowed %}disabled{% endif %}><i data-lucide="upload" class="h-4 w-4"></i> {% if lang == "ar" %}نشر للطلاب{% else %}Publish{% endif %}</button>
+      </form>
+    {% else %}
+      <form method="post" action="{% url 'platform_admin:library_book_action' book.pk 'unpublish' %}">{% csrf_token %}
+        <button class="btn-control" type="submit"><i data-lucide="eye-off" class="h-4 w-4"></i> {% if lang == "ar" %}إخفاء عن الطلاب{% else %}Unpublish{% endif %}</button>
+      </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{# ===== Review / edit form ===== #}
+<div class="control-card" style="margin-bottom:16px">
+  <h3 style="margin-top:0">{% if lang == "ar" %}بيانات الكتاب وحقوق النشر{% else %}Book metadata & copyright{% endif %}</h3>
+  <form method="post" class="control-form">
+    {% csrf_token %}
+    {% for fld in form %}
+      <div class="control-field" style="margin-bottom:10px">
+        <label for="{{ fld.id_for_label }}"><strong>{{ fld.label }}</strong></label>
+        {{ fld }}
+        {% if fld.errors %}<div class="badge badge-red">{{ fld.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    {% if can_manage %}
+      <button class="btn-control btn-primary" type="submit"><i data-lucide="save" class="h-4 w-4"></i> {% if lang == "ar" %}حفظ{% else %}Save{% endif %}</button>
+    {% else %}
+      <p class="muted">{% if lang == "ar" %}للعرض فقط.{% else %}View only.{% endif %}</p>
+    {% endif %}
+  </form>
+</div>
+
+{# ===== Chapters + segments ===== #}
+<div class="control-card">
+  <h3 style="margin-top:0">{% if lang == "ar" %}الفصول والمقاطع{% else %}Chapters & segments{% endif %}</h3>
+  {% for chapter in chapters %}
+  <div style="margin-bottom:14px">
+    <div style="font-weight:600">{{ chapter.title }}
+      <span class="muted">· {{ chapter.pub_segments_count }}/{{ chapter.segments_count }} {% if lang == "ar" %}منشورة{% else %}published{% endif %}</span>
+    </div>
+    <div class="table-wrap">
+    <table class="control-table">
+      <thead><tr>
+        <th>#</th><th>{% if lang == "ar" %}عنوان/مقتطف{% else %}Title / preview{% endif %}</th>
+        <th>{% if lang == "ar" %}نشر{% else %}Pub{% endif %}</th>
+        <th>{% if lang == "ar" %}مفردات{% else %}Vocab{% endif %}</th>
+        <th>{% if lang == "ar" %}صور{% else %}Img{% endif %}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        {% for seg in chapter.segments.all %}
+        <tr>
+          <td>{{ seg.order }}</td>
+          <td><span dir="ltr">{{ seg.title|default:seg.text_en|truncatechars:60 }}</span></td>
+          <td>{% if seg.is_published %}<span class="badge badge-blue">✓</span>{% else %}<span class="badge badge-yellow">—</span>{% endif %}</td>
+          <td>{{ seg.vocabulary_highlights.all|length }}</td>
+          <td>{{ seg.illustrations.all|length }}</td>
+          <td><a class="btn-control" href="{% url 'platform_admin:library_segment' seg.pk %}"><i data-lucide="pencil" class="h-4 w-4"></i> {% if lang == "ar" %}تعديل{% else %}Edit{% endif %}</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="muted">{% if lang == "ar" %}لا مقاطع.{% else %}No segments.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  {% empty %}
+  <p class="muted">{% if lang == "ar" %}لا توجد فصول.{% else %}No chapters yet.{% endif %}</p>
+  {% endfor %}
+</div>
+{% endblock %}

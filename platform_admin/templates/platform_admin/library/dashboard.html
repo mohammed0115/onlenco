@@ -1,0 +1,46 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}إدارة المكتبة{% else %}Library Management{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}راجع الكتب والفصول والمقاطع والمفردات والصور وحقوق النشر، وتحكّم في النشر.{% else %}Review books, chapters, segments, vocabulary, illustrations & copyright — and control publishing.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <a class="btn-control btn-primary" href="{% url 'platform_admin:library_books' %}">
+    <i data-lucide="book" class="h-4 w-4"></i>
+    {% if lang == "ar" %}إدارة الكتب{% else %}Manage books{% endif %}
+  </a>
+</div>
+
+<div class="control-card" style="margin-bottom:16px">
+  <div class="control-grid metrics-grid">
+    <div><div class="metric-value">{{ stats.total_books }}</div><div class="muted">{% if lang == "ar" %}إجمالي الكتب{% else %}Total books{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.published_books }}</div><div class="muted">{% if lang == "ar" %}منشورة{% else %}Published{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.draft_books }}</div><div class="muted">{% if lang == "ar" %}مسودّة / مخفية{% else %}Draft / hidden{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.needs_copyright }}</div><div class="muted">{% if lang == "ar" %}تحتاج مراجعة حقوق{% else %}Needs copyright review{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.copyright_cleared }}</div><div class="muted">{% if lang == "ar" %}حقوق مُجازة{% else %}Copyright cleared{% endif %}</div></div>
+  </div>
+</div>
+
+<div class="control-card" style="margin-bottom:16px">
+  <div class="control-grid metrics-grid">
+    <div><div class="metric-value">{{ stats.total_chapters }}</div><div class="muted">{% if lang == "ar" %}الفصول{% else %}Chapters{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.total_segments }}</div><div class="muted">{% if lang == "ar" %}المقاطع{% else %}Segments{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.published_segments }}</div><div class="muted">{% if lang == "ar" %}مقاطع منشورة{% else %}Published segments{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.total_vocab }}</div><div class="muted">{% if lang == "ar" %}مفردات{% else %}Vocabulary{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.active_vocab }}</div><div class="muted">{% if lang == "ar" %}مفردات فعّالة{% else %}Active vocabulary{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.illustrations_pending }}</div><div class="muted">{% if lang == "ar" %}صور قيد المراجعة{% else %}Illustrations pending{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.illustrations_approved }}</div><div class="muted">{% if lang == "ar" %}صور معتمدة{% else %}Illustrations approved{% endif %}</div></div>
+  </div>
+</div>
+
+<div class="control-card">
+  <h3 style="margin-top:0">{% if lang == "ar" %}دليل الحالات{% else %}Status badges{% endif %}</h3>
+  <p>
+    <span class="badge badge-red">{% if lang == "ar" %}تحتاج مراجعة حقوق{% else %}Needs copyright review{% endif %}</span>
+    <span class="badge badge-green">{% if lang == "ar" %}جاهزة للنشر{% else %}Ready to publish{% endif %}</span>
+    <span class="badge badge-blue">{% if lang == "ar" %}منشورة{% else %}Published{% endif %}</span>
+    <span class="badge badge-yellow">{% if lang == "ar" %}مسودّة{% else %}Draft{% endif %}</span>
+    <span class="badge">{% if lang == "ar" %}مخفية عن الطلاب{% else %}Hidden from students{% endif %}</span>
+  </p>
+</div>
+{% endblock %}

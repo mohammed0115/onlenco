@@ -3,6 +3,7 @@ from django.urls import path
 from . import views
 from . import views_student_approval as approvals
 from . import views_media_review as media_review
+from . import views_library as library
 
 
 app_name = "platform_admin"
@@ -28,6 +29,14 @@ urlpatterns = [
     path("teachers/create/", views.teacher_create, name="teacher_create"),
     path("teachers/<int:pk>/", views.teacher_detail, name="teacher_detail"),
     path("teachers/<int:pk>/<slug:action>/", views.teacher_action, name="teacher_action"),
+    # Library Management (Phase 19.0E) — Platform Admin, NOT Django admin.
+    path("library/", library.library_dashboard, name="library"),
+    path("library/books/", library.library_books, name="library_books"),
+    path("library/books/<int:pk>/", library.library_book_detail, name="library_book"),
+    path("library/books/<int:pk>/<slug:action>/", library.library_book_action, name="library_book_action"),
+    path("library/segments/<int:pk>/", library.library_segment_edit, name="library_segment"),
+    path("library/vocab/<int:pk>/edit/", library.library_vocab_edit, name="library_vocab_edit"),
+    path("library/illustrations/<int:pk>/edit/", library.library_illustration_edit, name="library_illustration_edit"),
     path("courses/", views.courses_list, name="courses"),
     path("courses/review/", views.courses_review, name="courses_review"),
     path("courses/<int:pk>/", views.course_detail, name="course_detail"),

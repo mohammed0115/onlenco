@@ -127,10 +127,15 @@ def can_access_course(user, course: Course) -> bool:
         return False
     # An admin-assigned (enrolled) course is always open to a subscribed
     # student, regardless of placement level — the assignment IS the grant.
-    if CourseEnrollment.objects.filter(user=user, course=course).exists():
+    # Guard on a real pk so non-persisted / stub course objects don't crash.
+    course_pk = getattr(course, "pk", None)
+    if course_pk is not None and CourseEnrollment.objects.filter(
+            user=user, course_id=course_pk).exists():
         return True
     current = current_level_for_user(user)
-    code = course.level.code if course.level_id else None
+    code = None
+    if getattr(course, "level_id", None):
+        code = getattr(getattr(course, "level", None), "code", None)
     if not current or code not in CEFR_ORDER:
         return True
     return CEFR_ORDER.index(code) <= CEFR_ORDER.index(current)
