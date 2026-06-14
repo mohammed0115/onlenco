@@ -101,6 +101,14 @@ class ListeningSpeakingHaveAudioTests(TestCase):
         self.assertIn("data-lr-start", body)
         self.assertIn("data-listen-repeat", body)
 
+    def test_dialogue_step_offers_per_line_audio_without_combined_mp3(self):
+        # With no approved combined recording, the dialogue speaks line-by-line
+        # (Listen button + tappable bubbles) instead of rendering silent.
+        body = self._body("dialogue")
+        self.assertIn("data-lr-start", body)
+        self.assertIn("data-listen-repeat", body)
+        self.assertIn("onlenco-dialogue__bubble", body)  # bubbles still render
+
 
 class VocabularyParserTests(TestCase):
     def test_splits_topics_by_semicolon_and_pulls_words(self):

@@ -87,6 +87,13 @@
                         <div class="onlenco-mega-player__bar"><div class="onlenco-mega-player__fill"></div></div>
                         <audio class="onlenco-mega-player__el" src="{{ script.generated_audio.url }}" preload="auto"></audio>
                     </div>
+                    {% elif dialogue_turns %}
+                    {# Dialogue with no combined recording → speak each line with #}
+                    {# the natural per-line TTS so the step is never silent. #}
+                    <button type="button" class="onlenco-lr-start" data-lr-start aria-label="{% t_either 'Listen to the dialogue' 'استمع للحوار' %}">
+                        <span class="onlenco-lr-start__icon"><i data-lucide="play"></i><i data-lucide="volume-2"></i></span>
+                        <span class="onlenco-lr-start__label">{% t_either "Listen to the dialogue" "استمع للحوار" %}</span>
+                    </button>
                     {% else %}
                     <div class="onlenco-stage__pending">
                         <i data-lucide="hourglass"></i>
@@ -114,18 +121,21 @@
 
                 {# Dialogue → chat bubbles per turn (parsed in the view) #}
                 {% if step_kind == "dialogue" and dialogue_turns %}
-                <div class="onlenco-dialogue">
+                <div class="onlenco-dialogue" data-listen-repeat
+                    data-pause="{{ examples_pause_seconds|default:1.5 }}"
+                    data-rate="{{ examples_audio_rate|default:0.8 }}"
+                    data-tts-url="{% url 'courses:lesson_tts_clip' %}">
                     {% for speaker, line in dialogue_turns %}
                         {% if speaker %}
                             <div class="onlenco-dialogue__turn" data-speaker-side="{% cycle 'a' 'b' %}">
                                 <div class="onlenco-dialogue__avatar">{{ speaker|slice:":1" }}</div>
                                 <div class="onlenco-dialogue__col">
                                     <div class="onlenco-dialogue__speaker">{{ speaker }}</div>
-                                    <div class="onlenco-dialogue__bubble">{{ line }}</div>
+                                    <div class="onlenco-dialogue__bubble" data-lr-item>{{ line }}</div>
                                 </div>
                             </div>
                         {% else %}
-                            <p class="onlenco-dialogue__narration">{{ line }}</p>
+                            <p class="onlenco-dialogue__narration" data-lr-item>{{ line }}</p>
                         {% endif %}
                     {% endfor %}
                 </div>
