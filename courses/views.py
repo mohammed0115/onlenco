@@ -182,9 +182,14 @@ def course_lesson_detail(request, course_pk, lesson_pk):
          "Focus on the sounds", "ركّز على الأصوات"),
         ("speaking",   "🗣", "Speaking", "محادثة",
          "Your turn to speak", "دورك للحديث"),
-        ("finish",     "🏁", "Finish", "إنهاء",
-         "Quiz + checklist", "كويز وقائمة"),
     ]
+    # Optional teacher/admin video — shown only when uploaded, just before finish.
+    if lesson.get_video_embed():
+        step_cards.append(
+            ("video", "🎥", "Video", "فيديو",
+             "Watch the lesson video", "شاهد فيديو الدرس"))
+    step_cards.append(
+        ("finish", "🏁", "Finish", "إنهاء", "Quiz + checklist", "كويز وقائمة"))
 
     # Surface the state of the user's most-recent challenge session so the
     # launcher can switch label between Start / Resume / Practice again.
@@ -224,6 +229,21 @@ LESSON_STEP_KINDS = (
     "intro", "vocabulary", "examples", "dialogue", "listening", "speaking",
     "finish",
 )
+
+
+def lesson_step_kinds(lesson) -> tuple[str, ...]:
+    """Per-lesson ordered step list. A ``video`` step is inserted right before
+    ``finish`` — but ONLY when the lesson has an uploaded video / URL (set by a
+    teacher or admin). Lessons without a video keep the standard 7 steps."""
+    base = ["intro", "vocabulary", "examples", "dialogue", "listening", "speaking"]
+    try:
+        has_video = bool(lesson.get_video_embed())
+    except Exception:
+        has_video = False
+    if has_video:
+        base.append("video")
+    base.append("finish")
+    return tuple(base)
 
 
 def _parse_vocabulary(text: str) -> list[dict]:
@@ -292,14 +312,16 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
     `LessonAudioScript.script_type`; the final `finish` step has no
     audio — it's the wrap-up (checklist + quiz + next-unit CTAs).
     """
-    if step_kind not in LESSON_STEP_KINDS:
-        raise Http404("Unknown step")
-
     course = get_object_or_404(published_course_queryset(), pk=course_pk)
     lesson = get_object_or_404(
         published_lesson_queryset().filter(course=course),
         pk=lesson_pk,
     )
+    # The valid steps depend on the lesson (a 'video' step exists only when the
+    # lesson has a video uploaded).
+    kinds = lesson_step_kinds(lesson)
+    if step_kind not in kinds:
+        raise Http404("Unknown step")
     if not can_access_lesson(request.user, lesson):
         return HttpResponseForbidden(_("An active subscription is required for this lesson."))
 
@@ -316,7 +338,9 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
     dialogue_turns: list[tuple[str, str]] = []
     example_lines: list[str] = []
     listen_repeat_groups: list[dict] = []
-    if step_kind != "finish":
+    # The video step renders the uploaded video, not an audio script.
+    video_embed = lesson.get_video_embed() if step_kind == "video" else None
+    if step_kind not in ("finish", "video"):
         script = lesson.audio_scripts.filter(script_type=step_kind).first()
         if script and script.script_text:
             text = script.script_text.strip()
@@ -346,10 +370,10 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
             elif step_kind in ("vocabulary", "intro", "listening", "speaking"):
                 listen_repeat_groups = _parse_vocabulary(text)
 
-    # Compute prev/next step kinds for the navigation pills.
-    idx = LESSON_STEP_KINDS.index(step_kind)
-    prev_kind = LESSON_STEP_KINDS[idx - 1] if idx > 0 else None
-    next_kind = LESSON_STEP_KINDS[idx + 1] if idx + 1 < len(LESSON_STEP_KINDS) else None
+    # Compute prev/next step kinds for the navigation pills (per-lesson list).
+    idx = kinds.index(step_kind)
+    prev_kind = kinds[idx - 1] if idx > 0 else None
+    next_kind = kinds[idx + 1] if idx + 1 < len(kinds) else None
 
     # Cover image (LessonImagePrompt of type "cover").
     cover_prompt = (
@@ -419,8 +443,9 @@ def lesson_step(request, course_pk, lesson_pk, step_kind):
         "examples_pause_seconds": getattr(_dj_settings, "EXAMPLES_PAUSE_SECONDS", 3),
         "step_kind": step_kind,
         "step_index": idx,
-        "step_total": len(LESSON_STEP_KINDS),
-        "step_kinds": LESSON_STEP_KINDS,
+        "step_total": len(kinds),
+        "step_kinds": kinds,
+        "video_embed": video_embed,
         "prev_kind": prev_kind,
         "next_kind": next_kind,
         "cover_prompt": cover_prompt,

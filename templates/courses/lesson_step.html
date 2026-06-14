@@ -50,6 +50,7 @@
                     {% elif step_kind == "dialogue" %}{% t_either "A short dialogue" "حوار قصير" %}
                     {% elif step_kind == "listening" %}{% t_either "Listen carefully" "استمع بانتباه" %}
                     {% elif step_kind == "speaking" %}{% t_either "Your turn to speak" "دورك للحديث" %}
+                    {% elif step_kind == "video" %}{% t_either "Watch the video" "شاهد الفيديو" %}
                     {% else %}{% t_either "You did it" "أحسنت" %} 🎉
                     {% endif %}
                 </h1>
@@ -61,12 +62,22 @@
                     {% elif step_kind == "dialogue" %}{% t_either "Two characters talk. Notice the words they use." "شخصان يتحدثان. لاحظ الكلمات التي يستخدمانها." %}
                     {% elif step_kind == "listening" %}{% t_either "Focus on the sounds. You'll be tested in the quiz." "ركّز على الأصوات. ستُختبر في الكويز." %}
                     {% elif step_kind == "speaking" %}{% t_either "Now produce the language yourself — out loud." "الآن أنتج اللغة بنفسك — بصوت." %}
+                    {% elif step_kind == "video" %}{% t_either "Watch the lesson video to deepen your understanding." "شاهد فيديو الدرس لتعميق فهمك." %}
                     {% else %}{% t_either "Take the quiz to lock in your progress." "خذ الكويز لتثبيت تقدمك." %}
                     {% endif %}
                 </p>
 
+                {# Video step — play the teacher/admin-uploaded video. #}
+                {% if step_kind == "video" %}
+                    {% if video_embed.embed_url %}
+                    <div class="onlenco-video"><iframe src="{{ video_embed.embed_url }}" title="{% t_either 'Lesson video' 'فيديو الدرس' %}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+                    {% elif video_embed.url %}
+                    <video class="onlenco-video__el" controls preload="metadata" src="{{ video_embed.url }}"></video>
+                    {% else %}
+                    <div class="onlenco-stage__pending"><i data-lucide="hourglass"></i><p>{% t_either "Video is being prepared." "الفيديو قيد التحضير." %}</p></div>
+                    {% endif %}
                 {# Audio control — only for non-finish steps #}
-                {% if step_kind != "finish" %}
+                {% elif step_kind != "finish" %}
                     {# Natural per-item "listen and repeat" takes precedence over any #}
                     {# pre-rendered combined MP3: each word/example is spoken as its own #}
                     {# fresh natural clip (slowed, with a gap). The combined recording is #}
@@ -547,6 +558,10 @@
 }
 .onlenco-stage__pending i { width: 22px; height: 22px; }
 .onlenco-stage__pending p { margin: 0; }
+/* Video step — responsive 16:9 player. */
+.onlenco-video { position: relative; width: 100%; max-width: 760px; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.onlenco-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.onlenco-video__el { width: 100%; max-width: 760px; border-radius: 14px; background: #000; box-shadow: 0 8px 24px rgba(0,0,0,.18); display: block; }
 
 /* "Listen & repeat" start button — gesture trigger for per-item audio. */
 .onlenco-lr-start {
