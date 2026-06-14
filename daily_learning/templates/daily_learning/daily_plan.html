@@ -25,17 +25,30 @@
             {% endif %}
         </div>
 
-        {% if todays_lesson_has_quiz %}
-        <a href="{% url 'courses:challenge_start' todays_lesson.course_id todays_lesson.pk %}"
-           class="dl-today-challenge" data-testid="daily-sequential-challenge">
-            <span class="dl-today-challenge__icon"><i data-lucide="zap"></i></span>
-            <span class="dl-today-challenge__body">
-                <span class="dl-today-challenge__kicker">{% t_either "Today's challenge" "تحدّي اليوم" %}</span>
-                <span class="dl-today-challenge__title">{% if lang == "ar" and todays_lesson.title_ar %}{{ todays_lesson.title_ar }}{% else %}{{ todays_lesson.title }}{% endif %}</span>
-                <span class="dl-today-challenge__sub">{% t_either "Practice this lesson's questions — score 70% to move on." "تدرّب على أسئلة هذا الدرس — احصل على 70% للانتقال." %}</span>
-            </span>
-            <i data-lucide="arrow-left" class="dl-today-challenge__arrow rtl-flip"></i>
-        </a>
+        {% if todays_lesson %}
+        <section class="dl-today" data-testid="daily-today-actions">
+            <h2 class="dl-today__heading">{% t_either "Today's lesson" "درس اليوم" %} · {% if lang == "ar" and todays_lesson.title_ar %}{{ todays_lesson.title_ar }}{% else %}{{ todays_lesson.title }}{% endif %}</h2>
+            <div class="dl-today__grid">
+                {# Button 1 — vocabulary (learn first) #}
+                <a href="{% url 'courses:lesson_step' todays_lesson.course_id todays_lesson.pk 'vocabulary' %}"
+                   class="dl-action dl-action--vocab" data-testid="daily-vocab-btn">
+                    <span class="dl-action__icon"><i data-lucide="book-open-text"></i></span>
+                    <span class="dl-action__title">{% t_either "Vocabulary" "المفردات" %}</span>
+                    <span class="dl-action__sub">{% t_either "Learn today's words" "تعلّم كلمات اليوم" %}</span>
+                    <span class="dl-action__cta">{% t_either "Start" "ابدأ" %} <i data-lucide="arrow-left" class="rtl-flip"></i></span>
+                </a>
+                {# Button 2 — lesson test / challenge #}
+                {% if todays_lesson_has_quiz %}
+                <a href="{% url 'courses:challenge_start' todays_lesson.course_id todays_lesson.pk %}"
+                   class="dl-action dl-action--quiz" data-testid="daily-sequential-challenge">
+                    <span class="dl-action__icon"><i data-lucide="zap"></i></span>
+                    <span class="dl-action__title">{% t_either "Lesson test" "اختبار الدرس" %}</span>
+                    <span class="dl-action__sub">{% t_either "Score 70% to move on" "احصل على 70% للانتقال" %}</span>
+                    <span class="dl-action__cta">{% t_either "Start" "ابدأ" %} <i data-lucide="arrow-left" class="rtl-flip"></i></span>
+                </a>
+                {% endif %}
+            </div>
+        </section>
         {% endif %}
 
         {% if plan %}
@@ -516,23 +529,32 @@
 </script>
 
 <style>
-.dl-today-challenge {
-  display: flex; align-items: center; gap: 14px;
-  background: linear-gradient(135deg, #16A34A, #15803D);
-  color: #fff; border-radius: 16px; padding: 16px 18px;
-  text-decoration: none; box-shadow: 0 8px 24px rgba(21,128,61,.25);
+.dl-today { margin-bottom: 8px; }
+.dl-today__heading { font-size: 1rem; font-weight: 800; color: #111827; margin: 0 0 12px; }
+.dl-today__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .dl-today__grid { grid-template-columns: 1fr; } }
+.dl-action {
+  display: flex; flex-direction: column; gap: 4px;
+  border-radius: 16px; padding: 18px; text-decoration: none; color: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
   transition: transform .15s ease, box-shadow .15s ease;
+  min-height: 132px;
 }
-.dl-today-challenge:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(21,128,61,.32); }
-.dl-today-challenge__icon {
-  width: 46px; height: 46px; border-radius: 12px; flex: none;
-  background: rgba(255,255,255,.18); display: grid; place-items: center;
+.dl-action:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,.18); }
+.dl-action--vocab { background: linear-gradient(135deg, #2563EB, #1D4ED8); }
+.dl-action--quiz  { background: linear-gradient(135deg, #16A34A, #15803D); }
+.dl-action__icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(255,255,255,.20); display: grid; place-items: center; margin-bottom: 6px;
 }
-.dl-today-challenge__icon i { width: 24px; height: 24px; }
-.dl-today-challenge__body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.dl-today-challenge__kicker { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; opacity: .9; }
-.dl-today-challenge__title { font-size: 1.1rem; font-weight: 800; line-height: 1.3; }
-.dl-today-challenge__sub { font-size: .82rem; opacity: .92; }
-.dl-today-challenge__arrow { width: 22px; height: 22px; flex: none; opacity: .9; }
+.dl-action__icon i { width: 24px; height: 24px; }
+.dl-action__title { font-size: 1.15rem; font-weight: 800; line-height: 1.2; }
+.dl-action__sub { font-size: .82rem; opacity: .92; flex: 1; }
+.dl-action__cta {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  background: rgba(255,255,255,.22); border-radius: 999px;
+  padding: 7px 16px; font-weight: 800; font-size: .9rem; margin-top: 6px;
+}
+.dl-action__cta i { width: 16px; height: 16px; }
 </style>
 {% endblock %}
