@@ -25,6 +25,19 @@
             {% endif %}
         </div>
 
+        {% if todays_lesson_has_quiz %}
+        <a href="{% url 'courses:challenge_start' todays_lesson.course_id todays_lesson.pk %}"
+           class="dl-today-challenge" data-testid="daily-sequential-challenge">
+            <span class="dl-today-challenge__icon"><i data-lucide="zap"></i></span>
+            <span class="dl-today-challenge__body">
+                <span class="dl-today-challenge__kicker">{% t_either "Today's challenge" "تحدّي اليوم" %}</span>
+                <span class="dl-today-challenge__title">{% if lang == "ar" and todays_lesson.title_ar %}{{ todays_lesson.title_ar }}{% else %}{{ todays_lesson.title }}{% endif %}</span>
+                <span class="dl-today-challenge__sub">{% t_either "Practice this lesson's questions — score 70% to move on." "تدرّب على أسئلة هذا الدرس — احصل على 70% للانتقال." %}</span>
+            </span>
+            <i data-lucide="arrow-left" class="dl-today-challenge__arrow rtl-flip"></i>
+        </a>
+        {% endif %}
+
         {% if plan %}
         {% if plan.cefr_level == "A0" %}
         <section class="card p-5 bg-gradient-soft" data-testid="a0-daily-journey">
@@ -501,4 +514,25 @@
   if (steps.length) showStep(0);
 })();
 </script>
+
+<style>
+.dl-today-challenge {
+  display: flex; align-items: center; gap: 14px;
+  background: linear-gradient(135deg, #16A34A, #15803D);
+  color: #fff; border-radius: 16px; padding: 16px 18px;
+  text-decoration: none; box-shadow: 0 8px 24px rgba(21,128,61,.25);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.dl-today-challenge:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(21,128,61,.32); }
+.dl-today-challenge__icon {
+  width: 46px; height: 46px; border-radius: 12px; flex: none;
+  background: rgba(255,255,255,.18); display: grid; place-items: center;
+}
+.dl-today-challenge__icon i { width: 24px; height: 24px; }
+.dl-today-challenge__body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.dl-today-challenge__kicker { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; opacity: .9; }
+.dl-today-challenge__title { font-size: 1.1rem; font-weight: 800; line-height: 1.3; }
+.dl-today-challenge__sub { font-size: .82rem; opacity: .92; }
+.dl-today-challenge__arrow { width: 22px; height: 22px; flex: none; opacity: .9; }
+</style>
 {% endblock %}

@@ -38,6 +38,15 @@ def daily_plan_view(request):
 
     goals = DailyGoal.objects.filter(user=request.user, date=on_date)
     streak = _safe_streak(request.user, on_date)
+    # Today's challenge = the next sequential lesson in the student's
+    # level-matched course (day 1 → lesson 1, day 2 → lesson 2 …), run through
+    # the Duolingo-style Challenge engine.
+    todays_lesson = None
+    try:
+        from courses.services.student_flow import next_sequential_lesson_for_user
+        todays_lesson = next_sequential_lesson_for_user(request.user)
+    except Exception:
+        logger.exception("next_sequential_lesson_for_user failed")
     context = {
         "plan": plan,
         "items": list(plan.items.all()) if plan else [],
@@ -45,6 +54,8 @@ def daily_plan_view(request):
         "streak": streak,
         "motivation_message": (plan.metadata.get("motivation_message") if plan else ""),
         "progress_percent": plan.progress_percent if plan else 0,
+        "todays_lesson": todays_lesson,
+        "todays_lesson_has_quiz": bool(todays_lesson and getattr(todays_lesson, "quiz", None)),
     }
     return render(request, "daily_learning/daily_plan.html", context)
 

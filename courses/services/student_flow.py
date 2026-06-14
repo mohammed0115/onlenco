@@ -126,6 +126,41 @@ def can_access_lesson(user, lesson: Lesson) -> bool:
     return can_access_course(user, course) if course is not None else False
 
 
+def next_sequential_lesson_for_user(user):
+    """The student's next lesson to practice for the daily challenge.
+
+    Picks the course matching the student's CEFR level (A0 → onlenco-beginner,
+    A1 → elementary, …), then the first lesson they have NOT completed yet,
+    ordered by lesson order — so day 1 lands on lesson 1, day 2 on lesson 2,
+    and so on as each lesson is completed. Returns ``None`` when no course is
+    visible. Falls back to onlenco-beginner if the level has no match.
+    """
+    from courses.models import CourseLessonProgress
+
+    course = (
+        visible_course_queryset_for_user(user)
+        .order_by("level__order", "level__code")
+        .first()
+    )
+    if course is None:
+        course = published_course_queryset().filter(slug="onlenco-beginner").first()
+    if course is None:
+        return None
+
+    lessons = list(published_lesson_queryset().filter(course=course))
+    if not lessons:
+        return None
+    completed_ids = set(
+        CourseLessonProgress.objects
+        .filter(user=user, lesson__in=lessons, completed_at__isnull=False)
+        .values_list("lesson_id", flat=True)
+    )
+    for lesson in lessons:
+        if lesson.id not in completed_ids:
+            return lesson
+    return lessons[-1]   # everything done → let them replay the last one
+
+
 def ensure_course_enrollment(user, course: Course) -> CourseEnrollment:
     """Create the student's enrollment row once they enter an accessible course."""
     enrollment, _ = CourseEnrollment.objects.get_or_create(
