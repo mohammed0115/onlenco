@@ -247,5 +247,12 @@
 .onlenco-quick-link--practice i { color: #B45309; }
 .onlenco-quick-link strong { display: block; font-size: 1rem; font-weight: 800; }
 .onlenco-quick-link small { font-size: 0.85rem; color: hsl(var(--muted-foreground)); }
+
+/* Touch targets (Phase 20.0F — UI only): the breadcrumb "back" is a custom
+   class, so it isn't covered by the global .btn pointer:coarse rule. Give it a
+   comfortable 44px tap height on touch devices (desktop/mouse unaffected). */
+@media (pointer: coarse) {
+  .onlenco-back { min-height: 44px; }
+}
 </style>
 {% endblock %}
