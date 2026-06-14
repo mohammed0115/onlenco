@@ -67,7 +67,17 @@
 
                 {# Audio control — only for non-finish steps #}
                 {% if step_kind != "finish" %}
-                    {% if audio_ready %}
+                    {# Natural per-item "listen and repeat" takes precedence over any #}
+                    {# pre-rendered combined MP3: each word/example is spoken as its own #}
+                    {# fresh natural clip (slowed, with a gap). The combined recording is #}
+                    {# only used for steps WITHOUT per-item content (e.g. dialogue). A tap #}
+                    {# starts playback (browsers block autoplay). #}
+                    {% if example_lines or listen_repeat_groups %}
+                    <button type="button" class="onlenco-lr-start" data-lr-start aria-label="{% t_either 'Listen and repeat' 'استمع وكرّر' %}">
+                        <span class="onlenco-lr-start__icon"><i data-lucide="play"></i><i data-lucide="volume-2"></i></span>
+                        <span class="onlenco-lr-start__label">{% t_either "Listen and repeat" "استمع وكرّر" %}</span>
+                    </button>
+                    {% elif audio_ready %}
                     <div class="onlenco-mega-player" data-onlenco-autoplay="true">
                         <button class="onlenco-mega-player__play" type="button" aria-label="Play / pause">
                             <i data-lucide="play" class="onlenco-mega-player__icon-play"></i>
@@ -77,13 +87,6 @@
                         <div class="onlenco-mega-player__bar"><div class="onlenco-mega-player__fill"></div></div>
                         <audio class="onlenco-mega-player__el" src="{{ script.generated_audio.url }}" preload="auto"></audio>
                     </div>
-                    {% elif example_lines or listen_repeat_groups %}
-                    {# No pre-rendered recording yet → play each word/example as its own #}
-                    {# natural clip. A tap starts playback (browsers block autoplay). #}
-                    <button type="button" class="onlenco-lr-start" data-lr-start aria-label="{% t_either 'Listen and repeat' 'استمع وكرّر' %}">
-                        <span class="onlenco-lr-start__icon"><i data-lucide="play"></i><i data-lucide="volume-2"></i></span>
-                        <span class="onlenco-lr-start__label">{% t_either "Listen and repeat" "استمع وكرّر" %}</span>
-                    </button>
                     {% else %}
                     <div class="onlenco-stage__pending">
                         <i data-lucide="hourglass"></i>

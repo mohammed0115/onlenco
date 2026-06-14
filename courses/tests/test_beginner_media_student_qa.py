@@ -68,10 +68,14 @@ class BeginnerMediaStudentQaTests(TestCase):
     def test_approved_cover_and_audio_render_in_step(self):
         lesson = self._lesson(1)
         cover = self._approve_image(lesson, "cover")
-        audio = self._approve_audio(lesson, "intro")
         html = self.client.get(self._step_url(lesson, "intro")).content.decode()
         self.assertIn(cover.generated_image.url, html)   # approved cover visible
-        self.assertIn(audio.generated_audio.url, html)   # approved audio source present
+        # The combined recording plays on the dialogue step (it has no per-item
+        # listen-repeat content). Listen-repeat steps (intro/examples/vocabulary)
+        # deliberately use natural per-item clips, NOT the combined MP3.
+        audio = self._approve_audio(lesson, "dialogue")
+        dlg = self.client.get(self._step_url(lesson, "dialogue")).content.decode()
+        self.assertIn(audio.generated_audio.url, dlg)    # approved combined audio present
 
     def test_approved_illustration_renders_in_vocabulary_step(self):
         lesson = self._lesson(6)

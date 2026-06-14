@@ -73,19 +73,36 @@ class LessonStepAudioRenderingTests(TestCase):
         script.generation_status = status
         script.save()
 
+    def _dialogue_script(self):
+        s = self.lesson.audio_scripts.filter(script_type="dialogue").first()
+        self.assertIsNotNone(s, "seed should create a dialogue audio script")
+        return s
+
     def test_audio_placeholder_when_audio_not_generated(self):
         body = self._body("intro")
         self.assertNotIn('class="onlenco-mega-player"', body)      # no unapproved player leaks
         # intro is a listen-and-repeat step → tappable Listen button (per-item audio).
         self.assertTrue('data-lr-start' in body or 'onlenco-stage__pending' in body)
 
-    def test_audio_player_renders_when_approved_audio_file_exists(self):
-        s = self._intro_script()
+    def test_combined_player_renders_for_non_per_item_step_when_approved(self):
+        # Dialogue has no per-item listen-repeat content, so an approved combined
+        # recording is what plays there.
+        s = self._dialogue_script()
         self._attach_audio(s, "approved")
-        body = self._body("intro")
+        body = self._body("dialogue")
         self.assertIn('class="onlenco-mega-player"', body)
         self.assertIn(s.generated_audio.url, body)
         self.assertNotIn('class="onlenco-stage__pending"', body)
+
+    def test_listen_repeat_steps_prefer_natural_per_item_over_combined_mp3(self):
+        # Even with an approved combined MP3 attached, the examples/vocabulary/
+        # intro steps must use the natural per-item "listen and repeat" clips
+        # (slowed, fresh TTS) — never the older combined recording.
+        s = self._intro_script()
+        self._attach_audio(s, "approved")
+        body = self._body("intro")
+        self.assertIn('data-lr-start', body)                       # natural per-item wins
+        self.assertNotIn('class="onlenco-mega-player"', body)      # combined MP3 not used
 
     def test_audio_placeholder_when_audio_needs_review(self):
         self._attach_audio(self._intro_script(), "needs_review")
