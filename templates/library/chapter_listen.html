@@ -54,6 +54,9 @@
 <script>
 (function () {
   const chapterId = {{ chapter.pk }};
+  // Phase 19.0F: a pre-recorded chapter file (admin upload) takes precedence
+  // over TTS. It still opens a minutes-tracked session (start → finish).
+  const PRERECORDED = "{{ chapter_audio_src|escapejs }}";
   const playBtn = document.getElementById("playBtn");
   const stopBtn = document.getElementById("stopBtn");
   const player = document.getElementById("player");
@@ -112,7 +115,10 @@
     player.play().catch(() => {});
   }
 
-  player.addEventListener("ended", playNextChunk);
+  // Pre-recorded file ends the session; TTS advances to the next chunk.
+  player.addEventListener("ended", () => {
+    if (PRERECORDED) { finish(false); } else { playNextChunk(); }
+  });
 
   async function finish(killed) {
     const seconds = Math.max(0, Math.floor((Date.now() - (startTime || Date.now())) / 1000));
@@ -138,7 +144,13 @@
       stopBtn.disabled = true;
       return;
     }
-    playNextChunk();
+    if (PRERECORDED) {
+      // Play the admin-uploaded recording; minutes are deducted on finish.
+      player.src = PRERECORDED;
+      player.play().catch(() => {});
+    } else {
+      playNextChunk();
+    }
   });
 
   stopBtn.addEventListener("click", () => {

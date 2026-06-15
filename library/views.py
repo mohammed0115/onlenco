@@ -292,6 +292,10 @@ def chapter_listen(request, chapter_id):
         "prepared": prepared,
         "voice": voice,
         "remaining_seconds": remaining,
+        # Phase 19.0F: when an admin has uploaded a chapter recording, the
+        # player uses it instead of on-demand TTS — still through the same
+        # minutes-tracked session below (no minutes-logic change).
+        "chapter_audio_src": chapter.get_audio_src() if chapter.has_audio else "",
     })
 
 

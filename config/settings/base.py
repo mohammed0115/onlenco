@@ -306,6 +306,10 @@ EXAMPLES_AUDIO_PLAYBACK_RATE = float(env_get("EXAMPLES_AUDIO_PLAYBACK_RATE", "0.
 EXAMPLES_PAUSE_SECONDS = float(env_get("EXAMPLES_PAUSE_SECONDS", "1.5") or 1.5)
 EXAMPLES_TTS_VOICE = env_get("EXAMPLES_TTS_VOICE", env_get("AI_TTS_VOICE", "alloy"))
 
+# --- Library: admin-uploaded chapter audio (Phase 19.0F) ----------------
+# Max size (MB) for a chapter audio file uploaded from the Platform Admin.
+LIBRARY_CHAPTER_AUDIO_MAX_MB = int(env_get("LIBRARY_CHAPTER_AUDIO_MAX_MB", "100") or 100)
+
 # --- Realtime voice tutor (OpenAI Realtime API) ------------------------
 # Drives the live phone-call style tutoring page. Browser opens a
 # WebRTC peer to OpenAI Realtime; the server only ever sees the

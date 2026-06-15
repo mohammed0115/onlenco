@@ -66,8 +66,11 @@
   <h3 style="margin-top:0">{% if lang == "ar" %}الفصول والمقاطع{% else %}Chapters & segments{% endif %}</h3>
   {% for chapter in chapters %}
   <div style="margin-bottom:14px">
-    <div style="font-weight:600">{{ chapter.title }}
+    <div style="font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span>{{ chapter.title }}</span>
       <span class="muted">· {{ chapter.pub_segments_count }}/{{ chapter.segments_count }} {% if lang == "ar" %}منشورة{% else %}published{% endif %}</span>
+      {% if chapter.has_audio %}<span class="badge badge-green">{% if lang == "ar" %}صوت{% else %}Audio{% endif %}</span>{% else %}<span class="badge badge-red">{% if lang == "ar" %}بلا صوت{% else %}No audio{% endif %}</span>{% endif %}
+      <a class="btn-control" href="{% url 'platform_admin:library_chapter_audio' chapter.pk %}"><i data-lucide="music" class="h-4 w-4"></i> {% if lang == "ar" %}الصوت{% else %}Audio{% endif %}</a>
     </div>
     <div class="table-wrap">
     <table class="control-table">

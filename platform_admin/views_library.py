@@ -14,8 +14,9 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
 from library.forms import (
-    PlatformBookReviewForm, PlatformIllustrationReviewForm,
-    PlatformSegmentReviewForm, PlatformVocabularyReviewForm,
+    PlatformBookReviewForm, PlatformChapterAudioUploadForm,
+    PlatformIllustrationReviewForm, PlatformSegmentReviewForm,
+    PlatformVocabularyReviewForm,
 )
 from library.models import (
     Book, Chapter, NovelIllustration, NovelSegment, NovelVocabularyHighlight,
@@ -54,6 +55,11 @@ def library_dashboard(request):
         "illustrations_approved": NovelIllustration.objects.filter(
             generation_status="approved").count(),
     }
+    total_chapters = stats["total_chapters"]
+    missing_audio = Chapter.objects.filter(audio_url="").filter(
+        Q(audio_file="") | Q(audio_file__isnull=True)).count()
+    stats["chapters_with_audio"] = total_chapters - missing_audio
+    stats["chapters_missing_audio"] = missing_audio
     return _render(request, "platform_admin/library/dashboard.html",
                    {"stats": stats, "section": "library"})
 
@@ -216,3 +222,42 @@ def library_illustration_edit(request, pk):
     else:
         messages.error(request, "Could not update the illustration.")
     return redirect("platform_admin:library_segment", pk=illustration.segment_id)
+
+
+# ---------------------------------------------------------------------------
+# Chapter audio upload (Phase 19.0F) — admin uploads a per-chapter recording.
+# ---------------------------------------------------------------------------
+
+@control_permission_required(perms.CAP_LIBRARY_VIEW)
+def library_chapter_audio(request, pk):
+    chapter = get_object_or_404(Chapter.objects.select_related("book"), pk=pk)
+    if request.method == "POST":
+        if not _can_manage(request):
+            return HttpResponseForbidden("Forbidden")
+        form = PlatformChapterAudioUploadForm(request.POST, request.FILES, instance=chapter)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Chapter audio uploaded.")
+            return redirect("platform_admin:library_chapter_audio", pk=chapter.pk)
+        messages.error(request, "Upload failed — please check the file.")
+    else:
+        form = PlatformChapterAudioUploadForm(instance=chapter)
+    return _render(request, "platform_admin/library/chapter_audio.html", {
+        "chapter": chapter, "book": chapter.book, "form": form,
+        "can_manage": _can_manage(request), "section": "library",
+    })
+
+
+@require_POST
+@control_permission_required(perms.CAP_LIBRARY_VIEW)
+def library_chapter_audio_remove(request, pk):
+    chapter = get_object_or_404(Chapter, pk=pk)
+    if not _can_manage(request):
+        return HttpResponseForbidden("Forbidden")
+    if chapter.audio_file:
+        chapter.audio_file.delete(save=False)  # remove the stored file
+    chapter.audio_file = None
+    chapter.duration_seconds = 0
+    chapter.save(update_fields=["audio_file", "duration_seconds"])
+    messages.success(request, "Chapter audio removed.")
+    return redirect("platform_admin:library_chapter_audio", pk=chapter.pk)

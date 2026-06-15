@@ -1,0 +1,66 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}صوت الفصل{% else %}Chapter audio{% endif %}{% endblock %}
+{% block control_subtitle %}{{ book.title }} — {{ chapter.title }}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <a class="btn-control" href="{% url 'platform_admin:library_book' book.pk %}"><i data-lucide="arrow-left" class="h-4 w-4"></i> {% if lang == "ar" %}الكتاب{% else %}Back to book{% endif %}</a>
+</div>
+
+{% if messages %}
+<div class="control-card" style="margin-bottom:12px">
+  {% for m in messages %}<div class="badge {% if m.tags == 'success' %}badge-green{% elif m.tags == 'error' %}badge-red{% elif m.tags == 'warning' %}badge-yellow{% else %}badge-blue{% endif %}" style="display:block;margin:2px 0">{{ m }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<div class="control-card" style="margin-bottom:16px">
+  <span class="badge badge-yellow">⚠ {% if lang == "ar" %}هذا صوت على مستوى الفصل (chapter-level).{% else %}This is chapter-level audio.{% endif %}</span>
+  <span class="badge">{% if lang == "ar" %}طوابع المقاطع الزمنية غير مضمّنة بعد.{% else %}Segment-level timestamps are not included yet.{% endif %}</span>
+</div>
+
+{# Current audio status #}
+<div class="control-card" style="margin-bottom:16px">
+  <h3 style="margin-top:0">{% if lang == "ar" %}الحالة الحالية{% else %}Current status{% endif %}</h3>
+  {% if chapter.has_audio %}
+    <p><span class="badge badge-green">{% if lang == "ar" %}يوجد صوت{% else %}Audio attached{% endif %}</span></p>
+    {% if chapter.audio_file %}
+      <p class="muted"><span dir="ltr">{{ chapter.audio_file.name }}</span></p>
+      <audio controls preload="none" src="{{ chapter.audio_file.url }}" style="width:100%;max-width:420px"></audio>
+    {% elif chapter.audio_url %}
+      <p class="muted"><span dir="ltr">{{ chapter.audio_url }}</span></p>
+    {% endif %}
+    {% if chapter.duration_seconds %}<p class="muted">{% if lang == "ar" %}المدة{% else %}Duration{% endif %}: {{ chapter.duration_seconds }}s</p>{% endif %}
+    {% if can_manage and chapter.audio_file %}
+    <form method="post" action="{% url 'platform_admin:library_chapter_audio_remove' chapter.pk %}" style="margin-top:8px" onsubmit="return confirm('Remove this audio?');">
+      {% csrf_token %}
+      <button class="btn-control" type="submit"><i data-lucide="trash-2" class="h-4 w-4"></i> {% if lang == "ar" %}إزالة الصوت{% else %}Remove audio{% endif %}</button>
+    </form>
+    {% endif %}
+  {% else %}
+    <p><span class="badge badge-red">{% if lang == "ar" %}لا يوجد صوت{% else %}Missing audio{% endif %}</span></p>
+  {% endif %}
+</div>
+
+{# Upload / replace #}
+<div class="control-card">
+  <h3 style="margin-top:0">{% if chapter.audio_file %}{% if lang == "ar" %}استبدال الصوت{% else %}Replace audio{% endif %}{% else %}{% if lang == "ar" %}رفع صوت{% else %}Upload audio{% endif %}{% endif %}</h3>
+  {% if can_manage %}
+  <form method="post" enctype="multipart/form-data" class="control-form">
+    {% csrf_token %}
+    {% for fld in form %}
+      <div class="control-field" style="margin-bottom:10px">
+        <label for="{{ fld.id_for_label }}"><strong>{{ fld.label }}</strong></label>
+        {{ fld }}
+        {% if fld.help_text %}<div class="muted" style="font-size:12px">{{ fld.help_text }}</div>{% endif %}
+        {% if fld.errors %}<div class="badge badge-red">{{ fld.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    <p class="muted" style="font-size:12px">{% if lang == "ar" %}الصيغ المسموحة: mp3 / wav / m4a.{% else %}Allowed: mp3 / wav / m4a.{% endif %}</p>
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="upload" class="h-4 w-4"></i> {% if lang == "ar" %}رفع{% else %}Upload{% endif %}</button>
+  </form>
+  {% else %}
+  <p class="muted">{% if lang == "ar" %}للعرض فقط — تحتاج صلاحية إدارة المكتبة.{% else %}View only — needs Library manage permission.{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}
