@@ -166,12 +166,16 @@ class ChapterListenIntegrationTests(TestCase):
         self.client.force_login(self.user)
         self.listen_url = reverse("library_chapter_listen", args=[self.chapter.pk])
 
-    def test_listen_uses_uploaded_audio_when_present(self):
+    def test_listen_uses_secure_stream_not_raw_url(self):
+        # Phase 19.0G: the page wires the SECURE stream route and never the
+        # raw MEDIA_URL of the uploaded file.
         self.chapter.audio_file.save("rec.mp3", _mp3(), save=True)
         body = self.client.get(self.listen_url).content.decode()
-        self.assertIn(self.chapter.audio_file.url, body)  # PRERECORDED wired
+        stream_url = reverse("library_audio_stream", args=[self.chapter.pk])
+        self.assertIn(stream_url, body)                      # secure route wired
+        self.assertNotIn(self.chapter.audio_file.url, body)  # raw MEDIA_URL absent
 
     def test_listen_falls_back_when_no_audio(self):
         r = self.client.get(self.listen_url)
         self.assertEqual(r.status_code, 200)
-        self.assertIn('const PRERECORDED = "";', r.content.decode())  # empty → TTS fallback
+        self.assertIn('const STREAM_URL = "";', r.content.decode())  # empty → TTS fallback

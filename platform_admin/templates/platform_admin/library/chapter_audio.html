@@ -26,7 +26,8 @@
     <p><span class="badge badge-green">{% if lang == "ar" %}يوجد صوت{% else %}Audio attached{% endif %}</span></p>
     {% if chapter.audio_file %}
       <p class="muted"><span dir="ltr">{{ chapter.audio_file.name }}</span></p>
-      <audio controls preload="none" src="{{ chapter.audio_file.url }}" style="width:100%;max-width:420px"></audio>
+      {# Phase 19.0G: preview via staff-only secure route, not the raw MEDIA_URL. #}
+      <audio controls preload="none" src="{% url 'platform_admin:library_chapter_audio_preview' chapter.pk %}" style="width:100%;max-width:420px"></audio>
     {% elif chapter.audio_url %}
       <p class="muted"><span dir="ltr">{{ chapter.audio_url }}</span></p>
     {% endif %}

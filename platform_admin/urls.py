@@ -35,6 +35,7 @@ urlpatterns = [
     path("library/books/<int:pk>/", library.library_book_detail, name="library_book"),
     path("library/books/<int:pk>/<slug:action>/", library.library_book_action, name="library_book_action"),
     path("library/chapters/<int:pk>/audio/", library.library_chapter_audio, name="library_chapter_audio"),
+    path("library/chapters/<int:pk>/audio/preview/", library.library_chapter_audio_preview, name="library_chapter_audio_preview"),
     path("library/chapters/<int:pk>/audio/remove/", library.library_chapter_audio_remove, name="library_chapter_audio_remove"),
     path("library/segments/<int:pk>/", library.library_segment_edit, name="library_segment"),
     path("library/vocab/<int:pk>/edit/", library.library_vocab_edit, name="library_vocab_edit"),

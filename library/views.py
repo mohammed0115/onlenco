@@ -1,8 +1,9 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.models import CEFR_CHOICES
@@ -292,11 +293,65 @@ def chapter_listen(request, chapter_id):
         "prepared": prepared,
         "voice": voice,
         "remaining_seconds": remaining,
-        # Phase 19.0F: when an admin has uploaded a chapter recording, the
-        # player uses it instead of on-demand TTS — still through the same
-        # minutes-tracked session below (no minutes-logic change).
-        "chapter_audio_src": chapter.get_audio_src() if chapter.has_audio else "",
+        # Phase 19.0G: an admin-uploaded recording is played through the
+        # SECURE stream route (never the raw MEDIA_URL). The player only
+        # learns the session-scoped URL after start_session below, so the
+        # file is never reachable without an active, quota-checked session.
+        "prerecorded_stream_url": (
+            reverse("library_audio_stream", args=[chapter.pk]) if chapter.audio_file else ""
+        ),
+        # An external hosted URL (admin-set, not our MEDIA_URL) still plays
+        # directly; it is not the raw-MEDIA_URL risk this phase fixes.
+        "external_audio_url": (
+            (chapter.audio_url or "") if not chapter.audio_file else ""
+        ),
     })
+
+
+@login_required
+def chapter_audio_stream(request, chapter_id):
+    """Securely stream an admin-uploaded chapter recording (Phase 19.0G).
+
+    Replaces the raw ``MEDIA_URL`` link. Access requires: a subscribed
+    user, a published AND copyright-cleared book, the chapter to actually
+    own an ``audio_file``, and a live ``LibraryAudioSession`` that belongs
+    to this user and chapter — so playback can never bypass library
+    minutes by hitting the file URL directly.
+    """
+    if not request.user.profile.is_subscribed:
+        return HttpResponseForbidden("subscription_required")
+
+    chapter = get_object_or_404(
+        Chapter.objects.select_related("book"),
+        pk=chapter_id,
+        book__is_published=True,
+        book__is_copyright_cleared=True,
+    )
+    if not chapter.audio_file:
+        raise Http404("No chapter recording")
+
+    # The session id is short-lived and user-scoped: it only exists while a
+    # quota-checked listen session is open (created by chapter_audio_start).
+    from subscriptions.models import LibraryAudioSession
+    try:
+        session_pk = int(request.GET.get("s") or 0)
+    except (TypeError, ValueError):
+        session_pk = 0
+    session = (
+        LibraryAudioSession.objects.filter(
+            pk=session_pk,
+            user=request.user,
+            chapter_id=chapter.pk,
+            status="in_progress",
+        ).first()
+        if session_pk
+        else None
+    )
+    if session is None:
+        return HttpResponseForbidden("no_active_session")
+
+    from library.services.audio_delivery import audio_file_response
+    return audio_file_response(chapter.audio_file)
 
 
 @login_required

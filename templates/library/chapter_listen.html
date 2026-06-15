@@ -54,9 +54,13 @@
 <script>
 (function () {
   const chapterId = {{ chapter.pk }};
-  // Phase 19.0F: a pre-recorded chapter file (admin upload) takes precedence
-  // over TTS. It still opens a minutes-tracked session (start → finish).
-  const PRERECORDED = "{{ chapter_audio_src|escapejs }}";
+  // Phase 19.0G: a pre-recorded chapter file (admin upload) takes precedence
+  // over TTS. It is served from a SECURE, session-scoped stream route — the
+  // raw MEDIA_URL is never placed in the page. STREAM_URL only works once a
+  // minutes-tracked session is open (we append ?s=<session> after start).
+  const STREAM_URL = "{{ prerecorded_stream_url|escapejs }}";
+  const EXTERNAL_AUDIO = "{{ external_audio_url|escapejs }}";
+  const HAS_PRERECORDED = !!(STREAM_URL || EXTERNAL_AUDIO);
   const playBtn = document.getElementById("playBtn");
   const stopBtn = document.getElementById("stopBtn");
   const player = document.getElementById("player");
@@ -117,7 +121,7 @@
 
   // Pre-recorded file ends the session; TTS advances to the next chunk.
   player.addEventListener("ended", () => {
-    if (PRERECORDED) { finish(false); } else { playNextChunk(); }
+    if (HAS_PRERECORDED) { finish(false); } else { playNextChunk(); }
   });
 
   async function finish(killed) {
@@ -144,9 +148,14 @@
       stopBtn.disabled = true;
       return;
     }
-    if (PRERECORDED) {
-      // Play the admin-uploaded recording; minutes are deducted on finish.
-      player.src = PRERECORDED;
+    if (STREAM_URL) {
+      // Admin-uploaded recording, served via the secure session-scoped route;
+      // minutes are deducted on finish. The raw file URL is never exposed.
+      player.src = STREAM_URL + (STREAM_URL.indexOf("?") >= 0 ? "&" : "?") + "s=" + encodeURIComponent(sessionId);
+      player.play().catch(() => {});
+    } else if (EXTERNAL_AUDIO) {
+      // External hosted URL (admin-set, not our MEDIA_URL); minutes on finish.
+      player.src = EXTERNAL_AUDIO;
       player.play().catch(() => {});
     } else {
       playNextChunk();

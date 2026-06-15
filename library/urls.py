@@ -37,6 +37,11 @@ urlpatterns = [
         name="library_chapter_listen",
     ),
     path(
+        "chapters/<int:chapter_id>/audio/stream/",
+        views.chapter_audio_stream,
+        name="library_audio_stream",
+    ),
+    path(
         "chapters/<int:chapter_id>/audio/start/",
         views.chapter_audio_start,
         name="library_audio_start",

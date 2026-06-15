@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.db.models import Count, Q
-from django.http import HttpResponseForbidden
+from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
@@ -246,6 +246,21 @@ def library_chapter_audio(request, pk):
         "chapter": chapter, "book": chapter.book, "form": form,
         "can_manage": _can_manage(request), "section": "library",
     })
+
+
+@control_permission_required(perms.CAP_LIBRARY_VIEW)
+def library_chapter_audio_preview(request, pk):
+    """Staff-only preview of an uploaded recording (Phase 19.0G).
+
+    Streams the file through the secure delivery helper instead of exposing
+    the raw MEDIA_URL in the admin page. Gated by CAP_LIBRARY_VIEW only —
+    no student subscription / session is required for staff preview.
+    """
+    chapter = get_object_or_404(Chapter, pk=pk)
+    if not chapter.audio_file:
+        raise Http404("No chapter recording")
+    from library.services.audio_delivery import audio_file_response
+    return audio_file_response(chapter.audio_file)
 
 
 @require_POST
