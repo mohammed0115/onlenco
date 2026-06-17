@@ -56,4 +56,9 @@ urlpatterns = [
         views.chapter_audio_finish,
         name="library_audio_finish",
     ),
+    path(
+        "chapters/<int:chapter_id>/audio/progress/",
+        views.chapter_audio_progress,
+        name="library_audio_progress",
+    ),
 ]

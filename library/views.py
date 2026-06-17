@@ -269,6 +269,47 @@ def chapter_reader(request, chapter_id):
 # isn't billed at the chapter level.
 # ---------------------------------------------------------------------------
 
+def _chapter_reading_text(chapter) -> str:
+    """Text to read/listen for a chapter.
+
+    Chapters imported via the wizard/importer keep their prose in published
+    NovelSegments (``body`` is empty), so fall back to the joined segment
+    text when the chapter body is blank.
+    """
+    body = (chapter.body or "").strip()
+    if body:
+        return chapter.body
+    segs = chapter.segments.filter(is_published=True).order_by("order")
+    return "\n\n".join(s.text_en for s in segs if (s.text_en or "").strip())
+
+
+def _chapter_listen_parts(chapter) -> list:
+    """Ordered, TTS-ready text parts for the step-by-step listen player.
+
+    Prefers published NovelSegments — small parts mean the FIRST audio starts
+    much faster and the player steps in sync with the interactive reader.
+    Falls back to chunking the chapter body when there are no segments.
+    """
+    from subscriptions.services import library_audio_service
+    parts = []
+    segs = list(chapter.segments.filter(is_published=True).order_by("order"))
+    for s in segs:
+        raw = (s.text_en or "").strip()
+        if not raw:
+            continue
+        ready = (library_audio_service.prepare(raw, persist_log=False).get("tts_ready_text") or raw).strip()
+        if ready:
+            parts.append(ready)
+    if parts:
+        return parts
+    prepared = library_audio_service.prepare(chapter.body or "", persist_log=False)
+    chunks = prepared.get("chunks") or []
+    if chunks:
+        return chunks
+    ready = (prepared.get("tts_ready_text") or "").strip()
+    return [ready] if ready else []
+
+
 @login_required
 def chapter_listen(request, chapter_id):
     """Read-only landing page: shows the prepared text + Listen controls.
@@ -279,7 +320,7 @@ def chapter_listen(request, chapter_id):
     chapter = get_object_or_404(Chapter.objects.select_related("book"), pk=chapter_id)
     from subscriptions.services import library_audio_service, preference_service, quota_service
     prepared = library_audio_service.prepare(
-        chapter.body,
+        _chapter_reading_text(chapter),
         language="en",
         source="library_chapter",
         source_id=chapter.pk,
@@ -287,12 +328,19 @@ def chapter_listen(request, chapter_id):
     )
     voice = preference_service.resolve_voice_for(request.user)
     remaining = quota_service.get_remaining_library_seconds(request.user)
+    # Resume point: where the learner stopped listening last time.
+    progress, _ = LibraryProgress.objects.get_or_create(
+        user=request.user, chapter=chapter
+    )
     return render(request, "library/chapter_listen.html", {
         "chapter": chapter,
         "book": chapter.book,
         "prepared": prepared,
         "voice": voice,
         "remaining_seconds": remaining,
+        "parts": _chapter_listen_parts(chapter),
+        "resume_chunk": progress.last_audio_chunk,
+        "resume_offset": progress.last_audio_offset,
         # Phase 19.0G: an admin-uploaded recording is played through the
         # SECURE stream route (never the raw MEDIA_URL). The player only
         # learns the session-scoped URL after start_session below, so the
@@ -392,7 +440,7 @@ def chapter_audio_start(request, chapter_id):
         )
     # Prepare + persist the normalization log on first listen.
     prepared = library_audio_service.prepare(
-        chapter.body,
+        _chapter_reading_text(chapter),
         language="en",
         source="library_chapter",
         source_id=chapter.pk,
@@ -401,7 +449,8 @@ def chapter_audio_start(request, chapter_id):
     return JsonResponse({
         "success": True,
         "audio_session_id": session.pk,
-        "chunks": prepared["chunks"],
+        # Small, reader-aligned parts → faster first audio + step-by-step play.
+        "chunks": _chapter_listen_parts(chapter),
         "voice": voice_profile.provider_voice_id if voice_profile else "alloy",
         "estimated_seconds": prepared["estimated_seconds"],
     })
@@ -470,3 +519,36 @@ def chapter_audio_finish(request, chapter_id):
         "seconds_consumed": closed.consumed_seconds,
         "remaining_seconds": closed.remaining_after_seconds,
     })
+
+
+@login_required
+@require_POST
+def chapter_audio_progress(request, chapter_id):
+    """Persist the listening resume point (chunk index + offset).
+
+    Best-effort, idempotent, subscription-gated. Does NOT touch minutes —
+    it only records where to continue from next time.
+    """
+    if not request.user.profile.is_subscribed:
+        return JsonResponse({"ok": False, "error": "subscription_required"}, status=403)
+    chapter = get_object_or_404(Chapter, pk=chapter_id, book__is_published=True)
+    import json
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    chunk = max(0, int(payload.get("chunk") or 0))
+    offset = max(0, int(payload.get("offset") or 0))
+    done = bool(payload.get("done"))
+    progress, _ = LibraryProgress.objects.get_or_create(
+        user=request.user, chapter=chapter
+    )
+    # Finishing the whole chapter resets the resume point to the start.
+    if done:
+        progress.last_audio_chunk = 0
+        progress.last_audio_offset = 0
+    else:
+        progress.last_audio_chunk = chunk
+        progress.last_audio_offset = offset
+    progress.save(update_fields=["last_audio_chunk", "last_audio_offset", "updated_at"])
+    return JsonResponse({"ok": True})

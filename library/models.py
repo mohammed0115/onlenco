@@ -274,6 +274,11 @@ class LibraryProgress(models.Model):
     completed = models.BooleanField(default=False)
     comprehension_score = models.PositiveSmallIntegerField(null=True, blank=True)
     last_position = models.PositiveIntegerField(default=0)
+    # Listening resume point (Phase 19.0J): index of the chunk reached and the
+    # second-offset within it (or within the pre-recorded file). Lets the
+    # learner continue from where they stopped on the next day / device.
+    last_audio_chunk = models.PositiveIntegerField(default=0)
+    last_audio_offset = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

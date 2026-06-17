@@ -39,8 +39,22 @@
       </div>
     {% endif %}
 
+    {% if segments %}
+    <div id="readerStepper" data-total="{{ segments|length }}">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <span class="badge">{% t_either "Part" "مقطع" %} <span id="stepNum">1</span> / {{ segments|length }}</span>
+        <div class="flex items-center gap-2">
+          <button type="button" class="js-prev btn btn-ghost btn-sm" disabled><i data-lucide="chevron-right" class="h-4 w-4 rtl-flip"></i> {% t_either "Previous" "السابق" %}</button>
+          <button type="button" class="js-next btn btn-hero btn-sm">{% t_either "Next" "التالي" %} <i data-lucide="chevron-left" class="h-4 w-4 rtl-flip"></i></button>
+        </div>
+      </div>
+      <div class="w-full h-2 rounded-full bg-muted mb-5 overflow-hidden">
+        <div id="stepBar" class="h-2 rounded-full bg-primary" style="width:0%;transition:width .25s"></div>
+      </div>
+    {% endif %}
+
     {% for segment in segments %}
-      <article class="card p-5 sm:p-6 mb-5" data-testid="reader-segment">
+      <article class="card p-5 sm:p-6 mb-5 reader-step" data-step="{{ forloop.counter0 }}" {% if not forloop.first %}hidden{% endif %} data-testid="reader-segment">
         <div class="flex items-center gap-2 mb-3">
           <span class="badge">{% t_either "Part" "مقطع" %} {{ segment.order }}</span>
           {% if segment.title %}<h2 class="font-semibold text-lg">{{ segment.title }}</h2>{% endif %}
@@ -50,7 +64,7 @@
           <img src="{{ segment.visible_illustration.image.url }}" alt="{{ segment.visible_illustration.alt_text }}" class="w-full rounded-lg mb-4 object-cover" loading="lazy">
         {% endif %}
 
-        <div class="prose max-w-none leading-relaxed text-base" data-testid="segment-text-en">{{ segment.text_en|linebreaks }}</div>
+        <div class="prose max-w-none leading-relaxed text-base" dir="ltr" style="text-align:left" data-testid="segment-text-en">{{ segment.text_en|linebreaks }}</div>
 
         {% if segment.text_ar %}
           <details class="mt-4 rounded-lg border border-border/60 bg-muted/30" data-testid="segment-translation">
@@ -86,6 +100,71 @@
       </article>
     {% endfor %}
 
+    {% if segments %}
+      <div class="flex items-center justify-between gap-3 mt-2">
+        <button type="button" class="js-prev btn btn-ghost" disabled><i data-lucide="chevron-right" class="h-4 w-4 rtl-flip"></i> {% t_either "Previous" "السابق" %}</button>
+        <a href="{% url 'library_chapter_listen' chapter.pk %}" class="btn btn-ghost btn-sm"><i data-lucide="volume-2" class="h-4 w-4"></i> {% t_either "Listen" "استمع" %}</a>
+        <button type="button" class="js-next btn btn-hero">{% t_either "Next" "التالي" %} <i data-lucide="chevron-left" class="h-4 w-4 rtl-flip"></i></button>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </main>
+
+{% if segments %}
+<script>
+(function () {
+  const IS_AR = "{{ lang }}" === "ar";
+  const wrap = document.getElementById("readerStepper");
+  if (!wrap) return;
+  const steps = Array.from(document.querySelectorAll(".reader-step"));
+  const total = steps.length;
+  const stepNum = document.getElementById("stepNum");
+  const stepBar = document.getElementById("stepBar");
+  const prevBtns = Array.from(document.querySelectorAll(".js-prev"));
+  const nextBtns = Array.from(document.querySelectorAll(".js-next"));
+  const NEXT = IS_AR ? "التالي" : "Next";
+  const DONE = IS_AR ? "إنهاء" : "Finish";
+  let cur = 0;
+
+  function render() {
+    steps.forEach((s, i) => { s.hidden = (i !== cur); });
+    if (stepNum) stepNum.textContent = cur + 1;
+    if (stepBar) stepBar.style.width = ((cur + 1) / total * 100) + "%";
+    prevBtns.forEach(b => { b.disabled = (cur === 0); });
+    nextBtns.forEach(b => {
+      const last = cur === total - 1;
+      const icon = last ? "" : ' <i data-lucide="chevron-left" class="h-4 w-4 rtl-flip"></i>';
+      b.innerHTML = (last ? DONE : NEXT) + icon;
+    });
+    if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    wrap.scrollIntoView({block: "start", behavior: "smooth"});
+  }
+
+  function go(i) {
+    if (i < 0 || i >= total) return;
+    cur = i;
+    render();
+  }
+
+  prevBtns.forEach(b => b.addEventListener("click", () => go(cur - 1)));
+  nextBtns.forEach(b => b.addEventListener("click", () => {
+    if (cur === total - 1) {
+      // Finish → mark complete (best-effort) then return to the book.
+      try {
+        const url = "{% url 'library_chapter_complete' chapter.id %}";
+        const csrf = document.cookie.split("; ").find(r => r.startsWith("csrftoken="))?.split("=")[1] || "";
+        fetch(url, {method: "POST", headers: {"X-CSRFToken": csrf}, credentials: "same-origin"}).catch(() => {});
+      } catch (e) {}
+      window.location.href = "{% url 'library_book' chapter.book.pk %}";
+      return;
+    }
+    go(cur + 1);
+  }));
+
+  render();
+})();
+</script>
+{% endif %}
 {% endblock %}

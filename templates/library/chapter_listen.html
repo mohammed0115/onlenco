@@ -21,10 +21,10 @@
     <strong id="remainingSeconds">{{ remaining_seconds }}</strong> {% if lang == "ar" %}ثانية{% else %}seconds{% endif %}
   </p>
 
-  <div style="display:flex;gap:10px;margin-bottom:24px">
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
     <button id="playBtn" class="btn btn-hero" {% if remaining_seconds == 0 %}disabled{% endif %}>
       <i data-lucide="play" class="h-4 w-4"></i>
-      {% if lang == "ar" %}استمع{% else %}Listen{% endif %}
+      <span id="playBtnLabel">{% if lang == "ar" %}استمع{% else %}Listen{% endif %}</span>
     </button>
     <button id="stopBtn" class="btn btn-ghost" disabled>
       <i data-lucide="square" class="h-4 w-4"></i>
@@ -35,11 +35,54 @@
         {% if lang == "ar" %}ترقية{% else %}Upgrade{% endif %}
       </a>
     {% endif %}
+
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:hsl(var(--muted-foreground))">
+      {% if lang == "ar" %}السرعة{% else %}Speed{% endif %}
+      <select id="speedSel" class="btn btn-ghost" style="padding:4px 8px">
+        <option value="0.75">0.75×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.25">1.25×</option>
+        <option value="1.5">1.5×</option>
+      </select>
+    </label>
+    <a class="btn btn-ghost" style="font-size:13px" href="{% url 'subscriptions:preferences' %}">
+      <i data-lucide="mic" class="h-4 w-4"></i>
+      {% if lang == "ar" %}تغيير الصوت{% else %}Change voice{% endif %}
+    </a>
   </div>
 
-  <article style="line-height:1.9;font-size:17px;background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;padding:24px;white-space:pre-wrap">
-{{ prepared.tts_ready_text }}
-  </article>
+  <div id="statusBar" style="display:none;align-items:center;gap:10px;margin-bottom:18px;padding:10px 14px;border-radius:10px;background:hsl(var(--muted)/.4);border:1px solid hsl(var(--border))">
+    <span class="lc-pulse" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e"></span>
+    <span id="statusText" style="font-size:14px;font-weight:600"></span>
+  </div>
+
+  <div id="resumeBar" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;padding:10px 14px;border-radius:10px;background:hsl(var(--muted)/.3);border:1px solid hsl(var(--border));font-size:14px">
+    <span>{% if lang == "ar" %}↩︎ ستتابع من حيث توقفت سابقًا.{% else %}↩︎ You'll continue from where you stopped.{% endif %}</span>
+    <button id="restartBtn" class="btn btn-ghost" style="font-size:13px;padding:4px 10px">{% if lang == "ar" %}ابدأ من البداية{% else %}Start over{% endif %}</button>
+  </div>
+
+  <div id="stepperHead" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+    <span class="badge">{% if lang == "ar" %}مقطع{% else %}Part{% endif %} <span id="stepNum">1</span> / <span id="stepTotal">{{ parts|length }}</span></span>
+    <div style="display:flex;gap:8px">
+      <button id="prevStep" class="btn btn-ghost" style="padding:4px 10px" disabled><i data-lucide="chevron-right" class="h-4 w-4 rtl-flip"></i> {% if lang == "ar" %}السابق{% else %}Prev{% endif %}</button>
+      <button id="nextStep" class="btn btn-ghost" style="padding:4px 10px">{% if lang == "ar" %}التالي{% else %}Next{% endif %} <i data-lucide="chevron-left" class="h-4 w-4 rtl-flip"></i></button>
+    </div>
+  </div>
+  <div style="width:100%;height:6px;border-radius:6px;background:hsl(var(--muted));margin-bottom:14px;overflow:hidden">
+    <div id="stepBar" style="height:6px;border-radius:6px;background:hsl(var(--primary));width:0%;transition:width .25s"></div>
+  </div>
+
+  <div id="reader" dir="ltr">{% for ch in parts %}<article class="lc-step" data-step="{{ forloop.counter0 }}" {% if not forloop.first %}hidden{% endif %} style="line-height:2;font-size:17px;background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;padding:24px;text-align:left"><span class="lc-chunk" data-ci="{{ forloop.counter0 }}">{{ ch }}</span></article>{% empty %}<article class="lc-step" data-step="0" style="line-height:2;font-size:17px;background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:12px;padding:24px;text-align:left"><span class="lc-chunk" data-ci="0">{{ prepared.tts_ready_text }}</span></article>{% endfor %}</div>
+
+  <style>
+    @keyframes lcpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.7)} }
+    .lc-pulse { animation: lcpulse 1s ease-in-out infinite; }
+    .lc-w { transition: background-color .15s, color .15s; border-radius:3px; }
+    .lc-w.read { color: hsl(var(--muted-foreground)); }
+    .lc-w.active { background: #fde68a; color:#111; box-shadow:0 0 0 2px #fde68a; }
+    @keyframes lcspin { to { transform: rotate(360deg); } }
+    .lc-spin { display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:lcspin .7s linear infinite;vertical-align:-2px;margin-inline-end:6px; }
+  </style>
 
   <details style="margin-top:18px;color:hsl(var(--muted-foreground));font-size:13px">
     <summary>{% if lang == "ar" %}قواعد التنظيف المطبّقة على النص{% else %}Normalization rules applied{% endif %} ({{ prepared.applied_rules|length }})</summary>
@@ -54,6 +97,7 @@
 <script>
 (function () {
   const chapterId = {{ chapter.pk }};
+  const IS_AR = "{{ lang }}" === "ar";
   // Phase 19.0G: a pre-recorded chapter file (admin upload) takes precedence
   // over TTS. It is served from a SECURE, session-scoped stream route — the
   // raw MEDIA_URL is never placed in the page. STREAM_URL only works once a
@@ -62,16 +106,190 @@
   const EXTERNAL_AUDIO = "{{ external_audio_url|escapejs }}";
   const HAS_PRERECORDED = !!(STREAM_URL || EXTERNAL_AUDIO);
   const playBtn = document.getElementById("playBtn");
+  const playBtnLabel = document.getElementById("playBtnLabel");
   const stopBtn = document.getElementById("stopBtn");
   const player = document.getElementById("player");
   const remainingEl = document.getElementById("remainingSeconds");
+  const speedSel = document.getElementById("speedSel");
+  const statusBar = document.getElementById("statusBar");
+  const statusText = document.getElementById("statusText");
   const csrf = document.cookie.split("; ").find(r => r.startsWith("csrftoken="))?.split("=")[1] || "";
+  // Hard per-session cap: never let one session play longer than the
+  // remaining plan seconds. Deduction still happens at finish, but this
+  // auto-stops playback exactly at the limit so a session can't overshoot.
+  const REMAINING_AT_START = parseInt("{{ remaining_seconds|default:0 }}", 10) || 0;
+  // Resume point persisted from a previous session (Phase 19.0J).
+  let resumeChunk = parseInt("{{ resume_chunk|default:0 }}", 10) || 0;
+  let resumeOffset = parseInt("{{ resume_offset|default:0 }}", 10) || 0;
+  const resumeBar = document.getElementById("resumeBar");
+  const restartBtn = document.getElementById("restartBtn");
   let sessionId = null;
   let chunkQueue = [];
   let chunkIndex = 0;
-  let elapsedSeconds = 0;
   let startTime = null;
-  let killedByQuota = false;
+  let quotaTimer = null;
+  let tickTimer = null;
+  let playingCi = -1;       // chunk currently playing (TTS); -1 for prerecorded
+  let speaking = false;     // first audio frame has started
+  let lastScrolled = null;
+
+  // --- Word spans for karaoke highlighting -------------------------------
+  // Split each rendered chunk into word spans so we can highlight progress.
+  const chunkEls = Array.from(document.querySelectorAll("#reader .lc-chunk"));
+  const chunkWords = [];
+  chunkEls.forEach(el => {
+    const text = el.textContent;
+    el.textContent = "";
+    const words = [];
+    text.split(/(\s+)/).forEach(tok => {
+      if (!tok) return;
+      if (/^\s+$/.test(tok)) { el.appendChild(document.createTextNode(tok)); return; }
+      const s = document.createElement("span");
+      s.className = "lc-w";
+      s.textContent = tok;
+      el.appendChild(s);
+      words.push(s);
+    });
+    chunkWords.push(words);
+  });
+  const allWords = chunkWords.flat();
+
+  // --- Stepper: show one part at a time, synced to playback ---------------
+  const stepEls = Array.from(document.querySelectorAll(".lc-step"));
+  const stepTotalN = stepEls.length;
+  const stepNumEl = document.getElementById("stepNum");
+  const stepBarEl = document.getElementById("stepBar");
+  const prevStepBtn = document.getElementById("prevStep");
+  const nextStepBtn = document.getElementById("nextStep");
+  const stepperHead = document.getElementById("stepperHead");
+  let currentStep = 0;
+
+  function showStep(i) {
+    if (i < 0 || i >= stepTotalN) return;
+    currentStep = i;
+    stepEls.forEach((s, k) => { s.hidden = (k !== i); });
+    if (stepNumEl) stepNumEl.textContent = i + 1;
+    if (stepBarEl) stepBarEl.style.width = ((i + 1) / stepTotalN * 100) + "%";
+    if (prevStepBtn) prevStepBtn.disabled = (i === 0);
+    if (nextStepBtn) nextStepBtn.disabled = (i >= stepTotalN - 1);
+  }
+
+  function jumpTo(i) {
+    if (i < 0 || i >= stepTotalN) return;
+    showStep(i);
+    // If a session is live (TTS), jump playback to this part.
+    if (sessionId && !HAS_PRERECORDED) {
+      chunkIndex = i;
+      player.pause();
+      playNextChunk();
+    }
+  }
+  if (prevStepBtn) prevStepBtn.addEventListener("click", () => jumpTo(currentStep - 1));
+  if (nextStepBtn) nextStepBtn.addEventListener("click", () => jumpTo(currentStep + 1));
+
+  // Restore the resume point: grey out chunks already heard and offer a reset.
+  function markReadUpTo(ci) {
+    for (let c = 0; c < ci && c < chunkWords.length; c++) {
+      chunkWords[c].forEach(w => { w.classList.remove("active"); w.classList.add("read"); });
+    }
+  }
+  function showResume() {
+    if ((resumeChunk > 0 || resumeOffset > 0) && resumeBar) {
+      resumeBar.style.display = "flex";
+      if (!HAS_PRERECORDED) markReadUpTo(resumeChunk);
+    }
+  }
+  function clearResume() {
+    resumeChunk = 0; resumeOffset = 0;
+    if (resumeBar) resumeBar.style.display = "none";
+    allWords.forEach(w => w.classList.remove("read", "active"));
+  }
+  showResume();
+  if (restartBtn) restartBtn.addEventListener("click", () => { clearResume(); saveProgress(0, 0, false); showStep(0); });
+
+  // A single pre-recorded file can't be split per part: show the whole text
+  // and hide the stepper nav. TTS uses the stepper.
+  if (HAS_PRERECORDED) {
+    stepEls.forEach(s => { s.hidden = false; });
+    if (stepperHead) stepperHead.style.display = "none";
+    if (stepBarEl && stepBarEl.parentElement) stepBarEl.parentElement.style.display = "none";
+  } else {
+    showStep(resumeChunk < stepTotalN ? resumeChunk : 0);
+  }
+
+  // Persist where we stopped so the learner continues next time. Minutes are
+  // untouched here — this only records the resume point.
+  function saveProgress(chunk, offset, done) {
+    const body = JSON.stringify({chunk: chunk, offset: Math.floor(offset || 0), done: !!done});
+    try {
+      navigator.sendBeacon(`/library/chapters/${chapterId}/audio/progress/`,
+        new Blob([body], {type: "application/json"}));
+    } catch (e) {
+      post(`/library/chapters/${chapterId}/audio/progress/`,
+           {chunk: chunk, offset: Math.floor(offset || 0), done: !!done});
+    }
+  }
+
+  function paint(words, frac) {
+    if (!words.length) return;
+    const upto = Math.min(words.length - 1, Math.floor(frac * words.length));
+    for (let i = 0; i < words.length; i++) {
+      words[i].classList.toggle("active", i === upto);
+      words[i].classList.toggle("read", i < upto);
+    }
+    const active = words[upto];
+    if (active && active !== lastScrolled) {
+      lastScrolled = active;
+      active.scrollIntoView({block: "center", behavior: "smooth"});
+    }
+  }
+
+  player.addEventListener("timeupdate", () => {
+    if (!player.duration || !isFinite(player.duration)) return;
+    const f = player.currentTime / player.duration;
+    if (HAS_PRERECORDED) {
+      paint(allWords, f);
+    } else if (playingCi >= 0) {
+      // Earlier chunks are fully read.
+      for (let c = 0; c < playingCi; c++) chunkWords[c].forEach(w => { w.classList.remove("active"); w.classList.add("read"); });
+      paint(chunkWords[playingCi] || [], f);
+    }
+  });
+
+  // --- UI state ----------------------------------------------------------
+  function setLoading() {
+    statusBar.style.display = "flex";
+    statusText.innerHTML = '<span class="lc-spin"></span>' + (IS_AR ? "جاري تحضير الصوت، انتظر…" : "Preparing audio, please wait…");
+    playBtn.disabled = true;
+    playBtnLabel.textContent = IS_AR ? "يعمل…" : "Working…";
+  }
+  function setSpeaking() {
+    speaking = true;
+    statusText.textContent = IS_AR ? "🔊 يتحدث الآن…" : "🔊 Speaking…";
+  }
+  function setIdle() {
+    statusBar.style.display = "none";
+    speaking = false;
+    playBtn.disabled = REMAINING_AT_START <= 0;
+    playBtnLabel.textContent = IS_AR ? "استمع" : "Listen";
+    stopBtn.disabled = true;
+  }
+
+  function applyRate() { player.playbackRate = parseFloat(speedSel.value) || 1; }
+  speedSel.addEventListener("change", applyRate);
+  player.addEventListener("loadedmetadata", applyRate);
+  player.addEventListener("playing", () => { if (!speaking) setSpeaking(); });
+
+  // --- Live countdown ----------------------------------------------------
+  function startTick() {
+    stopTick();
+    tickTimer = setInterval(() => {
+      if (!remainingEl) return;
+      const el = Math.floor((Date.now() - (startTime || Date.now())) / 1000);
+      remainingEl.textContent = Math.max(0, REMAINING_AT_START - el);
+    }, 1000);
+  }
+  function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
 
   async function post(url, payload) {
     const r = await fetch(url, {
@@ -96,40 +314,74 @@
     sessionId = r.body.audio_session_id;
     chunkQueue = r.body.chunks || [];
     chunkIndex = 0;
-    elapsedSeconds = 0;
     startTime = Date.now();
     return true;
+  }
+
+  // Synthesize (or reuse) the audio for a chunk. Cached so prefetch + replay
+  // are instant. Returns a data: URL or null.
+  const audioCache = {};
+  async function fetchChunkAudio(i) {
+    if (i < 0 || i >= chunkQueue.length) return null;
+    if (audioCache[i]) return audioCache[i];
+    const r = await post(`/library/chapters/${chapterId}/audio/chunk/`, {
+      audio_session_id: sessionId, chunk: chunkQueue[i],
+    });
+    if (!r.body.success || !r.body.audio_b64) return null;
+    audioCache[i] = `data:audio/${r.body.format || "mp3"};base64,${r.body.audio_b64}`;
+    return audioCache[i];
   }
 
   async function playNextChunk() {
     if (!sessionId) return;
     if (chunkIndex >= chunkQueue.length) {
+      saveProgress(0, 0, true);  // whole chapter finished → reset resume point
       finish(false);
       return;
     }
-    const chunk = chunkQueue[chunkIndex++];
-    const r = await post(`/library/chapters/${chapterId}/audio/chunk/`, {
-      audio_session_id: sessionId, chunk: chunk,
-    });
-    if (!r.body.success || !r.body.audio_b64) {
-      finish(false);
-      return;
-    }
-    player.src = `data:audio/${r.body.format || "mp3"};base64,${r.body.audio_b64}`;
+    const i = chunkIndex++;
+    playingCi = i;
+    showStep(i);                // keep the view on the playing part
+    saveProgress(i, 0, false);  // remember we reached this chunk
+    const url = await fetchChunkAudio(i);
+    if (!sessionId) return;     // stopped while synthesizing
+    if (!url) { finish(false); return; }
+    player.src = url;
+    applyRate();
     player.play().catch(() => {});
+    // Prefetch the upcoming part so the next transition is instant.
+    fetchChunkAudio(chunkIndex);
   }
 
   // Pre-recorded file ends the session; TTS advances to the next chunk.
   player.addEventListener("ended", () => {
-    if (HAS_PRERECORDED) { finish(false); } else { playNextChunk(); }
+    if (HAS_PRERECORDED) { saveProgress(0, 0, true); finish(false); } else { playNextChunk(); }
   });
 
+  // For a pre-recorded file, persist the playback offset periodically so the
+  // learner resumes mid-file next time.
+  let lastSavedOffset = 0;
+  if (HAS_PRERECORDED) {
+    player.addEventListener("timeupdate", () => {
+      const t = Math.floor(player.currentTime || 0);
+      if (t - lastSavedOffset >= 5) { lastSavedOffset = t; saveProgress(0, t, false); }
+    });
+    player.addEventListener("loadedmetadata", () => {
+      if (resumeOffset > 0 && player.duration && resumeOffset < player.duration) {
+        try { player.currentTime = resumeOffset; } catch (e) {}
+      }
+    });
+  }
+
   async function finish(killed) {
+    if (quotaTimer) { clearTimeout(quotaTimer); quotaTimer = null; }
+    stopTick();
+    allWords.forEach(w => w.classList.remove("active"));
+    playingCi = -1;
     const seconds = Math.max(0, Math.floor((Date.now() - (startTime || Date.now())) / 1000));
     const sid = sessionId;
     sessionId = null;
-    playBtn.disabled = false;
-    stopBtn.disabled = true;
+    setIdle();
     if (sid) {
       const r = await post(`/library/chapters/${chapterId}/audio/finish/`, {
         audio_session_id: sid, seconds: seconds, killed_by_quota: !!killed,
@@ -141,34 +393,52 @@
   }
 
   playBtn.addEventListener("click", async () => {
-    playBtn.disabled = true;
+    setLoading();
     stopBtn.disabled = false;
     if (!(await startSession())) {
-      playBtn.disabled = false;
-      stopBtn.disabled = true;
+      setIdle();
       return;
+    }
+    startTick();
+    // Hard stop at the remaining plan seconds so this session can't overshoot.
+    if (REMAINING_AT_START > 0) {
+      quotaTimer = setTimeout(() => {
+        player.pause();
+        savePartial();
+        finish(true);  // killed_by_quota — deduction caps at the plan limit
+      }, REMAINING_AT_START * 1000);
     }
     if (STREAM_URL) {
       // Admin-uploaded recording, served via the secure session-scoped route;
       // minutes are deducted on finish. The raw file URL is never exposed.
       player.src = STREAM_URL + (STREAM_URL.indexOf("?") >= 0 ? "&" : "?") + "s=" + encodeURIComponent(sessionId);
+      applyRate();
       player.play().catch(() => {});
     } else if (EXTERNAL_AUDIO) {
       // External hosted URL (admin-set, not our MEDIA_URL); minutes on finish.
       player.src = EXTERNAL_AUDIO;
+      applyRate();
       player.play().catch(() => {});
     } else {
+      chunkIndex = currentStep;  // start from the current part (resume-aware)
       playNextChunk();
     }
   });
 
+  function savePartial() {
+    if (HAS_PRERECORDED) saveProgress(0, Math.floor(player.currentTime || 0), false);
+    else if (playingCi >= 0) saveProgress(playingCi, 0, false);
+  }
+
   stopBtn.addEventListener("click", () => {
     player.pause();
+    savePartial();
     finish(false);
   });
 
   window.addEventListener("beforeunload", () => {
     if (sessionId) {
+      savePartial();  // remember the resume point
       navigator.sendBeacon(`/library/chapters/${chapterId}/audio/finish/`,
         new Blob([JSON.stringify({
           audio_session_id: sessionId,
