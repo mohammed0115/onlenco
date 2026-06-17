@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Optional
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
@@ -18,6 +19,26 @@ from ..models import SubscriptionPlan, UserSubscription
 
 
 User = get_user_model()
+
+
+def default_subscription_plan() -> Optional[SubscriptionPlan]:
+    """The plan to grant when a user is marked subscribed but has no plan.
+
+    Prefers ``settings.DEFAULT_SUBSCRIPTION_PLAN_CODE`` when set; otherwise
+    the cheapest real paid plan (smallest positive price, excluding the free
+    trial); finally any active plan. Returns None only if no active plan exists.
+    """
+    code = getattr(settings, "DEFAULT_SUBSCRIPTION_PLAN_CODE", "") or ""
+    if code:
+        plan = SubscriptionPlan.objects.filter(code=code, is_active=True).first()
+        if plan:
+            return plan
+    paid = (
+        SubscriptionPlan.objects.filter(is_active=True, is_free_trial=False, price_sdg__gt=0)
+        .order_by("price_sdg")
+        .first()
+    )
+    return paid or SubscriptionPlan.objects.filter(is_active=True).order_by("price_sdg").first()
 
 
 def active_subscription_for(user) -> Optional[UserSubscription]:

@@ -97,6 +97,20 @@ def extend_subscription(request, user, days: int):
     profile.subscription_expires_at = starting + timedelta(days=days)
     profile.subscription_status = "active"
     profile.save(update_fields=["subscription_status", "subscription_expires_at"])
+    # Keep the plan-based quota in sync with the access flag, otherwise the
+    # user is "subscribed" (can open premium pages) but resolves to NO plan
+    # and therefore gets 0 AI/library minutes. Extend the current plan if any,
+    # else attach the default plan so minutes actually work.
+    try:
+        from subscriptions.services import subscription_service
+        existing = subscription_service.active_subscription_for(user)
+        plan = existing.plan if existing else subscription_service.default_subscription_plan()
+        if plan is not None:
+            subscription_service.activate_subscription(user=user, plan=plan, duration_days=days)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "extend_subscription: plan sync failed for user %s", getattr(user, "pk", None))
     log_action(
         request,
         action_type="subscription.extend",
