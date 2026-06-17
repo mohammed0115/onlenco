@@ -440,3 +440,78 @@ class NovelIllustration(GeneratedMediaReviewMixin, models.Model):
     def is_student_visible(self) -> bool:
         """Show to students ONLY when approved AND an image file exists."""
         return self.generation_status == "approved" and bool(self.image)
+
+
+def validate_novel_import_source(f):
+    """Reject anything that is not a supported novel source (Phase 19.0I)."""
+    import os as _os
+    ext = _os.path.splitext(getattr(f, "name", "") or "")[1].lower()
+    if ext not in (".pdf", ".txt", ".docx"):
+        raise __import__("django.core.exceptions", fromlist=["ValidationError"]).ValidationError(
+            _("Only PDF, TXT or DOCX novel sources are allowed.")
+        )
+
+
+class LibraryImportJob(models.Model):
+    """A single admin-driven novel import (Phase 19.0I).
+
+    Tracks an uploaded source file through upload → analyze → apply. The
+    uploaded source lives under MEDIA_ROOT (never Git) and is never
+    student-facing. Only metadata/preview is stored here — not the full raw
+    text — to keep rows small.
+    """
+
+    FORMAT_CHOICES = [
+        ("pdf", _("PDF")),
+        ("txt", _("Text")),
+        ("docx", _("Word (DOCX)")),
+    ]
+    STATUS_CHOICES = [
+        ("uploaded", _("Uploaded")),
+        ("analyzed", _("Analyzed")),
+        ("imported", _("Imported")),
+        ("failed", _("Failed")),
+        ("cancelled", _("Cancelled")),
+    ]
+
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="library_import_jobs",
+    )
+    original_filename = models.CharField(max_length=255, blank=True)
+    source_file = models.FileField(
+        upload_to="library/imports/%Y/%m/", blank=True, null=True,
+        validators=[validate_novel_import_source],
+        help_text=_("Uploaded novel source — never published to students, never in Git."),
+    )
+    source_format = models.CharField(max_length=8, choices=FORMAT_CHOICES, blank=True)
+    status = models.CharField(
+        max_length=16, choices=STATUS_CHOICES, default="uploaded", db_index=True,
+    )
+
+    # Analysis results (filled at the analyze step).
+    detected_text_layer = models.BooleanField(null=True, blank=True)
+    needs_ocr = models.BooleanField(default=False)
+    page_count = models.PositiveIntegerField(default=0)
+    word_count = models.PositiveIntegerField(default=0)
+    chapter_count = models.PositiveIntegerField(default=0)
+    segment_count = models.PositiveIntegerField(default=0)
+    warnings = models.JSONField(default=list, blank=True)
+    errors = models.JSONField(default=list, blank=True)
+    preview = models.JSONField(default=dict, blank=True)  # titles + short segment preview only
+
+    created_book = models.ForeignKey(
+        Book, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="import_jobs",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["status", "-created_at"])]
+        verbose_name = _("Library import job")
+        verbose_name_plural = _("Library import jobs")
+
+    def __str__(self):
+        return f"importjob<{self.pk}> {self.original_filename!r} ({self.status})"

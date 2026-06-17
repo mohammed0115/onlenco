@@ -1,0 +1,56 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}استيراد الروايات{% else %}Novel imports{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}رفع وتحليل واستيراد الروايات (مخفية عن الطلاب افتراضيًا).{% else %}Upload, analyze and import novels (hidden from students by default).{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <a class="btn-control" href="{% url 'platform_admin:library' %}"><i data-lucide="arrow-left" class="h-4 w-4"></i> {% if lang == "ar" %}المكتبة{% else %}Library{% endif %}</a>
+  {% if can_manage %}<a class="btn-control btn-primary" href="{% url 'platform_admin:library_import_new' %}"><i data-lucide="upload" class="h-4 w-4"></i> {% if lang == "ar" %}استيراد رواية{% else %}Import novel{% endif %}</a>{% endif %}
+</div>
+
+{% if messages %}
+<div class="control-card" style="margin-bottom:12px">
+  {% for m in messages %}<div class="badge {% if m.tags == 'success' %}badge-green{% elif m.tags == 'error' %}badge-red{% elif m.tags == 'warning' %}badge-yellow{% else %}badge-blue{% endif %}" style="display:block;margin:2px 0">{{ m }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<div class="control-card">
+  <div class="table-wrap">
+  <table class="control-table">
+    <thead><tr>
+      <th>{% if lang == "ar" %}الملف{% else %}File{% endif %}</th>
+      <th>{% if lang == "ar" %}الصيغة{% else %}Format{% endif %}</th>
+      <th>{% if lang == "ar" %}الحالة{% else %}Status{% endif %}</th>
+      <th>{% if lang == "ar" %}فصول{% else %}Chapters{% endif %}</th>
+      <th>{% if lang == "ar" %}مقاطع{% else %}Segments{% endif %}</th>
+      <th>OCR</th>
+      <th>{% if lang == "ar" %}الكتاب{% else %}Book{% endif %}</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+      {% for j in rows %}
+      <tr>
+        <td><span dir="ltr">{{ j.original_filename|default:"—" }}</span></td>
+        <td>{{ j.get_source_format_display|default:"—" }}</td>
+        <td>
+          {% if j.status == "imported" %}<span class="badge badge-blue">{{ j.get_status_display }}</span>
+          {% elif j.status == "failed" %}<span class="badge badge-red">{{ j.get_status_display }}</span>
+          {% elif j.status == "analyzed" %}<span class="badge badge-green">{{ j.get_status_display }}</span>
+          {% else %}<span class="badge badge-yellow">{{ j.get_status_display }}</span>{% endif %}
+        </td>
+        <td>{{ j.chapter_count }}</td>
+        <td>{{ j.segment_count }}</td>
+        <td>{% if j.needs_ocr %}<span class="badge badge-red">{% if lang == "ar" %}يحتاج OCR{% else %}Needs OCR{% endif %}</span>{% else %}—{% endif %}</td>
+        <td>{% if j.created_book %}<a href="{% url 'platform_admin:library_book' j.created_book.pk %}">{{ j.created_book.title|truncatechars:30 }}</a>{% else %}—{% endif %}</td>
+        <td><a class="btn-control" href="{% url 'platform_admin:library_import' j.pk %}"><i data-lucide="eye" class="h-4 w-4"></i> {% if lang == "ar" %}فتح{% else %}Open{% endif %}</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="muted">{% if lang == "ar" %}لا توجد عمليات استيراد بعد.{% else %}No import jobs yet.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% include "platform_admin/pagination.html" %}
+</div>
+{% endblock %}

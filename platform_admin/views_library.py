@@ -15,12 +15,15 @@ from django.views.decorators.http import require_POST
 
 from library.forms import (
     PlatformBookReviewForm, PlatformChapterAudioUploadForm,
-    PlatformIllustrationReviewForm, PlatformSegmentReviewForm,
+    PlatformIllustrationReviewForm, PlatformNovelImportMetadataForm,
+    PlatformNovelImportUploadForm, PlatformSegmentReviewForm,
     PlatformVocabularyReviewForm,
 )
 from library.models import (
-    Book, Chapter, NovelIllustration, NovelSegment, NovelVocabularyHighlight,
+    Book, Chapter, LibraryImportJob, NovelIllustration, NovelSegment,
+    NovelVocabularyHighlight,
 )
+from library.services import novel_importer
 from library.services.publishing import can_publish_book
 
 from . import permissions as perms
@@ -60,6 +63,12 @@ def library_dashboard(request):
         Q(audio_file="") | Q(audio_file__isnull=True)).count()
     stats["chapters_with_audio"] = total_chapters - missing_audio
     stats["chapters_missing_audio"] = missing_audio
+    # Novel Import Wizard counters (Phase 19.0I).
+    stats["import_jobs"] = LibraryImportJob.objects.count()
+    stats["import_failed"] = LibraryImportJob.objects.filter(status="failed").count()
+    stats["import_needs_ocr"] = LibraryImportJob.objects.filter(needs_ocr=True).count()
+    stats["import_hidden_books"] = LibraryImportJob.objects.filter(
+        created_book__isnull=False, created_book__is_published=False).count()
     return _render(request, "platform_admin/library/dashboard.html",
                    {"stats": stats, "section": "library"})
 
@@ -76,6 +85,7 @@ def library_books(request):
         pub_segments_count=Count(
             "chapters__segments",
             filter=Q(chapters__segments__is_published=True), distinct=True),
+        import_job_count=Count("import_jobs", distinct=True),
     )
     f = request.GET
     if f.get("copyright_status"):
@@ -276,3 +286,141 @@ def library_chapter_audio_remove(request, pk):
     chapter.save(update_fields=["audio_file", "duration_seconds"])
     messages.success(request, "Chapter audio removed.")
     return redirect("platform_admin:library_chapter_audio", pk=chapter.pk)
+
+
+# ---------------------------------------------------------------------------
+# Novel Import Wizard (Phase 19.0I)
+#
+# upload → analyze (dry-run) → apply (creates a HIDDEN book). Never publishes,
+# never generates translation/vocab/audio, never runs OCR (detection only).
+# ---------------------------------------------------------------------------
+
+@control_permission_required(perms.CAP_LIBRARY_VIEW)
+def library_imports(request):
+    """List import jobs (view-gated). Upload/apply still need manage."""
+    qs = LibraryImportJob.objects.select_related("uploaded_by", "created_book")
+    page = _paginate(request, qs)
+    return _render(request, "platform_admin/library/imports_list.html", {
+        "page_obj": page, "rows": page.object_list,
+        "can_manage": _can_manage(request), "section": "library",
+    })
+
+
+@control_permission_required(perms.CAP_LIBRARY_VIEW)
+def library_import_new(request):
+    """Upload a new novel source. POST requires manage."""
+    if request.method == "POST":
+        if not _can_manage(request):
+            return HttpResponseForbidden("Forbidden")
+        form = PlatformNovelImportUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            import os
+            job = form.save(commit=False)
+            job.uploaded_by = request.user
+            up = form.cleaned_data["source_file"]
+            job.original_filename = os.path.basename(getattr(up, "name", "") or "")
+            job.source_format = novel_importer.source_format(job.original_filename)
+            job.status = "uploaded"
+            job.save()
+            messages.success(request, "Source uploaded. Run Analyze to preview.")
+            return redirect("platform_admin:library_import", pk=job.pk)
+        messages.error(request, "Upload failed — please check the file.")
+    else:
+        form = PlatformNovelImportUploadForm()
+    return _render(request, "platform_admin/library/import_new.html", {
+        "form": form, "can_manage": _can_manage(request), "section": "library",
+    })
+
+
+@control_permission_required(perms.CAP_LIBRARY_VIEW)
+def library_import_detail(request, pk):
+    job = get_object_or_404(LibraryImportJob.objects.select_related("created_book"), pk=pk)
+    # Pre-fill metadata from analysis (title guess = original filename stem).
+    import os
+    title_guess = os.path.splitext(job.original_filename or "")[0].replace("_", " ").strip()
+    meta_form = PlatformNovelImportMetadataForm(initial={"title": title_guess})
+    return _render(request, "platform_admin/library/import_detail.html", {
+        "job": job, "meta_form": meta_form,
+        "can_manage": _can_manage(request), "section": "library",
+    })
+
+
+@require_POST
+@control_permission_required(perms.CAP_LIBRARY_VIEW)
+def library_import_analyze(request, pk):
+    """Dry-run: inspect the source and store metadata. Writes NO Book."""
+    if not _can_manage(request):
+        return HttpResponseForbidden("Forbidden")
+    job = get_object_or_404(LibraryImportJob, pk=pk)
+    if job.status == "imported":
+        messages.warning(request, "This job was already imported.")
+        return redirect("platform_admin:library_import", pk=job.pk)
+    if not job.source_file:
+        messages.error(request, "No source file on this job.")
+        return redirect("platform_admin:library_import", pk=job.pk)
+    try:
+        result = novel_importer.analyze_source(job.source_file.path)
+    except novel_importer.NovelImportError as exc:
+        job.status = "failed"
+        job.errors = [str(exc)]  # clean message only — never a raw traceback
+        job.save(update_fields=["status", "errors", "updated_at"])
+        messages.error(request, f"Analyze failed: {exc}")
+        return redirect("platform_admin:library_import", pk=job.pk)
+    job.page_count = result["page_count"]
+    job.word_count = result["word_count"]
+    job.chapter_count = result["chapter_count"]
+    job.segment_count = result["segment_count"]
+    job.detected_text_layer = result["detected_text_layer"]
+    job.needs_ocr = result["needs_ocr"]
+    job.warnings = result["warnings"]
+    job.errors = []
+    job.preview = {
+        "first_chapter_titles": result["first_chapter_titles"],
+        "first_segment_preview": result["first_segment_preview"],
+        "format": result["format"],
+    }
+    job.status = "analyzed"
+    job.save()
+    messages.success(request, "Analysis complete — review, then Import.")
+    return redirect("platform_admin:library_import", pk=job.pk)
+
+
+@require_POST
+@control_permission_required(perms.CAP_LIBRARY_VIEW)
+def library_import_apply(request, pk):
+    """Create a HIDDEN Book/Chapters/Segments from the job. Idempotent."""
+    if not _can_manage(request):
+        return HttpResponseForbidden("Forbidden")
+    job = get_object_or_404(LibraryImportJob, pk=pk)
+    if job.status == "imported" or job.created_book_id:
+        messages.warning(request, "This job has already been imported.")
+        return redirect("platform_admin:library_import", pk=job.pk)
+    if not job.source_file:
+        messages.error(request, "No source file on this job.")
+        return redirect("platform_admin:library_import", pk=job.pk)
+    meta_form = PlatformNovelImportMetadataForm(request.POST)
+    if not meta_form.is_valid():
+        messages.error(request, "Please fix the metadata before importing.")
+        return _render(request, "platform_admin/library/import_detail.html", {
+            "job": job, "meta_form": meta_form,
+            "can_manage": _can_manage(request), "section": "library",
+        })
+    metadata = {k: meta_form.cleaned_data[k] for k in meta_form.cleaned_data}
+    try:
+        result = novel_importer.import_novel(job.source_file.path, metadata=metadata)
+    except novel_importer.NovelImportError as exc:
+        job.status = "failed"
+        job.errors = [str(exc)]  # clean message only
+        job.save(update_fields=["status", "errors", "updated_at"])
+        messages.error(request, f"Import failed: {exc}")
+        return redirect("platform_admin:library_import", pk=job.pk)
+    job.created_book_id = result["book_id"]
+    job.status = "imported"
+    job.errors = []
+    job.save(update_fields=["created_book", "status", "errors", "updated_at"])
+    messages.success(
+        request,
+        f"Imported '{result['book_title']}' (hidden from students) — "
+        f"{result['chapters_created']} chapters, {result['segments_created']} segments.",
+    )
+    return redirect("platform_admin:library_book", pk=result["book_id"])

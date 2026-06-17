@@ -309,6 +309,8 @@ EXAMPLES_TTS_VOICE = env_get("EXAMPLES_TTS_VOICE", env_get("AI_TTS_VOICE", "allo
 # --- Library: admin-uploaded chapter audio (Phase 19.0F) ----------------
 # Max size (MB) for a chapter audio file uploaded from the Platform Admin.
 LIBRARY_CHAPTER_AUDIO_MAX_MB = int(env_get("LIBRARY_CHAPTER_AUDIO_MAX_MB", "100") or 100)
+# Max upload size for a Novel Import Wizard source (PDF/TXT/DOCX) — Phase 19.0I.
+LIBRARY_NOVEL_IMPORT_MAX_MB = int(env_get("LIBRARY_NOVEL_IMPORT_MAX_MB", "50") or 50)
 
 # --- Realtime voice tutor (OpenAI Realtime API) ------------------------
 # Drives the live phone-call style tutoring page. Browser opens a

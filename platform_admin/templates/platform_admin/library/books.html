@@ -76,6 +76,7 @@
           {% if b.is_published %}<span class="badge badge-blue">{% if lang == "ar" %}منشور{% else %}Published{% endif %}</span>
           {% else %}<span class="badge badge-yellow">{% if lang == "ar" %}مخفي عن الطلاب{% else %}Hidden from students{% endif %}</span>{% endif %}
           {% if b.segments_count %}<span class="badge badge-green">{% if lang == "ar" %}نص مستورد{% else %}Text imported{% endif %}</span>{% endif %}
+          {% if b.import_job_count %}<span class="badge badge-blue">{% if lang == "ar" %}عبر المعالج{% else %}Imported via wizard{% endif %}</span>{% endif %}
         </td>
         <td>{% if b.is_school_curriculum %}<span class="badge">{{ b.school_country|default:"—" }}{% if b.school_stage %} · {{ b.school_stage }}{% endif %}</span>{% else %}—{% endif %}</td>
         <td>{{ b.chapters_count }}</td>

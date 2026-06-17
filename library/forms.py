@@ -13,7 +13,22 @@ from django import forms
 from django.conf import settings
 
 from .models import (
-    Book, Chapter, NovelIllustration, NovelSegment, NovelVocabularyHighlight,
+    Book, Chapter, LibraryImportJob, NovelIllustration, NovelSegment,
+    NovelVocabularyHighlight,
+)
+
+# Allowed novel-import sources (Phase 19.0I). DOCX is accepted at upload but
+# only extractable when python-docx is installed; the analyze step reports
+# clearly if the server can't extract it (we never lie about support).
+NOVEL_IMPORT_EXTENSIONS = (".pdf", ".txt", ".docx")
+NOVEL_IMPORT_CONTENT_TYPES = {
+    "application/pdf", "text/plain", "application/octet-stream",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+# Explicitly rejected — defence in depth on top of the extension whitelist.
+NOVEL_IMPORT_BLOCKED_EXTENSIONS = (
+    ".exe", ".js", ".html", ".htm", ".zip", ".rar", ".7z", ".sh", ".bat",
+    ".png", ".jpg", ".jpeg", ".gif", ".mp3", ".wav", ".m4a", ".mp4",
 )
 
 # Allowed audio uploads for chapter-level recordings (Phase 19.0F).
@@ -119,3 +134,58 @@ class PlatformChapterAudioUploadForm(forms.ModelForm):
 
     def clean_duration_seconds(self):
         return self.cleaned_data.get("duration_seconds") or 0
+
+
+class PlatformNovelImportUploadForm(forms.ModelForm):
+    """Upload a novel source (PDF/TXT/DOCX) for the import wizard (19.0I).
+
+    Validates extension + best-effort content-type + size, blocks dangerous
+    types and path traversal. Writes only the source file + original filename
+    + detected format — never publishes anything.
+    """
+
+    class Meta:
+        model = LibraryImportJob
+        fields = ["source_file"]
+
+    def clean_source_file(self):
+        f = self.cleaned_data.get("source_file")
+        if not f:
+            raise forms.ValidationError("Please choose a file to upload.")
+        # Only the basename's extension matters (blocks path traversal).
+        name = os.path.basename(getattr(f, "name", "") or "")
+        ext = os.path.splitext(name)[1].lower()
+        if ext in NOVEL_IMPORT_BLOCKED_EXTENSIONS:
+            raise forms.ValidationError("That file type is not allowed.")
+        if ext not in NOVEL_IMPORT_EXTENSIONS:
+            raise forms.ValidationError("Only PDF, TXT or DOCX sources are allowed.")
+        max_mb = int(getattr(settings, "LIBRARY_NOVEL_IMPORT_MAX_MB", 50) or 50)
+        if getattr(f, "size", 0) > max_mb * 1024 * 1024:
+            raise forms.ValidationError(f"File is too large (max {max_mb} MB).")
+        ctype = (getattr(f, "content_type", "") or "").lower()
+        if ctype and ctype not in NOVEL_IMPORT_CONTENT_TYPES:
+            raise forms.ValidationError("That file does not look like a document.")
+        return f
+
+
+class PlatformNovelImportMetadataForm(forms.ModelForm):
+    """Book metadata captured just before the import/apply step (19.0I).
+
+    Deliberately excludes is_published / is_copyright_cleared — an imported
+    book is ALWAYS hidden and un-cleared until a human reviews and publishes it.
+    """
+
+    class Meta:
+        model = Book
+        fields = [
+            "title", "author", "source_title", "source_url", "license_notes",
+            "copyright_status", "content_language", "target_cefr_level",
+            "is_school_curriculum", "school_country", "school_stage",
+            "curriculum_notes",
+        ]
+
+    def clean_title(self):
+        title = (self.cleaned_data.get("title") or "").strip()
+        if not title:
+            raise forms.ValidationError("A title is required.")
+        return title

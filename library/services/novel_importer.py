@@ -33,6 +33,10 @@ class PdfSourceMissing(NovelImportError):
     pass
 
 
+class DocxExtractionUnavailable(NovelImportError):
+    """Raised when a .docx source is uploaded but python-docx is missing."""
+
+
 class PdfExtractionUnavailable(NovelImportError):
     pass
 
@@ -239,9 +243,21 @@ def extract_source_text(path: str) -> tuple[str, int]:
             f"Source not found: {path!r}. Pass a valid local path via --source "
             f"(source files live outside Git, e.g. under local_content_sources/)."
         )
-    if path.lower().endswith(".txt"):
+    low = path.lower()
+    if low.endswith(".txt"):
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             return fh.read(), 0
+    if low.endswith(".docx"):
+        try:
+            import docx  # python-docx
+        except Exception as exc:
+            raise DocxExtractionUnavailable(
+                "DOCX support is not enabled on this server "
+                "(python-docx is not installed). Please upload a PDF or TXT."
+            ) from exc
+        document = docx.Document(path)
+        text = "\n".join(p.text for p in document.paragraphs)
+        return text, 0
     try:
         from pypdf import PdfReader
     except Exception as exc:  # pragma: no cover - exercised only without pypdf
@@ -257,6 +273,17 @@ def extract_source_text(path: str) -> tuple[str, int]:
         except Exception:
             parts.append("")
     return "\n".join(parts), len(reader.pages)
+
+
+def source_format(path: str) -> str:
+    """Return 'pdf' | 'txt' | 'docx' from a path's extension (else '')."""
+    ext = os.path.splitext(path or "")[1].lower().lstrip(".")
+    return ext if ext in ("pdf", "txt", "docx") else ""
+
+
+# Below this many words per PDF page we assume there is no real text layer
+# (a scanned/image PDF) and flag it for OCR — we never run OCR automatically.
+OCR_WORDS_PER_PAGE_THRESHOLD = 10
 
 
 # --- Orchestration ---------------------------------------------------------
@@ -298,6 +325,129 @@ def build_preview(source_path: str, *, max_chapters: int | None = None) -> Impor
         first_segment_preview=first_preview,
         warnings=warn1 + warn2,
     )
+
+
+def analyze_source(source_path: str) -> dict:
+    """Inspect a source WITHOUT writing anything (Phase 19.0I wizard).
+
+    Returns a JSON-safe dict: format, page_count, word_count, chapter/segment
+    counts, text-layer detection, ``needs_ocr`` (detection only — OCR is never
+    run), first chapter titles, a short first-segment preview, and warnings.
+    """
+    fmt = source_format(source_path)
+    raw, page_count = extract_source_text(source_path)
+    cleaned, warn1 = clean_text(raw)
+    chapters, warn2 = detect_chapters(cleaned)
+
+    segment_count = 0
+    first_preview = ""
+    for ch in chapters:
+        segs = segment_text(ch["body"])
+        segment_count += len(segs)
+        if not first_preview and segs:
+            first_preview = segs[0][:280]
+
+    word_count = len(cleaned.split())
+    warnings = list(warn1) + list(warn2)
+
+    # OCR detection (PDF only): a real text layer yields many words per page.
+    has_text_layer = None
+    needs_ocr = False
+    if fmt == "pdf":
+        has_text_layer = word_count > 0
+        if page_count > 0 and (word_count / page_count) < OCR_WORDS_PER_PAGE_THRESHOLD:
+            needs_ocr = True
+            warnings.append(
+                "This file appears scanned (little or no text layer) and needs OCR. "
+                "OCR is not run automatically."
+            )
+
+    return {
+        "format": fmt,
+        "page_count": page_count,
+        "word_count": word_count,
+        "chapter_count": len(chapters),
+        "segment_count": segment_count,
+        "detected_text_layer": has_text_layer,
+        "needs_ocr": needs_ocr,
+        "first_chapter_titles": [c["title"] for c in chapters[:3]],
+        "first_segment_preview": first_preview,
+        "warnings": warnings,
+    }
+
+
+@transaction.atomic
+def import_novel(source_path: str, *, metadata: dict, max_chapters: int | None = None) -> dict:
+    """Create a NEW Book + Chapters + NovelSegments from any source.
+
+    The wizard engine. ALWAYS non-student-visible: ``is_published=False`` and
+    ``is_copyright_cleared=False`` regardless of metadata. No vocabulary, no
+    illustrations, no audio, no publishing. ``text_ar``/``arabic_summary`` stay
+    empty. Raises ``NovelImportError`` if no chapters/segments are produced.
+    """
+    from library.models import Book, Chapter, NovelSegment
+
+    raw, page_count = extract_source_text(source_path)
+    cleaned, _ = clean_text(raw)
+    chapters, _ = detect_chapters(cleaned)
+    if max_chapters:
+        chapters = chapters[:max_chapters]
+    if not chapters:
+        raise NovelImportError("No chapters could be detected in this source.")
+
+    md = metadata or {}
+    cefr = md.get("target_cefr_level") or md.get("level") or "B1"
+    book = Book.objects.create(
+        title=md.get("title") or "Untitled import",
+        author=md.get("author", ""),
+        category=md.get("category") or "novel",
+        level=cefr,
+        summary=md.get("summary", ""),
+        # SECURITY: never student-visible or auto-cleared, whatever metadata says.
+        is_published=False,
+        is_copyright_cleared=False,
+        copyright_status=md.get("copyright_status") or "unknown",
+        source_title=md.get("source_title", ""),
+        source_url=md.get("source_url", ""),
+        license_notes=md.get("license_notes", ""),
+        content_language=md.get("content_language") or "en",
+        target_cefr_level=cefr,
+        is_school_curriculum=bool(md.get("is_school_curriculum", False)),
+        school_country=md.get("school_country", ""),
+        school_stage=md.get("school_stage", ""),
+        curriculum_notes=md.get("curriculum_notes", ""),
+    )
+
+    chapters_created = 0
+    segments_created = 0
+    for ch_index, ch in enumerate(chapters, start=1):
+        chapter = Chapter.objects.create(
+            book=book, sort_order=ch_index, title=ch["title"], body="",
+        )
+        chapters_created += 1
+        for seg_index, seg_text in enumerate(segment_text(ch["body"]), start=1):
+            words = len(seg_text.split())
+            reading, audio = estimate_seconds(words)
+            NovelSegment.objects.create(
+                chapter=chapter, order=seg_index,
+                text_en=seg_text, text_ar="", arabic_summary="",
+                cefr_level=cefr,
+                estimated_reading_seconds=reading,
+                estimated_audio_seconds=audio,
+                is_published=False,
+            )
+            segments_created += 1
+
+    if segments_created == 0:
+        raise NovelImportError("No segments could be produced from this source.")
+
+    return {
+        "book_id": book.pk,
+        "book_title": book.title,
+        "page_count": page_count,
+        "chapters_created": chapters_created,
+        "segments_created": segments_created,
+    }
 
 
 BOOK_TITLE = "The Black Tulip — Full Import Review"

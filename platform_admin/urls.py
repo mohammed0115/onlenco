@@ -34,6 +34,12 @@ urlpatterns = [
     path("library/books/", library.library_books, name="library_books"),
     path("library/books/<int:pk>/", library.library_book_detail, name="library_book"),
     path("library/books/<int:pk>/<slug:action>/", library.library_book_action, name="library_book_action"),
+    # Novel Import Wizard (Phase 19.0I).
+    path("library/imports/", library.library_imports, name="library_imports"),
+    path("library/imports/new/", library.library_import_new, name="library_import_new"),
+    path("library/imports/<int:pk>/", library.library_import_detail, name="library_import"),
+    path("library/imports/<int:pk>/analyze/", library.library_import_analyze, name="library_import_analyze"),
+    path("library/imports/<int:pk>/apply/", library.library_import_apply, name="library_import_apply"),
     path("library/chapters/<int:pk>/audio/", library.library_chapter_audio, name="library_chapter_audio"),
     path("library/chapters/<int:pk>/audio/preview/", library.library_chapter_audio_preview, name="library_chapter_audio_preview"),
     path("library/chapters/<int:pk>/audio/remove/", library.library_chapter_audio_remove, name="library_chapter_audio_remove"),

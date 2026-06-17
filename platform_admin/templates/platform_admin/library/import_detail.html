@@ -1,0 +1,90 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}عملية استيراد{% else %}Import job{% endif %} #{{ job.pk }}{% endblock %}
+{% block control_subtitle %}<span dir="ltr">{{ job.original_filename }}</span> · {{ job.get_status_display }}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <a class="btn-control" href="{% url 'platform_admin:library_imports' %}"><i data-lucide="arrow-left" class="h-4 w-4"></i> {% if lang == "ar" %}كل عمليات الاستيراد{% else %}All imports{% endif %}</a>
+</div>
+
+{% if messages %}
+<div class="control-card" style="margin-bottom:12px">
+  {% for m in messages %}<div class="badge {% if m.tags == 'success' %}badge-green{% elif m.tags == 'error' %}badge-red{% elif m.tags == 'warning' %}badge-yellow{% else %}badge-blue{% endif %}" style="display:block;margin:2px 0">{{ m }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{# ===== Status + analyze ===== #}
+<div class="control-card" style="margin-bottom:16px">
+  <h3 style="margin-top:0">{% if lang == "ar" %}الحالة والتحليل{% else %}Status & analysis{% endif %}</h3>
+  <p>
+    {% if job.status == "imported" %}<span class="badge badge-blue">{{ job.get_status_display }}</span>
+    {% elif job.status == "failed" %}<span class="badge badge-red">{{ job.get_status_display }}</span>
+    {% elif job.status == "analyzed" %}<span class="badge badge-green">{{ job.get_status_display }}</span>
+    {% else %}<span class="badge badge-yellow">{{ job.get_status_display }}</span>{% endif %}
+    {% if job.needs_ocr %}<span class="badge badge-red">{% if lang == "ar" %}يحتاج OCR{% else %}Needs OCR{% endif %}</span>{% endif %}
+    {% if job.created_book %}<span class="badge badge-green">{% if lang == "ar" %}نص مستورد{% else %}Text imported{% endif %}</span>{% endif %}
+  </p>
+
+  {% if job.errors %}
+  <div class="badge badge-red" style="display:block">{% for e in job.errors %}{{ e }} {% endfor %}</div>
+  {% endif %}
+
+  <div class="table-wrap">
+  <table class="control-table">
+    <tbody>
+      <tr><td>{% if lang == "ar" %}الصيغة{% else %}Format{% endif %}</td><td>{{ job.get_source_format_display|default:"—" }}</td></tr>
+      <tr><td>{% if lang == "ar" %}عدد الصفحات{% else %}Pages{% endif %}</td><td>{{ job.page_count }}</td></tr>
+      <tr><td>{% if lang == "ar" %}عدد الكلمات{% else %}Words{% endif %}</td><td>{{ job.word_count }}</td></tr>
+      <tr><td>{% if lang == "ar" %}طبقة نص؟{% else %}Text layer?{% endif %}</td><td>{{ job.detected_text_layer }}</td></tr>
+      <tr><td>{% if lang == "ar" %}فصول مكتشفة{% else %}Chapters detected{% endif %}</td><td>{{ job.chapter_count }}</td></tr>
+      <tr><td>{% if lang == "ar" %}مقاطع متوقعة{% else %}Segments expected{% endif %}</td><td>{{ job.segment_count }}</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  {% if job.preview.first_chapter_titles %}
+  <p class="muted">{% if lang == "ar" %}أوائل الفصول{% else %}First chapters{% endif %}: {% for t in job.preview.first_chapter_titles %}<span dir="ltr">{{ t }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
+  {% if job.preview.first_segment_preview %}
+  <p class="muted" dir="ltr" style="white-space:pre-wrap">{{ job.preview.first_segment_preview }}</p>
+  {% endif %}
+  {% if job.warnings %}
+  <ul class="muted">{% for w in job.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if can_manage and job.status != "imported" %}
+  <form method="post" action="{% url 'platform_admin:library_import_analyze' job.pk %}" style="margin-top:8px">
+    {% csrf_token %}
+    <button class="btn-control" type="submit"><i data-lucide="search" class="h-4 w-4"></i> {% if lang == "ar" %}تحليل (Dry-run){% else %}Analyze (dry-run){% endif %}</button>
+  </form>
+  {% endif %}
+</div>
+
+{# ===== Metadata + import ===== #}
+{% if job.status == "imported" %}
+<div class="control-card">
+  <span class="badge badge-blue">{% if lang == "ar" %}تم الاستيراد بالفعل{% else %}Already imported{% endif %}</span>
+  {% if job.created_book %}<a class="btn-control btn-primary" href="{% url 'platform_admin:library_book' job.created_book.pk %}"><i data-lucide="book-open" class="h-4 w-4"></i> {% if lang == "ar" %}مراجعة الكتاب{% else %}Review book{% endif %}</a>{% endif %}
+</div>
+{% elif can_manage %}
+<div class="control-card">
+  <h3 style="margin-top:0">{% if lang == "ar" %}بيانات الكتاب ثم الاستيراد{% else %}Book metadata, then import{% endif %}</h3>
+  <p class="muted">{% if lang == "ar" %}سيُنشأ الكتاب مخفيًا عن الطلاب وغير مُجاز الحقوق حتى المراجعة.{% else %}The book is created hidden from students and not copyright-cleared until reviewed.{% endif %}</p>
+  <form method="post" action="{% url 'platform_admin:library_import_apply' job.pk %}" class="control-form">
+    {% csrf_token %}
+    {% for fld in meta_form %}
+      <div class="control-field" style="margin-bottom:10px">
+        <label for="{{ fld.id_for_label }}"><strong>{{ fld.label }}</strong></label>
+        {{ fld }}
+        {% if fld.errors %}<div class="badge badge-red">{{ fld.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    <button class="btn-control btn-primary" type="submit" {% if job.needs_ocr %}disabled{% endif %}><i data-lucide="download" class="h-4 w-4"></i> {% if lang == "ar" %}استيراد (مخفي){% else %}Import (hidden){% endif %}</button>
+    {% if job.needs_ocr %}<p class="badge badge-red" style="display:block">{% if lang == "ar" %}الملف يحتاج OCR — لا يمكن الاستيراد الآن.{% else %}This file needs OCR — cannot import yet.{% endif %}</p>{% endif %}
+  </form>
+</div>
+{% else %}
+<div class="control-card"><p class="muted">{% if lang == "ar" %}للعرض فقط.{% else %}View only.{% endif %}</p></div>
+{% endif %}
+{% endblock %}

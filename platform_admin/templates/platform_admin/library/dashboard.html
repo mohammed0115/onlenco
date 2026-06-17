@@ -9,6 +9,19 @@
     <i data-lucide="book" class="h-4 w-4"></i>
     {% if lang == "ar" %}إدارة الكتب{% else %}Manage books{% endif %}
   </a>
+  <a class="btn-control" href="{% url 'platform_admin:library_imports' %}">
+    <i data-lucide="upload" class="h-4 w-4"></i>
+    {% if lang == "ar" %}استيراد رواية{% else %}Import novel{% endif %}
+  </a>
+</div>
+
+<div class="control-card" style="margin-bottom:16px">
+  <div class="control-grid metrics-grid">
+    <div><div class="metric-value">{{ stats.import_jobs }}</div><div class="muted">{% if lang == "ar" %}عمليات استيراد{% else %}Import jobs{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.import_failed }}</div><div class="muted">{% if lang == "ar" %}استيراد فاشل{% else %}Failed imports{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.import_needs_ocr }}</div><div class="muted">{% if lang == "ar" %}يحتاج OCR{% else %}Needs OCR{% endif %}</div></div>
+    <div><div class="metric-value">{{ stats.import_hidden_books }}</div><div class="muted">{% if lang == "ar" %}كتب مستوردة مخفية{% else %}Imported hidden books{% endif %}</div></div>
+  </div>
 </div>
 
 <div class="control-card" style="margin-bottom:16px">

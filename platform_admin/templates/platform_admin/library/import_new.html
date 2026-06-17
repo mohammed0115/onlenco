@@ -1,0 +1,40 @@
+{% extends "platform_admin/base.html" %}
+
+{% block control_title %}{% if lang == "ar" %}استيراد رواية جديدة{% else %}Import a new novel{% endif %}{% endblock %}
+{% block control_subtitle %}{% if lang == "ar" %}ارفع ملف PDF أو TXT أو DOCX. لن يُنشر للطلاب.{% else %}Upload a PDF, TXT or DOCX. Nothing is published to students.{% endif %}{% endblock %}
+
+{% block control_content %}
+<div class="toolbar">
+  <a class="btn-control" href="{% url 'platform_admin:library_imports' %}"><i data-lucide="arrow-left" class="h-4 w-4"></i> {% if lang == "ar" %}كل عمليات الاستيراد{% else %}All imports{% endif %}</a>
+</div>
+
+{% if messages %}
+<div class="control-card" style="margin-bottom:12px">
+  {% for m in messages %}<div class="badge {% if m.tags == 'success' %}badge-green{% elif m.tags == 'error' %}badge-red{% elif m.tags == 'warning' %}badge-yellow{% else %}badge-blue{% endif %}" style="display:block;margin:2px 0">{{ m }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<div class="control-card" style="margin-bottom:16px">
+  <span class="badge badge-yellow">⚠ {% if lang == "ar" %}الملف المرفوع لا يُنشر للطلاب ولا يدخل Git.{% else %}Uploaded file is never published to students and never enters Git.{% endif %}</span>
+  <span class="badge">{% if lang == "ar" %}PDF / TXT / DOCX فقط.{% else %}PDF / TXT / DOCX only.{% endif %}</span>
+</div>
+
+<div class="control-card">
+  {% if can_manage %}
+  <form method="post" enctype="multipart/form-data" class="control-form">
+    {% csrf_token %}
+    {% for fld in form %}
+      <div class="control-field" style="margin-bottom:10px">
+        <label for="{{ fld.id_for_label }}"><strong>{{ fld.label }}</strong></label>
+        {{ fld }}
+        {% if fld.help_text %}<div class="muted" style="font-size:12px">{{ fld.help_text }}</div>{% endif %}
+        {% if fld.errors %}<div class="badge badge-red">{{ fld.errors|striptags }}</div>{% endif %}
+      </div>
+    {% endfor %}
+    <button class="btn-control btn-primary" type="submit"><i data-lucide="upload" class="h-4 w-4"></i> {% if lang == "ar" %}رفع{% else %}Upload{% endif %}</button>
+  </form>
+  {% else %}
+  <p class="muted">{% if lang == "ar" %}للعرض فقط — تحتاج صلاحية إدارة المكتبة.{% else %}View only — needs Library manage permission.{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}
