@@ -169,6 +169,21 @@ def library_book_action(request, pk, action):
         book.is_published = False
         book.save(update_fields=["is_published"])
         messages.success(request, "Book hidden from students.")
+    elif action == "clear_copyright":
+        # Mark copyright as cleared. Does NOT publish — that stays a separate,
+        # gated step. A book still can't be 'unknown' copyright when cleared.
+        if (book.copyright_status or "unknown") == "unknown":
+            messages.error(
+                request,
+                "Set a real copyright status (not 'unknown') before clearing it.")
+        else:
+            book.is_copyright_cleared = True
+            book.save(update_fields=["is_copyright_cleared"])
+            messages.success(request, "Copyright marked as cleared.")
+    elif action == "revoke_copyright":
+        book.is_copyright_cleared = False
+        book.save(update_fields=["is_copyright_cleared"])
+        messages.success(request, "Copyright clearance revoked.")
     else:
         messages.error(request, "Unknown action.")
     return redirect("platform_admin:library_book", pk=book.pk)

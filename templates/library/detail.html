@@ -93,19 +93,9 @@
                                     </a>
                                 </div>
                             {% else %}
-                                <a href="{% url 'library_chapter_listen' chapter.pk %}" class="btn btn-hero w-full mb-2 text-center">
+                                <a href="{% url 'library_chapter_listen' chapter.pk %}" class="btn btn-hero w-full text-center">
                                     🤖 {% t_either "Listen with AI voice" "استمع بصوت AI طبيعي" %}
                                 </a>
-                                <button type="button"
-                                        id="chapter-tts-play"
-                                        data-tts-text="{{ chapter.body }}"
-                                        class="btn btn-outline w-full">
-                                    🔊 {% t_either "Play with voice" "استمع بالصوت" %}
-                                </button>
-                                <div class="text-xs text-muted-foreground mt-1">
-                                    {% t_either "Voice played by your browser. Stop any time."
-                                                "يتم تشغيل الصوت بواسطة متصفحك. يمكنك الإيقاف في أي وقت." %}
-                                </div>
                             {% endif %}
                         </div>
                         <div class="text-lg leading-relaxed" id="chapter-body" style="line-height:1.7">

@@ -26,12 +26,34 @@
     <p><span class="badge badge-red">{% if lang == "ar" %}غير جاهز للنشر{% else %}Not ready to publish{% endif %}</span></p>
     <ul class="muted">{% for r in publish_check.reasons %}<li>{{ r }}</li>{% endfor %}</ul>
   {% endif %}
+
+  {# ===== Copyright clearance (separate, explicit step before publishing) ===== #}
+  <p style="margin-top:8px">{% if lang == "ar" %}إجازة الحقوق{% else %}Copyright clearance{% endif %}:
+    {% if book.is_copyright_cleared %}<span class="badge badge-green">{% if lang == "ar" %}مُجازة{% else %}Cleared{% endif %}</span>
+    {% else %}<span class="badge badge-red">{% if lang == "ar" %}غير مُجازة{% else %}Not cleared{% endif %}</span>{% endif %}
+  </p>
+  {% if can_manage %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    {% if not book.is_copyright_cleared %}
+      <form method="post" action="{% url 'platform_admin:library_book_action' book.pk 'clear_copyright' %}">{% csrf_token %}
+        <button class="btn-control btn-primary" type="submit"><i data-lucide="shield-check" class="h-4 w-4"></i> {% if lang == "ar" %}إجازة الحقوق{% else %}Mark copyright cleared{% endif %}</button>
+      </form>
+      <p class="muted" style="font-size:12px;flex-basis:100%">{% if lang == "ar" %}اضبط حالة الحقوق (ليست "غير معروف") أعلاه ثم أجِز الحقوق. هذا لا ينشر الكتاب.{% else %}Set a real copyright status (not 'unknown') above, then clear it. This does NOT publish.{% endif %}</p>
+    {% else %}
+      <form method="post" action="{% url 'platform_admin:library_book_action' book.pk 'revoke_copyright' %}">{% csrf_token %}
+        <button class="btn-control" type="submit"><i data-lucide="shield-off" class="h-4 w-4"></i> {% if lang == "ar" %}إلغاء الإجازة{% else %}Revoke clearance{% endif %}</button>
+      </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% if can_manage %}
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
     {% if not book.is_published %}
       <form method="post" action="{% url 'platform_admin:library_book_action' book.pk 'publish' %}">{% csrf_token %}
-        <button class="btn-control btn-primary" type="submit" {% if not publish_check.allowed %}disabled{% endif %}><i data-lucide="upload" class="h-4 w-4"></i> {% if lang == "ar" %}نشر للطلاب{% else %}Publish{% endif %}</button>
+        <button class="btn-control btn-primary" type="submit" {% if not publish_check.allowed %}disabled title="{% if lang == 'ar' %}أكمل متطلبات النشر أعلاه أولًا{% else %}Complete the publish requirements above first{% endif %}" style="opacity:.5;cursor:not-allowed"{% endif %}><i data-lucide="upload" class="h-4 w-4"></i> {% if lang == "ar" %}نشر للطلاب{% else %}Publish{% endif %}</button>
       </form>
+      {% if not publish_check.allowed %}<p class="muted" style="font-size:12px;margin:6px 0 0;flex-basis:100%">{% if lang == "ar" %}زر النشر معطّل حتى يجتاز الكتاب المتطلبات أعلاه.{% else %}Publish is disabled until the book meets the requirements above.{% endif %}</p>{% endif %}
     {% else %}
       <form method="post" action="{% url 'platform_admin:library_book_action' book.pk 'unpublish' %}">{% csrf_token %}
         <button class="btn-control" type="submit"><i data-lucide="eye-off" class="h-4 w-4"></i> {% if lang == "ar" %}إخفاء عن الطلاب{% else %}Unpublish{% endif %}</button>
